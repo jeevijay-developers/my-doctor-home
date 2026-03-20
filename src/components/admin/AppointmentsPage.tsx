@@ -39,7 +39,7 @@ const AppointmentsPage = () => {
   const load = async () => {
     if (!profile) return;
     let q = supabase.from("appointments").select("*").eq("doctor_id", profile.id).order("date", { ascending: false }).order("time_slot");
-    if (statusFilter !== "all") q = q.eq("status", statusFilter);
+    if (statusFilter !== "all") q = q.eq("status", statusFilter as any);
     const { data } = await q;
     setAppointments((data || []) as Appointment[]);
   };
