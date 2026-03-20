@@ -1,4 +1,4 @@
-import DoctorPublicPage from "./pages/DoctorPublicPage";
+import DoctorPublicPage from "@/pages/DoctorPublicPage";
 
 const Index = () => <DoctorPublicPage />;
 
