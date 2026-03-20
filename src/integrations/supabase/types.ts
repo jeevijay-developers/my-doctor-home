@@ -14,6 +14,277 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          amount: number
+          appointment_type: string
+          chief_complaint: string | null
+          created_at: string
+          date: string
+          doctor_id: string
+          id: string
+          notes: string | null
+          patient_age: number | null
+          patient_gender: string | null
+          patient_name: string
+          patient_phone: string
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          service_name: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          time_slot: string
+          token_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          appointment_type?: string
+          chief_complaint?: string | null
+          created_at?: string
+          date: string
+          doctor_id: string
+          id?: string
+          notes?: string | null
+          patient_age?: number | null
+          patient_gender?: string | null
+          patient_name: string
+          patient_phone: string
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          service_name: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          time_slot: string
+          token_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          appointment_type?: string
+          chief_complaint?: string | null
+          created_at?: string
+          date?: string
+          doctor_id?: string
+          id?: string
+          notes?: string | null
+          patient_age?: number | null
+          patient_gender?: string | null
+          patient_name?: string
+          patient_phone?: string
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          service_name?: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          time_slot?: string
+          token_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blog_posts: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string
+          doctor_id: string
+          excerpt: string | null
+          featured_image_url: string | null
+          id: string
+          is_published: boolean
+          published_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          doctor_id: string
+          excerpt?: string | null
+          featured_image_url?: string | null
+          id?: string
+          is_published?: boolean
+          published_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          doctor_id?: string
+          excerpt?: string | null
+          featured_image_url?: string | null
+          id?: string
+          is_published?: boolean
+          published_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gallery_photos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          doctor_id: string
+          id: string
+          photo_url: string
+          sort_order: number
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          doctor_id: string
+          id?: string
+          photo_url: string
+          sort_order?: number
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          photo_url?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_photos_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      packages: {
+        Row: {
+          active: boolean
+          created_at: string
+          doctor_id: string
+          duration: string | null
+          features: Json | null
+          id: string
+          is_popular: boolean
+          name: string
+          original_price: number | null
+          price: number
+          slots_available: number | null
+          sort_order: number
+          tagline: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          doctor_id: string
+          duration?: string | null
+          features?: Json | null
+          id?: string
+          is_popular?: boolean
+          name: string
+          original_price?: number | null
+          price?: number
+          slots_available?: number | null
+          sort_order?: number
+          tagline?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          doctor_id?: string
+          duration?: string | null
+          features?: Json | null
+          id?: string
+          is_popular?: boolean
+          name?: string
+          original_price?: number | null
+          price?: number
+          slots_available?: number | null
+          sort_order?: number
+          tagline?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packages_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          age: number | null
+          created_at: string
+          doctor_id: string
+          email: string | null
+          first_visit: string | null
+          gender: string | null
+          id: string
+          last_visit: string | null
+          name: string
+          notes: string | null
+          phone: string
+          total_visits: number
+          updated_at: string
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string
+          doctor_id: string
+          email?: string | null
+          first_visit?: string | null
+          gender?: string | null
+          id?: string
+          last_visit?: string | null
+          name: string
+          notes?: string | null
+          phone: string
+          total_visits?: number
+          updated_at?: string
+        }
+        Update: {
+          age?: number | null
+          created_at?: string
+          doctor_id?: string
+          email?: string | null
+          first_visit?: string | null
+          gender?: string | null
+          id?: string
+          last_visit?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          total_visits?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patients_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           address: string | null
@@ -74,6 +345,100 @@ export type Database = {
         }
         Relationships: []
       }
+      reviews: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          id: string
+          is_pinned: boolean
+          is_verified: boolean
+          is_visible: boolean
+          patient_name: string
+          rating: number
+          review_text: string | null
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          id?: string
+          is_pinned?: boolean
+          is_verified?: boolean
+          is_visible?: boolean
+          patient_name: string
+          rating: number
+          review_text?: string | null
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          is_pinned?: boolean
+          is_verified?: boolean
+          is_visible?: boolean
+          patient_name?: string
+          rating?: number
+          review_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          doctor_id: string
+          duration: number | null
+          id: string
+          name: string
+          price: number
+          sort_order: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          doctor_id: string
+          duration?: number | null
+          id?: string
+          name: string
+          price?: number
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          doctor_id?: string
+          duration?: number | null
+          id?: string
+          name?: string
+          price?: number
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -92,6 +457,157 @@ export type Database = {
         }
         Relationships: []
       }
+      website_settings: {
+        Row: {
+          auto_confirm: boolean
+          booking_advance_days: number
+          buffer_minutes: number
+          created_at: string
+          doctor_id: string
+          google_analytics_id: string | null
+          id: string
+          max_per_slot: number
+          online_duration: number | null
+          online_fee: number | null
+          require_payment: boolean
+          seo_description: string | null
+          seo_keywords: string | null
+          seo_title: string | null
+          show_about: boolean
+          show_blog: boolean
+          show_clinic_details: boolean
+          show_gallery: boolean
+          show_online_consultation: boolean
+          show_packages: boolean
+          show_quick_stats: boolean
+          show_reviews: boolean
+          show_services: boolean
+          social_facebook: string | null
+          social_instagram: string | null
+          social_linkedin: string | null
+          social_youtube: string | null
+          theme: string
+          updated_at: string
+          whatsapp_message: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          auto_confirm?: boolean
+          booking_advance_days?: number
+          buffer_minutes?: number
+          created_at?: string
+          doctor_id: string
+          google_analytics_id?: string | null
+          id?: string
+          max_per_slot?: number
+          online_duration?: number | null
+          online_fee?: number | null
+          require_payment?: boolean
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
+          show_about?: boolean
+          show_blog?: boolean
+          show_clinic_details?: boolean
+          show_gallery?: boolean
+          show_online_consultation?: boolean
+          show_packages?: boolean
+          show_quick_stats?: boolean
+          show_reviews?: boolean
+          show_services?: boolean
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_linkedin?: string | null
+          social_youtube?: string | null
+          theme?: string
+          updated_at?: string
+          whatsapp_message?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          auto_confirm?: boolean
+          booking_advance_days?: number
+          buffer_minutes?: number
+          created_at?: string
+          doctor_id?: string
+          google_analytics_id?: string | null
+          id?: string
+          max_per_slot?: number
+          online_duration?: number | null
+          online_fee?: number | null
+          require_payment?: boolean
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
+          show_about?: boolean
+          show_blog?: boolean
+          show_clinic_details?: boolean
+          show_gallery?: boolean
+          show_online_consultation?: boolean
+          show_packages?: boolean
+          show_quick_stats?: boolean
+          show_reviews?: boolean
+          show_services?: boolean
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_linkedin?: string | null
+          social_youtube?: string | null
+          theme?: string
+          updated_at?: string
+          whatsapp_message?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "website_settings_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      working_hours: {
+        Row: {
+          day_of_week: number
+          doctor_id: string
+          end_time: string | null
+          end_time_2: string | null
+          id: string
+          is_open: boolean
+          start_time: string | null
+          start_time_2: string | null
+        }
+        Insert: {
+          day_of_week: number
+          doctor_id: string
+          end_time?: string | null
+          end_time_2?: string | null
+          id?: string
+          is_open?: boolean
+          start_time?: string | null
+          start_time_2?: string | null
+        }
+        Update: {
+          day_of_week?: number
+          doctor_id?: string
+          end_time?: string | null
+          end_time_2?: string | null
+          id?: string
+          is_open?: boolean
+          start_time?: string | null
+          start_time_2?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "working_hours_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -107,6 +623,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "doctor" | "staff"
+      appointment_status:
+        | "pending"
+        | "confirmed"
+        | "completed"
+        | "cancelled"
+        | "no_show"
+      payment_status: "pending" | "paid" | "refunded" | "pay_at_clinic"
       plan_status: "trial" | "active" | "expired" | "cancelled"
     }
     CompositeTypes: {
@@ -236,6 +759,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "doctor", "staff"],
+      appointment_status: [
+        "pending",
+        "confirmed",
+        "completed",
+        "cancelled",
+        "no_show",
+      ],
+      payment_status: ["pending", "paid", "refunded", "pay_at_clinic"],
       plan_status: ["trial", "active", "expired", "cancelled"],
     },
   },

@@ -1,44 +1,33 @@
-import { Video, CreditCard, MessageCircle, Clock } from "lucide-react";
+import { Video, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const steps = [
-  { icon: Clock, label: "Book Slot", desc: "Choose your preferred time" },
-  { icon: CreditCard, label: "Pay Online", desc: "Secure payment via UPI/Card" },
-  { icon: Video, label: "Join Video Call", desc: "Link sent on WhatsApp" },
-];
+import { useDoctorData } from "@/contexts/DoctorContext";
 
 const OnlineConsultation = () => {
+  const { profile, settings } = useDoctorData();
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  if (!settings?.show_online_consultation) return null;
 
   return (
-    <section id="online-consultation" className="py-16 md:py-24 gradient-navy-teal text-primary-foreground">
+    <section id="online-consultation" className="py-16 md:py-24 bg-primary text-primary-foreground">
       <div className="container mx-auto px-4">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="flex justify-center">
-            <div className="w-64 h-64 rounded-2xl bg-primary-foreground/10 flex items-center justify-center">
-              <Video size={80} className="text-primary-foreground/80" />
+        <div className="grid md:grid-cols-2 gap-10 items-center max-w-5xl mx-auto">
+          <div className="flex items-center justify-center">
+            <div className="w-48 h-48 rounded-full bg-primary-foreground/10 flex items-center justify-center">
+              <Video size={64} className="text-primary-foreground/80" />
             </div>
           </div>
           <div className="space-y-6">
-            <h2 className="font-heading font-bold text-3xl md:text-4xl">Consult Dr. Sharma from Anywhere in India</h2>
-            <p className="text-xl font-heading font-bold">₹600 <span className="text-base font-normal opacity-80">per 30-minute session</span></p>
-            <div className="grid sm:grid-cols-3 gap-4">
-              {steps.map((s, i) => (
-                <div key={i} className="bg-primary-foreground/10 rounded-xl p-4 text-center">
-                  <s.icon size={28} className="mx-auto mb-2" />
-                  <p className="font-heading font-semibold text-sm">{s.label}</p>
-                  <p className="text-xs opacity-80 mt-1">{s.desc}</p>
+            <h2 className="font-heading font-bold text-3xl">Consult Dr. {profile?.full_name} from Anywhere in India</h2>
+            <p className="text-2xl font-heading font-bold">₹{settings.online_fee || 500} <span className="text-base font-normal opacity-80">per {settings.online_duration || 30}-minute session</span></p>
+            <div className="space-y-3">
+              {["Book Slot", "Pay Online", "Join Video Call"].map((step, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary-foreground/10 flex items-center justify-center text-sm font-bold">{i + 1}</div>
+                  <span>{step}</span>
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-3 text-sm opacity-90">
-              <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse" />
-              Available Today · Mon–Sat, 2:00 PM – 4:00 PM
-            </div>
-            <Button size="lg" className="bg-primary-foreground text-primary font-heading font-semibold hover:opacity-90" onClick={() => scrollTo("booking")}>
-              Book Online Consultation
-            </Button>
-            <p className="text-xs opacity-60">Video call via Doctylia — no app download needed</p>
+            <Button size="lg" variant="secondary" className="font-heading font-semibold" onClick={() => scrollTo("booking")}>Book Online Consultation</Button>
           </div>
         </div>
       </div>
