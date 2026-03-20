@@ -14,16 +14,100 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          address: string | null
+          city: string | null
+          clinic_name: string | null
+          created_at: string
+          experience_years: number | null
+          full_name: string | null
+          id: string
+          onboarding_completed: boolean
+          phone: string | null
+          plan_status: Database["public"]["Enums"]["plan_status"]
+          profile_photo_url: string | null
+          qualifications: string | null
+          slug: string | null
+          specialization: string | null
+          trial_end: string
+          trial_start: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          clinic_name?: string | null
+          created_at?: string
+          experience_years?: number | null
+          full_name?: string | null
+          id: string
+          onboarding_completed?: boolean
+          phone?: string | null
+          plan_status?: Database["public"]["Enums"]["plan_status"]
+          profile_photo_url?: string | null
+          qualifications?: string | null
+          slug?: string | null
+          specialization?: string | null
+          trial_end?: string
+          trial_start?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          clinic_name?: string | null
+          created_at?: string
+          experience_years?: number | null
+          full_name?: string | null
+          id?: string
+          onboarding_completed?: boolean
+          phone?: string | null
+          plan_status?: Database["public"]["Enums"]["plan_status"]
+          profile_photo_url?: string | null
+          qualifications?: string | null
+          slug?: string | null
+          specialization?: string | null
+          trial_end?: string
+          trial_start?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "doctor" | "staff"
+      plan_status: "trial" | "active" | "expired" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +234,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "doctor", "staff"],
+      plan_status: ["trial", "active", "expired", "cancelled"],
+    },
   },
 } as const
