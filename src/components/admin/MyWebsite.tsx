@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Globe, ExternalLink, Copy, Monitor, Smartphone, Tablet, Save, Plus, Trash2, GripVertical } from "lucide-react";
+import { Globe, ExternalLink, Copy, Monitor, Smartphone, Tablet, Save, Plus, Trash2, GripVertical, Clock, Pin, EyeOff, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,26 +10,36 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "@/hooks/use-toast";
+import { Star } from "lucide-react";
 
 type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
 type Package = { id?: string; name: string; tagline: string; price: number; original_price: number; duration: string; features: string[]; is_popular: boolean; active: boolean };
+type WorkingHour = { id?: string; day_of_week: number; is_open: boolean; start_time: string | null; end_time: string | null; start_time_2: string | null; end_time_2: string | null };
+type Review = { id: string; patient_name: string; rating: number; review_text: string | null; is_visible: boolean; is_pinned: boolean; created_at: string };
 type WebSettings = Record<string, any>;
+
+const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const MyWebsite = () => {
   const { profile } = useProfile();
   const [settings, setSettings] = useState<WebSettings>({});
   const [services, setServices] = useState<Service[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
+  const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [previewKey, setPreviewKey] = useState(0);
 
   const load = useCallback(async () => {
     if (!profile) return;
-    const [settingsRes, servicesRes, packagesRes] = await Promise.all([
+    const [settingsRes, servicesRes, packagesRes, hoursRes, reviewsRes] = await Promise.all([
       supabase.from("website_settings").select("*").eq("doctor_id", profile.id).single(),
       supabase.from("services").select("*").eq("doctor_id", profile.id).order("sort_order"),
       supabase.from("packages").select("*").eq("doctor_id", profile.id).order("sort_order"),
+      supabase.from("working_hours").select("*").eq("doctor_id", profile.id).order("day_of_week"),
+      supabase.from("reviews").select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }),
     ]);
     if (settingsRes.data) setSettings(settingsRes.data);
     setServices((servicesRes.data || []).map((s: any) => ({ ...s, description: s.description || "" })));
@@ -37,25 +47,24 @@ const MyWebsite = () => {
       ...p, tagline: p.tagline || "", original_price: p.original_price || 0,
       features: Array.isArray(p.features) ? p.features : [],
     })));
+    setWorkingHours((hoursRes.data || []) as WorkingHour[]);
+    setReviews((reviewsRes.data || []) as Review[]);
   }, [profile]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-save every 30s
   useEffect(() => {
     const interval = setInterval(() => { if (profile && settings.id) saveAll(true); }, 30000);
     return () => clearInterval(interval);
-  }, [profile, settings, services, packages]);
+  }, [profile, settings, services, packages, workingHours]);
 
   const saveAll = async (silent = false) => {
     if (!profile) return;
     setSaving(true);
 
-    // Save settings
     const { id, doctor_id, created_at, updated_at, ...settingsData } = settings;
     await supabase.from("website_settings").update(settingsData).eq("doctor_id", profile.id);
 
-    // Save services — upsert existing, insert new
     for (const s of services) {
       if (s.id) {
         await supabase.from("services").update({ name: s.name, description: s.description, price: s.price, type: s.type, duration: s.duration, active: s.active, sort_order: s.sort_order }).eq("id", s.id);
@@ -64,7 +73,6 @@ const MyWebsite = () => {
       }
     }
 
-    // Save packages
     for (const p of packages) {
       if (p.id) {
         await supabase.from("packages").update({ name: p.name, tagline: p.tagline, price: p.price, original_price: p.original_price || null, duration: p.duration, features: p.features as any, is_popular: p.is_popular, active: p.active }).eq("id", p.id);
@@ -73,8 +81,18 @@ const MyWebsite = () => {
       }
     }
 
+    for (const wh of workingHours) {
+      if (wh.id) {
+        await supabase.from("working_hours").update({
+          is_open: wh.is_open, start_time: wh.start_time, end_time: wh.end_time,
+          start_time_2: wh.start_time_2, end_time_2: wh.end_time_2,
+        }).eq("id", wh.id);
+      }
+    }
+
     setSaving(false);
     setLastSaved(new Date());
+    setPreviewKey((k) => k + 1);
     if (!silent) toast({ title: "Changes saved!" });
     load();
   };
@@ -103,6 +121,25 @@ const MyWebsite = () => {
     const updated = [...packages];
     (updated[idx] as any)[key] = value;
     setPackages(updated);
+  };
+
+  const updateWorkingHour = (dayIdx: number, key: string, value: any) => {
+    const updated = [...workingHours];
+    const idx = updated.findIndex((h) => h.day_of_week === dayIdx);
+    if (idx >= 0) (updated[idx] as any)[key] = value;
+    setWorkingHours(updated);
+  };
+
+  const toggleReviewVisibility = async (id: string, visible: boolean) => {
+    await supabase.from("reviews").update({ is_visible: visible }).eq("id", id);
+    setReviews(reviews.map((r) => r.id === id ? { ...r, is_visible: visible } : r));
+    toast({ title: visible ? "Review shown" : "Review hidden" });
+  };
+
+  const toggleReviewPin = async (id: string, pinned: boolean) => {
+    await supabase.from("reviews").update({ is_pinned: pinned }).eq("id", id);
+    setReviews(reviews.map((r) => r.id === id ? { ...r, is_pinned: pinned } : r));
+    toast({ title: pinned ? "Review pinned" : "Review unpinned" });
   };
 
   const previewUrl = profile?.slug ? `/dr/${profile.slug}` : "";
@@ -269,8 +306,43 @@ const MyWebsite = () => {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pb-4">
-                <p className="text-xs text-muted-foreground">Gallery photos can be managed from the gallery section. Upload up to 6 clinic photos.</p>
+                <p className="text-xs text-muted-foreground mb-2">Upload up to 6 clinic photos with optional captions.</p>
                 <GalleryUploader doctorId={profile?.id} />
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Working Hours */}
+            <AccordionItem value="hours" className="border rounded-xl px-4">
+              <AccordionTrigger className="text-sm font-semibold text-primary">
+                <div className="flex items-center justify-between w-full pr-2">
+                  <span className="flex items-center gap-2"><Clock className="h-4 w-4" /> Working Hours</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-3 pb-4">
+                {dayNames.map((day, idx) => {
+                  const wh = workingHours.find((h) => h.day_of_week === idx);
+                  if (!wh) return null;
+                  return (
+                    <div key={idx} className="p-3 rounded-lg bg-secondary space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-primary">{day}</span>
+                        <Switch checked={wh.is_open} onCheckedChange={(v) => updateWorkingHour(idx, "is_open", v)} />
+                      </div>
+                      {wh.is_open && (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div><Label className="text-xs">Morning Start</Label><Input type="time" value={wh.start_time || ""} onChange={(e) => updateWorkingHour(idx, "start_time", e.target.value)} /></div>
+                            <div><Label className="text-xs">Morning End</Label><Input type="time" value={wh.end_time || ""} onChange={(e) => updateWorkingHour(idx, "end_time", e.target.value)} /></div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div><Label className="text-xs">Evening Start</Label><Input type="time" value={wh.start_time_2 || ""} onChange={(e) => updateWorkingHour(idx, "start_time_2", e.target.value || null)} /></div>
+                            <div><Label className="text-xs">Evening End</Label><Input type="time" value={wh.end_time_2 || ""} onChange={(e) => updateWorkingHour(idx, "end_time_2", e.target.value || null)} /></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </AccordionContent>
             </AccordionItem>
 
@@ -347,12 +419,41 @@ const MyWebsite = () => {
             <AccordionItem value="reviews" className="border rounded-xl px-4">
               <AccordionTrigger className="text-sm font-semibold text-primary">
                 <div className="flex items-center justify-between w-full pr-2">
-                  Reviews
+                  Reviews ({reviews.length})
                   <Switch checked={settings.show_reviews ?? true} onCheckedChange={(v) => updateSetting("show_reviews", v)} onClick={(e) => e.stopPropagation()} />
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="pb-4">
-                <p className="text-xs text-muted-foreground">Patient reviews will appear automatically. You can moderate them here.</p>
+              <AccordionContent className="space-y-3 pb-4">
+                {reviews.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No reviews yet. Reviews will appear here once patients submit them.</p>
+                ) : reviews.map((r) => (
+                  <div key={r.id} className={`p-3 rounded-lg space-y-2 ${r.is_visible ? "bg-secondary" : "bg-destructive/5 border border-destructive/20"}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium text-primary">{r.patient_name}</span>
+                        <div className="flex items-center gap-0.5 mt-0.5">
+                          {[...Array(r.rating)].map((_, i) => <Star key={i} size={12} className="text-warning fill-warning" />)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" className={`h-7 px-2 ${r.is_pinned ? "text-royal" : "text-muted-foreground"}`}
+                          onClick={() => toggleReviewPin(r.id, !r.is_pinned)} title={r.is_pinned ? "Unpin" : "Pin to top"}>
+                          <Pin className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className={`h-7 px-2 ${r.is_visible ? "text-muted-foreground" : "text-destructive"}`}
+                          onClick={() => toggleReviewVisibility(r.id, !r.is_visible)} title={r.is_visible ? "Hide" : "Show"}>
+                          {r.is_visible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    </div>
+                    {r.review_text && <p className="text-xs text-muted-foreground line-clamp-2">{r.review_text}</p>}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{new Date(r.created_at).toLocaleDateString()}</span>
+                      {r.is_pinned && <span className="text-royal font-medium">📌 Pinned</span>}
+                      {!r.is_visible && <span className="text-destructive font-medium">Hidden</span>}
+                    </div>
+                  </div>
+                ))}
               </AccordionContent>
             </AccordionItem>
 
@@ -434,7 +535,7 @@ const MyWebsite = () => {
               </div>
             </div>
             {previewUrl ? (
-              <iframe src={previewUrl} className="w-full" style={{ height: "calc(100vh - 12rem)" }} title="Preview" />
+              <iframe key={previewKey} src={previewUrl} className="w-full" style={{ height: "calc(100vh - 12rem)" }} title="Preview" />
             ) : (
               <div className="flex items-center justify-center h-96 text-muted-foreground">
                 Complete onboarding to see your website preview
@@ -447,9 +548,10 @@ const MyWebsite = () => {
   );
 };
 
-// Gallery sub-component
+// Gallery sub-component with captions
 const GalleryUploader = ({ doctorId }: { doctorId?: string }) => {
   const [photos, setPhotos] = useState<any[]>([]);
+  const [editingCaption, setEditingCaption] = useState<string | null>(null);
 
   useEffect(() => {
     if (!doctorId) return;
@@ -475,12 +577,37 @@ const GalleryUploader = ({ doctorId }: { doctorId?: string }) => {
     setPhotos(photos.filter((p) => p.id !== id));
   };
 
+  const updateCaption = async (id: string, caption: string) => {
+    await supabase.from("gallery_photos").update({ caption }).eq("id", id);
+    setPhotos(photos.map((p) => p.id === id ? { ...p, caption } : p));
+    setEditingCaption(null);
+  };
+
   return (
-    <div className="grid grid-cols-3 gap-2 mt-3">
+    <div className="grid grid-cols-3 gap-2">
       {photos.map((p) => (
-        <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden group">
-          <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
-          <button onClick={() => remove(p.id)} className="absolute top-1 right-1 bg-destructive/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><Trash2 className="h-3 w-3" /></button>
+        <div key={p.id} className="space-y-1">
+          <div className="relative aspect-square rounded-lg overflow-hidden group">
+            <img src={p.photo_url} alt={p.caption || ""} className="w-full h-full object-cover" />
+            <button onClick={() => remove(p.id)} className="absolute top-1 right-1 bg-destructive/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><Trash2 className="h-3 w-3" /></button>
+          </div>
+          {editingCaption === p.id ? (
+            <Input
+              autoFocus
+              defaultValue={p.caption || ""}
+              placeholder="Caption..."
+              className="h-7 text-xs"
+              onBlur={(e) => updateCaption(p.id, e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && updateCaption(p.id, (e.target as HTMLInputElement).value)}
+            />
+          ) : (
+            <button
+              onClick={() => setEditingCaption(p.id)}
+              className="text-xs text-muted-foreground hover:text-primary truncate w-full text-left"
+            >
+              {p.caption || "Add caption..."}
+            </button>
+          )}
         </div>
       ))}
       {photos.length < 6 && (
