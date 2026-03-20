@@ -11,6 +11,7 @@ import ReviewsSection from "@/components/doctor/ReviewsSection";
 import BlogPreview from "@/components/doctor/BlogPreview";
 import ClinicDetails from "@/components/doctor/ClinicDetails";
 import Footer from "@/components/doctor/Footer";
+import AnimatedSection from "@/components/landing/AnimatedSection";
 
 const DoctorPageContent = () => {
   const { profile, settings, loading, services, packages, reviews, gallery } = useDoctorData();
@@ -38,16 +39,34 @@ const DoctorPageContent = () => {
     <div className="min-h-screen">
       <Navbar />
       <HeroBanner />
-      {settings.show_quick_stats !== false && <QuickStats />}
-      {settings.show_about !== false && <AboutSection />}
-      {settings.show_services !== false && services.length > 0 && <ServicesSection />}
-      {settings.show_packages && packages.length > 0 && <ServicesSection showPackagesOnly />}
-      {settings.show_gallery && gallery.length > 0 && <GallerySection />}
-      {settings.show_online_consultation && <OnlineConsultation />}
-      <BookingWidget />
-      {settings.show_reviews !== false && <ReviewsSection />}
-      {settings.show_blog && <BlogPreview />}
-      {settings.show_clinic_details !== false && <ClinicDetails />}
+      {settings.show_quick_stats !== false && (
+        <AnimatedSection><QuickStats /></AnimatedSection>
+      )}
+      {settings.show_about !== false && (
+        <AnimatedSection><AboutSection /></AnimatedSection>
+      )}
+      {settings.show_services !== false && services.length > 0 && (
+        <AnimatedSection><ServicesSection /></AnimatedSection>
+      )}
+      {settings.show_packages && packages.length > 0 && (
+        <AnimatedSection><ServicesSection showPackagesOnly /></AnimatedSection>
+      )}
+      {settings.show_gallery && gallery.length > 0 && (
+        <AnimatedSection><GallerySection /></AnimatedSection>
+      )}
+      {settings.show_online_consultation && (
+        <AnimatedSection><OnlineConsultation /></AnimatedSection>
+      )}
+      <AnimatedSection><BookingWidget /></AnimatedSection>
+      {settings.show_reviews !== false && (
+        <AnimatedSection><ReviewsSection /></AnimatedSection>
+      )}
+      {settings.show_blog && (
+        <AnimatedSection><BlogPreview /></AnimatedSection>
+      )}
+      {settings.show_clinic_details !== false && (
+        <AnimatedSection><ClinicDetails /></AnimatedSection>
+      )}
       <Footer />
     </div>
   );

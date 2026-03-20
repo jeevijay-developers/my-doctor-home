@@ -8,6 +8,8 @@ import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import AdminDashboard from "./pages/AdminDashboard";
 import DoctorPublicPage from "./pages/DoctorPublicPage";
+import BlogListPage from "./pages/BlogListPage";
+import BlogPostPage from "./pages/BlogPostPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 
@@ -26,6 +28,8 @@ const App = () => (
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/dr/:slug" element={<DoctorPublicPage />} />
+          <Route path="/dr/:slug/blog" element={<BlogListPage />} />
+          <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
