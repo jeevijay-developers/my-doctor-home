@@ -364,8 +364,11 @@ const MyWebsite = () => {
                   <Switch checked={settings.show_blog ?? false} onCheckedChange={(v) => updateSetting("show_blog", v)} onClick={(e) => e.stopPropagation()} />
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="pb-4">
-                <p className="text-xs text-muted-foreground">Blog posts will be managed in a dedicated Blog section (coming soon).</p>
+              <AccordionContent className="pb-4 space-y-2">
+                <p className="text-xs text-muted-foreground">Manage your blog posts with AI-powered writing assistance.</p>
+                <a href="/admin/blog" className="inline-flex items-center gap-1 text-sm text-royal hover:underline font-medium">
+                  Open Blog Manager →
+                </a>
               </AccordionContent>
             </AccordionItem>
 
