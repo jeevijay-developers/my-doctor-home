@@ -8,18 +8,33 @@ import Testimonials from "@/components/landing/Testimonials";
 import FAQ from "@/components/landing/FAQ";
 import CTABanner from "@/components/landing/CTABanner";
 import LandingFooter from "@/components/landing/LandingFooter";
+import AnimatedSection from "@/components/landing/AnimatedSection";
 
 const LandingPage = () => (
   <div className="min-h-screen">
     <LandingNavbar />
     <LandingHero />
-    <TrustBar />
-    <FeaturesGrid />
-    <HowItWorks />
-    <PricingSection />
-    <Testimonials />
-    <FAQ />
-    <CTABanner />
+    <AnimatedSection>
+      <TrustBar />
+    </AnimatedSection>
+    <AnimatedSection>
+      <FeaturesGrid />
+    </AnimatedSection>
+    <AnimatedSection>
+      <HowItWorks />
+    </AnimatedSection>
+    <AnimatedSection>
+      <PricingSection />
+    </AnimatedSection>
+    <AnimatedSection>
+      <Testimonials />
+    </AnimatedSection>
+    <AnimatedSection>
+      <FAQ />
+    </AnimatedSection>
+    <AnimatedSection>
+      <CTABanner />
+    </AnimatedSection>
     <LandingFooter />
   </div>
 );
