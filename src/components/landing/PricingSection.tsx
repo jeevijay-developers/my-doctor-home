@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
@@ -64,9 +65,14 @@ const PricingSection = () => (
         </p>
       </div>
       <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        {plans.map((p) => (
-          <div
+        {plans.map((p, i) => (
+          <motion.div
             key={p.name}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: i * 0.12 }}
+            whileHover={{ y: -6 }}
             className={`relative rounded-2xl p-8 border-2 transition-all ${
               p.popular
                 ? "border-royal bg-white shadow-xl scale-105"
@@ -102,7 +108,7 @@ const PricingSection = () => (
                 </li>
               ))}
             </ul>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>

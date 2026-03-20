@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle } from "lucide-react";
@@ -8,7 +9,12 @@ const LandingHero = () => {
       <div className="container mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left */}
-          <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="space-y-6"
+          >
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-pill bg-accent/10 text-accent text-sm font-semibold">
               ✨ AI-Powered Platform
             </span>
@@ -41,10 +47,15 @@ const LandingHero = () => {
                 </span>
               ))}
             </div>
-          </div>
+          </motion.div>
 
           {/* Right — Mockup */}
-          <div className="relative hidden lg:block">
+          <motion.div
+            initial={{ opacity: 0, x: 40, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+            className="relative hidden lg:block"
+          >
             <div className="relative bg-white rounded-2xl shadow-xl border border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-3 h-3 rounded-full bg-destructive/60" />
@@ -72,13 +83,21 @@ const LandingHero = () => {
               </div>
             </div>
             {/* Floating cards */}
-            <div className="absolute -top-4 -right-4 bg-white rounded-xl shadow-lg px-4 py-2 animate-float">
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -top-4 -right-4 bg-white rounded-xl shadow-lg px-4 py-2"
+            >
               <span className="text-sm font-semibold text-success">✓ Next slot: Today 5:30 PM</span>
-            </div>
-            <div className="absolute -bottom-4 -left-4 bg-white rounded-xl shadow-lg px-4 py-2 animate-float" style={{ animationDelay: "1s" }}>
+            </motion.div>
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 3, delay: 1, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -bottom-4 -left-4 bg-white rounded-xl shadow-lg px-4 py-2"
+            >
               <span className="text-sm font-semibold text-royal">📊 40% more patients</span>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
     </section>

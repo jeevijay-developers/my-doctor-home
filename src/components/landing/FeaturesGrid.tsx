@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { Globe, CalendarCheck, CreditCard, Users, Brain, Video, MessageCircle, BarChart3 } from "lucide-react";
 
 const features = [
@@ -11,6 +12,16 @@ const features = [
   { icon: BarChart3, title: "Analytics Dashboard", desc: "Track patients, revenue, appointments, and website traffic in real-time." },
 ];
 
+const container = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08 } },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 30 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+};
+
 const FeaturesGrid = () => (
   <section id="features" className="py-20 bg-white">
     <div className="container mx-auto px-4">
@@ -23,10 +34,17 @@ const FeaturesGrid = () => (
           One platform to run, grow, and automate your entire medical practice.
         </p>
       </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div
+        variants={container}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: "-60px" }}
+        className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
         {features.map((f) => (
-          <div
+          <motion.div
             key={f.title}
+            variants={item}
             className="group p-6 rounded-xl bg-secondary hover:bg-white hover:shadow-lg border border-transparent hover:border-border transition-all duration-300"
           >
             <div className="w-12 h-12 rounded-xl bg-royal/10 flex items-center justify-center mb-4 group-hover:bg-royal/20 transition-colors">
@@ -34,9 +52,9 @@ const FeaturesGrid = () => (
             </div>
             <h3 className="font-heading font-semibold text-primary text-lg">{f.title}</h3>
             <p className="text-sm text-muted-foreground mt-2">{f.desc}</p>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   </section>
 );
