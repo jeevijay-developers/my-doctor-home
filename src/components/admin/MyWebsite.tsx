@@ -473,8 +473,8 @@ const MyWebsite = () => {
               </AccordionTrigger>
               <AccordionContent className="pb-4 space-y-2">
                 <p className="text-xs text-muted-foreground">Manage your blog posts with AI-powered writing assistance.</p>
-                <button onClick={() => window.history.pushState({}, '', '/admin/blog'); window.dispatchEvent(new PopStateEvent('popstate'));} className="inline-flex items-center gap-1 text-sm text-royal hover:underline font-medium">
-                  Open Blog Manager →
+                <button onClick={() => nav("/admin/blog")} className="inline-flex items-center gap-1 text-sm text-royal hover:underline font-medium">
+                  Open Blog Manager &rarr;
                 </button>
               </AccordionContent>
             </AccordionItem>
