@@ -62,12 +62,12 @@ const LandingFooter = () => (
           </div>
         </div>
       </div>
-      <div className="flex flex-col md:flex-row items-center justify-between mt-6 gap-2">
+      <div className="flex flex-col md:flex-row items-center justify-between mt-6 gap-3">
         <div className="text-sm text-primary-foreground/40">
-          © {new Date().getFullYear()} Doctylia. All Rights Reserved.
+          © {new Date().getFullYear()} Doctylia by <a href="https://jeevijay.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors underline underline-offset-2">Jeevijay Technologies Pvt. Ltd.</a> All Rights Reserved.
         </div>
         <div className="flex items-center gap-1.5 text-sm text-primary-foreground/40">
-          Made with ❤️ in India 🇮🇳
+          A product by <a href="https://jeevijay.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Jeevijay Technologies</a> · Made in India 🇮🇳
         </div>
       </div>
     </div>
