@@ -135,6 +135,42 @@ export type Database = {
           },
         ]
       }
+      enquiries: {
+        Row: {
+          city: string | null
+          clinic_name: string | null
+          created_at: string
+          email: string
+          id: string
+          message: string | null
+          name: string
+          phone: string | null
+          status: string
+        }
+        Insert: {
+          city?: string | null
+          clinic_name?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          message?: string | null
+          name: string
+          phone?: string | null
+          status?: string
+        }
+        Update: {
+          city?: string | null
+          clinic_name?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string | null
+          name?: string
+          phone?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       gallery_photos: {
         Row: {
           caption: string | null
