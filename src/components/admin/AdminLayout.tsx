@@ -1,21 +1,68 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { useProfile } from "@/hooks/useProfile";
+import { useLocation } from "react-router-dom";
+import { Bell, Search } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 
-const AdminLayout = ({ children }: { children: ReactNode }) => (
-  <SidebarProvider>
-    <div className="min-h-screen flex w-full">
-      <AdminSidebar />
-      <div className="flex-1 flex flex-col">
-        <header className="h-14 flex items-center border-b border-border bg-white px-4">
-          <SidebarTrigger className="mr-4" />
-        </header>
-        <main className="flex-1 bg-secondary p-6 overflow-auto">
-          {children}
-        </main>
+const pageTitles: Record<string, string> = {
+  "/admin/dashboard": "Dashboard",
+  "/admin/my-website": "My Website",
+  "/admin/appointments": "Appointments",
+  "/admin/patients": "Patients",
+  "/admin/blog": "Blog",
+  "/admin/billing": "Billing",
+  "/admin/settings": "Settings",
+};
+
+const AdminLayout = ({ children }: { children: ReactNode }) => {
+  const { profile } = useProfile();
+  const location = useLocation();
+  const pageTitle = pageTitles[location.pathname] || "Dashboard";
+
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        <AdminSidebar />
+        <div className="flex-1 flex flex-col">
+          <header className="h-14 flex items-center justify-between border-b border-border bg-card px-4 md:px-6">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+              <div className="hidden md:block h-5 w-px bg-border" />
+              <h2 className="hidden md:block font-heading font-semibold text-foreground text-sm">
+                {pageTitle}
+              </h2>
+            </div>
+            <div className="flex items-center gap-3">
+              <button className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                <Search className="h-4 w-4" />
+              </button>
+              <button className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors relative">
+                <Bell className="h-4 w-4" />
+              </button>
+              <div className="h-5 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                {profile?.profile_photo_url ? (
+                  <img src={profile.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[hsl(var(--royal)/.1)] flex items-center justify-center text-xs font-bold text-[hsl(var(--royal))]">
+                    {profile?.full_name?.charAt(0)?.toUpperCase() || "D"}
+                  </div>
+                )}
+                <div className="hidden md:block">
+                  <div className="text-xs font-medium text-foreground leading-tight">{profile?.full_name || "Doctor"}</div>
+                  <div className="text-[10px] text-muted-foreground leading-tight">{profile?.specialization || "Doctor"}</div>
+                </div>
+              </div>
+            </div>
+          </header>
+          <main className="flex-1 bg-secondary p-4 md:p-6 overflow-auto">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
-  </SidebarProvider>
-);
+    </SidebarProvider>
+  );
+};
 
 export default AdminLayout;
