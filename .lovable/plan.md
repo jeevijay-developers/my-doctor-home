@@ -1,83 +1,112 @@
 
 
-## Comprehensive Bug Fix & Missing Flow Analysis
+## Plan: Enhanced Landing Page with Enquiry Form, AI Images, and Full UI Polish
 
-### Bugs Found
+### Overview
 
-**1. Auth signup with auto-confirm sends misleading message**
-- Auth has `auto_confirm` enabled, but signup still shows "Please check your email to verify, then log in" — should auto-login or say "Account created!" and redirect to onboarding.
-
-**2. BlogPage Dialog ref warning**
-- Console error: `Function components cannot be given refs` in BlogPage's `<Dialog>`. The `<Dialog>` component is used without wrapping it as a child of `DialogTrigger`, but the `open`/`onOpenChange` props are managed externally — the real issue is likely the outer `<Dialog>` wrapping the page content instead of being a sibling.
-
-**3. Onboarding slug collision**
-- `generateSlug` doesn't check for uniqueness — two "Dr. Rahul Sharma" doctors get the same slug, causing profile lookup conflicts.
-
-**4. Booking widget: patient upsert fails for anonymous users**
-- Public booking inserts into `patients` table, but RLS only allows `doctor_id = auth.uid()`. Anonymous/unauthenticated patients can't insert — the `patients` table has no public INSERT policy. Appointments have a public INSERT policy but patients do not.
-
-**5. Auto-save interval closure bug (MyWebsite.tsx)**
-- The `useEffect` at line 56-59 references `saveAll` but the dependency array doesn't include `saveAll`. The interval captures a stale closure. Also `saveAll` is not in deps.
-
-**6. `useProfile` doesn't refresh after profile update**
-- After saving settings or completing onboarding, `useProfile` hook doesn't re-fetch. Components using it see stale data until page reload.
-
-**7. Booking widget: `payment_status` set to `"pay_at_clinic"` always**
-- Even when `settings.require_payment` is true, the booking widget hardcodes `payment_status: "pay_at_clinic"`. No actual payment flow exists.
-
-**8. Missing `gradient-hero` CSS class**
-- Used in BookingWidget (line 140, 256) and ServicesSection — this CSS class is referenced but may not be defined in `index.css`.
-
-### Missing Flows
-
-**9. No password reset flow**
-- No "Forgot Password" link on the auth page. No `/reset-password` route.
-
-**10. No public review submission**
-- Reviews section shows reviews but there's no form for patients to submit reviews on the public page.
-
-**11. Gallery photos not showing on public page**
-- `GallerySection` reads from context but needs to check if the component properly renders uploaded photos.
-
-**12. Blog "Open Blog Manager" link uses `<a>` instead of `<Link>`**
-- In MyWebsite.tsx line 470: `<a href="/admin/blog">` causes full page reload instead of client-side navigation.
+Upgrade every section of the Doctylia landing page with richer visuals, compact AI-generated images on feature/testimonial cards, and add a website enquiry form that saves submissions to a new `enquiries` table (for super admin review).
 
 ---
 
-### Plan — Fix All Issues
+### 1. Database: Enquiries Table
 
-**Migration: Add public INSERT policy for patients table**
-```sql
-CREATE POLICY "Public can create patients for valid doctors"
-ON public.patients FOR INSERT
-WITH CHECK (EXISTS (
-  SELECT 1 FROM profiles WHERE profiles.id = patients.doctor_id AND profiles.onboarding_completed = true
-));
-```
+New migration to create `enquiries` table:
 
-**File changes:**
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK, default gen_random_uuid() |
+| name | text | Required |
+| email | text | Required |
+| phone | text | Optional |
+| clinic_name | text | Optional |
+| city | text | Optional |
+| message | text | Optional |
+| status | text | Default 'new' (new/contacted/closed) |
+| created_at | timestamptz | Default now() |
 
-| File | Fix |
-|------|-----|
-| `src/pages/Auth.tsx` | Auto-login after signup (auto_confirm is on), redirect to `/onboarding`. Add "Forgot Password" link. |
-| `src/pages/Auth.tsx` | Create a simple forgot-password flow inline |
-| `src/pages/Onboarding.tsx` | Check slug uniqueness, append random suffix if collision |
-| `src/components/admin/BlogPage.tsx` | Fix Dialog structure to avoid ref warning |
-| `src/components/admin/MyWebsite.tsx` | Fix auto-save closure, change `<a>` to `<Link>` for blog manager |
-| `src/hooks/useProfile.ts` | Add `refetch` method to re-fetch profile on demand |
-| `src/components/doctor/ReviewsSection.tsx` | Add "Write a Review" form for patients |
-| `src/index.css` | Add `gradient-hero` utility class if missing |
-| `src/App.tsx` | Add `/reset-password` route |
-| New: `src/pages/ResetPassword.tsx` | Password reset page |
+RLS: Public INSERT allowed (anyone can submit). No SELECT/UPDATE/DELETE for public — only service_role (super admin) can read.
+
+### 2. Component Changes
+
+#### LandingNavbar — Enhanced
+- Add "Contact" nav link pointing to `#contact`
+- Subtle shadow on scroll, smoother transitions
+- Logo with tagline on desktop
+
+#### LandingHero — Enhanced
+- Add Unsplash/static medical hero image on the right side (doctor with tablet, modern clinic) instead of the text-based mockup
+- Larger gradient background with animated blob shapes
+- Improve spacing, badge styling, CTA button sizes
+
+#### TrustBar — Enhanced
+- Add compact trust logos/icons (IMA, NMC, HIPAA-style badges) as decorative elements
+- Animated count-up numbers with intersection observer
+
+#### FeaturesGrid — Enhanced with Images
+- Each feature card gets a small (64x64 or 80x80) relevant medical illustration/icon image
+- Images: website screenshot, calendar, invoice, patient record, AI brain, video call, WhatsApp, analytics chart
+- Use high-quality Unsplash URLs for compact thumbnails
+- Card hover: subtle lift + border color change
+
+#### HowItWorks — Enhanced
+- Add step connection lines (dashed SVG path between circles)
+- Each step gets a small illustration image below the icon
+- Better number styling
+
+#### PricingSection — Enhanced
+- Add small feature icons next to each feature text
+- Popular card gets gradient border instead of solid
+- Annual/Monthly toggle (UI only, same prices for now)
+
+#### Testimonials — Enhanced with Doctor Photos
+- Each review card gets a circular doctor avatar image (Unsplash portraits)
+- Add clinic/city below name
+- Star rating more prominent with gold color
+
+#### FAQ — Enhanced
+- Add a small illustration on the left side
+- Better accordion styling with icons
+
+#### NEW: ContactSection (Enquiry Form)
+- Section between FAQ and CTA Banner
+- Left side: contact info (email, phone, office address placeholder)
+- Right side: form with fields: Name, Email, Phone, Clinic Name, City, Message
+- Submit saves to `enquiries` table via Supabase client
+- Success toast on submission
+- Input validation with proper error states
+
+#### CTABanner — Enhanced
+- Add background pattern/image overlay
+- Larger text, animated entrance
+- Secondary text line about doctor count
+
+#### LandingFooter — Enhanced
+- 5-column layout: Brand + tagline, Product links, Company links, Legal, Newsletter/social
+- Add social media icons (Facebook, Instagram, LinkedIn, YouTube, Twitter)
+- Newsletter email input (UI only)
+- Indian flag + "Made in India" badge
+
+### 3. Images Strategy
+
+Use high-quality Unsplash URLs with `w=200&h=200&fit=crop` parameters for compact card images. Categories:
+- Features: medical tech, scheduling, billing, patient care
+- Testimonials: professional Indian doctor portraits
+- Hero: modern clinic/doctor with technology
+- How It Works: signup screen, clinic setup, live website
+
+### 4. File Summary
+
+| Action | Files |
+|--------|-------|
+| Migration | 1 — `enquiries` table with public INSERT RLS |
+| New | `src/components/landing/ContactSection.tsx` |
+| Modify | `LandingNavbar.tsx`, `LandingHero.tsx`, `TrustBar.tsx`, `FeaturesGrid.tsx`, `HowItWorks.tsx`, `PricingSection.tsx`, `Testimonials.tsx`, `FAQ.tsx`, `CTABanner.tsx`, `LandingFooter.tsx`, `LandingPage.tsx` |
 
 ### Build Order
-1. DB migration (patients public INSERT policy)
-2. Fix Auth page (auto-login on signup, forgot password link)
-3. Create ResetPassword page + route
-4. Fix onboarding slug uniqueness
-5. Fix BlogPage Dialog ref warning
-6. Fix MyWebsite auto-save closure + blog link
-7. Add `gradient-hero` CSS class
-8. Add review submission form on public page
-9. Fix useProfile to support refetch
+
+1. Create `enquiries` table migration
+2. Build ContactSection with form + Supabase insert
+3. Enhance all landing components with images, better spacing, richer UI
+4. Update LandingPage to include ContactSection
+5. Polish navbar and footer
 
