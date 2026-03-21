@@ -53,10 +53,14 @@ const MyWebsite = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const interval = setInterval(() => { if (profile && settings.id) saveAll(true); }, 30000);
-    return () => clearInterval(interval);
+  const saveAllRef = useCallback(() => {
+    if (profile && settings.id) saveAll(true);
   }, [profile, settings, services, packages, workingHours]);
+
+  useEffect(() => {
+    const interval = setInterval(saveAllRef, 30000);
+    return () => clearInterval(interval);
+  }, [saveAllRef]);
 
   const saveAll = async (silent = false) => {
     if (!profile) return;
