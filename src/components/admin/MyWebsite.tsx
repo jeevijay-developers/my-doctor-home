@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { Globe, ExternalLink, Copy, Monitor, Smartphone, Tablet, Save, Plus, Trash2, GripVertical, Clock, Pin, EyeOff, Eye } from "lucide-react";
@@ -21,6 +22,7 @@ type WebSettings = Record<string, any>;
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const MyWebsite = () => {
+  const nav = useNavigate();
   const { profile } = useProfile();
   const [settings, setSettings] = useState<WebSettings>({});
   const [services, setServices] = useState<Service[]>([]);
@@ -53,10 +55,14 @@ const MyWebsite = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const interval = setInterval(() => { if (profile && settings.id) saveAll(true); }, 30000);
-    return () => clearInterval(interval);
+  const saveAllRef = useCallback(() => {
+    if (profile && settings.id) saveAll(true);
   }, [profile, settings, services, packages, workingHours]);
+
+  useEffect(() => {
+    const interval = setInterval(saveAllRef, 30000);
+    return () => clearInterval(interval);
+  }, [saveAllRef]);
 
   const saveAll = async (silent = false) => {
     if (!profile) return;
@@ -467,9 +473,9 @@ const MyWebsite = () => {
               </AccordionTrigger>
               <AccordionContent className="pb-4 space-y-2">
                 <p className="text-xs text-muted-foreground">Manage your blog posts with AI-powered writing assistance.</p>
-                <a href="/admin/blog" className="inline-flex items-center gap-1 text-sm text-royal hover:underline font-medium">
-                  Open Blog Manager →
-                </a>
+                <button onClick={() => nav("/admin/blog")} className="inline-flex items-center gap-1 text-sm text-royal hover:underline font-medium">
+                  Open Blog Manager &rarr;
+                </button>
               </AccordionContent>
             </AccordionItem>
 
