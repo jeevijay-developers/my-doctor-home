@@ -1,15 +1,23 @@
 import { motion } from "framer-motion";
 import { Globe, CalendarCheck, CreditCard, Users, Brain, Video, MessageCircle, BarChart3 } from "lucide-react";
+import featureWebsite from "@/assets/feature-website.png";
+import featureAppointments from "@/assets/feature-appointments.png";
+import featureBilling from "@/assets/feature-billing.png";
+import featurePatients from "@/assets/feature-patients.png";
+import featureAiBlog from "@/assets/feature-ai-blog.png";
+import featureConsultation from "@/assets/feature-consultation.png";
+import featureWhatsapp from "@/assets/feature-whatsapp.png";
+import featureAnalytics from "@/assets/feature-analytics.png";
 
 const features = [
-  { icon: Globe, title: "Your Own Website", desc: "Professional branded website at drname.doctylia.com — live in minutes.", color: "bg-royal/10 text-royal", img: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=200&h=120&fit=crop" },
-  { icon: CalendarCheck, title: "Smart Appointments", desc: "Online booking, slot management, WhatsApp reminders — zero no-shows.", color: "bg-success/10 text-success", img: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=200&h=120&fit=crop" },
-  { icon: CreditCard, title: "Billing & Invoices", desc: "Generate GST invoices, track payments, accept online payments via UPI.", color: "bg-accent/10 text-accent", img: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=200&h=120&fit=crop" },
-  { icon: Users, title: "Patient Records", desc: "Digital patient history, prescriptions, reports — all in one place.", color: "bg-ai-purple/10 text-ai-purple", img: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=200&h=120&fit=crop" },
-  { icon: Brain, title: "AI Blog Writer", desc: "AI writes health articles for your website — boost SEO & patient trust.", color: "bg-spark/10 text-spark", img: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=200&h=120&fit=crop" },
-  { icon: Video, title: "Online Consultation", desc: "Video consultations with integrated booking & payment flow.", color: "bg-teal/10 text-teal", img: "https://images.unsplash.com/photo-1609904603803-33fee8b1e0e0?w=200&h=120&fit=crop" },
-  { icon: MessageCircle, title: "WhatsApp Integration", desc: "Automated appointment confirmations, reminders, and follow-ups.", color: "bg-success/10 text-success", img: "https://images.unsplash.com/photo-1611746872915-64382b5c76da?w=200&h=120&fit=crop" },
-  { icon: BarChart3, title: "Analytics Dashboard", desc: "Track patients, revenue, appointments, and website traffic in real-time.", color: "bg-royal/10 text-royal", img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=200&h=120&fit=crop" },
+  { icon: Globe, title: "Your Own Website", desc: "Professional branded website at drname.doctylia.com — live in minutes.", color: "bg-royal/10 text-royal", img: featureWebsite, bg: "bg-gradient-to-br from-royal/5 to-teal/5" },
+  { icon: CalendarCheck, title: "Smart Appointments", desc: "Online booking, slot management, WhatsApp reminders — zero no-shows.", color: "bg-success/10 text-success", img: featureAppointments, bg: "bg-gradient-to-br from-teal/5 to-success/5" },
+  { icon: CreditCard, title: "Billing & Invoices", desc: "Generate GST invoices, track payments, accept online payments via UPI.", color: "bg-accent/10 text-accent", img: featureBilling, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
+  { icon: Users, title: "Patient Records", desc: "Digital patient history, prescriptions, reports — all in one place.", color: "bg-ai-purple/10 text-ai-purple", img: featurePatients, bg: "bg-gradient-to-br from-ai-purple/5 to-royal/5" },
+  { icon: Brain, title: "AI Blog Writer", desc: "AI writes health articles for your website — boost SEO & patient trust.", color: "bg-spark/10 text-spark", img: featureAiBlog, bg: "bg-gradient-to-br from-spark/10 to-teal/5" },
+  { icon: Video, title: "Online Consultation", desc: "Video consultations with integrated booking & payment flow.", color: "bg-teal/10 text-teal", img: featureConsultation, bg: "bg-gradient-to-br from-teal/5 to-royal/5" },
+  { icon: MessageCircle, title: "WhatsApp Integration", desc: "Automated appointment confirmations, reminders, and follow-ups.", color: "bg-success/10 text-success", img: featureWhatsapp, bg: "bg-gradient-to-br from-success/5 to-teal/5" },
+  { icon: BarChart3, title: "Analytics Dashboard", desc: "Track patients, revenue, appointments, and website traffic in real-time.", color: "bg-royal/10 text-royal", img: featureAnalytics, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
 ];
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
@@ -40,8 +48,8 @@ const FeaturesGrid = () => (
             variants={item}
             className="group rounded-xl bg-white border border-border hover:border-royal/30 hover:shadow-lg transition-all duration-300 overflow-hidden"
           >
-            <div className="h-28 overflow-hidden">
-              <img src={f.img} alt={f.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+            <div className={`h-36 overflow-hidden flex items-center justify-center ${f.bg}`}>
+              <img src={f.img} alt={f.title} className="h-28 w-auto object-contain group-hover:scale-105 transition-transform duration-500" loading="lazy" />
             </div>
             <div className="p-5">
               <div className={`w-10 h-10 rounded-lg ${f.color} flex items-center justify-center mb-3`}>
