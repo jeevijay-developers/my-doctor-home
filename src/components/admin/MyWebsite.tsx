@@ -22,6 +22,7 @@ type WebSettings = Record<string, any>;
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const MyWebsite = () => {
+  const nav = useNavigate();
   const { profile } = useProfile();
   const [settings, setSettings] = useState<WebSettings>({});
   const [services, setServices] = useState<Service[]>([]);
