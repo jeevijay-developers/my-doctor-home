@@ -15,18 +15,18 @@ const HowItWorks = () => (
           Live in 3 Simple Steps
         </h2>
       </div>
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid md:grid-cols-3 gap-8 relative">
+        {/* Connection line */}
+        <div className="hidden md:block absolute top-10 left-[20%] right-[20%] h-0.5 border-t-2 border-dashed border-royal/20" />
+
         {steps.map((s, i) => (
-          <div key={s.num} className="relative text-center">
-            <div className="w-20 h-20 rounded-full gradient-hero mx-auto flex items-center justify-center mb-5">
+          <div key={s.num} className="relative text-center group">
+            <div className="w-20 h-20 rounded-full gradient-hero mx-auto flex items-center justify-center mb-5 shadow-lg shadow-royal/20 relative z-10 group-hover:scale-110 transition-transform">
               <s.icon className="h-8 w-8 text-white" />
             </div>
-            <span className="font-heading font-extrabold text-5xl text-royal/10 absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2">{s.num}</span>
+            <span className="font-heading font-extrabold text-6xl text-royal/[0.07] absolute top-0 left-1/2 -translate-x-1/2 -translate-y-3 select-none">{s.num}</span>
             <h3 className="font-heading font-bold text-xl text-primary">{s.title}</h3>
-            <p className="text-muted-foreground mt-2 max-w-xs mx-auto">{s.desc}</p>
-            {i < 2 && (
-              <div className="hidden md:block absolute top-10 -right-4 w-8 text-royal/30 text-3xl">→</div>
-            )}
+            <p className="text-muted-foreground mt-2 max-w-xs mx-auto leading-relaxed">{s.desc}</p>
           </div>
         ))}
       </div>
