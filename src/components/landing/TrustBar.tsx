@@ -45,19 +45,19 @@ const CountUp = ({ target, suffix }: { target: number; suffix: string }) => {
 };
 
 const TrustBar = () => (
-  <section className="py-12 bg-primary relative overflow-hidden">
+  <section className="py-8 md:py-12 bg-primary relative overflow-hidden">
     <div className="absolute inset-0 bg-gradient-to-r from-primary via-royal/30 to-primary opacity-50" />
     <div className="container mx-auto px-4 relative">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
         {stats.map((s) => (
           <div key={s.label} className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
-              <s.icon className="h-5 w-5 text-accent hidden md:block" />
-              <div className="font-heading font-extrabold text-2xl md:text-3xl text-white">
+              <s.icon className="h-4 w-4 md:h-5 md:w-5 text-accent hidden sm:block" />
+              <div className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl text-white">
                 <CountUp target={s.number} suffix={s.suffix} />
               </div>
             </div>
-            <div className="text-sm text-primary-foreground/70">{s.label}</div>
+            <div className="text-xs md:text-sm text-primary-foreground/70">{s.label}</div>
           </div>
         ))}
       </div>

@@ -53,12 +53,12 @@ const ContactSection = () => {
 
   if (submitted) {
     return (
-      <section id="contact" className="py-20 bg-secondary">
+      <section id="contact" className="py-14 md:py-20 bg-secondary">
         <div className="container mx-auto px-4 text-center">
           <div className="max-w-md mx-auto">
-            <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
-            <h3 className="font-heading font-bold text-2xl text-primary">Thank You!</h3>
-            <p className="text-muted-foreground mt-2">Your enquiry has been submitted. Our team will contact you within 24 hours.</p>
+            <CheckCircle className="h-14 w-14 md:h-16 md:w-16 text-success mx-auto mb-4" />
+            <h3 className="font-heading font-bold text-xl md:text-2xl text-primary">Thank You!</h3>
+            <p className="text-sm md:text-base text-muted-foreground mt-2">Your enquiry has been submitted. Our team will contact you within 24 hours.</p>
           </div>
         </div>
       </section>
@@ -66,40 +66,40 @@ const ContactSection = () => {
   }
 
   return (
-    <section id="contact" className="py-20 bg-secondary">
+    <section id="contact" className="py-14 md:py-20 bg-secondary">
       <div className="container mx-auto px-4">
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <span className="text-sm font-semibold text-accent uppercase tracking-wider">Contact Us</span>
-          <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary mt-2">
+        <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
+          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">Contact Us</span>
+          <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
             Have Questions? Let's Talk
           </h2>
-          <p className="text-muted-foreground mt-3">Fill out the form and our team will get back to you within 24 hours.</p>
+          <p className="text-sm md:text-base text-muted-foreground mt-3">Fill out the form and our team will get back to you within 24 hours.</p>
         </div>
-        <div className="grid lg:grid-cols-5 gap-10 max-w-5xl mx-auto">
+        <div className="grid lg:grid-cols-5 gap-6 md:gap-10 max-w-5xl mx-auto">
           {/* Left — Contact Info */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-primary rounded-2xl p-8 text-white space-y-8">
-              <h3 className="font-heading font-bold text-xl">Get in Touch</h3>
-              <div className="space-y-5">
+          <div className="lg:col-span-2">
+            <div className="bg-primary rounded-2xl p-6 md:p-8 text-white space-y-6 md:space-y-8">
+              <h3 className="font-heading font-bold text-lg md:text-xl">Get in Touch</h3>
+              <div className="space-y-4 md:space-y-5">
                 <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 mt-0.5 text-accent" />
+                  <Mail className="h-5 w-5 mt-0.5 text-accent shrink-0" />
                   <div>
                     <div className="text-sm font-medium">Email</div>
                     <div className="text-sm text-primary-foreground/70">support@doctylia.com</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 mt-0.5 text-accent" />
+                  <Phone className="h-5 w-5 mt-0.5 text-accent shrink-0" />
                   <div>
                     <div className="text-sm font-medium">Phone</div>
                     <div className="text-sm text-primary-foreground/70">+91 86194 83010</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 mt-0.5 text-accent" />
+                  <MapPin className="h-5 w-5 mt-0.5 text-accent shrink-0" />
                   <div>
                     <div className="text-sm font-medium">Office</div>
-                    <div className="text-sm text-primary-foreground/70">22, Second Floor, Jeevijay Technologies Pvt. Ltd., Aerodrome, Behind Modern Petrol Pump, Kota, Rajasthan</div>
+                    <div className="text-sm text-primary-foreground/70 break-words">22, Second Floor, Jeevijay Technologies Pvt. Ltd., Aerodrome, Behind Modern Petrol Pump, Kota, Rajasthan</div>
                   </div>
                 </div>
               </div>
@@ -110,7 +110,7 @@ const ContactSection = () => {
           </div>
           {/* Right — Form */}
           <div className="lg:col-span-3">
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-8 shadow-sm border border-border space-y-5">
+            <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-5 md:p-8 shadow-sm border border-border space-y-4 md:space-y-5">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Full Name *</Label>

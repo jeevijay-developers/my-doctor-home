@@ -3,6 +3,7 @@ import LandingHero from "@/components/landing/LandingHero";
 import TrustBar from "@/components/landing/TrustBar";
 import FeaturesGrid from "@/components/landing/FeaturesGrid";
 import HowItWorks from "@/components/landing/HowItWorks";
+import DashboardPreview from "@/components/landing/DashboardPreview";
 import PricingSection from "@/components/landing/PricingSection";
 import Testimonials from "@/components/landing/Testimonials";
 import FAQ from "@/components/landing/FAQ";
@@ -12,7 +13,7 @@ import LandingFooter from "@/components/landing/LandingFooter";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 
 const LandingPage = () => (
-  <div className="min-h-screen">
+  <div className="min-h-screen overflow-x-hidden">
     <LandingNavbar />
     <LandingHero />
     <TrustBar />
@@ -21,6 +22,9 @@ const LandingPage = () => (
     </AnimatedSection>
     <AnimatedSection>
       <HowItWorks />
+    </AnimatedSection>
+    <AnimatedSection>
+      <DashboardPreview />
     </AnimatedSection>
     <AnimatedSection>
       <PricingSection />
