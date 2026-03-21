@@ -6,6 +6,7 @@ import HowItWorks from "@/components/landing/HowItWorks";
 import PricingSection from "@/components/landing/PricingSection";
 import Testimonials from "@/components/landing/Testimonials";
 import FAQ from "@/components/landing/FAQ";
+import ContactSection from "@/components/landing/ContactSection";
 import CTABanner from "@/components/landing/CTABanner";
 import LandingFooter from "@/components/landing/LandingFooter";
 import AnimatedSection from "@/components/landing/AnimatedSection";
@@ -14,9 +15,7 @@ const LandingPage = () => (
   <div className="min-h-screen">
     <LandingNavbar />
     <LandingHero />
-    <AnimatedSection>
-      <TrustBar />
-    </AnimatedSection>
+    <TrustBar />
     <AnimatedSection>
       <FeaturesGrid />
     </AnimatedSection>
@@ -33,8 +32,9 @@ const LandingPage = () => (
       <FAQ />
     </AnimatedSection>
     <AnimatedSection>
-      <CTABanner />
+      <ContactSection />
     </AnimatedSection>
+    <CTABanner />
     <LandingFooter />
   </div>
 );
