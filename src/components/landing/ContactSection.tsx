@@ -99,7 +99,7 @@ const ContactSection = () => {
                   <MapPin className="h-5 w-5 mt-0.5 text-accent" />
                   <div>
                     <div className="text-sm font-medium">Office</div>
-                    <div className="text-sm text-primary-foreground/70">Mumbai, Maharashtra, India</div>
+                    <div className="text-sm text-primary-foreground/70">22, Second Floor, Jeevijay Technologies Pvt. Ltd., Aerodrome, Behind Modern Petrol Pump, Kota, Rajasthan</div>
                   </div>
                 </div>
               </div>
