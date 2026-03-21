@@ -9,7 +9,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState<"login" | "signup">(
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">(
     searchParams.get("mode") === "login" ? "login" : "signup"
   );
   const [email, setEmail] = useState("");
@@ -18,7 +18,6 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Redirect if already logged in
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) navigate("/admin/dashboard");
@@ -30,8 +29,15 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+      if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        toast.success("Password reset link sent! Check your email.");
+        setMode("login");
+      } else if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -40,13 +46,18 @@ const Auth = () => {
           },
         });
         if (error) throw error;
-        toast.success("Account created! Please check your email to verify, then log in.");
-        setMode("login");
+        // Auto-confirm is enabled — user is auto-logged in
+        if (data.session) {
+          toast.success("Account created! Let's set up your profile.");
+          navigate("/onboarding");
+        } else {
+          toast.success("Account created! Please check your email to verify, then log in.");
+          setMode("login");
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Check onboarding status
         const { data: profile } = await supabase
           .from("profiles")
           .select("onboarding_completed")
@@ -76,10 +87,10 @@ const Auth = () => {
           <div className="text-center mb-6">
             <img src="/doctylia-logo.png" alt="Doctylia" className="h-10 mx-auto mb-4" />
             <h1 className="font-heading font-bold text-2xl text-primary">
-              {mode === "signup" ? "Start Your Free Trial" : "Welcome Back"}
+              {mode === "signup" ? "Start Your Free Trial" : mode === "forgot" ? "Reset Password" : "Welcome Back"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {mode === "signup" ? "7 days free. No credit card required." : "Log in to your dashboard."}
+              {mode === "signup" ? "7 days free. No credit card required." : mode === "forgot" ? "Enter your email to receive a reset link." : "Log in to your dashboard."}
             </p>
           </div>
 
@@ -87,58 +98,44 @@ const Auth = () => {
             {mode === "signup" && (
               <div>
                 <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Dr. Rahul Sharma"
-                  required
-                />
+                <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Rahul Sharma" required />
               </div>
             )}
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="doctor@example.com"
-                required
-              />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="doctor@example.com" required />
             </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 6 characters"
-                required
-                minLength={6}
-              />
-            </div>
+            {mode !== "forgot" && (
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" required minLength={6} />
+              </div>
+            )}
 
             <Button type="submit" className="w-full bg-royal hover:bg-royal/90 text-white" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "signup" ? "Create Account" : "Log In"}
+              {mode === "signup" ? "Create Account" : mode === "forgot" ? "Send Reset Link" : "Log In"}
             </Button>
           </form>
 
-          <div className="text-center mt-5 text-sm text-muted-foreground">
+          <div className="text-center mt-5 text-sm text-muted-foreground space-y-2">
             {mode === "signup" ? (
-              <>Already have an account?{" "}
-                <button onClick={() => setMode("login")} className="text-royal font-medium hover:underline">
-                  Log In
-                </button>
+              <p>Already have an account?{" "}
+                <button onClick={() => setMode("login")} className="text-royal font-medium hover:underline">Log In</button>
+              </p>
+            ) : mode === "login" ? (
+              <>
+                <p>Don't have an account?{" "}
+                  <button onClick={() => setMode("signup")} className="text-royal font-medium hover:underline">Sign Up Free</button>
+                </p>
+                <p>
+                  <button onClick={() => setMode("forgot")} className="text-royal font-medium hover:underline">Forgot Password?</button>
+                </p>
               </>
             ) : (
-              <>Don't have an account?{" "}
-                <button onClick={() => setMode("signup")} className="text-royal font-medium hover:underline">
-                  Sign Up Free
-                </button>
-              </>
+              <p>Remember your password?{" "}
+                <button onClick={() => setMode("login")} className="text-royal font-medium hover:underline">Log In</button>
+              </p>
             )}
           </div>
         </div>

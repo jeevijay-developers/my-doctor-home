@@ -44,13 +44,22 @@ const Onboarding = () => {
   const generateSlug = (name: string) =>
     name.toLowerCase().replace(/^dr\.?\s*/i, "dr-").replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "");
 
+  const getUniqueSlug = async (name: string) => {
+    let slug = generateSlug(name);
+    const { data } = await supabase.from("profiles").select("id").eq("slug", slug);
+    if (data && data.length > 0) {
+      slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+    return slug;
+  };
+
   const handleComplete = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const slug = generateSlug(form.full_name);
+      const slug = await getUniqueSlug(form.full_name);
       const { error } = await supabase.from("profiles").update({
         full_name: form.full_name,
         specialization: form.specialization,
@@ -65,7 +74,7 @@ const Onboarding = () => {
       }).eq("id", user.id);
 
       if (error) throw error;
-      setStep(4); // success screen
+      setStep(4);
     } catch (err: any) {
       toast.error(err.message || "Failed to save profile");
     } finally {
