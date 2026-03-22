@@ -117,13 +117,25 @@ const AppointmentsPage = () => {
             <DialogHeader><DialogTitle>Add Appointment</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label><Input value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" /></div>
-                <div><Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone *</Label><Input value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="+91" className="h-10" /></div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label>
+                  <Input value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone *</Label>
+                  <Input value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="+91" className="h-10" />
+                </div>
               </div>
-              <div><Label>Service *</Label><Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} className="h-10" /></div>
+              <div className="space-y-1.5">
+                <Label>Service *</Label>
+                <Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} className="h-10" />
+              </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Date</Label><Input type="date" value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" /></div>
-                <div>
+                <div className="space-y-1.5">
+                  <Label>Date</Label>
+                  <Input type="date" value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" />
+                </div>
+                <div className="space-y-1.5">
                   <Label>Time Slot</Label>
                   <Select value={newAppt.time_slot} onValueChange={(v) => setNewAppt({ ...newAppt, time_slot: v })}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
@@ -134,14 +146,17 @@ const AppointmentsPage = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="space-y-1.5">
                   <Label>Type</Label>
                   <Select value={newAppt.appointment_type} onValueChange={(v) => setNewAppt({ ...newAppt, appointment_type: v })}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="clinic">Clinic</SelectItem><SelectItem value="online">Online</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div><Label>Amount (₹)</Label><Input type="number" value={newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: Number(e.target.value) })} className="h-10" /></div>
+                <div className="space-y-1.5">
+                  <Label>Amount (₹)</Label>
+                  <Input type="number" value={newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: Number(e.target.value) })} className="h-10" />
+                </div>
               </div>
               <Button onClick={addAppointment} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
             </div>
