@@ -1,17 +1,21 @@
+import { motion } from "framer-motion";
 import { Heart, Baby, Bone, Eye, Brain, Stethoscope, Smile, Scissors, Pill, Activity } from "lucide-react";
 
 const specialties = [
-  { name: "General Physician", icon: Stethoscope, count: "3,200+" },
-  { name: "Dentist", icon: Smile, count: "1,800+" },
-  { name: "Pediatrician", icon: Baby, count: "1,400+" },
-  { name: "Cardiologist", icon: Heart, count: "900+" },
-  { name: "Orthopedic", icon: Bone, count: "750+" },
-  { name: "Dermatologist", icon: Scissors, count: "680+" },
-  { name: "Ophthalmologist", icon: Eye, count: "520+" },
-  { name: "Neurologist", icon: Brain, count: "400+" },
-  { name: "Gynecologist", icon: Activity, count: "1,100+" },
-  { name: "Ayurvedic", icon: Pill, count: "350+" },
+  { name: "General Physician", icon: Stethoscope, count: "3,200+", color: "bg-royal/8 text-royal" },
+  { name: "Dentist", icon: Smile, count: "1,800+", color: "bg-teal/10 text-teal" },
+  { name: "Pediatrician", icon: Baby, count: "1,400+", color: "bg-success/10 text-success" },
+  { name: "Cardiologist", icon: Heart, count: "900+", color: "bg-destructive/10 text-destructive" },
+  { name: "Orthopedic", icon: Bone, count: "750+", color: "bg-royal/8 text-royal" },
+  { name: "Dermatologist", icon: Scissors, count: "680+", color: "bg-ai-purple/10 text-ai-purple" },
+  { name: "Ophthalmologist", icon: Eye, count: "520+", color: "bg-teal/10 text-teal" },
+  { name: "Neurologist", icon: Brain, count: "400+", color: "bg-warning/10 text-warning" },
+  { name: "Gynecologist", icon: Activity, count: "1,100+", color: "bg-accent/10 text-accent" },
+  { name: "Ayurvedic", icon: Pill, count: "350+", color: "bg-success/10 text-success" },
 ];
+
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
+const item = { hidden: { opacity: 0, scale: 0.8 }, show: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: "easeOut" } } };
 
 const Specialties = () => (
   <section className="py-14 md:py-20 bg-secondary">
@@ -25,17 +29,28 @@ const Specialties = () => (
           Whether you're a solo practitioner or run a multi-specialty clinic — Doctylia adapts to your practice.
         </p>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 max-w-4xl mx-auto">
+      <motion.div
+        variants={container}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: "-60px" }}
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 max-w-4xl mx-auto"
+      >
         {specialties.map((s) => (
-          <div key={s.name} className="bg-white rounded-xl p-4 text-center border border-border hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
-            <div className="w-12 h-12 rounded-xl bg-royal/8 flex items-center justify-center mx-auto mb-3 group-hover:bg-royal/15 transition-colors">
-              <s.icon className="h-6 w-6 text-royal" />
+          <motion.div
+            key={s.name}
+            variants={item}
+            whileHover={{ y: -4, scale: 1.03 }}
+            className="bg-white rounded-xl p-4 text-center border border-border hover:shadow-md transition-all duration-200 group cursor-default"
+          >
+            <div className={`w-12 h-12 rounded-xl ${s.color} flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform`}>
+              <s.icon className="h-6 w-6" />
             </div>
             <div className="font-heading font-semibold text-sm text-primary">{s.name}</div>
             <div className="text-[11px] text-muted-foreground mt-1">{s.count} doctors</div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   </section>
 );
