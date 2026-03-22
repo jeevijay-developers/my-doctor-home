@@ -2,8 +2,11 @@ import LandingNavbar from "@/components/landing/LandingNavbar";
 import LandingHero from "@/components/landing/LandingHero";
 import TrustBar from "@/components/landing/TrustBar";
 import FeaturesGrid from "@/components/landing/FeaturesGrid";
+import BeforeAfter from "@/components/landing/BeforeAfter";
 import HowItWorks from "@/components/landing/HowItWorks";
 import DashboardPreview from "@/components/landing/DashboardPreview";
+import Specialties from "@/components/landing/Specialties";
+import DetailedFeatures from "@/components/landing/DetailedFeatures";
 import PricingSection from "@/components/landing/PricingSection";
 import Testimonials from "@/components/landing/Testimonials";
 import FAQ from "@/components/landing/FAQ";
@@ -21,10 +24,19 @@ const LandingPage = () => (
       <FeaturesGrid />
     </AnimatedSection>
     <AnimatedSection>
+      <BeforeAfter />
+    </AnimatedSection>
+    <AnimatedSection>
       <HowItWorks />
     </AnimatedSection>
     <AnimatedSection>
       <DashboardPreview />
+    </AnimatedSection>
+    <AnimatedSection>
+      <Specialties />
+    </AnimatedSection>
+    <AnimatedSection>
+      <DetailedFeatures />
     </AnimatedSection>
     <AnimatedSection>
       <PricingSection />

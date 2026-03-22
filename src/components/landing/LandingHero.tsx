@@ -23,6 +23,9 @@ const LandingHero = () => {
             <span className="inline-flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-full bg-ai-purple/10 text-ai-purple text-xs md:text-sm font-semibold">
               <Sparkles className="h-3.5 w-3.5 md:h-4 md:w-4" /> AI-Powered Platform
             </span>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 text-success text-xs font-semibold animate-pulse">
+              🔥 2,847 doctors signed up this month
+            </div>
             <h1 className="font-heading font-extrabold text-3xl sm:text-4xl md:text-5xl lg:text-[56px] text-primary leading-[1.1]">
               Grow Your Practice 3x
               <br />
