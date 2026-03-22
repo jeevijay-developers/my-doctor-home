@@ -1,12 +1,19 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Shield, Headphones, Clock } from "lucide-react";
+import { ArrowRight, Sparkles, Shield, Headphones, Clock, CheckCircle } from "lucide-react";
 
 const trustItems = [
   { icon: Shield, label: "SSL Encrypted & Secure" },
   { icon: Headphones, label: "24/7 Support" },
   { icon: Clock, label: "99.9% Uptime" },
+];
+
+const guarantees = [
+  "7-Day Free Trial",
+  "No Credit Card Required",
+  "Cancel Anytime",
+  "30-Day Money Back",
 ];
 
 const CTABanner = () => (
@@ -25,9 +32,6 @@ const CTABanner = () => (
     />
     <div className="absolute top-0 right-0 w-48 md:w-64 h-48 md:h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
     <div className="absolute bottom-0 left-0 w-36 md:w-48 h-36 md:h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-    {/* Floating particles */}
-    <motion.div animate={{ y: [0, -15, 0] }} transition={{ duration: 4, repeat: Infinity }} className="absolute top-1/4 left-1/4 w-2 h-2 rounded-full bg-white/10" />
-    <motion.div animate={{ y: [0, 12, 0] }} transition={{ duration: 5, repeat: Infinity, delay: 1 }} className="absolute top-1/3 right-1/3 w-3 h-3 rounded-full bg-white/5" />
 
     <div className="container mx-auto px-4 text-center relative">
       <motion.div
@@ -45,9 +49,17 @@ const CTABanner = () => (
         <p className="text-white/75 mt-3 md:mt-4 max-w-lg mx-auto text-sm md:text-lg">
           Start your free 7-day trial today. No credit card. No setup fees. Go live in minutes.
         </p>
-        <p className="text-white/50 text-xs md:text-sm mt-2">
-          Limited time: Get 30% off your first 3 months with annual plan
-        </p>
+
+        {/* Guarantee badges */}
+        <div className="flex flex-wrap items-center justify-center gap-3 md:gap-5 mt-5">
+          {guarantees.map((g) => (
+            <div key={g} className="flex items-center gap-1.5 text-xs md:text-sm font-medium text-white/80">
+              <CheckCircle className="h-3.5 w-3.5 text-accent shrink-0" />
+              {g}
+            </div>
+          ))}
+        </div>
+
         <Link to="/auth?mode=signup">
           <Button size="lg" className="mt-6 md:mt-8 bg-white text-primary hover:bg-white/90 gap-2 text-sm md:text-base px-8 md:px-10 shadow-xl font-semibold">
             Start Free Trial <ArrowRight className="h-4 w-4" />

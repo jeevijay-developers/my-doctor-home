@@ -53,7 +53,7 @@ const ContactSection = () => {
 
   if (submitted) {
     return (
-      <section id="contact" className="py-14 md:py-20 bg-secondary">
+      <section id="contact" className="py-14 md:py-20 bg-white">
         <div className="container mx-auto px-4 text-center">
           <div className="max-w-md mx-auto">
             <CheckCircle className="h-14 w-14 md:h-16 md:w-16 text-success mx-auto mb-4" />
@@ -66,7 +66,7 @@ const ContactSection = () => {
   }
 
   return (
-    <section id="contact" className="py-14 md:py-20 bg-secondary">
+    <section id="contact" className="py-14 md:py-20 bg-white">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
           <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">Contact Us</span>
@@ -77,7 +77,15 @@ const ContactSection = () => {
         </div>
         <div className="grid lg:grid-cols-5 gap-6 md:gap-10 max-w-5xl mx-auto">
           {/* Left — Contact Info */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-5">
+            <div className="rounded-xl overflow-hidden shadow-md border border-border">
+              <img
+                src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=200&fit=crop&q=80"
+                alt="Modern office workspace"
+                className="w-full h-32 md:h-40 object-cover"
+                loading="lazy"
+              />
+            </div>
             <div className="bg-primary rounded-2xl p-6 md:p-8 text-white space-y-6 md:space-y-8">
               <h3 className="font-heading font-bold text-lg md:text-xl">Get in Touch</h3>
               <div className="space-y-4 md:space-y-5">
@@ -110,7 +118,7 @@ const ContactSection = () => {
           </div>
           {/* Right — Form */}
           <div className="lg:col-span-3">
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-5 md:p-8 shadow-sm border border-border space-y-4 md:space-y-5">
+            <form onSubmit={handleSubmit} className="bg-secondary rounded-2xl p-5 md:p-8 shadow-sm border border-border space-y-4 md:space-y-5">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Full Name *</Label>
