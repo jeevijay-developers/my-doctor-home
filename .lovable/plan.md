@@ -1,82 +1,86 @@
 
 
-## Plan: Supercharge Landing Page with AI-Generated Visuals, Animations & Sales Content
+## Plan: Remove Duplicates, Unify Color Theme & Add Consistent Visuals
 
-### Current State
-The landing page has solid structure but lacks visual richness — many sections are text-heavy with minimal imagery. Feature cards have AI-generated vector images but other sections (BeforeAfter, HowItWorks, Specialties, DetailedFeatures, FAQ, CTA) have no images. Animations exist via `AnimatedSection` wrapper but are basic fade-up only.
+### Duplicate Content Found
 
-### Changes
+| Section | Issue |
+|---------|-------|
+| **TrustBar** vs **SuccessMetrics** | Both are dark navy stat sections. TrustBar says "500,000+ Appointments" while SuccessMetrics says "50,000+ Appointments" — contradicting numbers. Both have similar layouts. |
+| **FeaturesGrid** vs **DetailedFeatures** | Both describe the same 4-8 features (Website, Appointments, Billing, AI). FeaturesGrid is card overview, DetailedFeatures is tabbed deep-dive — overlapping. |
+| **Guarantee** vs **CTABanner** | Both mention "7-day free trial, no credit card". Guarantee is a separate strip that adds little value before CTA. |
+| **"7-day free trial" messaging** | Repeated in Hero, TrustBar area, Pricing header, Guarantee, CTABanner — 5 times. Keep in Hero + Pricing + CTA only. |
 
-#### 1. AI-Generated Section Illustrations
-Generate brand-colored illustrations using Nano banana via an edge function, then store in Supabase storage. For build-time, use high-quality Unsplash medical images with brand overlay treatments.
+### Fix: Consolidate & Streamline
 
-**Add images to these sections:**
-- **HowItWorks**: 3 step illustrations (doctor signing up on laptop, doctor customizing dashboard, doctor celebrating with patients)
-- **BeforeAfter**: Left side — chaotic desk with papers; Right side — clean digital dashboard
-- **Specialties**: Add a large hero image of diverse doctors group above the grid
-- **DetailedFeatures**: Replace the wireframe mockups with richer CSS illustrations showing actual UI patterns
-- **FAQ**: Replace the HelpCircle icon with a doctor-patient conversation illustration
+1. **Merge TrustBar + SuccessMetrics** → Keep TrustBar (compact stats bar after hero) and **remove SuccessMetrics** as a standalone section. Instead, fold its key stat (₹2.4Cr revenue) into the BeforeAfter ROI callout.
 
-Use Unsplash URLs with `?w=400&h=300&fit=crop` for compact, fast-loading images.
+2. **Merge FeaturesGrid + DetailedFeatures** → Keep FeaturesGrid as the overview. Convert DetailedFeatures into a "How Each Feature Works" section with different content — real use-case scenarios instead of repeating the same feature names. Or **remove DetailedFeatures** entirely and let FeaturesGrid + DashboardPreview cover features.
 
-#### 2. Enhanced Animations (Framer Motion)
-- **Hero**: Add parallax floating elements, staggered text reveal (word-by-word for headline)
-- **TrustBar**: Add shimmer/glow pulse on the stat numbers
-- **FeaturesGrid**: Cards get hover tilt effect (3D perspective) + staggered entrance
-- **BeforeAfter**: Left card slides from left, right card slides from right
-- **HowItWorks**: Steps animate in sequentially with connecting line drawing animation
-- **Specialties**: Cards pop in with scale + stagger
-- **Testimonials**: Auto-scrolling carousel on mobile, hover-pause
-- **PricingSection**: Popular card has subtle glow pulse animation
-- **CTA**: Background gradient animation (slowly shifting colors)
+3. **Remove Guarantee section** — fold its trust badges into CTABanner (already has trust badges).
 
-#### 3. Sales-Focused Content Upgrades
-- **Hero**: Add rotating text ("Website Builder" → "Appointment System" → "Billing Tool" → "AI Assistant") using typewriter effect
-- **Between TrustBar and Features**: Add new "As Seen In" / media logos strip (IMA, NMC, Economic Times, YourStory — as decorative credibility markers)
-- **BeforeAfter**: Add a large "ROI Calculator" style stat — "Average doctor saves 14 hours/week with Doctylia"
-- **After Specialties**: Add "Success Numbers" section — "₹2.4 Cr revenue generated for doctors", "50,000+ appointments booked", "98% satisfaction rate"
-- **Before CTA**: Add "Risk-Free Guarantee" section — money-back guarantee badge, no-lock-in messaging
-- **Testimonials**: Add video testimonial placeholder cards (play button overlay on image)
+4. **Fix contradicting numbers** — standardize to consistent stats across all sections.
 
-#### 4. New Micro-Sections
+### Color Theme Unification
 
-**A. "Trusted By Leading Doctors" Logo Strip** (after TrustBar)
-- Horizontal scrolling row of hospital/clinic logo placeholders with grayscale treatment
-- Subtle infinite scroll animation
+Current issue: Two sections use `bg-primary` (dark navy) — TrustBar and CTABanner. SuccessMetrics also uses dark navy. Three dark sections feel heavy.
 
-**B. "Success Metrics" Section** (after Specialties)
-- 3 large stat cards with gradient backgrounds: "₹2.4 Cr+ Revenue Generated", "50,000+ Appointments Booked", "14 Hours/Week Saved per Doctor"
-- Each with a small relevant icon and brief description
+**New section background pattern:**
+```text
+Hero        → gradient (white → cloud-blue)
+TrustBar    → bg-primary (navy) — only dark section in top half
+MediaLogos  → bg-white
+Features    → bg-white
+BeforeAfter → bg-secondary (light gray-blue)
+HowItWorks  → bg-white (was secondary — swap for alternation)
+Dashboard   → bg-secondary
+Specialties → bg-white
+Pricing     → bg-secondary
+Testimonials→ bg-white
+FAQ         → bg-secondary
+Contact     → bg-white
+CTABanner   → bg-primary (navy) — only dark section in bottom half
+Footer      → bg-primary (navy)
+```
 
-**C. "Risk-Free Guarantee" Strip** (before CTA)
-- Centered badge with shield icon
-- "7-Day Free Trial • No Credit Card • Cancel Anytime • Full Refund if Not Satisfied"
+This gives a clean alternating white/secondary rhythm with exactly 2 dark sections (TrustBar + CTA).
 
-### File Summary
+### Visuals: Add Unsplash Images Throughout
 
-| Action | Files |
-|--------|-------|
-| Modify | `LandingHero.tsx` — typewriter rotating text, staggered animations |
-| Modify | `TrustBar.tsx` — shimmer effect on numbers |
-| Modify | `FeaturesGrid.tsx` — 3D tilt hover, better stagger |
-| Modify | `BeforeAfter.tsx` — slide-in animations, add stat callout + Unsplash images |
-| Modify | `HowItWorks.tsx` — add step images, connecting line animation |
-| Modify | `Specialties.tsx` — add hero image, pop-in animation |
-| Modify | `DetailedFeatures.tsx` — richer mockup visuals |
-| Modify | `Testimonials.tsx` — auto-scroll on mobile, video placeholder cards |
-| Modify | `PricingSection.tsx` — glow pulse on popular card |
-| Modify | `CTABanner.tsx` — animated gradient background, guarantee text |
-| Modify | `FAQ.tsx` — add illustration image |
-| Create | `src/components/landing/MediaLogos.tsx` — trusted-by logo strip |
-| Create | `src/components/landing/SuccessMetrics.tsx` — big stat cards section |
-| Create | `src/components/landing/Guarantee.tsx` — risk-free guarantee strip |
-| Modify | `LandingPage.tsx` — wire 3 new sections |
+Add compact, relevant medical Unsplash images (with `?w=400&h=300&fit=crop&q=80`) to sections that are currently text-only:
+
+| Section | Image Addition |
+|---------|---------------|
+| **HowItWorks** | Each step gets a small rounded image below the icon (doctor on laptop, clinic setup screen, happy doctor with patients) |
+| **BeforeAfter** | Small illustration-style image in each card header (messy desk vs clean dashboard) |
+| **Specialties** | Hero banner image above grid (diverse doctors group) |
+| **FAQ** | Replace HelpCircle with a warm doctor-patient image |
+| **ContactSection** | Add a small office/team image in the contact info card |
+
+All images use the same rounded corners (rounded-xl), consistent sizing, and brand-tinted overlays where needed.
+
+### File Changes
+
+| Action | File |
+|--------|------|
+| Delete section | Remove `SuccessMetrics.tsx` import from LandingPage |
+| Delete section | Remove `Guarantee.tsx` import from LandingPage |
+| Remove | `DetailedFeatures.tsx` import from LandingPage (consolidate into FeaturesGrid) |
+| Modify | `LandingPage.tsx` — remove 3 sections, fix background alternation |
+| Modify | `TrustBar.tsx` — fix numbers to be consistent |
+| Modify | `HowItWorks.tsx` — add Unsplash step images, change bg to white |
+| Modify | `BeforeAfter.tsx` — add small header images, merge ROI stat from SuccessMetrics |
+| Modify | `Specialties.tsx` — add hero banner image, change bg to white |
+| Modify | `FAQ.tsx` — add warm image replacing HelpCircle, change bg to secondary |
+| Modify | `ContactSection.tsx` — add small image, change bg to white |
+| Modify | `CTABanner.tsx` — fold Guarantee trust badges into this section |
+| Modify | `FeaturesGrid.tsx` — ensure feature card images render consistently |
+| Modify | `Testimonials.tsx` — change bg to white |
 
 ### Build Order
-1. Create MediaLogos, SuccessMetrics, Guarantee components
-2. Enhance Hero with typewriter + staggered animations
-3. Add images + animations to BeforeAfter, HowItWorks, Specialties
-4. Enhance FeaturesGrid hover effects + DetailedFeatures mockups
-5. Polish Testimonials, Pricing, CTA, FAQ with animations
-6. Wire new sections into LandingPage
+1. Remove duplicate sections from LandingPage (SuccessMetrics, Guarantee, DetailedFeatures)
+2. Unify background colors for clean alternation
+3. Fix contradicting stats across TrustBar/BeforeAfter
+4. Add Unsplash images to HowItWorks, BeforeAfter, Specialties, FAQ, Contact
+5. Fold Guarantee badges into CTABanner
 
