@@ -76,12 +76,24 @@ const PatientsPage = () => {
           <DialogContent>
             <DialogHeader><DialogTitle>Add Patient</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Name *</Label><Input value={newPatient.name} onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })} className="h-10" /></div>
-              <div><Label>Phone *</Label><Input value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="+91" className="h-10" /></div>
-              <div><Label>Email</Label><Input value={newPatient.email} onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })} className="h-10" /></div>
+              <div className="space-y-1.5">
+                <Label>Name *</Label>
+                <Input value={newPatient.name} onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })} className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone *</Label>
+                <Input value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="+91" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input value={newPatient.email} onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })} className="h-10" />
+              </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Age</Label><Input type="number" value={newPatient.age} onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })} className="h-10" /></div>
-                <div>
+                <div className="space-y-1.5">
+                  <Label>Age</Label>
+                  <Input type="number" value={newPatient.age} onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })} className="h-10" />
+                </div>
+                <div className="space-y-1.5">
                   <Label>Gender</Label>
                   <Select value={newPatient.gender} onValueChange={(v) => setNewPatient({ ...newPatient, gender: v })}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>

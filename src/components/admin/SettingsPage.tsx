@@ -161,10 +161,19 @@ const SettingsPage = () => {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="grid sm:grid-cols-2 gap-4">
-                <div><Label>Clinic Name</Label><Input value={form.clinic_name} onChange={(e) => setForm({ ...form, clinic_name: e.target.value })} className="h-10" /></div>
-                <div><Label>City</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="h-10" /></div>
+                <div className="space-y-1.5">
+                  <Label>Clinic Name</Label>
+                  <Input value={form.clinic_name} onChange={(e) => setForm({ ...form, clinic_name: e.target.value })} className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>City</Label>
+                  <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="h-10" />
+                </div>
               </div>
-              <div><Label>Full Address</Label><Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={3} /></div>
+              <div className="space-y-1.5">
+                <Label>Full Address</Label>
+                <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={3} />
+              </div>
               <Button onClick={save} disabled={saving} className="bg-royal hover:bg-royal/90 h-10">
                 {saving ? "Saving..." : "Save Clinic Details"}
               </Button>
