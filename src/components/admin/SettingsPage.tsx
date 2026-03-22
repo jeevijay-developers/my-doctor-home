@@ -121,17 +121,29 @@ const SettingsPage = () => {
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
-                <div><Label>Full Name</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="h-10" /></div>
-                <div>
+                <div className="space-y-1.5">
+                  <Label>Full Name</Label>
+                  <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="h-10" />
+                </div>
+                <div className="space-y-1.5">
                   <Label>Specialization</Label>
                   <Select value={form.specialization} onValueChange={(v) => setForm({ ...form, specialization: v })}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{specializations.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div><Label>Qualifications</Label><Input value={form.qualifications} onChange={(e) => setForm({ ...form, qualifications: e.target.value })} placeholder="MBBS, MD..." className="h-10" /></div>
-                <div><Label>Years of Experience</Label><Input type="number" value={form.experience_years} onChange={(e) => setForm({ ...form, experience_years: Number(e.target.value) })} className="h-10" /></div>
-                <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91" className="h-10" /></div>
+                <div className="space-y-1.5">
+                  <Label>Qualifications</Label>
+                  <Input value={form.qualifications} onChange={(e) => setForm({ ...form, qualifications: e.target.value })} placeholder="MBBS, MD..." className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Years of Experience</Label>
+                  <Input type="number" value={form.experience_years} onChange={(e) => setForm({ ...form, experience_years: Number(e.target.value) })} className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Phone</Label>
+                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91" className="h-10" />
+                </div>
               </div>
 
               <Button onClick={save} disabled={saving} className="bg-royal hover:bg-royal/90 h-10">
