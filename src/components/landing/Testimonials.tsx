@@ -7,6 +7,9 @@ const reviews = [
   { name: "Dr. Priya Mehta", spec: "Dermatologist", city: "Pune", text: "Doctylia transformed my practice. I went from juggling WhatsApp messages to having a fully automated booking system. My patient no-shows dropped by 70%!", rating: 5, img: testimonial1 },
   { name: "Dr. Vikram Singh", spec: "General Physician", city: "Delhi", text: "Setting up my website took 5 minutes. Now patients find me on Google and book directly. The AI blog writer saves me hours every week — absolute game changer.", rating: 5, img: testimonial2 },
   { name: "Dr. Ananya Rao", spec: "Pediatrician", city: "Bangalore", text: "The billing feature alone is worth the subscription. GST invoices, payment tracking, online payments — everything I needed. My revenue went up 40% in 3 months.", rating: 5, img: testimonial3 },
+  { name: "Dr. Rajesh Gupta", spec: "Cardiologist", city: "Mumbai", text: "I was skeptical about online platforms, but Doctylia proved me wrong. My appointments doubled in 2 months and the patient management system is incredibly intuitive.", rating: 5, img: testimonial2 },
+  { name: "Dr. Sneha Patel", spec: "Gynecologist", city: "Ahmedabad", text: "The online consultation feature is a lifesaver. I can now serve patients across Gujarat without them traveling hours. Revenue grew 60% since joining Doctylia.", rating: 5, img: testimonial3 },
+  { name: "Dr. Arjun Nair", spec: "Orthopedic Surgeon", city: "Kochi", text: "Finally, a platform that understands Indian doctors! The WhatsApp integration, UPI payments, and Hindi blog support — everything is tailored for our market.", rating: 5, img: testimonial1 },
 ];
 
 const Testimonials = () => (
@@ -27,7 +30,7 @@ const Testimonials = () => (
           <span className="text-xs text-muted-foreground">average rating · 200+ cities</span>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 max-w-5xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 max-w-6xl mx-auto">
         {reviews.map((r) => (
           <div key={r.name} className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-border hover:shadow-md transition-shadow relative">
             <Quote className="absolute top-4 right-4 h-7 w-7 md:h-8 md:w-8 text-royal/10" />

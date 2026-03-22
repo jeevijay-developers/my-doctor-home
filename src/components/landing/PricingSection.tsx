@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Sparkles, X } from "lucide-react";
 
 const plans = [
   {
@@ -56,8 +56,25 @@ const plans = [
   },
 ];
 
+const compareFeatures = [
+  { name: "Branded website", starter: true, professional: true, premium: true },
+  { name: "Online booking", starter: true, professional: true, premium: true },
+  { name: "Appointments/month", starter: "100", professional: "Unlimited", premium: "Unlimited" },
+  { name: "WhatsApp reminders", starter: true, professional: true, premium: true },
+  { name: "Online consultation", starter: false, professional: true, premium: true },
+  { name: "AI blog writer", starter: false, professional: true, premium: true },
+  { name: "Billing & invoices", starter: false, professional: true, premium: true },
+  { name: "Patient records", starter: false, professional: true, premium: true },
+  { name: "Multi-doctor support", starter: false, professional: false, premium: true },
+  { name: "Custom domain", starter: false, professional: false, premium: true },
+  { name: "API access", starter: false, professional: false, premium: true },
+  { name: "Priority support", starter: false, professional: true, premium: true },
+  { name: "Dedicated manager", starter: false, professional: false, premium: true },
+];
+
 const PricingSection = () => {
   const [annual, setAnnual] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   return (
     <section id="pricing" className="py-16 md:py-20 bg-white">
@@ -70,7 +87,6 @@ const PricingSection = () => {
           <p className="text-sm md:text-base text-muted-foreground mt-3">
             All plans include a 7-day free trial. No credit card required.
           </p>
-          {/* Toggle */}
           <div className="flex items-center justify-center gap-3 mt-6">
             <span className={`text-sm font-medium ${!annual ? "text-primary" : "text-muted-foreground"}`}>Monthly</span>
             <button
@@ -84,6 +100,7 @@ const PricingSection = () => {
             </span>
           </div>
         </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 max-w-5xl mx-auto">
           {plans.map((p, i) => (
             <motion.div
@@ -94,17 +111,8 @@ const PricingSection = () => {
               transition={{ duration: 0.5, delay: i * 0.12 }}
               whileHover={{ y: -6 }}
             >
-              {/* Gradient border wrapper for popular */}
-              <div
-                className={`rounded-2xl ${
-                  p.popular ? "p-[2px] bg-gradient-to-br from-royal to-accent shadow-xl" : ""
-                }`}
-              >
-                <div
-                  className={`relative rounded-2xl p-6 md:p-8 h-full ${
-                    p.popular ? "bg-white" : "border-2 border-border bg-white hover:shadow-lg transition-shadow"
-                  }`}
-                >
+              <div className={`rounded-2xl ${p.popular ? "p-[2px] bg-gradient-to-br from-royal to-accent shadow-xl" : ""}`}>
+                <div className={`relative rounded-2xl p-6 md:p-8 h-full ${p.popular ? "bg-white" : "border-2 border-border bg-white hover:shadow-lg transition-shadow"}`}>
                   {p.popular && (
                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-royal to-accent text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1 whitespace-nowrap">
                       <Sparkles className="h-3 w-3" /> Most Popular
@@ -116,14 +124,10 @@ const PricingSection = () => {
                     <span className="font-heading font-extrabold text-3xl md:text-4xl text-primary">{annual ? p.yearly : p.monthly}</span>
                     <span className="text-muted-foreground text-sm">{p.period}</span>
                   </div>
-                  {annual && (
-                    <div className="text-xs text-success font-medium mt-1">Billed annually</div>
-                  )}
+                  {annual && <div className="text-xs text-success font-medium mt-1">Billed annually</div>}
                   <Link to="/auth?mode=signup">
                     <Button
-                      className={`w-full mt-5 md:mt-6 ${
-                        p.popular ? "bg-royal hover:bg-royal/90 text-white shadow-md shadow-royal/20" : ""
-                      }`}
+                      className={`w-full mt-5 md:mt-6 ${p.popular ? "bg-royal hover:bg-royal/90 text-white shadow-md shadow-royal/20" : ""}`}
                       variant={p.popular ? "default" : "outline"}
                     >
                       Start Free Trial
@@ -142,6 +146,56 @@ const PricingSection = () => {
             </motion.div>
           ))}
         </div>
+
+        {/* Compare Plans Toggle */}
+        <div className="text-center mt-8">
+          <button
+            onClick={() => setShowCompare(!showCompare)}
+            className="text-sm text-royal font-semibold hover:underline"
+          >
+            {showCompare ? "Hide" : "Compare"} All Features
+          </button>
+        </div>
+
+        {/* Comparison Table */}
+        {showCompare && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="max-w-4xl mx-auto mt-6 overflow-x-auto"
+          >
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-4 font-heading font-semibold text-primary">Feature</th>
+                  <th className="text-center py-3 px-4 font-heading font-semibold text-primary">Starter</th>
+                  <th className="text-center py-3 px-4 font-heading font-semibold text-royal">Professional</th>
+                  <th className="text-center py-3 px-4 font-heading font-semibold text-primary">Premium</th>
+                </tr>
+              </thead>
+              <tbody>
+                {compareFeatures.map((f) => (
+                  <tr key={f.name} className="border-b border-border/50 hover:bg-secondary/30">
+                    <td className="py-2.5 px-4 text-foreground">{f.name}</td>
+                    {(["starter", "professional", "premium"] as const).map((plan) => (
+                      <td key={plan} className="py-2.5 px-4 text-center">
+                        {typeof f[plan] === "boolean" ? (
+                          f[plan] ? (
+                            <Check className="h-4 w-4 text-success mx-auto" />
+                          ) : (
+                            <X className="h-4 w-4 text-muted-foreground/30 mx-auto" />
+                          )
+                        ) : (
+                          <span className="text-xs font-semibold text-foreground">{f[plan]}</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </motion.div>
+        )}
       </div>
     </section>
   );
