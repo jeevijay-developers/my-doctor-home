@@ -20,7 +20,7 @@ const MediaLogos = () => (
       <motion.div
         animate={{ x: ["0%", "-50%"] }}
         transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-        className="flex gap-8 md:gap-12 items-center whitespace-nowrap"
+        className="flex gap-4 md:gap-12 items-center whitespace-nowrap"
       >
         {logos.map((name, i) => (
           <div
