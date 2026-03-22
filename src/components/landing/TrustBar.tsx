@@ -3,13 +3,12 @@ import { Shield, Award, Clock, MapPin } from "lucide-react";
 
 const stats = [
   { number: 10000, suffix: "+", label: "Doctors Trust Us", icon: Shield },
-  { number: 500000, suffix: "+", label: "Appointments Booked", icon: Clock },
+  { number: 50000, suffix: "+", label: "Appointments Booked", icon: Clock },
   { number: 200, suffix: "+", label: "Cities in India", icon: MapPin },
-  { number: 99.9, suffix: "%", label: "Uptime", icon: Award },
+  { number: 99.9, suffix: "%", label: "Uptime Guarantee", icon: Award },
 ];
 
 const formatNumber = (n: number) => {
-  if (n >= 100000) return (n / 100000).toFixed(0) + ",00,000";
   if (n >= 1000) return n.toLocaleString("en-IN");
   if (n % 1 !== 0) return n.toFixed(1);
   return n.toString();

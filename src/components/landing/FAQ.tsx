@@ -1,5 +1,4 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { HelpCircle } from "lucide-react";
 
 const faqs = [
   { q: "Is there really a free trial with no credit card?", a: "Yes! You get 7 days of full access to all features. No credit card required. No strings attached." },
@@ -14,7 +13,7 @@ const faqs = [
 ];
 
 const FAQ = () => (
-  <section id="faq" className="py-20 bg-white">
+  <section id="faq" className="py-20 bg-secondary">
     <div className="container mx-auto px-4">
       <div className="grid lg:grid-cols-5 gap-10 max-w-5xl mx-auto">
         <div className="lg:col-span-2">
@@ -25,16 +24,19 @@ const FAQ = () => (
           <p className="text-muted-foreground mt-3 leading-relaxed">
             Can't find the answer you're looking for? <a href="#contact" className="text-royal font-medium hover:underline">Contact our team</a>.
           </p>
-          <div className="mt-8 hidden lg:block">
-            <div className="w-24 h-24 rounded-2xl bg-royal/10 flex items-center justify-center">
-              <HelpCircle className="h-12 w-12 text-royal" />
-            </div>
+          <div className="mt-6 rounded-xl overflow-hidden shadow-md border border-border">
+            <img
+              src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=280&fit=crop&q=80"
+              alt="Doctor consulting with patient"
+              className="w-full h-40 md:h-48 object-cover"
+              loading="lazy"
+            />
           </div>
         </div>
         <div className="lg:col-span-3">
           <Accordion type="single" collapsible className="space-y-3">
             {faqs.map((f, i) => (
-              <AccordionItem key={i} value={`faq-${i}`} className="border border-border rounded-xl px-6 data-[state=open]:shadow-sm data-[state=open]:border-royal/30 transition-all">
+              <AccordionItem key={i} value={`faq-${i}`} className="border border-border rounded-xl px-6 bg-white data-[state=open]:shadow-sm data-[state=open]:border-royal/30 transition-all">
                 <AccordionTrigger className="font-heading font-semibold text-primary text-left text-[15px]">
                   {f.q}
                 </AccordionTrigger>

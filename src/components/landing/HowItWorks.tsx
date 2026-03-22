@@ -2,16 +2,34 @@ import { motion } from "framer-motion";
 import { UserPlus, Settings, Rocket } from "lucide-react";
 
 const steps = [
-  { icon: UserPlus, num: "01", title: "Sign Up Free", desc: "Create your account in 30 seconds. No credit card. 7-day free trial starts instantly.", color: "from-royal to-teal" },
-  { icon: Settings, num: "02", title: "Set Up Your Clinic", desc: "Add your profile, services, pricing & photos. Our wizard guides you step by step.", color: "from-teal to-accent" },
-  { icon: Rocket, num: "03", title: "Go Live & Grow", desc: "Your branded website is live! Patients book, pay & consult you 24/7 on autopilot.", color: "from-accent to-spark" },
+  {
+    icon: UserPlus, num: "01", title: "Sign Up Free",
+    desc: "Create your account in 30 seconds. No credit card. 7-day free trial starts instantly.",
+    color: "from-royal to-teal",
+    img: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400&h=260&fit=crop&q=80",
+    imgAlt: "Doctor signing up on laptop"
+  },
+  {
+    icon: Settings, num: "02", title: "Set Up Your Clinic",
+    desc: "Add your profile, services, pricing & photos. Our wizard guides you step by step.",
+    color: "from-teal to-accent",
+    img: "https://images.unsplash.com/photo-1551076805-e1869033e561?w=400&h=260&fit=crop&q=80",
+    imgAlt: "Doctor customizing clinic dashboard"
+  },
+  {
+    icon: Rocket, num: "03", title: "Go Live & Grow",
+    desc: "Your branded website is live! Patients book, pay & consult you 24/7 on autopilot.",
+    color: "from-accent to-spark",
+    img: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=260&fit=crop&q=80",
+    imgAlt: "Happy doctor with patients"
+  },
 ];
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.2 } } };
 const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { duration: 0.5 } } };
 
 const HowItWorks = () => (
-  <section id="how-it-works" className="py-14 md:py-20 bg-secondary">
+  <section id="how-it-works" className="py-14 md:py-20 bg-white">
     <div className="container mx-auto px-4">
       <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
         <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">How It Works</span>
@@ -46,6 +64,9 @@ const HowItWorks = () => (
             <span className="font-heading font-extrabold text-4xl md:text-6xl text-royal/[0.07] absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 md:-translate-y-3 select-none">{s.num}</span>
             <h3 className="font-heading font-bold text-lg md:text-xl text-primary">{s.title}</h3>
             <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto leading-relaxed">{s.desc}</p>
+            <div className="mt-4 rounded-xl overflow-hidden mx-auto max-w-[200px] shadow-md border border-border">
+              <img src={s.img} alt={s.imgAlt} className="w-full h-28 object-cover" loading="lazy" />
+            </div>
           </motion.div>
         ))}
       </motion.div>

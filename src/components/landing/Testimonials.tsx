@@ -17,7 +17,7 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } }
 const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
 
 const Testimonials = () => (
-  <section className="py-14 md:py-20 bg-secondary">
+  <section className="py-14 md:py-20 bg-white">
     <div className="container mx-auto px-4">
       <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
         <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">Testimonials</span>
@@ -51,7 +51,7 @@ const Testimonials = () => (
             key={r.name}
             variants={item}
             whileHover={{ y: -4 }}
-            className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-border hover:shadow-lg transition-all duration-300 relative"
+            className="bg-secondary rounded-2xl p-5 md:p-6 shadow-sm border border-border hover:shadow-lg transition-all duration-300 relative"
           >
             <Quote className="absolute top-4 right-4 h-7 w-7 md:h-8 md:w-8 text-royal/10" />
             <div className="flex gap-0.5 mb-3 md:mb-4">
@@ -61,7 +61,7 @@ const Testimonials = () => (
             </div>
             <p className="text-xs md:text-sm text-foreground leading-relaxed mb-5 md:mb-6">"{r.text}"</p>
             <div className="flex items-center gap-3 pt-3 md:pt-4 border-t border-border">
-              <img src={r.img} alt={r.name} className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border-2 border-secondary" />
+              <img src={r.img} alt={r.name} className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border-2 border-white" />
               <div>
                 <div className="font-heading font-semibold text-primary text-xs md:text-sm">{r.name}</div>
                 <div className="text-[10px] md:text-xs text-muted-foreground">{r.spec} · {r.city}</div>

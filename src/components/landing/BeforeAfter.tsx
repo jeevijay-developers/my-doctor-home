@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { X, Check, ArrowRight, TrendingUp } from "lucide-react";
+import { X, Check, ArrowRight, TrendingUp, IndianRupee } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -22,7 +22,7 @@ const withItems = [
 ];
 
 const BeforeAfter = () => (
-  <section className="py-14 md:py-20 bg-white">
+  <section className="py-14 md:py-20 bg-secondary">
     <div className="container mx-auto px-4">
       <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
         <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">The Difference</span>
@@ -34,19 +34,39 @@ const BeforeAfter = () => (
         </p>
       </div>
 
-      {/* ROI stat callout */}
+      {/* ROI stats callout row */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }}
-        className="max-w-md mx-auto mb-8 md:mb-10 bg-gradient-to-r from-royal/5 to-teal/5 rounded-2xl p-4 md:p-5 flex items-center gap-4 border border-royal/10"
+        className="max-w-2xl mx-auto mb-8 md:mb-10 grid grid-cols-1 sm:grid-cols-3 gap-3"
       >
-        <div className="w-12 h-12 rounded-xl bg-royal/10 flex items-center justify-center shrink-0">
-          <TrendingUp className="h-6 w-6 text-royal" />
+        <div className="bg-white rounded-xl p-4 flex items-center gap-3 border border-border shadow-sm">
+          <div className="w-10 h-10 rounded-lg bg-royal/10 flex items-center justify-center shrink-0">
+            <TrendingUp className="h-5 w-5 text-royal" />
+          </div>
+          <div>
+            <div className="font-heading font-extrabold text-lg text-primary">14 hrs/week</div>
+            <div className="text-xs text-muted-foreground">Time saved per doctor</div>
+          </div>
         </div>
-        <div>
-          <div className="font-heading font-extrabold text-xl md:text-2xl text-primary">14 hrs/week</div>
-          <div className="text-xs md:text-sm text-muted-foreground">Average time saved per doctor with Doctylia</div>
+        <div className="bg-white rounded-xl p-4 flex items-center gap-3 border border-border shadow-sm">
+          <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
+            <IndianRupee className="h-5 w-5 text-success" />
+          </div>
+          <div>
+            <div className="font-heading font-extrabold text-lg text-primary">₹2.4 Cr+</div>
+            <div className="text-xs text-muted-foreground">Revenue generated</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-4 flex items-center gap-3 border border-border shadow-sm">
+          <div className="w-10 h-10 rounded-lg bg-teal/10 flex items-center justify-center shrink-0">
+            <Check className="h-5 w-5 text-teal" />
+          </div>
+          <div>
+            <div className="font-heading font-extrabold text-lg text-primary">98%</div>
+            <div className="text-xs text-muted-foreground">Satisfaction rate</div>
+          </div>
         </div>
       </motion.div>
 
@@ -57,8 +77,16 @@ const BeforeAfter = () => (
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="rounded-2xl border-2 border-destructive/20 bg-destructive/[0.02] p-6 md:p-8 hover:shadow-lg transition-shadow"
+          className="rounded-2xl border-2 border-destructive/20 bg-white p-6 md:p-8 hover:shadow-lg transition-shadow"
         >
+          <div className="rounded-xl overflow-hidden mb-5 h-32">
+            <img
+              src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=500&h=200&fit=crop&q=80"
+              alt="Cluttered desk with papers"
+              className="w-full h-full object-cover opacity-80"
+              loading="lazy"
+            />
+          </div>
           <div className="flex items-center gap-2 mb-5">
             <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center">
               <X className="h-4 w-4 text-destructive" />
@@ -88,8 +116,16 @@ const BeforeAfter = () => (
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="rounded-2xl border-2 border-success/20 bg-success/[0.02] p-6 md:p-8 hover:shadow-lg transition-shadow"
+          className="rounded-2xl border-2 border-success/20 bg-white p-6 md:p-8 hover:shadow-lg transition-shadow"
         >
+          <div className="rounded-xl overflow-hidden mb-5 h-32">
+            <img
+              src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=500&h=200&fit=crop&q=80"
+              alt="Clean digital dashboard"
+              className="w-full h-full object-cover opacity-80"
+              loading="lazy"
+            />
+          </div>
           <div className="flex items-center gap-2 mb-5">
             <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
               <Check className="h-4 w-4 text-success" />

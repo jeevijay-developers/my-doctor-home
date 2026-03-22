@@ -18,17 +18,28 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } 
 const item = { hidden: { opacity: 0, scale: 0.8 }, show: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: "easeOut" } } };
 
 const Specialties = () => (
-  <section className="py-14 md:py-20 bg-secondary">
+  <section className="py-14 md:py-20 bg-white">
     <div className="container mx-auto px-4">
-      <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-        <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">For Every Doctor</span>
-        <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
-          Built for Every Specialty
-        </h2>
-        <p className="text-sm md:text-base text-muted-foreground mt-3">
-          Whether you're a solo practitioner or run a multi-specialty clinic — Doctylia adapts to your practice.
-        </p>
+      {/* Hero banner image */}
+      <div className="max-w-4xl mx-auto mb-10 md:mb-14 rounded-2xl overflow-hidden shadow-lg relative">
+        <img
+          src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=900&h=300&fit=crop&q=80"
+          alt="Diverse group of doctors"
+          className="w-full h-40 md:h-56 object-cover"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent flex items-end p-6 md:p-8">
+          <div>
+            <h2 className="font-heading font-bold text-xl sm:text-2xl md:text-3xl text-white">
+              Built for Every Specialty
+            </h2>
+            <p className="text-sm text-white/80 mt-1">
+              Whether you're a solo practitioner or run a multi-specialty clinic — Doctylia adapts.
+            </p>
+          </div>
+        </div>
       </div>
+
       <motion.div
         variants={container}
         initial="hidden"
@@ -41,7 +52,7 @@ const Specialties = () => (
             key={s.name}
             variants={item}
             whileHover={{ y: -4, scale: 1.03 }}
-            className="bg-white rounded-xl p-4 text-center border border-border hover:shadow-md transition-all duration-200 group cursor-default"
+            className="bg-secondary rounded-xl p-4 text-center border border-border hover:shadow-md transition-all duration-200 group cursor-default"
           >
             <div className={`w-12 h-12 rounded-xl ${s.color} flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform`}>
               <s.icon className="h-6 w-6" />
