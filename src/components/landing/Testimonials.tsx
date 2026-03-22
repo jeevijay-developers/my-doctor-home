@@ -44,7 +44,7 @@ const Testimonials = () => (
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, margin: "-60px" }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 max-w-6xl mx-auto"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto"
       >
         {reviews.map((r) => (
           <motion.div

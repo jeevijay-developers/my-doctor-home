@@ -162,7 +162,7 @@ const PricingSection = () => {
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            className="max-w-4xl mx-auto mt-6 overflow-x-auto"
+            className="max-w-4xl mx-auto mt-6 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0"
           >
             <table className="w-full text-sm">
               <thead>

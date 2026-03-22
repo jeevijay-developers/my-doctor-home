@@ -45,20 +45,20 @@ const Specialties = () => (
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, margin: "-60px" }}
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 max-w-4xl mx-auto"
+        className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-4 max-w-4xl mx-auto"
       >
         {specialties.map((s) => (
           <motion.div
             key={s.name}
             variants={item}
             whileHover={{ y: -4, scale: 1.03 }}
-            className="bg-secondary rounded-xl p-4 text-center border border-border hover:shadow-md transition-all duration-200 group cursor-default"
+            className="bg-secondary rounded-xl p-2.5 md:p-4 text-center border border-border hover:shadow-md transition-all duration-200 group cursor-default"
           >
-            <div className={`w-12 h-12 rounded-xl ${s.color} flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform`}>
-              <s.icon className="h-6 w-6" />
+            <div className={`w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl ${s.color} flex items-center justify-center mx-auto mb-1.5 md:mb-3 group-hover:scale-110 transition-transform`}>
+              <s.icon className="h-4 w-4 md:h-6 md:w-6" />
             </div>
-            <div className="font-heading font-semibold text-sm text-primary">{s.name}</div>
-            <div className="text-[11px] text-muted-foreground mt-1">{s.count} doctors</div>
+            <div className="font-heading font-semibold text-[10px] sm:text-xs md:text-sm text-primary leading-tight">{s.name}</div>
+            <div className="text-[9px] md:text-[11px] text-muted-foreground mt-0.5">{s.count}</div>
           </motion.div>
         ))}
       </motion.div>
