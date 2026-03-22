@@ -129,8 +129,12 @@ const PatientsPage = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="font-semibold text-foreground truncate">{p.name}</h3>
-                      <Badge variant="secondary" className="text-[10px] flex-shrink-0 bg-royal/10 text-royal">
-                        {p.total_visits} visit{p.total_visits !== 1 ? "s" : ""}
+                      <Badge variant="secondary" className={`text-[10px] flex-shrink-0 ${
+                        p.total_visits >= 10 ? "bg-success/10 text-success" :
+                        p.total_visits >= 3 ? "bg-royal/10 text-royal" :
+                        "bg-warning/10 text-warning"
+                      }`}>
+                        {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : "New"} · {p.total_visits}
                       </Badge>
                     </div>
                     <div className="mt-1.5 space-y-1 text-xs text-muted-foreground">

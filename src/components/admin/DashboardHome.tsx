@@ -5,7 +5,7 @@ import {
   CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
   TrendingUp, Sparkles, ExternalLink, Pen, Eye, Settings,
   CheckCircle2, Circle, Stethoscope, UserPlus, FileText, Copy, BarChart3,
-  Lightbulb, StickyNote, Plus, X, Send
+  Lightbulb, StickyNote, Plus, X, Send, Share2, Target
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -295,6 +295,87 @@ const DashboardHome = () => {
                 <p className="text-xs font-medium text-success">All set! Your clinic is ready 🎉</p>
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* WhatsApp Share + Revenue Goal */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* WhatsApp Share Widget */}
+        <Card className="border-border/60 shadow-none border-l-4 border-l-success">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Share2 className="h-4 w-4 text-success" /> Share Your Website
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {liveUrl ? (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">Share your website with patients via WhatsApp to get more bookings!</p>
+                <div className="bg-secondary/60 rounded-lg p-3 text-xs text-foreground">
+                  🏥 Book your appointment online with {profile?.full_name || "Dr."} — {liveUrl}
+                </div>
+                <div className="flex gap-2">
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`🏥 Book your appointment online with ${profile?.full_name || "Dr."}\n\n${liveUrl}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1"
+                  >
+                    <Button size="sm" className="w-full bg-success hover:bg-success/90 text-xs h-9">
+                      <Send className="h-3 w-3 mr-1" /> Share on WhatsApp
+                    </Button>
+                  </a>
+                  <Button variant="outline" size="sm" className="text-xs h-9" onClick={() => { navigator.clipboard.writeText(liveUrl); toast.success("Link copied!"); }}>
+                    <Copy className="h-3 w-3 mr-1" /> Copy
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-4 text-center">Complete onboarding to share your website</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Revenue Goal Tracker */}
+        <Card className="border-border/60 shadow-none border-l-4 border-l-royal">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Target className="h-4 w-4 text-royal" /> Monthly Revenue Goal
+              </CardTitle>
+              <Badge variant="secondary" className="text-[10px] bg-royal/10 text-royal">₹{stats.revenue.toLocaleString("en-IN")}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {(profile as any)?.revenue_goal > 0 ? (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-semibold text-foreground">
+                      {Math.min(100, Math.round((stats.revenue / (profile as any).revenue_goal) * 100))}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(100, (stats.revenue / (profile as any).revenue_goal) * 100)}
+                    className="h-3 bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-royal [&>div]:to-teal"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>₹0</span>
+                    <span>₹{((profile as any).revenue_goal || 0).toLocaleString("en-IN")}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-3">
+                  <Target className="h-8 w-8 text-royal/20 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Set a revenue goal in Settings</p>
+                  <Link to="/admin/settings">
+                    <Button variant="outline" size="sm" className="text-xs mt-2 border-royal/30 text-royal">Set Goal</Button>
+                  </Link>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

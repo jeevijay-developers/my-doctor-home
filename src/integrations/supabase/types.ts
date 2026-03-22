@@ -342,6 +342,50 @@ export type Database = {
           },
         ]
       }
+      prescriptions: {
+        Row: {
+          created_at: string
+          date: string
+          diagnosis: string | null
+          doctor_id: string
+          id: string
+          medications: string | null
+          notes: string | null
+          patient_id: string | null
+          patient_name: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          diagnosis?: string | null
+          doctor_id: string
+          id?: string
+          medications?: string | null
+          notes?: string | null
+          patient_id?: string | null
+          patient_name: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          diagnosis?: string | null
+          doctor_id?: string
+          id?: string
+          medications?: string | null
+          notes?: string | null
+          patient_id?: string | null
+          patient_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prescriptions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           address: string | null
@@ -356,6 +400,7 @@ export type Database = {
           plan_status: Database["public"]["Enums"]["plan_status"]
           profile_photo_url: string | null
           qualifications: string | null
+          revenue_goal: number | null
           slug: string | null
           specialization: string | null
           trial_end: string
@@ -375,6 +420,7 @@ export type Database = {
           plan_status?: Database["public"]["Enums"]["plan_status"]
           profile_photo_url?: string | null
           qualifications?: string | null
+          revenue_goal?: number | null
           slug?: string | null
           specialization?: string | null
           trial_end?: string
@@ -394,6 +440,7 @@ export type Database = {
           plan_status?: Database["public"]["Enums"]["plan_status"]
           profile_photo_url?: string | null
           qualifications?: string | null
+          revenue_goal?: number | null
           slug?: string | null
           specialization?: string | null
           trial_end?: string

@@ -7,6 +7,8 @@ import PatientsPage from "@/components/admin/PatientsPage";
 import BlogPage from "@/components/admin/BlogPage";
 import BillingPage from "@/components/admin/BillingPage";
 import SettingsPage from "@/components/admin/SettingsPage";
+import PrescriptionsPage from "@/components/admin/PrescriptionsPage";
+import ReviewsManagePage from "@/components/admin/ReviewsManagePage";
 
 const AdminDashboard = () => (
   <AdminLayout>
@@ -18,6 +20,8 @@ const AdminDashboard = () => (
       <Route path="blog" element={<BlogPage />} />
       <Route path="billing" element={<BillingPage />} />
       <Route path="settings" element={<SettingsPage />} />
+      <Route path="prescriptions" element={<PrescriptionsPage />} />
+      <Route path="reviews" element={<ReviewsManagePage />} />
       <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
     </Routes>
   </AdminLayout>
