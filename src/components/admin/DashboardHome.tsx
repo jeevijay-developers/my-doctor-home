@@ -5,7 +5,7 @@ import {
   CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
   TrendingUp, Sparkles, ExternalLink, Pen, Eye, Settings,
   CheckCircle2, Circle, Stethoscope, UserPlus, FileText, Copy, BarChart3,
-  Lightbulb, StickyNote, Plus, X, Send
+  Lightbulb, StickyNote, Plus, X, Send, Share2, Target
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { Link } from "react-router-dom";
