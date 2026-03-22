@@ -64,8 +64,8 @@ const HowItWorks = () => (
             <span className="font-heading font-extrabold text-4xl md:text-6xl text-royal/[0.07] absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 md:-translate-y-3 select-none">{s.num}</span>
             <h3 className="font-heading font-bold text-lg md:text-xl text-primary">{s.title}</h3>
             <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto leading-relaxed">{s.desc}</p>
-            <div className="mt-4 rounded-xl overflow-hidden mx-auto max-w-[200px] shadow-md border border-border">
-              <img src={s.img} alt={s.imgAlt} className="w-full h-28 object-cover" loading="lazy" />
+            <div className="mt-3 md:mt-4 rounded-xl overflow-hidden mx-auto max-w-[160px] md:max-w-[200px] shadow-md border border-border">
+              <img src={s.img} alt={s.imgAlt} className="w-full h-20 md:h-28 object-cover" loading="lazy" />
             </div>
           </motion.div>
         ))}

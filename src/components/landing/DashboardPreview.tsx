@@ -43,7 +43,7 @@ const DashboardPreview = () => (
           {/* Dashboard Content */}
           <div className="flex min-h-[320px] md:min-h-[420px]">
             {/* Sidebar */}
-            <div className="hidden sm:flex w-14 md:w-48 bg-primary flex-col py-3 md:py-4 shrink-0">
+            <div className="hidden md:flex w-48 bg-primary flex-col py-4 shrink-0">
               <div className="px-2 md:px-4 mb-4 md:mb-6">
                 <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-white/20 md:hidden" />
                 <div className="hidden md:block text-white font-heading font-bold text-sm">Dr. Rahul Sharma</div>

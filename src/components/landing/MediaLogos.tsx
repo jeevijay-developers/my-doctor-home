@@ -25,12 +25,12 @@ const MediaLogos = () => (
         {logos.map((name, i) => (
           <div
             key={i}
-            className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-lg bg-secondary/50 border border-border/30 shrink-0"
+            className="flex items-center gap-1.5 md:gap-2 px-3 md:px-6 py-1.5 md:py-3 rounded-lg bg-secondary/50 border border-border/30 shrink-0"
           >
-            <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-royal/10 flex items-center justify-center">
-              <span className="text-royal font-bold text-[10px] md:text-xs">{name.charAt(0)}</span>
+            <div className="w-5 h-5 md:w-8 md:h-8 rounded-full bg-royal/10 flex items-center justify-center">
+              <span className="text-royal font-bold text-[8px] md:text-xs">{name.charAt(0)}</span>
             </div>
-            <span className="text-xs md:text-sm font-medium text-muted-foreground/70">{name}</span>
+            <span className="text-[10px] md:text-sm font-medium text-muted-foreground/70">{name}</span>
           </div>
         ))}
       </motion.div>

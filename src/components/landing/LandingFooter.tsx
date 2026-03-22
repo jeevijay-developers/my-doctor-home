@@ -6,7 +6,7 @@ const LandingFooter = () => (
     <div className="container mx-auto px-4">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-8 pb-8 md:pb-10 border-b border-primary-foreground/10">
         {/* Brand */}
-        <div className="sm:col-span-2 md:col-span-1">
+        <div className="col-span-2 md:col-span-1">
           <img src="/doctylia-logo.png" alt="Doctylia" className="h-8 brightness-0 invert mb-3" />
           <p className="text-sm text-primary-foreground/60 leading-relaxed">
             The Complete Doctor Platform. India's #1 AI-powered SaaS for medical practices.

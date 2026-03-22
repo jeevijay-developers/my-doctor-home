@@ -59,12 +59,12 @@ const BeforeAfter = () => (
             <div className="text-xs text-muted-foreground">Revenue generated</div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 flex items-center gap-3 border border-border shadow-sm">
-          <div className="w-10 h-10 rounded-lg bg-teal/10 flex items-center justify-center shrink-0">
-            <Check className="h-5 w-5 text-teal" />
+        <div className="bg-white rounded-xl p-3 md:p-4 flex items-center gap-2 md:gap-3 border border-border shadow-sm">
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-teal/10 flex items-center justify-center shrink-0">
+            <Check className="h-4 w-4 md:h-5 md:w-5 text-teal" />
           </div>
           <div>
-            <div className="font-heading font-extrabold text-lg text-primary">98%</div>
+            <div className="font-heading font-extrabold text-sm md:text-lg text-primary">98%</div>
             <div className="text-xs text-muted-foreground">Satisfaction rate</div>
           </div>
         </div>

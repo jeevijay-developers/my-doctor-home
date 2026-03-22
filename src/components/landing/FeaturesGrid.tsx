@@ -50,22 +50,22 @@ const FeaturesGrid = () => (
             style={{ perspective: 800 }}
             className="group rounded-xl bg-white border border-border hover:border-royal/30 hover:shadow-xl transition-all duration-300 overflow-hidden"
           >
-            <div className={`h-32 md:h-36 overflow-hidden flex items-center justify-center ${f.bg}`}>
+            <div className={`h-24 sm:h-32 md:h-36 overflow-hidden flex items-center justify-center ${f.bg}`}>
               <motion.img
                 src={f.img}
                 alt={f.title}
-                className="h-24 md:h-28 w-auto max-w-full object-contain"
+                className="h-16 sm:h-24 md:h-28 w-auto max-w-full object-contain"
                 whileHover={{ scale: 1.1 }}
                 transition={{ duration: 0.4 }}
                 loading="lazy"
               />
             </div>
-            <div className="p-4 md:p-5">
-              <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg ${f.color} flex items-center justify-center mb-3`}>
-                <f.icon className="h-4 w-4 md:h-5 md:w-5" />
+            <div className="p-3 md:p-5">
+              <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${f.color} flex items-center justify-center mb-2 md:mb-3`}>
+                <f.icon className="h-3.5 w-3.5 md:h-5 md:w-5" />
               </div>
-              <h3 className="font-heading font-semibold text-primary text-sm md:text-base">{f.title}</h3>
-              <p className="text-xs md:text-sm text-muted-foreground mt-1.5 leading-relaxed">{f.desc}</p>
+              <h3 className="font-heading font-semibold text-primary text-xs sm:text-sm md:text-base">{f.title}</h3>
+              <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 leading-relaxed hidden sm:block">{f.desc}</p>
             </div>
           </motion.div>
         ))}

@@ -22,11 +22,10 @@ const LandingNavbar = () => {
   ];
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/98 shadow-md backdrop-blur-md" : "bg-white/80 backdrop-blur-sm"}`}>
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "bg-white/60 shadow-lg backdrop-blur-2xl border-b border-border/30" : "bg-transparent"}`}>
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center">
           <img src="/doctylia-logo.png" alt="Doctylia" className="h-9" />
-          <span className="hidden lg:block text-xs text-muted-foreground font-medium -ml-1">The Complete<br/>Doctor Platform</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-7">
