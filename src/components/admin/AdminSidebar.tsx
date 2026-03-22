@@ -20,6 +20,8 @@ const mainItems = [
   { title: "My Website", url: "/admin/my-website", icon: Globe },
   { title: "Appointments", url: "/admin/appointments", icon: CalendarCheck },
   { title: "Patients", url: "/admin/patients", icon: Users },
+  { title: "Prescriptions", url: "/admin/prescriptions", icon: ClipboardList },
+  { title: "Reviews", url: "/admin/reviews", icon: MessageSquare },
   { title: "Blog", url: "/admin/blog", icon: FileText },
   { title: "Billing", url: "/admin/billing", icon: CreditCard },
   { title: "Settings", url: "/admin/settings", icon: Settings },
