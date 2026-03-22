@@ -1,90 +1,64 @@
 
 
-## Plan: Mobile Responsive Fix + Visual Polish + Dashboard Mockup + Sales Content
+## Plan: Dashboard Fix + Landing Page Content & Visual Enhancement
 
-### Key Issues Found
+### Part 1: Dashboard Fixes
 
-1. **`App.css` has `#root { max-width: 1280px; padding: 2rem }` leftover from Vite boilerplate** — even though not imported, it's still in the repo. Clean it up.
-2. **Landing page `overflow-x` not locked** — no `overflow-x: hidden` on root or landing wrapper. Wide decorative blobs and floating cards can cause horizontal scroll on mobile.
-3. **Hero section hides the entire right side on mobile** (`hidden lg:flex`) — mobile users see no imagery at all.
-4. **Feature card images may overflow** on very small screens (320px).
-5. **Pricing cards** use `borderImage` which doesn't work with `border-radius` — the popular card border renders as square on some browsers.
-6. **Footer 5-column grid** collapses awkwardly on mobile (2-col with 5 items = orphan column).
-7. **Contact section**: long address text may overflow on small screens.
-8. **No dashboard mockup/preview** on the landing page — missing a key sales section showing what the admin panel looks like.
-9. **Sales-focused copy** is decent but could be punchier with more urgency, social proof numbers, and benefit-driven language.
+**Issues found in DashboardHome.tsx:**
+- HSL color references like `bg-[hsl(var(--royal)/.08)]` may not render correctly — Tailwind doesn't parse `/opacity` inside `hsl()` in arbitrary values consistently
+- The dashboard renders fine structurally but colors may appear broken or invisible
 
-### Changes
+**Fix:** Replace all `hsl(var(--X)/.N)` patterns with proper Tailwind brand color classes (e.g., `bg-royal/8`, `bg-teal/8`) which work with the configured color palette in tailwind.config.
 
-#### 1. Global Overflow Fix
-- **`src/index.css`**: Add `html, body { overflow-x: hidden; }` and ensure `#root` has no constraining styles.
-- **Delete `src/App.css`** (unused Vite boilerplate).
+Also improve the dashboard:
+- Add a "Website Preview" card showing doctor's live page link with a mini thumbnail
+- Add "This Week's Revenue" chart placeholder (simple bar chart visual using CSS bars)
+- Improve empty states with illustrations
+- Better stat card hover effects and micro-interactions
 
-#### 2. LandingPage Wrapper
-- Add `overflow-x-hidden` to the wrapper div.
+### Part 2: Landing Page — More Content & Visuals
 
-#### 3. LandingHero — Mobile Image + Sales Copy
-- Show a smaller version of the hero image on mobile (below the text content) instead of hiding it completely.
-- Update headline to more sales-focused: "Grow Your Practice 3x with India's #1 Doctor Platform"
-- Add urgency: "Join 10,000+ doctors already growing with Doctylia"
+**New sections and enhancements to add:**
 
-#### 4. FeaturesGrid — Mobile Fix
-- Ensure images have `max-w-full` and cards don't overflow.
-- Update descriptions to be more benefit/outcome focused.
+#### A. "Before vs After Doctylia" Comparison Section (NEW)
+Between Features and HowItWorks. Two-column layout:
+- Left: "Without Doctylia" — red-tinted list (missed calls, paper records, no online presence, manual billing)
+- Right: "With Doctylia" — green-tinted list (24/7 booking, digital records, branded website, auto billing)
+- Highly persuasive for conversion.
 
-#### 5. PricingSection — Fix Popular Card Border
-- Replace `borderImage` with a wrapper div approach for gradient border that respects `border-radius`.
-- Make cards stack properly on mobile (1 column).
+#### B. "Built for Every Specialty" Section (NEW)
+After DashboardPreview. Grid of specialty cards showing Doctylia works for Cardiologists, Dermatologists, Pediatricians, Dentists, Orthopedics, Gynecologists, etc. Each with a small icon + specialty name + "X doctors already using" count. Builds confidence that the platform fits ANY doctor.
 
-#### 6. NEW: Dashboard Mockup Section
-- Add a new section between HowItWorks and Pricing called **"See Your Dashboard"**.
-- Build a **static visual mockup** of the admin dashboard using pure CSS/HTML (not AI-generated image) — styled cards showing: sidebar nav, stat cards, appointment list, quick actions.
-- This is a decorative/visual component, not functional. It sits in a browser frame mockup with a subtle perspective tilt.
-- Below it: 3 smaller feature highlights (Real-time Analytics, One-Click Publishing, AI-Powered Insights).
+#### C. "What You Get" Detailed Tabs Section (NEW)
+Before Pricing. Tabbed interface (Website | Appointments | Billing | AI Tools) — each tab shows a detailed feature breakdown with checkmarks and a visual mockup/icon. Gives deeper info before the pricing section so visitors feel informed.
 
-#### 7. Testimonials — Sales Enhancement
-- Add more social proof copy: "Trusted by 10,000+ doctors across 200+ cities"
-- Add a small "Average rating: 4.9/5" badge.
-
-#### 8. CTABanner — More Urgency
-- Update copy: "Every day without Doctylia = patients lost to competitors"
-- Add secondary line about limited-time offer.
-
-#### 9. LandingFooter — Mobile Grid Fix
-- Change grid to `grid-cols-1 sm:grid-cols-2 md:grid-cols-5` to stack cleanly on mobile.
-
-#### 10. ContactSection — Mobile Fix
-- Ensure address text wraps properly with `break-words`.
-
-#### 11. HowItWorks — Tighter Mobile Spacing
-- Reduce padding and font sizes on mobile.
-
-#### 12. TrustBar — Mobile Text Size
-- Smaller number font on mobile to prevent overflow.
+#### D. Enhance Existing Sections
+- **Hero**: Add a small animated badge "🔥 2,847 doctors signed up this month"
+- **Testimonials**: Add 3 more reviews (6 total, show in 2 rows) with more specialties
+- **FAQ**: Add 3 more questions (total 9) covering pricing, support, data migration
+- **CTA Banner**: Add 3 small trust icons (SSL secure, HIPAA-ready, 24/7 support)
+- **Pricing**: Add "Compare Plans" feature table below the cards
 
 ### File Summary
 
 | Action | Files |
 |--------|-------|
-| Delete | `src/App.css` |
-| Create | `src/components/landing/DashboardPreview.tsx` |
-| Modify | `src/index.css` — overflow-x fix |
-| Modify | `src/pages/LandingPage.tsx` — add overflow class + DashboardPreview section |
-| Modify | `src/components/landing/LandingHero.tsx` — mobile image, sales copy |
-| Modify | `src/components/landing/FeaturesGrid.tsx` — mobile image fix, sales copy |
-| Modify | `src/components/landing/PricingSection.tsx` — fix gradient border, mobile stack |
-| Modify | `src/components/landing/Testimonials.tsx` — social proof badge |
-| Modify | `src/components/landing/CTABanner.tsx` — urgency copy |
-| Modify | `src/components/landing/LandingFooter.tsx` — mobile grid fix |
-| Modify | `src/components/landing/ContactSection.tsx` — address overflow fix |
-| Modify | `src/components/landing/TrustBar.tsx` — mobile text sizing |
-| Modify | `src/components/landing/HowItWorks.tsx` — mobile spacing |
+| Modify | `src/components/admin/DashboardHome.tsx` — fix color classes, add website preview card, revenue chart visual |
+| Create | `src/components/landing/BeforeAfter.tsx` — comparison section |
+| Create | `src/components/landing/Specialties.tsx` — specialty grid |
+| Create | `src/components/landing/DetailedFeatures.tsx` — tabbed feature deep-dive |
+| Modify | `src/components/landing/LandingHero.tsx` — add signup count badge |
+| Modify | `src/components/landing/Testimonials.tsx` — add 3 more reviews |
+| Modify | `src/components/landing/FAQ.tsx` — add 3 more questions |
+| Modify | `src/components/landing/CTABanner.tsx` — add trust icons |
+| Modify | `src/components/landing/PricingSection.tsx` — add comparison table |
+| Modify | `src/pages/LandingPage.tsx` — wire new sections |
 
 ### Build Order
-1. Delete App.css + fix index.css overflow
-2. Fix all landing components for mobile responsiveness
-3. Update sales-focused copy across all sections
-4. Build DashboardPreview mockup component
-5. Wire into LandingPage
-6. Fix pricing gradient border
+1. Fix DashboardHome color classes + add new cards
+2. Build BeforeAfter comparison section
+3. Build Specialties grid
+4. Build DetailedFeatures tabbed section
+5. Enhance Testimonials, FAQ, CTA, Pricing
+6. Wire everything into LandingPage
 
