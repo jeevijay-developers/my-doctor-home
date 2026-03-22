@@ -1,86 +1,89 @@
 
 
-## Plan: Remove Duplicates, Unify Color Theme & Add Consistent Visuals
+## Plan: Header Fix + Full Mobile Responsive Polish + UI Enhancement
 
-### Duplicate Content Found
+### 1. Header (LandingNavbar) Updates
 
-| Section | Issue |
-|---------|-------|
-| **TrustBar** vs **SuccessMetrics** | Both are dark navy stat sections. TrustBar says "500,000+ Appointments" while SuccessMetrics says "50,000+ Appointments" — contradicting numbers. Both have similar layouts. |
-| **FeaturesGrid** vs **DetailedFeatures** | Both describe the same 4-8 features (Website, Appointments, Billing, AI). FeaturesGrid is card overview, DetailedFeatures is tabbed deep-dive — overlapping. |
-| **Guarantee** vs **CTABanner** | Both mention "7-day free trial, no credit card". Guarantee is a separate strip that adds little value before CTA. |
-| **"7-day free trial" messaging** | Repeated in Hero, TrustBar area, Pricing header, Guarantee, CTABanner — 5 times. Keep in Hero + Pricing + CTA only. |
+**Remove tagline text** beside logo (line 29 — the "The Complete Doctor Platform" `<span>`).
 
-### Fix: Consolidate & Streamline
+**Frosted glass sticky header with content fade-through:**
+- Change from `bg-white/98` to a proper frosted glass: `bg-white/70 backdrop-blur-xl` when scrolled, `bg-transparent` at top
+- This creates the effect where scrolled content blurs/fades behind the header
 
-1. **Merge TrustBar + SuccessMetrics** → Keep TrustBar (compact stats bar after hero) and **remove SuccessMetrics** as a standalone section. Instead, fold its key stat (₹2.4Cr revenue) into the BeforeAfter ROI callout.
+### 2. Mobile Responsive Fixes (all landing components)
 
-2. **Merge FeaturesGrid + DetailedFeatures** → Keep FeaturesGrid as the overview. Convert DetailedFeatures into a "How Each Feature Works" section with different content — real use-case scenarios instead of repeating the same feature names. Or **remove DetailedFeatures** entirely and let FeaturesGrid + DashboardPreview cover features.
+**LandingHero:**
+- Hero image currently `hidden lg:flex` — show it on mobile too but smaller (w-[180px]) below text
+- Floating stat cards: hide on mobile (too cramped), show from `sm:` up
+- Reduce mobile heading to `text-2xl`, tighten spacing
 
-3. **Remove Guarantee section** — fold its trust badges into CTABanner (already has trust badges).
+**FeaturesGrid:**
+- Change mobile grid from `grid-cols-1` to `grid-cols-2` with compact cards
+- Reduce image height on mobile, smaller padding
 
-4. **Fix contradicting numbers** — standardize to consistent stats across all sections.
+**BeforeAfter:**
+- ROI stat cards: `grid-cols-1` on mobile → `grid-cols-3` on `sm:`
+- Cards stack properly on mobile already ✓
 
-### Color Theme Unification
+**HowItWorks:**
+- Steps already stack on mobile ✓, reduce step image size on mobile
 
-Current issue: Two sections use `bg-primary` (dark navy) — TrustBar and CTABanner. SuccessMetrics also uses dark navy. Three dark sections feel heavy.
+**DashboardPreview:**
+- Hide sidebar completely on mobile (too narrow)
+- Reduce stats grid to `grid-cols-2` on mobile ✓
 
-**New section background pattern:**
-```text
-Hero        → gradient (white → cloud-blue)
-TrustBar    → bg-primary (navy) — only dark section in top half
-MediaLogos  → bg-white
-Features    → bg-white
-BeforeAfter → bg-secondary (light gray-blue)
-HowItWorks  → bg-white (was secondary — swap for alternation)
-Dashboard   → bg-secondary
-Specialties → bg-white
-Pricing     → bg-secondary
-Testimonials→ bg-white
-FAQ         → bg-secondary
-Contact     → bg-white
-CTABanner   → bg-primary (navy) — only dark section in bottom half
-Footer      → bg-primary (navy)
-```
+**Specialties:**
+- Change from `grid-cols-2` to `grid-cols-3` on small mobile for compactness, `grid-cols-5` on desktop
+- Reduce icon/padding sizes
 
-This gives a clean alternating white/secondary rhythm with exactly 2 dark sections (TrustBar + CTA).
+**PricingSection:**
+- Cards stack 1-col on mobile ✓
+- Comparison table: add horizontal scroll wrapper
 
-### Visuals: Add Unsplash Images Throughout
+**Testimonials:**
+- Change to `grid-cols-1` on mobile, `grid-cols-2` on `sm:`, `grid-cols-3` on `lg:`
+- Already has this ✓ — just tighten card padding
 
-Add compact, relevant medical Unsplash images (with `?w=400&h=300&fit=crop&q=80`) to sections that are currently text-only:
+**FAQ:**
+- Already full-width ✓
 
-| Section | Image Addition |
-|---------|---------------|
-| **HowItWorks** | Each step gets a small rounded image below the icon (doctor on laptop, clinic setup screen, happy doctor with patients) |
-| **BeforeAfter** | Small illustration-style image in each card header (messy desk vs clean dashboard) |
-| **Specialties** | Hero banner image above grid (diverse doctors group) |
-| **FAQ** | Replace HelpCircle with a warm doctor-patient image |
-| **ContactSection** | Add a small office/team image in the contact info card |
+**ContactSection:**
+- Stack form below contact info on mobile ✓
 
-All images use the same rounded corners (rounded-xl), consistent sizing, and brand-tinted overlays where needed.
+**LandingFooter:**
+- Grid: `grid-cols-2` on mobile with brand spanning full width, `grid-cols-5` on `md:`
+
+**MediaLogos:**
+- Reduce gap and logo pill sizes on mobile
+
+### 3. General UI Polish
+
+- Tighten section padding on mobile: `py-10` instead of `py-14`
+- Consistent `px-4` on all containers
+- Ensure no element causes horizontal overflow (check all absolute positioned decorative elements have `overflow-hidden` parent)
 
 ### File Changes
 
-| Action | File |
-|--------|------|
-| Delete section | Remove `SuccessMetrics.tsx` import from LandingPage |
-| Delete section | Remove `Guarantee.tsx` import from LandingPage |
-| Remove | `DetailedFeatures.tsx` import from LandingPage (consolidate into FeaturesGrid) |
-| Modify | `LandingPage.tsx` — remove 3 sections, fix background alternation |
-| Modify | `TrustBar.tsx` — fix numbers to be consistent |
-| Modify | `HowItWorks.tsx` — add Unsplash step images, change bg to white |
-| Modify | `BeforeAfter.tsx` — add small header images, merge ROI stat from SuccessMetrics |
-| Modify | `Specialties.tsx` — add hero banner image, change bg to white |
-| Modify | `FAQ.tsx` — add warm image replacing HelpCircle, change bg to secondary |
-| Modify | `ContactSection.tsx` — add small image, change bg to white |
-| Modify | `CTABanner.tsx` — fold Guarantee trust badges into this section |
-| Modify | `FeaturesGrid.tsx` — ensure feature card images render consistently |
-| Modify | `Testimonials.tsx` — change bg to white |
+| File | Changes |
+|------|---------|
+| `LandingNavbar.tsx` | Remove tagline span, frosted glass bg with blur effect |
+| `LandingHero.tsx` | Show hero image on mobile (smaller), hide floating cards on xs, tighter spacing |
+| `FeaturesGrid.tsx` | `grid-cols-2` on mobile, compact card sizing |
+| `Specialties.tsx` | `grid-cols-3` on mobile, smaller icons |
+| `Testimonials.tsx` | Tighter mobile padding |
+| `PricingSection.tsx` | Mobile table scroll fix |
+| `DashboardPreview.tsx` | Hide sidebar on mobile |
+| `MediaLogos.tsx` | Smaller pills on mobile |
+| `LandingFooter.tsx` | Better mobile grid |
+| `BeforeAfter.tsx` | Compact ROI cards on mobile |
+| `HowItWorks.tsx` | Smaller step images on mobile |
+| `ContactSection.tsx` | Tighter mobile spacing |
+| `TrustBar.tsx` | Smaller text on mobile |
 
 ### Build Order
-1. Remove duplicate sections from LandingPage (SuccessMetrics, Guarantee, DetailedFeatures)
-2. Unify background colors for clean alternation
-3. Fix contradicting stats across TrustBar/BeforeAfter
-4. Add Unsplash images to HowItWorks, BeforeAfter, Specialties, FAQ, Contact
-5. Fold Guarantee badges into CTABanner
+1. Fix header (remove tagline, frosted glass blur)
+2. Fix hero mobile layout
+3. Fix FeaturesGrid mobile 2-col
+4. Polish all remaining sections for mobile compactness
+5. Final overflow check
 
