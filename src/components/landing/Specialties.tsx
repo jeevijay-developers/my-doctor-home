@@ -45,7 +45,7 @@ const Specialties = () => (
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, margin: "-60px" }}
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 max-w-4xl mx-auto"
+        className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-4 max-w-4xl mx-auto"
       >
         {specialties.map((s) => (
           <motion.div
