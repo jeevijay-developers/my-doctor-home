@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
-import { useLocation } from "react-router-dom";
-import { Bell, Search } from "lucide-react";
+import { useLocation, Link } from "react-router-dom";
+import { Bell, Search, ChevronRight, Home } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 
 const pageTitles: Record<string, string> = {
@@ -29,9 +29,13 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               <div className="hidden md:block h-5 w-px bg-border" />
-              <h2 className="hidden md:block font-heading font-semibold text-foreground text-sm">
-                {pageTitle}
-              </h2>
+              <div className="hidden md:flex items-center gap-1.5 text-sm">
+                <Link to="/admin/dashboard" className="text-muted-foreground hover:text-foreground">
+                  <Home className="h-3.5 w-3.5" />
+                </Link>
+                <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+                <span className="font-semibold text-foreground">{pageTitle}</span>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <button className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
@@ -39,13 +43,14 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
               </button>
               <button className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors relative">
                 <Bell className="h-4 w-4" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
               </button>
               <div className="h-5 w-px bg-border" />
               <div className="flex items-center gap-2">
                 {profile?.profile_photo_url ? (
                   <img src={profile.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-[hsl(var(--royal)/.1)] flex items-center justify-center text-xs font-bold text-[hsl(var(--royal))]">
+                  <div className="w-8 h-8 rounded-full bg-royal/10 flex items-center justify-center text-xs font-bold text-royal">
                     {profile?.full_name?.charAt(0)?.toUpperCase() || "D"}
                   </div>
                 )}

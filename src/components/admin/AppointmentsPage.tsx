@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { CalendarCheck, Plus, Search, Filter } from "lucide-react";
+import { CalendarCheck, Plus, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { format, addDays, subDays, isSameDay, startOfWeek } from "date-fns";
 
 type Appointment = {
   id: string; patient_name: string; patient_phone: string; patient_age: number | null;
@@ -17,12 +19,12 @@ type Appointment = {
   amount: number; token_number: string | null; chief_complaint: string | null; notes: string | null;
 };
 
-const statusColors: Record<string, string> = {
-  pending: "bg-warning/10 text-warning",
-  confirmed: "bg-success/10 text-success",
-  completed: "bg-royal/10 text-royal",
-  cancelled: "bg-destructive/10 text-destructive",
-  no_show: "bg-muted text-muted-foreground",
+const statusConfig: Record<string, { bg: string; dot: string; label: string }> = {
+  pending: { bg: "bg-warning/10 text-warning border-l-warning", dot: "bg-warning", label: "Pending" },
+  confirmed: { bg: "bg-success/10 text-success border-l-success", dot: "bg-success", label: "Confirmed" },
+  completed: { bg: "bg-royal/10 text-royal border-l-royal", dot: "bg-royal", label: "Completed" },
+  cancelled: { bg: "bg-destructive/10 text-destructive border-l-destructive", dot: "bg-destructive", label: "Cancelled" },
+  no_show: { bg: "bg-muted text-muted-foreground border-l-muted-foreground", dot: "bg-muted-foreground", label: "No Show" },
 };
 
 const AppointmentsPage = () => {
@@ -31,6 +33,8 @@ const AppointmentsPage = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showNew, setShowNew] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [dateFilterActive, setDateFilterActive] = useState(false);
   const [newAppt, setNewAppt] = useState({
     patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic",
     date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0,
@@ -40,13 +44,13 @@ const AppointmentsPage = () => {
     if (!profile) return;
     let q = supabase.from("appointments").select("*").eq("doctor_id", profile.id).order("date", { ascending: false }).order("time_slot");
     if (statusFilter !== "all") q = q.eq("status", statusFilter as any);
+    if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
     const { data } = await q;
     setAppointments((data || []) as Appointment[]);
   };
 
-  useEffect(() => { load(); }, [profile, statusFilter]);
+  useEffect(() => { load(); }, [profile, statusFilter, selectedDate, dateFilterActive]);
 
-  // Realtime subscription
   useEffect(() => {
     if (!profile) return;
     const channel = supabase.channel("appointments-changes")
@@ -58,7 +62,7 @@ const AppointmentsPage = () => {
   const updateStatus = async (id: string, status: string) => {
     await supabase.from("appointments").update({ status: status as any }).eq("id", id);
     load();
-    toast({ title: `Appointment ${status}` });
+    toast.success(`Appointment ${status}`);
   };
 
   const addAppointment = async () => {
@@ -67,7 +71,6 @@ const AppointmentsPage = () => {
     await supabase.from("appointments").insert({
       doctor_id: profile.id, ...newAppt, token_number: token, status: "confirmed" as any, payment_status: "pending" as any,
     });
-    // Also add to patients
     const existing = await supabase.from("patients").select("id, total_visits").eq("doctor_id", profile.id).eq("phone", newAppt.patient_phone).single();
     if (existing.data) {
       await supabase.from("patients").update({ total_visits: (existing.data.total_visits || 0) + 1, last_visit: newAppt.date }).eq("id", existing.data.id);
@@ -77,7 +80,7 @@ const AppointmentsPage = () => {
     setShowNew(false);
     setNewAppt({ patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic", date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0 });
     load();
-    toast({ title: "Appointment added" });
+    toast.success("Appointment added");
   };
 
   const filtered = appointments.filter((a) =>
@@ -85,8 +88,23 @@ const AppointmentsPage = () => {
     a.service_name.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Calendar strip: 7 days centered on selected date
+  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+  const calendarDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // Status summary counts
+  const statusCounts = {
+    total: appointments.length,
+    pending: appointments.filter(a => a.status === "pending").length,
+    confirmed: appointments.filter(a => a.status === "confirmed").length,
+    completed: appointments.filter(a => a.status === "completed").length,
+  };
+
+  const timeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
           <CalendarCheck className="h-6 w-6 text-royal" /> Appointments
@@ -95,40 +113,105 @@ const AppointmentsPage = () => {
           <DialogTrigger asChild>
             <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> New Appointment</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>Add Appointment</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Patient Name *</Label><Input value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} /></div>
-              <div><Label>Phone *</Label><Input value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="+91" /></div>
-              <div><Label>Service *</Label><Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Date</Label><Input type="date" value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} /></div>
-                <div><Label>Time</Label><Input type="time" value={newAppt.time_slot} onChange={(e) => setNewAppt({ ...newAppt, time_slot: e.target.value })} /></div>
+                <div><Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label><Input value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" /></div>
+                <div><Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone *</Label><Input value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="+91" className="h-10" /></div>
+              </div>
+              <div><Label>Service *</Label><Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} className="h-10" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Date</Label><Input type="date" value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" /></div>
+                <div>
+                  <Label>Time Slot</Label>
+                  <Select value={newAppt.time_slot} onValueChange={(v) => setNewAppt({ ...newAppt, time_slot: v })}>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-[200px]">
+                      {timeSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Type</Label>
                   <Select value={newAppt.appointment_type} onValueChange={(v) => setNewAppt({ ...newAppt, appointment_type: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="clinic">Clinic</SelectItem><SelectItem value="online">Online</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div><Label>Amount (₹)</Label><Input type="number" value={newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: Number(e.target.value) })} /></div>
+                <div><Label>Amount (₹)</Label><Input type="number" value={newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: Number(e.target.value) })} className="h-10" /></div>
               </div>
-              <Button onClick={addAppointment} className="w-full bg-royal hover:bg-royal/90">Add Appointment</Button>
+              <Button onClick={addAppointment} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
             </div>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Calendar Strip */}
+      <Card className="border-border/60 shadow-none">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setSelectedDate(d => subDays(d, 7))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-1 grid grid-cols-7 gap-1">
+              {calendarDays.map((day) => {
+                const isToday = isSameDay(day, new Date());
+                const isSelected = dateFilterActive && isSameDay(day, selectedDate);
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => { setSelectedDate(day); setDateFilterActive(true); }}
+                    className={`flex flex-col items-center py-2 px-1 rounded-xl text-center transition-all ${
+                      isSelected ? "bg-royal text-white" :
+                      isToday ? "bg-royal/10 text-royal" :
+                      "hover:bg-secondary text-foreground"
+                    }`}
+                  >
+                    <span className="text-[10px] font-medium opacity-70">{format(day, "EEE")}</span>
+                    <span className="text-sm font-bold">{format(day, "d")}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setSelectedDate(d => addDays(d, 7))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          {dateFilterActive && (
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/60">
+              <span className="text-xs text-muted-foreground">Showing: {format(selectedDate, "MMMM d, yyyy")}</span>
+              <Button variant="ghost" size="sm" className="text-xs h-6 text-royal" onClick={() => setDateFilterActive(false)}>Show All</Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Status Summary */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: "Total", count: statusCounts.total, color: "text-foreground", bg: "bg-secondary" },
+          { label: "Pending", count: statusCounts.pending, color: "text-warning", bg: "bg-warning/10" },
+          { label: "Confirmed", count: statusCounts.confirmed, color: "text-success", bg: "bg-success/10" },
+          { label: "Completed", count: statusCounts.completed, color: "text-royal", bg: "bg-royal/10" },
+        ].map(s => (
+          <div key={s.label} className={`${s.bg} rounded-xl p-3 text-center`}>
+            <div className={`font-heading font-bold text-xl ${s.color}`}>{s.count}</div>
+            <div className="text-[11px] text-muted-foreground">{s.label}</div>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search patient or service..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input className="pl-9 h-10" placeholder="Search patient or service..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-44"><Filter className="h-4 w-4 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-44 h-10"><Filter className="h-4 w-4 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
@@ -140,56 +223,63 @@ const AppointmentsPage = () => {
         </Select>
       </div>
 
-      {/* Table */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-secondary">
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Patient</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Service</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date & Time</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Amount</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">No appointments yet.</td></tr>
-              ) : filtered.map((a) => (
-                <tr key={a.id} className="border-b border-border hover:bg-secondary/50">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-primary">{a.patient_name}</div>
-                    <div className="text-xs text-muted-foreground">{a.patient_phone}</div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{a.service_name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{a.date} • {a.time_slot?.slice(0, 5)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${a.appointment_type === "clinic" ? "bg-royal/10 text-royal" : "bg-accent/10 text-accent"}`}>{a.appointment_type}</span>
-                  </td>
-                  <td className="px-4 py-3 font-medium">₹{a.amount}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${statusColors[a.status] || ""}`}>{a.status}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1">
-                      {a.status === "pending" && <Button size="sm" variant="ghost" className="text-success text-xs h-7" onClick={() => updateStatus(a.id, "confirmed")}>Confirm</Button>}
-                      {(a.status === "confirmed" || a.status === "pending") && (
-                        <>
-                          <Button size="sm" variant="ghost" className="text-royal text-xs h-7" onClick={() => updateStatus(a.id, "completed")}>Complete</Button>
-                          <Button size="sm" variant="ghost" className="text-destructive text-xs h-7" onClick={() => updateStatus(a.id, "cancelled")}>Cancel</Button>
-                        </>
-                      )}
+      {/* Appointment Cards */}
+      {filtered.length === 0 ? (
+        <Card className="border-border/60 shadow-none">
+          <CardContent className="py-16 text-center">
+            <CalendarCheck className="h-12 w-12 text-royal/20 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">No appointments found</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Try adjusting your filters or add a new appointment</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((a) => {
+            const sc = statusConfig[a.status] || statusConfig.pending;
+            return (
+              <Card key={a.id} className={`border-border/60 shadow-none border-l-4 ${sc.bg.split(" ")[0].replace("bg-", "border-l-")} hover:shadow-md transition-shadow`}>
+                <CardContent className="p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
+                        {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
+                      </div>
+                      <div>
+                        <div className="font-medium text-foreground">{a.patient_name}</div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                          <span>{a.service_name}</span>
+                          <span>·</span>
+                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{a.time_slot?.slice(0, 5)}</span>
+                          <span>·</span>
+                          <span>{a.date}</span>
+                        </div>
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className={`text-[10px] capitalize ${a.appointment_type === "clinic" ? "bg-royal/10 text-royal border-royal/20" : "bg-teal/10 text-teal border-teal/20"}`}>
+                        {a.appointment_type}
+                      </Badge>
+                      <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{a.status}</Badge>
+                      <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
+                      <div className="flex gap-1 ml-2">
+                        {a.status === "pending" && (
+                          <Button size="sm" className="text-xs h-7 bg-success/10 text-success hover:bg-success/20 border-0" onClick={() => updateStatus(a.id, "confirmed")}>Confirm</Button>
+                        )}
+                        {(a.status === "confirmed" || a.status === "pending") && (
+                          <>
+                            <Button size="sm" className="text-xs h-7 bg-royal/10 text-royal hover:bg-royal/20 border-0" onClick={() => updateStatus(a.id, "completed")}>Complete</Button>
+                            <Button size="sm" className="text-xs h-7 bg-destructive/10 text-destructive hover:bg-destructive/20 border-0" onClick={() => updateStatus(a.id, "cancelled")}>Cancel</Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
-      </div>
+      )}
     </div>
   );
 };
