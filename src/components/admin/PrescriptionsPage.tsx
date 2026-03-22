@@ -97,37 +97,35 @@ const PrescriptionsPage = () => {
             <DialogHeader><DialogTitle>Add Prescription</DialogTitle></DialogHeader>
             <div className="space-y-4">
               {patients.length > 0 && (
-                <div>
+                <div className="space-y-1.5">
                   <Label>Select Existing Patient</Label>
-                  <select
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    value={form.patient_id}
-                    onChange={(e) => selectPatient(e.target.value)}
-                  >
-                    <option value="">-- Or type name below --</option>
-                    {patients.map(p => <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>)}
-                  </select>
+                  <Select value={form.patient_id} onValueChange={(v) => selectPatient(v)}>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="-- Or type name below --" /></SelectTrigger>
+                    <SelectContent className="max-h-[200px]">
+                      {patients.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.phone})</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label>
                   <Input value={form.patient_name} onChange={(e) => setForm({ ...form, patient_name: e.target.value })} className="h-10" />
                 </div>
-                <div>
+                <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Date</Label>
                   <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="h-10" />
                 </div>
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
                 <Input value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} placeholder="e.g. Acute bronchitis" className="h-10" />
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medications</Label>
                 <Textarea value={form.medications} onChange={(e) => setForm({ ...form, medications: e.target.value })} placeholder="List medications, dosage, frequency..." rows={3} />
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes..." rows={2} />
               </div>
