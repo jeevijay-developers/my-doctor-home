@@ -1,4 +1,4 @@
-import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText } from "lucide-react";
+import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
