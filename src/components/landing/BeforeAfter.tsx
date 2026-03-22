@@ -39,7 +39,7 @@ const BeforeAfter = () => (
         initial={{ opacity: 0, scale: 0.95 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }}
-        className="max-w-2xl mx-auto mb-8 md:mb-10 grid grid-cols-1 sm:grid-cols-3 gap-3"
+        className="max-w-2xl mx-auto mb-8 md:mb-10 grid grid-cols-3 gap-2 md:gap-3"
       >
         <div className="bg-white rounded-xl p-4 flex items-center gap-3 border border-border shadow-sm">
           <div className="w-10 h-10 rounded-lg bg-royal/10 flex items-center justify-center shrink-0">
