@@ -1,0 +1,85 @@
+import { X, Check, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+
+const withoutItems = [
+  "Missed calls = lost patients",
+  "Paper records pile up & get lost",
+  "No online presence on Google",
+  "Manual billing with GST headaches",
+  "Patients forget appointments",
+  "No way to collect reviews",
+];
+
+const withItems = [
+  "24/7 online booking — never miss a patient",
+  "Digital patient records, searchable & secure",
+  "Branded website ranking on Google",
+  "Auto-generated GST invoices & payment tracking",
+  "WhatsApp reminders reduce no-shows by 70%",
+  "Collect & showcase 5-star reviews automatically",
+];
+
+const BeforeAfter = () => (
+  <section className="py-14 md:py-20 bg-white">
+    <div className="container mx-auto px-4">
+      <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
+        <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">The Difference</span>
+        <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
+          See the Transformation
+        </h2>
+        <p className="text-sm md:text-base text-muted-foreground mt-3">
+          Thousands of doctors have switched from chaos to clarity. Here's what changes.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-5 md:gap-6 max-w-4xl mx-auto">
+        {/* Without */}
+        <div className="rounded-2xl border-2 border-destructive/20 bg-destructive/[0.02] p-6 md:p-8">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center">
+              <X className="h-4 w-4 text-destructive" />
+            </div>
+            <h3 className="font-heading font-bold text-lg text-destructive">Without Doctylia</h3>
+          </div>
+          <ul className="space-y-3.5">
+            {withoutItems.map((item) => (
+              <li key={item} className="flex items-start gap-3 text-sm text-muted-foreground">
+                <X className="h-4 w-4 text-destructive/60 mt-0.5 shrink-0" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* With */}
+        <div className="rounded-2xl border-2 border-success/20 bg-success/[0.02] p-6 md:p-8">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
+              <Check className="h-4 w-4 text-success" />
+            </div>
+            <h3 className="font-heading font-bold text-lg text-success">With Doctylia</h3>
+          </div>
+          <ul className="space-y-3.5">
+            {withItems.map((item) => (
+              <li key={item} className="flex items-start gap-3 text-sm text-foreground font-medium">
+                <Check className="h-4 w-4 text-success mt-0.5 shrink-0" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="text-center mt-8">
+        <Link to="/auth?mode=signup">
+          <Button className="bg-royal hover:bg-royal/90 text-white gap-2 shadow-md shadow-royal/20">
+            Make the Switch Today <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
+      </div>
+    </div>
+  </section>
+);
+
+export default BeforeAfter;
