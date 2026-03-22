@@ -46,10 +46,19 @@ const FeaturesGrid = () => (
           <motion.div
             key={f.title}
             variants={item}
-            className="group rounded-xl bg-white border border-border hover:border-royal/30 hover:shadow-lg transition-all duration-300 overflow-hidden"
+            whileHover={{ y: -6, rotateY: 2, rotateX: -2 }}
+            style={{ perspective: 800 }}
+            className="group rounded-xl bg-white border border-border hover:border-royal/30 hover:shadow-xl transition-all duration-300 overflow-hidden"
           >
             <div className={`h-32 md:h-36 overflow-hidden flex items-center justify-center ${f.bg}`}>
-              <img src={f.img} alt={f.title} className="h-24 md:h-28 w-auto max-w-full object-contain group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+              <motion.img
+                src={f.img}
+                alt={f.title}
+                className="h-24 md:h-28 w-auto max-w-full object-contain"
+                whileHover={{ scale: 1.1 }}
+                transition={{ duration: 0.4 }}
+                loading="lazy"
+              />
             </div>
             <div className="p-4 md:p-5">
               <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg ${f.color} flex items-center justify-center mb-3`}>

@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { Star, Quote } from "lucide-react";
 import testimonial1 from "@/assets/testimonial-doctor-1.png";
 import testimonial2 from "@/assets/testimonial-doctor-2.png";
@@ -12,6 +13,9 @@ const reviews = [
   { name: "Dr. Arjun Nair", spec: "Orthopedic Surgeon", city: "Kochi", text: "Finally, a platform that understands Indian doctors! The WhatsApp integration, UPI payments, and Hindi blog support — everything is tailored for our market.", rating: 5, img: testimonial1 },
 ];
 
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
+const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
+
 const Testimonials = () => (
   <section className="py-14 md:py-20 bg-secondary">
     <div className="container mx-auto px-4">
@@ -20,7 +24,12 @@ const Testimonials = () => (
         <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
           Loved by 10,000+ Doctors Across India
         </h2>
-        <div className="flex items-center justify-center gap-2 mt-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="flex items-center justify-center gap-2 mt-4"
+        >
           <div className="flex gap-0.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star key={i} className="h-5 w-5 fill-warning text-warning" />
@@ -28,11 +37,22 @@ const Testimonials = () => (
           </div>
           <span className="text-sm font-semibold text-primary">4.9/5</span>
           <span className="text-xs text-muted-foreground">average rating · 200+ cities</span>
-        </div>
+        </motion.div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 max-w-6xl mx-auto">
+      <motion.div
+        variants={container}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: "-60px" }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 max-w-6xl mx-auto"
+      >
         {reviews.map((r) => (
-          <div key={r.name} className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-border hover:shadow-md transition-shadow relative">
+          <motion.div
+            key={r.name}
+            variants={item}
+            whileHover={{ y: -4 }}
+            className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-border hover:shadow-lg transition-all duration-300 relative"
+          >
             <Quote className="absolute top-4 right-4 h-7 w-7 md:h-8 md:w-8 text-royal/10" />
             <div className="flex gap-0.5 mb-3 md:mb-4">
               {Array.from({ length: r.rating }).map((_, i) => (
@@ -47,9 +67,9 @@ const Testimonials = () => (
                 <div className="text-[10px] md:text-xs text-muted-foreground">{r.spec} · {r.city}</div>
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   </section>
 );
