@@ -135,6 +135,27 @@ export type Database = {
           },
         ]
       }
+      doctor_notes: {
+        Row: {
+          content: string
+          created_at: string
+          doctor_id: string
+          id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          doctor_id: string
+          id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          doctor_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       enquiries: {
         Row: {
           city: string | null
