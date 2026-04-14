@@ -160,7 +160,7 @@ const Auth = () => {
             <ArrowLeft className="h-4 w-4" /> Back to Doctylia
           </Link>
 
-          <div className="bg-card rounded-2xl shadow-xl border border-border p-7">
+          <div className="bg-card rounded-2xl shadow-xl border border-border p-5 sm:p-7">
             <div className="text-center mb-6">
               <h1 className="font-heading font-bold text-2xl text-primary">
                 {mode === "signup" ? "Start Your Free Trial" : mode === "forgot" ? "Reset Password" : "Welcome Back"}

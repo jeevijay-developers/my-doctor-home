@@ -156,7 +156,7 @@ const Onboarding = () => {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
             >
-              <div className="bg-card rounded-2xl shadow-xl border border-border p-7">
+              <div className="bg-card rounded-2xl shadow-xl border border-border p-5 sm:p-7">
                 {/* Step 1 */}
                 {step === 1 && (
                   <div className="space-y-5">
@@ -184,7 +184,7 @@ const Onboarding = () => {
                       <Label className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> Qualifications</Label>
                       <Input value={form.qualifications} onChange={(e) => update("qualifications", e.target.value)} placeholder="MBBS, MD (Cardiology)" className="h-11" />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label>Years of Experience</Label>
                         <Input type="number" value={form.experience_years} onChange={(e) => update("experience_years", e.target.value)} placeholder="15" className="h-11" />
@@ -218,7 +218,7 @@ const Onboarding = () => {
                       <Label className="flex items-center gap-1.5"><Building className="h-3.5 w-3.5" /> Clinic / Hospital Name</Label>
                       <Input value={form.clinic_name} onChange={(e) => update("clinic_name", e.target.value)} placeholder="Sharma Heart Care" className="h-11" />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> City</Label>
                         <Input value={form.city} onChange={(e) => update("city", e.target.value)} placeholder="Mumbai" className="h-11" />

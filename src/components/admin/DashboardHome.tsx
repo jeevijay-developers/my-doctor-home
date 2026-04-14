@@ -180,7 +180,7 @@ const DashboardHome = () => {
                 </div>
                 <TrendingUp className="h-4 w-4 text-muted-foreground/40" />
               </div>
-              <div className="font-heading font-bold text-2xl text-foreground">{s.value}</div>
+              <div className="font-heading font-bold text-xl sm:text-2xl text-foreground">{s.value}</div>
               <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
               <div className="text-[11px] text-muted-foreground/60 mt-1">{s.sub}</div>
             </CardContent>
@@ -190,7 +190,7 @@ const DashboardHome = () => {
 
       {/* Growth Tip Banner */}
       <Card className="border-spark/30 bg-spark/5 shadow-none">
-        <CardContent className="p-4 flex items-center gap-4">
+        <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-spark/20 flex items-center justify-center flex-shrink-0">
             <Lightbulb className="h-5 w-5 text-spark" />
           </div>
@@ -256,7 +256,7 @@ const DashboardHome = () => {
                           <div className="text-xs text-muted-foreground">{a.service_name} · {a.appointment_type}</div>
                         </div>
                       </div>
-                      <div className="text-right flex items-center gap-2 flex-shrink-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-shrink-0">
                         <span className="text-sm font-semibold text-foreground">{a.time_slot?.slice(0, 5)}</span>
                         <Badge variant="outline" className={`text-[10px] capitalize ${statusColor(a.status)}`}>{a.status}</Badge>
                       </div>

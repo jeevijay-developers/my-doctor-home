@@ -81,7 +81,7 @@ const SettingsPage = () => {
       </h1>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="bg-card border border-border h-11">
+        <TabsList className="bg-card border border-border h-11 w-full overflow-x-auto flex-nowrap justify-start sm:justify-center">
           <TabsTrigger value="profile" className="gap-1.5"><User className="h-3.5 w-3.5" /> Profile</TabsTrigger>
           <TabsTrigger value="clinic" className="gap-1.5"><MapPin className="h-3.5 w-3.5" /> Clinic</TabsTrigger>
           <TabsTrigger value="subscription" className="gap-1.5"><Crown className="h-3.5 w-3.5" /> Subscription</TabsTrigger>
