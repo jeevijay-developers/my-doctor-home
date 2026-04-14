@@ -25,7 +25,7 @@ const ReviewsManagePage = () => {
   useEffect(() => { load(); }, [profile]);
 
   const toggle = async (id: string, field: "is_visible" | "is_pinned", current: boolean) => {
-    await supabase.from("reviews").update({ [field]: !current }).eq("id", id);
+    await supabase.from("reviews").update({ [field]: !current } as any).eq("id", id);
     load();
     toast.success(field === "is_visible" ? (!current ? "Review shown" : "Review hidden") : (!current ? "Review pinned" : "Review unpinned"));
   };

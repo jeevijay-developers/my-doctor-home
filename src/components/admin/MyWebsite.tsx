@@ -68,8 +68,8 @@ const MyWebsite = () => {
     if (!profile) return;
     setSaving(true);
 
-    const { id, doctor_id, created_at, updated_at, ...settingsData } = settings;
-    await supabase.from("website_settings").update(settingsData).eq("doctor_id", profile.id);
+    const { id: _id, doctor_id: _did, created_at: _ca, updated_at: _ua, ...settingsData } = settings;
+    await supabase.from("website_settings").update(settingsData as any).eq("doctor_id", profile.id);
 
     for (const s of services) {
       if (s.id) {
