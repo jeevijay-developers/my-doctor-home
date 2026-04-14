@@ -68,8 +68,8 @@ const MyWebsite = () => {
     if (!profile) return;
     setSaving(true);
 
-    const { id, doctor_id, created_at, updated_at, ...settingsData } = settings;
-    await supabase.from("website_settings").update(settingsData).eq("doctor_id", profile.id);
+    const { id: _id, doctor_id: _did, created_at: _ca, updated_at: _ua, ...settingsData } = settings;
+    await supabase.from("website_settings").update(settingsData as any).eq("doctor_id", profile.id);
 
     for (const s of services) {
       if (s.id) {
@@ -336,11 +336,11 @@ const MyWebsite = () => {
                       </div>
                       {wh.is_open && (
                         <div className="space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div><Label className="text-xs">Morning Start</Label><Input type="time" value={wh.start_time || ""} onChange={(e) => updateWorkingHour(idx, "start_time", e.target.value)} /></div>
                             <div><Label className="text-xs">Morning End</Label><Input type="time" value={wh.end_time || ""} onChange={(e) => updateWorkingHour(idx, "end_time", e.target.value)} /></div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div><Label className="text-xs">Evening Start</Label><Input type="time" value={wh.start_time_2 || ""} onChange={(e) => updateWorkingHour(idx, "start_time_2", e.target.value || null)} /></div>
                             <div><Label className="text-xs">Evening End</Label><Input type="time" value={wh.end_time_2 || ""} onChange={(e) => updateWorkingHour(idx, "end_time_2", e.target.value || null)} /></div>
                           </div>
@@ -361,7 +361,7 @@ const MyWebsite = () => {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>Fee ₹</Label><Input type="number" value={settings.online_fee || 500} onChange={(e) => updateSetting("online_fee", Number(e.target.value))} /></div>
                   <div>
                     <Label>Duration</Label>
@@ -383,7 +383,7 @@ const MyWebsite = () => {
             <AccordionItem value="booking" className="border rounded-xl px-4">
               <AccordionTrigger className="text-sm font-semibold text-primary">Booking Settings</AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>Advance Booking (days)</Label>
                     <Select value={String(settings.booking_advance_days || 7)} onValueChange={(v) => updateSetting("booking_advance_days", Number(v))}>
@@ -500,7 +500,7 @@ const MyWebsite = () => {
                 <div><Label>SEO Description</Label><Textarea value={settings.seo_description || ""} onChange={(e) => updateSetting("seo_description", e.target.value)} rows={2} placeholder="Your page description for Google..." /></div>
                 <div><Label>WhatsApp Number</Label><Input value={settings.whatsapp_number || ""} onChange={(e) => updateSetting("whatsapp_number", e.target.value)} placeholder="+919XXXXXXXX" /></div>
                 <div><Label>WhatsApp Pre-fill Message</Label><Input value={settings.whatsapp_message || ""} onChange={(e) => updateSetting("whatsapp_message", e.target.value)} /></div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>Facebook</Label><Input value={settings.social_facebook || ""} onChange={(e) => updateSetting("social_facebook", e.target.value)} placeholder="URL" /></div>
                   <div><Label>Instagram</Label><Input value={settings.social_instagram || ""} onChange={(e) => updateSetting("social_instagram", e.target.value)} placeholder="URL" /></div>
                   <div><Label>YouTube</Label><Input value={settings.social_youtube || ""} onChange={(e) => updateSetting("social_youtube", e.target.value)} placeholder="URL" /></div>

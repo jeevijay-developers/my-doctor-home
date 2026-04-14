@@ -116,7 +116,7 @@ const AppointmentsPage = () => {
           <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>Add Appointment</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label>
                   <Input value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" />
@@ -130,7 +130,7 @@ const AppointmentsPage = () => {
                 <Label>Service *</Label>
                 <Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} className="h-10" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Date</Label>
                   <Input type="date" value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" />
@@ -145,7 +145,7 @@ const AppointmentsPage = () => {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Type</Label>
                   <Select value={newAppt.appointment_type} onValueChange={(v) => setNewAppt({ ...newAppt, appointment_type: v })}>
@@ -168,10 +168,10 @@ const AppointmentsPage = () => {
       <Card className="border-border/60 shadow-none">
         <CardContent className="p-3">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setSelectedDate(d => subDays(d, 7))}>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0" onClick={() => setSelectedDate(d => subDays(d, 7))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="flex-1 grid grid-cols-7 gap-1">
+            <div className="flex-1 grid grid-cols-7 gap-1 overflow-x-auto">
               {calendarDays.map((day) => {
                 const isToday = isSameDay(day, new Date());
                 const isSelected = dateFilterActive && isSameDay(day, selectedDate);
@@ -205,7 +205,7 @@ const AppointmentsPage = () => {
       </Card>
 
       {/* Status Summary */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Total", count: statusCounts.total, color: "text-foreground", bg: "bg-secondary" },
           { label: "Pending", count: statusCounts.pending, color: "text-warning", bg: "bg-warning/10" },
@@ -270,23 +270,23 @@ const AppointmentsPage = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline" className={`text-[10px] capitalize ${a.appointment_type === "clinic" ? "bg-royal/10 text-royal border-royal/20" : "bg-teal/10 text-teal border-teal/20"}`}>
                         {a.appointment_type}
                       </Badge>
                       <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{a.status}</Badge>
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
-                      <div className="flex gap-1 ml-2">
-                        {a.status === "pending" && (
-                          <Button size="sm" className="text-xs h-7 bg-success/10 text-success hover:bg-success/20 border-0" onClick={() => updateStatus(a.id, "confirmed")}>Confirm</Button>
-                        )}
-                        {(a.status === "confirmed" || a.status === "pending") && (
-                          <>
-                            <Button size="sm" className="text-xs h-7 bg-royal/10 text-royal hover:bg-royal/20 border-0" onClick={() => updateStatus(a.id, "completed")}>Complete</Button>
-                            <Button size="sm" className="text-xs h-7 bg-destructive/10 text-destructive hover:bg-destructive/20 border-0" onClick={() => updateStatus(a.id, "cancelled")}>Cancel</Button>
-                          </>
-                        )}
-                      </div>
+                    </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {a.status === "pending" && (
+                        <Button size="sm" className="text-xs h-7 bg-success/10 text-success hover:bg-success/20 border-0" onClick={() => updateStatus(a.id, "confirmed")}>Confirm</Button>
+                      )}
+                      {(a.status === "confirmed" || a.status === "pending") && (
+                        <>
+                          <Button size="sm" className="text-xs h-7 bg-royal/10 text-royal hover:bg-royal/20 border-0" onClick={() => updateStatus(a.id, "completed")}>Complete</Button>
+                          <Button size="sm" className="text-xs h-7 bg-destructive/10 text-destructive hover:bg-destructive/20 border-0" onClick={() => updateStatus(a.id, "cancelled")}>Cancel</Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
