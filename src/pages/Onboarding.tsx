@@ -181,16 +181,16 @@ const Onboarding = () => {
                       </Select>
                     </div>
                     <div>
-                      <Label className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> Qualifications</Label>
+                      <Label className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> Qualifications <span className="text-destructive">*</span></Label>
                       <Input value={form.qualifications} onChange={(e) => update("qualifications", e.target.value)} placeholder="MBBS, MD (Cardiology)" className="h-11" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <Label>Years of Experience</Label>
+                        <Label>Years of Experience <span className="text-destructive">*</span></Label>
                         <Input type="number" value={form.experience_years} onChange={(e) => update("experience_years", e.target.value)} placeholder="15" className="h-11" />
                       </div>
                       <div>
-                        <Label>Consultation Fee (₹)</Label>
+                        <Label>Consultation Fee (₹) <span className="text-destructive">*</span></Label>
                         <Input type="number" value={form.consultation_fee} onChange={(e) => update("consultation_fee", e.target.value)} placeholder="500" className="h-11" />
                       </div>
                     </div>
@@ -198,7 +198,7 @@ const Onboarding = () => {
                       <Label>About / Bio (optional)</Label>
                       <Textarea value={form.bio} onChange={(e) => update("bio", e.target.value)} placeholder="Tell patients about your practice..." rows={3} />
                     </div>
-                    <Button className="w-full h-11 bg-royal hover:bg-royal/90 text-white gap-2 font-semibold" onClick={() => setStep(2)}>
+                    <Button className="w-full h-11 bg-royal hover:bg-royal/90 text-white gap-2 font-semibold" onClick={validateStep1}>
                       Next <ArrowRight className="h-4 w-4" />
                     </Button>
                   </div>
