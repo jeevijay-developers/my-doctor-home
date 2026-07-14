@@ -411,6 +411,15 @@ const MyWebsite = () => {
                   </div>
                   <div><Label>Max per Slot</Label><Input type="number" value={settings.max_per_slot || 1} onChange={(e) => updateSetting("max_per_slot", Number(e.target.value))} /></div>
                 </div>
+                <div>
+                  <Label>Patient Cancel/Reschedule Cutoff (hours)</Label>
+                  <Input type="number" min={0} value={(settings as any).cancellation_cutoff_hours ?? 2}
+                    onChange={(e) => updateSetting("cancellation_cutoff_hours" as any, Number(e.target.value))} />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Patients can't cancel or reschedule within this many hours before their appointment.
+                  </p>
+                </div>
+                <div className="hidden">{/* keeps grid closure below intact */}</div>
                 <div className="flex items-center justify-between">
                   <Label>Require Online Payment</Label>
                   <Switch checked={settings.require_payment ?? false} onCheckedChange={(v) => updateSetting("require_payment", v)} />
