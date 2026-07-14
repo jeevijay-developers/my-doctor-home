@@ -11,6 +11,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import DoctorPublicPage from "./pages/DoctorPublicPage";
 import BlogListPage from "./pages/BlogListPage";
 import BlogPostPage from "./pages/BlogPostPage";
+import ManageAppointment from "./pages/ManageAppointment";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 
