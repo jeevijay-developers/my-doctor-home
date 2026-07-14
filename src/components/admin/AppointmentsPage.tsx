@@ -17,6 +17,7 @@ type Appointment = {
   patient_gender: string | null; service_name: string; appointment_type: string;
   date: string; time_slot: string; status: string; payment_status: string;
   amount: number; token_number: string | null; chief_complaint: string | null; notes: string | null;
+  reschedule_count?: number | null;
 };
 
 const statusConfig: Record<string, { bg: string; dot: string; label: string }> = {
