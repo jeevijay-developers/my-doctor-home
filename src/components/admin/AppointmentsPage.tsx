@@ -65,6 +65,14 @@ const AppointmentsPage = () => {
     toast.success(`Appointment ${status}`);
   };
 
+  const generateZoomMeeting = async (_appointmentId: string) => {
+    // Stub — Zoom SDK not yet configured. Real integration will replace this
+    // with a call to the create-zoom-meeting edge function.
+    toast.info("Zoom integration coming soon", {
+      description: "Meeting links will generate automatically once connected.",
+    });
+  };
+
   const addAppointment = async () => {
     if (!profile || !newAppt.patient_name || !newAppt.service_name) return;
     const token = `T${Math.floor(Math.random() * 999) + 1}`;
