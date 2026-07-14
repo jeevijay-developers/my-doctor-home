@@ -42,6 +42,23 @@ const Onboarding = () => {
 
   const update = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
 
+  const validateStep1 = () => {
+    if (!form.full_name.trim()) return toast.error("Please enter your full name");
+    if (!form.specialization) return toast.error("Please select your specialization");
+    if (!form.qualifications.trim()) return toast.error("Please enter your qualifications");
+    if (!form.experience_years || parseInt(form.experience_years) < 0) return toast.error("Please enter years of experience");
+    if (!form.consultation_fee || parseInt(form.consultation_fee) < 0) return toast.error("Please enter your consultation fee");
+    setStep(2);
+  };
+
+  const validateStep2 = () => {
+    if (!form.clinic_name.trim()) return toast.error("Please enter your clinic/hospital name");
+    if (!form.city.trim()) return toast.error("Please enter your city");
+    if (!form.phone.trim()) return toast.error("Please enter your phone number");
+    if (!form.address.trim()) return toast.error("Please enter your full address");
+    setStep(3);
+  };
+
   const generateSlug = (name: string) =>
     name.toLowerCase().replace(/^dr\.?\s*/i, "dr-").replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "");
 
