@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Users, Plus, Search, Phone, Mail, Calendar, Activity } from "lucide-react";
+import { Users, Plus, Search, Phone, Mail, Calendar, Activity, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -56,6 +56,36 @@ const PatientsPage = () => {
     }
   };
 
+  const exportPatients = () => {
+    if (!patients.length) {
+      toast.info("No patients to export");
+      return;
+    }
+    const headers = ["Name", "Phone", "Email", "Age", "Gender", "First Visit", "Last Visit", "Total Visits", "Notes"];
+    const rows = patients.map((p) => [
+      `"${p.name.replace(/"/g, '""')}"`,
+      p.phone,
+      p.email ? `"${p.email.replace(/"/g, '""')}"` : "",
+      p.age ?? "",
+      p.gender ?? "",
+      p.first_visit ?? "",
+      p.last_visit ?? "",
+      p.total_visits,
+      p.notes ? `"${p.notes.replace(/"/g, '""')}"` : "",
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `patients-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${patients.length} patients to CSV`);
+  };
+
   const filtered = patients.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)
   );
@@ -69,10 +99,12 @@ const PatientsPage = () => {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{patients.length} total patients</p>
         </div>
-        <Dialog open={showNew} onOpenChange={setShowNew}>
-          <DialogTrigger asChild>
-            <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> Add Patient</Button>
-          </DialogTrigger>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportPatients} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
+          <Dialog open={showNew} onOpenChange={setShowNew}>
+            <DialogTrigger asChild>
+              <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> Add Patient</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Add Patient</DialogTitle></DialogHeader>
             <div className="space-y-4">
@@ -109,6 +141,7 @@ const PatientsPage = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="relative max-w-md">
