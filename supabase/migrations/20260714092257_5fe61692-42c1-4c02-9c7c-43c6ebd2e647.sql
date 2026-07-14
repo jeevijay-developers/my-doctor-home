@@ -1,0 +1,1 @@
+ALTER TABLE public.website_settings ADD COLUMN IF NOT EXISTS blog_auto_enabled boolean NOT NULL DEFAULT false;

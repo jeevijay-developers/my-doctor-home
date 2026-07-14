@@ -654,6 +654,7 @@ export type Database = {
       website_settings: {
         Row: {
           auto_confirm: boolean
+          blog_auto_enabled: boolean
           booking_advance_days: number
           buffer_minutes: number
           created_at: string
@@ -690,6 +691,7 @@ export type Database = {
         }
         Insert: {
           auto_confirm?: boolean
+          blog_auto_enabled?: boolean
           booking_advance_days?: number
           buffer_minutes?: number
           created_at?: string
@@ -726,6 +728,7 @@ export type Database = {
         }
         Update: {
           auto_confirm?: boolean
+          blog_auto_enabled?: boolean
           booking_advance_days?: number
           buffer_minutes?: number
           created_at?: string
