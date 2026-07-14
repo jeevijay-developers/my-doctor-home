@@ -215,21 +215,21 @@ const Onboarding = () => {
                       <p className="text-sm text-muted-foreground">Where do you practice?</p>
                     </div>
                     <div>
-                      <Label className="flex items-center gap-1.5"><Building className="h-3.5 w-3.5" /> Clinic / Hospital Name</Label>
+                      <Label className="flex items-center gap-1.5"><Building className="h-3.5 w-3.5" /> Clinic / Hospital Name <span className="text-destructive">*</span></Label>
                       <Input value={form.clinic_name} onChange={(e) => update("clinic_name", e.target.value)} placeholder="Sharma Heart Care" className="h-11" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> City</Label>
+                        <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> City <span className="text-destructive">*</span></Label>
                         <Input value={form.city} onChange={(e) => update("city", e.target.value)} placeholder="Mumbai" className="h-11" />
                       </div>
                       <div>
-                        <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone Number</Label>
+                        <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone Number <span className="text-destructive">*</span></Label>
                         <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+91 98765 43210" className="h-11" />
                       </div>
                     </div>
                     <div>
-                      <Label>Full Address</Label>
+                      <Label>Full Address <span className="text-destructive">*</span></Label>
                       <Textarea value={form.address} onChange={(e) => update("address", e.target.value)} placeholder="Building, Street, Area, City" rows={2} />
                     </div>
                     <div className="flex gap-3">
