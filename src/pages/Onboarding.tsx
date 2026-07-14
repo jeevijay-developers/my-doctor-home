@@ -42,6 +42,23 @@ const Onboarding = () => {
 
   const update = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
 
+  const validateStep1 = () => {
+    if (!form.full_name.trim()) return toast.error("Please enter your full name");
+    if (!form.specialization) return toast.error("Please select your specialization");
+    if (!form.qualifications.trim()) return toast.error("Please enter your qualifications");
+    if (!form.experience_years || parseInt(form.experience_years) < 0) return toast.error("Please enter years of experience");
+    if (!form.consultation_fee || parseInt(form.consultation_fee) < 0) return toast.error("Please enter your consultation fee");
+    setStep(2);
+  };
+
+  const validateStep2 = () => {
+    if (!form.clinic_name.trim()) return toast.error("Please enter your clinic/hospital name");
+    if (!form.city.trim()) return toast.error("Please enter your city");
+    if (!form.phone.trim()) return toast.error("Please enter your phone number");
+    if (!form.address.trim()) return toast.error("Please enter your full address");
+    setStep(3);
+  };
+
   const generateSlug = (name: string) =>
     name.toLowerCase().replace(/^dr\.?\s*/i, "dr-").replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "");
 
@@ -168,11 +185,11 @@ const Onboarding = () => {
                       <p className="text-sm text-muted-foreground">Your professional details</p>
                     </div>
                     <div>
-                      <Label>Full Name</Label>
+                      <Label>Full Name <span className="text-destructive">*</span></Label>
                       <Input value={form.full_name} onChange={(e) => update("full_name", e.target.value)} placeholder="Dr. Rahul Sharma" required className="h-11" />
                     </div>
                     <div>
-                      <Label>Specialization</Label>
+                      <Label>Specialization <span className="text-destructive">*</span></Label>
                       <Select value={form.specialization} onValueChange={(v) => update("specialization", v)}>
                         <SelectTrigger className="h-11"><SelectValue placeholder="Select specialization" /></SelectTrigger>
                         <SelectContent>
@@ -181,16 +198,16 @@ const Onboarding = () => {
                       </Select>
                     </div>
                     <div>
-                      <Label className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> Qualifications</Label>
+                      <Label className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> Qualifications <span className="text-destructive">*</span></Label>
                       <Input value={form.qualifications} onChange={(e) => update("qualifications", e.target.value)} placeholder="MBBS, MD (Cardiology)" className="h-11" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <Label>Years of Experience</Label>
+                        <Label>Years of Experience <span className="text-destructive">*</span></Label>
                         <Input type="number" value={form.experience_years} onChange={(e) => update("experience_years", e.target.value)} placeholder="15" className="h-11" />
                       </div>
                       <div>
-                        <Label>Consultation Fee (₹)</Label>
+                        <Label>Consultation Fee (₹) <span className="text-destructive">*</span></Label>
                         <Input type="number" value={form.consultation_fee} onChange={(e) => update("consultation_fee", e.target.value)} placeholder="500" className="h-11" />
                       </div>
                     </div>
@@ -198,7 +215,7 @@ const Onboarding = () => {
                       <Label>About / Bio (optional)</Label>
                       <Textarea value={form.bio} onChange={(e) => update("bio", e.target.value)} placeholder="Tell patients about your practice..." rows={3} />
                     </div>
-                    <Button className="w-full h-11 bg-royal hover:bg-royal/90 text-white gap-2 font-semibold" onClick={() => setStep(2)}>
+                    <Button className="w-full h-11 bg-royal hover:bg-royal/90 text-white gap-2 font-semibold" onClick={validateStep1}>
                       Next <ArrowRight className="h-4 w-4" />
                     </Button>
                   </div>
@@ -215,28 +232,28 @@ const Onboarding = () => {
                       <p className="text-sm text-muted-foreground">Where do you practice?</p>
                     </div>
                     <div>
-                      <Label className="flex items-center gap-1.5"><Building className="h-3.5 w-3.5" /> Clinic / Hospital Name</Label>
+                      <Label className="flex items-center gap-1.5"><Building className="h-3.5 w-3.5" /> Clinic / Hospital Name <span className="text-destructive">*</span></Label>
                       <Input value={form.clinic_name} onChange={(e) => update("clinic_name", e.target.value)} placeholder="Sharma Heart Care" className="h-11" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> City</Label>
+                        <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> City <span className="text-destructive">*</span></Label>
                         <Input value={form.city} onChange={(e) => update("city", e.target.value)} placeholder="Mumbai" className="h-11" />
                       </div>
                       <div>
-                        <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone Number</Label>
+                        <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone Number <span className="text-destructive">*</span></Label>
                         <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+91 98765 43210" className="h-11" />
                       </div>
                     </div>
                     <div>
-                      <Label>Full Address</Label>
+                      <Label>Full Address <span className="text-destructive">*</span></Label>
                       <Textarea value={form.address} onChange={(e) => update("address", e.target.value)} placeholder="Building, Street, Area, City" rows={2} />
                     </div>
                     <div className="flex gap-3">
                       <Button variant="outline" className="flex-1 h-11 gap-2" onClick={() => setStep(1)}>
                         <ArrowLeft className="h-4 w-4" /> Back
                       </Button>
-                      <Button className="flex-1 h-11 bg-royal hover:bg-royal/90 text-white gap-2 font-semibold" onClick={() => setStep(3)}>
+                      <Button className="flex-1 h-11 bg-royal hover:bg-royal/90 text-white gap-2 font-semibold" onClick={validateStep2}>
                         Next <ArrowRight className="h-4 w-4" />
                       </Button>
                     </div>
