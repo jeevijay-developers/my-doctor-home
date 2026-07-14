@@ -1,1 +1,7 @@
 project_id = "abxvamwcjiqpahfipwqp"
+
+[functions.create-razorpay-order]
+verify_jwt = false
+
+[functions.create-zoom-meeting]
+verify_jwt = false
