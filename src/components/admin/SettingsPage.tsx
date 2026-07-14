@@ -311,9 +311,9 @@ const SettingsPage = () => {
                 <CardTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-royal" /> Export Data</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">Download a copy of your patient records and appointment history.</p>
-                <Button variant="outline" onClick={() => toast.info("Export feature coming soon!")}>
-                  <Download className="h-4 w-4 mr-2" /> Export All Data
+                <p className="text-sm text-muted-foreground mb-3">Download a full JSON snapshot of your profile, patients, appointments, invoices, blog and website data.</p>
+                <Button variant="outline" onClick={exportAllData} disabled={exporting}>
+                  <Download className="h-4 w-4 mr-2" /> {exporting ? "Preparing…" : "Export All Data"}
                 </Button>
               </CardContent>
             </Card>
