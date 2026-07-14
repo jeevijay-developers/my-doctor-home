@@ -11,6 +11,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import DoctorPublicPage from "./pages/DoctorPublicPage";
 import BlogListPage from "./pages/BlogListPage";
 import BlogPostPage from "./pages/BlogPostPage";
+import ManageAppointment from "./pages/ManageAppointment";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/dr/:slug" element={<DoctorPublicPage />} />
           <Route path="/dr/:slug/blog" element={<BlogListPage />} />
           <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
+          <Route path="/dr/:slug/manage" element={<ManageAppointment />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

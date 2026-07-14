@@ -17,6 +17,7 @@ type Appointment = {
   patient_gender: string | null; service_name: string; appointment_type: string;
   date: string; time_slot: string; status: string; payment_status: string;
   amount: number; token_number: string | null; chief_complaint: string | null; notes: string | null;
+  reschedule_count?: number | null;
 };
 
 const statusConfig: Record<string, { bg: string; dot: string; label: string }> = {
@@ -75,10 +76,26 @@ const AppointmentsPage = () => {
 
   const addAppointment = async () => {
     if (!profile || !newAppt.patient_name || !newAppt.service_name) return;
-    const token = `T${Math.floor(Math.random() * 999) + 1}`;
-    await supabase.from("appointments").insert({
+
+    // Soft overbook warning based on max_per_slot
+    const { data: settingsRow } = await supabase
+      .from("website_settings").select("max_per_slot").eq("doctor_id", profile.id).single();
+    const cap = (settingsRow as any)?.max_per_slot || 1;
+    const { count: taken } = await supabase
+      .from("appointments").select("*", { count: "exact", head: true })
+      .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
+      .neq("status", "cancelled");
+    if ((taken ?? 0) >= cap) {
+      const ok = confirm(`This slot already has ${taken}/${cap} appointments. Add anyway?`);
+      if (!ok) return;
+    }
+
+    const token = `T${Math.floor(Math.random() * 900) + 100}`;
+    const { error } = await supabase.from("appointments").insert({
       doctor_id: profile.id, ...newAppt, token_number: token, status: "confirmed" as any, payment_status: "pending" as any,
     });
+    if (error) { toast.error("Could not add appointment"); return; }
+
     const existing = await supabase.from("patients").select("id, total_visits").eq("doctor_id", profile.id).eq("phone", newAppt.patient_phone).single();
     if (existing.data) {
       await supabase.from("patients").update({ total_visits: (existing.data.total_visits || 0) + 1, last_visit: newAppt.date }).eq("id", existing.data.id);
@@ -282,7 +299,12 @@ const AppointmentsPage = () => {
                       <Badge variant="outline" className={`text-[10px] capitalize ${a.appointment_type === "clinic" ? "bg-royal/10 text-royal border-royal/20" : "bg-teal/10 text-teal border-teal/20"}`}>
                         {a.appointment_type}
                       </Badge>
-                      <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{a.status}</Badge>
+                      <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{sc.label}</Badge>
+                      {(a.reschedule_count ?? 0) > 0 && (
+                        <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
+                          Rescheduled ({a.reschedule_count})
+                        </Badge>
+                      )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
                     </div>
                     <div className="flex gap-1 flex-wrap">

@@ -68,6 +68,11 @@ const Navbar = () => {
               Blog
             </Link>
           )}
+          {slug && (
+            <Link to={`/dr/${slug}/manage`} className="text-sm font-medium text-foreground hover:text-royal transition-colors">
+              My Appointment
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -95,6 +100,11 @@ const Navbar = () => {
           {showBlogLink && (
             <Link to={`/dr/${slug}/blog`} onClick={() => setMobileOpen(false)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border">
               Blog
+            </Link>
+          )}
+          {slug && (
+            <Link to={`/dr/${slug}/manage`} onClick={() => setMobileOpen(false)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border">
+              My Appointment
             </Link>
           )}
           <Button className="w-full mt-3 gradient-hero text-primary-foreground font-heading" onClick={() => scrollTo("booking")}>

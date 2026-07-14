@@ -36,6 +36,7 @@ export type Database = {
           patient_phone: string
           payment_gateway: string | null
           payment_status: Database["public"]["Enums"]["payment_status"]
+          reschedule_count: number
           service_name: string
           status: Database["public"]["Enums"]["appointment_status"]
           time_slot: string
@@ -63,6 +64,7 @@ export type Database = {
           patient_phone: string
           payment_gateway?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          reschedule_count?: number
           service_name: string
           status?: Database["public"]["Enums"]["appointment_status"]
           time_slot: string
@@ -90,6 +92,7 @@ export type Database = {
           patient_phone?: string
           payment_gateway?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          reschedule_count?: number
           service_name?: string
           status?: Database["public"]["Enums"]["appointment_status"]
           time_slot?: string
@@ -657,6 +660,7 @@ export type Database = {
           blog_auto_enabled: boolean
           booking_advance_days: number
           buffer_minutes: number
+          cancellation_cutoff_hours: number
           created_at: string
           doctor_id: string
           google_analytics_id: string | null
@@ -694,6 +698,7 @@ export type Database = {
           blog_auto_enabled?: boolean
           booking_advance_days?: number
           buffer_minutes?: number
+          cancellation_cutoff_hours?: number
           created_at?: string
           doctor_id: string
           google_analytics_id?: string | null
@@ -731,6 +736,7 @@ export type Database = {
           blog_auto_enabled?: boolean
           booking_advance_days?: number
           buffer_minutes?: number
+          cancellation_cutoff_hours?: number
           created_at?: string
           doctor_id?: string
           google_analytics_id?: string | null
@@ -819,12 +825,54 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_appointment_by_token: {
+        Args: { _doctor_id: string; _phone: string; _token: string }
+        Returns: Json
+      }
+      get_appointment_by_token: {
+        Args: { _doctor_id: string; _phone: string; _token: string }
+        Returns: {
+          amount: number
+          appointment_type: string
+          chief_complaint: string
+          created_at: string
+          date: string
+          doctor_id: string
+          id: string
+          meeting_link: string
+          patient_name: string
+          patient_phone: string
+          reschedule_count: number
+          service_name: string
+          status: string
+          time_slot: string
+          token_number: string
+        }[]
+      }
+      get_queue_position: { Args: { _appointment_id: string }; Returns: number }
+      get_slot_counts: {
+        Args: { _date: string; _doctor_id: string }
+        Returns: {
+          booked: number
+          time_slot: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      reschedule_appointment_by_token: {
+        Args: {
+          _doctor_id: string
+          _new_date: string
+          _new_time: string
+          _phone: string
+          _token: string
+        }
+        Returns: Json
       }
     }
     Enums: {
