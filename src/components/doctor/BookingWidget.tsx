@@ -106,6 +106,16 @@ const BookingWidget = () => {
     setConfirmed(false); setToken("");
   };
 
+  const initiateRazorpayPayment = () => {
+    toast.info("Payment gateway integration coming soon", {
+      description: "Your booking will be created as Pay at Clinic for now.",
+    });
+    submitBooking();
+  };
+
+  const gatewayConnected = Boolean((settings as any)?.razorpay_key_id);
+  const wantsOnlinePayment = Boolean(settings?.require_payment);
+
   if (confirmed) {
     return (
       <section id="booking" className="py-16 md:py-24 bg-cloud-blue">
@@ -122,6 +132,12 @@ const BookingWidget = () => {
               <p><strong>Time:</strong> {selectedTime}</p>
               <p><strong>Patient:</strong> {name}</p>
             </div>
+            {type === "online" && (
+              <div className="mb-6 p-3 rounded-xl bg-teal/10 border border-teal/20 text-left text-sm text-teal flex items-start gap-2">
+                <Video className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>Your video consultation link will be shared with you 1 hour before your appointment via WhatsApp/SMS.</span>
+              </div>
+            )}
             <Button variant="outline" onClick={reset}>Book Another Appointment</Button>
           </div>
         </div>
