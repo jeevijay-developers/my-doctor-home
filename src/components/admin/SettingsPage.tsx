@@ -26,9 +26,11 @@ const SettingsPage = () => {
   const { profile } = useProfile();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [form, setForm] = useState({
     full_name: "", specialization: "", qualifications: "", experience_years: 0,
     phone: "", clinic_name: "", city: "", address: "",
+    gstin: "", gst_registered: false,
   });
 
   useEffect(() => {
@@ -42,6 +44,8 @@ const SettingsPage = () => {
         clinic_name: profile.clinic_name || "",
         city: profile.city || "",
         address: profile.address || "",
+        gstin: (profile as any).gstin || "",
+        gst_registered: Boolean((profile as any).gst_registered),
       });
     }
   }, [profile]);
@@ -49,9 +53,39 @@ const SettingsPage = () => {
   const save = async () => {
     if (!profile) return;
     setSaving(true);
-    await supabase.from("profiles").update(form).eq("id", profile.id);
+    await supabase.from("profiles").update(form as any).eq("id", profile.id);
     setSaving(false);
     toast.success("Settings saved");
+  };
+
+  const exportAllData = async () => {
+    if (!profile) return;
+    setExporting(true);
+    try {
+      const doctorId = profile.id;
+      const tables = [
+        "services", "packages", "working_hours", "appointments",
+        "patients", "reviews", "blog_posts", "invoices", "website_settings",
+      ] as const;
+      const results: Record<string, any> = { profile };
+      for (const t of tables) {
+        const { data } = await (supabase.from(t as any) as any).select("*").eq("doctor_id", doctorId);
+        results[t] = data || [];
+      }
+      const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = (profile.full_name || "doctor").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      a.download = `doctylia-full-export-${safeName}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Data export downloaded");
+    } catch (e: any) {
+      toast.error("Export failed: " + (e?.message || "unknown error"));
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
