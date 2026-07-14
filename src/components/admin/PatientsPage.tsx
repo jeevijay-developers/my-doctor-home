@@ -99,10 +99,12 @@ const PatientsPage = () => {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{patients.length} total patients</p>
         </div>
-        <Dialog open={showNew} onOpenChange={setShowNew}>
-          <DialogTrigger asChild>
-            <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> Add Patient</Button>
-          </DialogTrigger>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportPatients} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
+          <Dialog open={showNew} onOpenChange={setShowNew}>
+            <DialogTrigger asChild>
+              <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> Add Patient</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Add Patient</DialogTitle></DialogHeader>
             <div className="space-y-4">
