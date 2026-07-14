@@ -236,7 +236,7 @@ const Onboarding = () => {
                       <Button variant="outline" className="flex-1 h-11 gap-2" onClick={() => setStep(1)}>
                         <ArrowLeft className="h-4 w-4" /> Back
                       </Button>
-                      <Button className="flex-1 h-11 bg-royal hover:bg-royal/90 text-white gap-2 font-semibold" onClick={() => setStep(3)}>
+                      <Button className="flex-1 h-11 bg-royal hover:bg-royal/90 text-white gap-2 font-semibold" onClick={validateStep2}>
                         Next <ArrowRight className="h-4 w-4" />
                       </Button>
                     </div>
