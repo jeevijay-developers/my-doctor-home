@@ -270,10 +270,24 @@ const BookingWidget = () => {
                 <div className="flex justify-between font-heading font-bold text-lg"><span>Total</span><span className="text-primary">₹{selectedService?.price}</span></div>
               </div>
 
-              <Button className="w-full gradient-hero text-primary-foreground font-heading font-semibold text-lg py-6"
-                disabled={!name || !phone || submitting} onClick={submitBooking}>
-                {submitting ? "Booking..." : `Book Appointment — ₹${selectedService?.price}`}
-              </Button>
+              {wantsOnlinePayment && !gatewayConnected && (
+                <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 text-sm text-warning-foreground/80 flex items-start gap-2">
+                  <CreditCard className="h-4 w-4 mt-0.5 shrink-0 text-warning" />
+                  <span>Online payment is not active yet for this clinic — you'll pay at the clinic instead.</span>
+                </div>
+              )}
+
+              {wantsOnlinePayment && gatewayConnected ? (
+                <Button className="w-full gradient-hero text-primary-foreground font-heading font-semibold text-lg py-6"
+                  disabled={!name || !phone || submitting} onClick={initiateRazorpayPayment}>
+                  {submitting ? "Processing..." : `Pay ₹${selectedService?.price} Online`}
+                </Button>
+              ) : (
+                <Button className="w-full gradient-hero text-primary-foreground font-heading font-semibold text-lg py-6"
+                  disabled={!name || !phone || submitting} onClick={submitBooking}>
+                  {submitting ? "Booking..." : `Book Appointment — ₹${selectedService?.price}`}
+                </Button>
+              )}
             </div>
           )}
         </div>
