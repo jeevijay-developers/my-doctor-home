@@ -56,6 +56,36 @@ const PatientsPage = () => {
     }
   };
 
+  const exportPatients = () => {
+    if (!patients.length) {
+      toast.info("No patients to export");
+      return;
+    }
+    const headers = ["Name", "Phone", "Email", "Age", "Gender", "First Visit", "Last Visit", "Total Visits", "Notes"];
+    const rows = patients.map((p) => [
+      `"${p.name.replace(/"/g, '""')}"`,
+      p.phone,
+      p.email ? `"${p.email.replace(/"/g, '""')}"` : "",
+      p.age ?? "",
+      p.gender ?? "",
+      p.first_visit ?? "",
+      p.last_visit ?? "",
+      p.total_visits,
+      p.notes ? `"${p.notes.replace(/"/g, '""')}"` : "",
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `patients-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${patients.length} patients to CSV`);
+  };
+
   const filtered = patients.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)
   );
