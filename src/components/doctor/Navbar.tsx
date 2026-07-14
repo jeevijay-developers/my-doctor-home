@@ -1,20 +1,34 @@
 import { useState, useEffect } from "react";
-import { Menu, X, MessageCircle, Video } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { Menu, X, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const navLinks = ["About", "Services", "Gallery", "Reviews", "Contact"];
 
 const Navbar = () => {
   const { profile, settings } = useDoctorData();
+  const { slug } = useParams<{ slug: string }>();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hasPublishedBlog, setHasPublishedBlog] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    if (!profile?.id || !settings?.show_blog) { setHasPublishedBlog(false); return; }
+    supabase
+      .from("blog_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("doctor_id", profile.id)
+      .eq("is_published", true)
+      .then(({ count }) => setHasPublishedBlog((count ?? 0) > 0));
+  }, [profile?.id, settings?.show_blog]);
 
   const scrollTo = (id: string) => {
     document.getElementById(id.toLowerCase())?.scrollIntoView({ behavior: "smooth" });
@@ -24,6 +38,8 @@ const Navbar = () => {
   const whatsappUrl = settings?.whatsapp_number
     ? `https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(settings.whatsapp_message || "")}`
     : "#";
+
+  const showBlogLink = hasPublishedBlog && slug;
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-card shadow-md" : "bg-transparent"}`}>
@@ -47,6 +63,11 @@ const Navbar = () => {
               {l}
             </button>
           ))}
+          {showBlogLink && (
+            <Link to={`/dr/${slug}/blog`} className="text-sm font-medium text-foreground hover:text-royal transition-colors">
+              Blog
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -71,6 +92,11 @@ const Navbar = () => {
               {l}
             </button>
           ))}
+          {showBlogLink && (
+            <Link to={`/dr/${slug}/blog`} onClick={() => setMobileOpen(false)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border">
+              Blog
+            </Link>
+          )}
           <Button className="w-full mt-3 gradient-hero text-primary-foreground font-heading" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>
