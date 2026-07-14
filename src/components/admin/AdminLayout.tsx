@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
 import { useLocation, Link } from "react-router-dom";
-import { Bell, Search, ChevronRight, Home } from "lucide-react";
+import { Bell, ChevronRight, Home } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 
 const pageTitles: Record<string, string> = {
@@ -38,9 +38,6 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                <Search className="h-4 w-4" />
-              </button>
               <button className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors relative">
                 <Bell className="h-4 w-4" />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
