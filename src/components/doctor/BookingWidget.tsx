@@ -58,9 +58,19 @@ const BookingWidget = () => {
     ? [...generateTimeSlots(wh.start_time, wh.end_time), ...generateTimeSlots(wh.start_time_2, wh.end_time_2)]
     : [];
 
-  const availableServices = services.filter((s) =>
+  const filteredServices = services.filter((s) =>
     type === "online" ? s.type === "online" || s.type === "both" : s.type === "clinic" || s.type === "both"
   );
+  // Fallback: if the doctor hasn't defined any matching service, offer a default
+  // consultation so patients can still book (clinic or online).
+  const defaultFee = (settings as any)?.default_consultation_fee || 500;
+  const availableServices = filteredServices.length > 0 ? filteredServices : [{
+    id: `default-${type}`,
+    name: type === "online" ? "Online Consultation" : "Clinic Consultation",
+    price: defaultFee,
+    duration: 15,
+    type,
+  }];
 
   const maxPerSlot = (settings as any)?.max_per_slot || 1;
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
