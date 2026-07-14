@@ -32,6 +32,7 @@ const App = () => (
           <Route path="/dr/:slug" element={<DoctorPublicPage />} />
           <Route path="/dr/:slug/blog" element={<BlogListPage />} />
           <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
+          <Route path="/dr/:slug/manage" element={<ManageAppointment />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
