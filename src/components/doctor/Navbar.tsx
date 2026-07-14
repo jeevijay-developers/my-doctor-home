@@ -21,14 +21,14 @@ const Navbar = () => {
   }, []);
 
   useEffect(() => {
-    if (!profile?.id || !settings?.show_blog) { setHasPublishedBlog(false); return; }
+    if (!profile?.id) { setHasPublishedBlog(false); return; }
     supabase
       .from("blog_posts")
       .select("id", { count: "exact", head: true })
       .eq("doctor_id", profile.id)
       .eq("is_published", true)
       .then(({ count }) => setHasPublishedBlog((count ?? 0) > 0));
-  }, [profile?.id, settings?.show_blog]);
+  }, [profile?.id]);
 
   const scrollTo = (id: string) => {
     document.getElementById(id.toLowerCase())?.scrollIntoView({ behavior: "smooth" });
