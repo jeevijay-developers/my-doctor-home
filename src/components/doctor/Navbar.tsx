@@ -68,6 +68,11 @@ const Navbar = () => {
               Blog
             </Link>
           )}
+          {slug && (
+            <Link to={`/dr/${slug}/manage`} className="text-sm font-medium text-foreground hover:text-royal transition-colors">
+              My Appointment
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
