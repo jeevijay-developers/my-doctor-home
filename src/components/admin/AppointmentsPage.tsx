@@ -299,7 +299,12 @@ const AppointmentsPage = () => {
                       <Badge variant="outline" className={`text-[10px] capitalize ${a.appointment_type === "clinic" ? "bg-royal/10 text-royal border-royal/20" : "bg-teal/10 text-teal border-teal/20"}`}>
                         {a.appointment_type}
                       </Badge>
-                      <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{a.status}</Badge>
+                      <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{sc.label}</Badge>
+                      {(a.reschedule_count ?? 0) > 0 && (
+                        <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
+                          Rescheduled ({a.reschedule_count})
+                        </Badge>
+                      )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
                     </div>
                     <div className="flex gap-1 flex-wrap">
