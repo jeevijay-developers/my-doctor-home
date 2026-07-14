@@ -1,17 +1,16 @@
-import { useState } from "react";
-import { CheckCircle2, ChevronLeft, Video, CreditCard } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
+import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 
 const getNextDays = (count: number) => {
   const days = [];
   const today = new Date();
-  for (let i = 0; i < count; i++) {
-    days.push(addDays(today, i));
-  }
+  for (let i = 0; i < count; i++) days.push(addDays(today, i));
   return days;
 };
 
@@ -46,9 +45,11 @@ const BookingWidget = () => {
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [token, setToken] = useState("");
+  const [patientsAhead, setPatientsAhead] = useState<number | null>(null);
+  const [confirmedApptId, setConfirmedApptId] = useState<string | null>(null);
 
   const advanceDays = settings?.booking_advance_days || 7;
-  const days = getNextDays(advanceDays);
+  const days = useMemo(() => getNextDays(advanceDays), [advanceDays]);
 
   const dayOfWeek = selectedDate ? selectedDate.getDay() : -1;
   const wh = workingHours.find((h) => h.day_of_week === dayOfWeek);
@@ -61,38 +62,73 @@ const BookingWidget = () => {
     type === "online" ? s.type === "online" || s.type === "both" : s.type === "clinic" || s.type === "both"
   );
 
+  const maxPerSlot = (settings as any)?.max_per_slot || 1;
+  const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
+  const { isFull, bookedIn, refresh } = useSlotAvailability(profile?.id, dateStr, maxPerSlot);
+
   const submitBooking = async () => {
     if (!profile || !selectedService || !selectedDate || !selectedTime || !name || !phone) return;
     setSubmitting(true);
-    const tkn = `T${Math.floor(Math.random() * 999) + 1}`;
-    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    const tkn = `T${Math.floor(Math.random() * 900) + 100}`;
+    const dStr = format(selectedDate, "yyyy-MM-dd");
 
-    await supabase.from("appointments").insert({
-      doctor_id: profile.id,
-      patient_name: name,
-      patient_phone: phone,
-      patient_age: age ? Number(age) : null,
-      patient_gender: gender || null,
-      service_name: selectedService.name,
-      appointment_type: type,
-      date: dateStr,
-      time_slot: selectedTime,
-      amount: selectedService.price,
-      token_number: tkn,
-      chief_complaint: complaint || null,
-      status: (settings?.auto_confirm ? "confirmed" : "pending") as any,
-      payment_status: "pay_at_clinic" as any,
-    });
+    const { data: inserted, error } = await supabase
+      .from("appointments")
+      .insert({
+        doctor_id: profile.id,
+        patient_name: name,
+        patient_phone: phone,
+        patient_age: age ? Number(age) : null,
+        patient_gender: gender || null,
+        service_name: selectedService.name,
+        appointment_type: type,
+        date: dStr,
+        time_slot: selectedTime,
+        amount: selectedService.price,
+        token_number: tkn,
+        chief_complaint: complaint || null,
+        status: (settings?.auto_confirm ? "confirmed" : "pending") as any,
+        payment_status: "pay_at_clinic" as any,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      setSubmitting(false);
+      if (error.message?.includes("SLOT_FULL")) {
+        toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+        setStep(4);
+        setSelectedTime("");
+        refresh();
+        return;
+      }
+      toast.error("Booking failed. Please try again.");
+      return;
+    }
 
     // Upsert patient
-    const { data: existing } = await supabase.from("patients").select("id, total_visits").eq("doctor_id", profile.id).eq("phone", phone).single();
+    const { data: existing } = await supabase
+      .from("patients")
+      .select("id, total_visits")
+      .eq("doctor_id", profile.id)
+      .eq("phone", phone)
+      .maybeSingle();
     if (existing) {
-      await supabase.from("patients").update({ total_visits: (existing.total_visits || 0) + 1, last_visit: dateStr }).eq("id", existing.id);
+      await supabase.from("patients").update({
+        total_visits: (existing.total_visits || 0) + 1, last_visit: dStr,
+      }).eq("id", existing.id);
     } else {
       await supabase.from("patients").insert({
         doctor_id: profile.id, name, phone, age: age ? Number(age) : null,
-        gender: gender || null, first_visit: dateStr, last_visit: dateStr, total_visits: 1,
+        gender: gender || null, first_visit: dStr, last_visit: dStr, total_visits: 1,
       });
+    }
+
+    // Queue count (for clinic bookings)
+    if (type === "clinic" && inserted?.id) {
+      const { data: qp } = await (supabase as any).rpc("get_queue_position", { _appointment_id: inserted.id });
+      setPatientsAhead(typeof qp === "number" ? qp : 0);
+      setConfirmedApptId(inserted.id);
     }
 
     setToken(tkn);
@@ -103,7 +139,7 @@ const BookingWidget = () => {
   const reset = () => {
     setStep(1); setType("clinic"); setSelectedService(null); setSelectedDate(null);
     setSelectedTime(""); setName(""); setPhone(""); setAge(""); setGender(""); setComplaint("");
-    setConfirmed(false); setToken("");
+    setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
 
   const initiateRazorpayPayment = () => {
@@ -116,15 +152,19 @@ const BookingWidget = () => {
   const gatewayConnected = Boolean((settings as any)?.razorpay_key_id);
   const wantsOnlinePayment = Boolean(settings?.require_payment);
 
+  const estWaitMinutes = (patientsAhead ?? 0) * (selectedService?.duration || 15);
+
   if (confirmed) {
     return (
       <section id="booking" className="py-16 md:py-24 bg-cloud-blue">
         <div className="container mx-auto px-4 max-w-lg">
           <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
             <CheckCircle2 size={64} className="text-success mx-auto mb-4" />
-            <h3 className="font-heading font-bold text-2xl text-primary mb-2">Appointment {settings?.auto_confirm ? "Confirmed" : "Requested"}!</h3>
+            <h3 className="font-heading font-bold text-2xl text-primary mb-2">
+              Appointment {settings?.auto_confirm ? "Confirmed" : "Requested"}!
+            </h3>
             <p className="text-text-gray mb-4">Token #{token}</p>
-            <div className="bg-secondary rounded-xl p-4 text-left space-y-2 text-sm mb-6">
+            <div className="bg-secondary rounded-xl p-4 text-left space-y-2 text-sm mb-4">
               <p><strong>Doctor:</strong> Dr. {profile?.full_name}</p>
               <p><strong>Service:</strong> {selectedService?.name}</p>
               <p><strong>Type:</strong> {type === "clinic" ? "Clinic Visit" : "Online"}</p>
@@ -132,11 +172,37 @@ const BookingWidget = () => {
               <p><strong>Time:</strong> {selectedTime}</p>
               <p><strong>Patient:</strong> {name}</p>
             </div>
-            {type === "online" && (
-              <div className="mb-6 p-3 rounded-xl bg-teal/10 border border-teal/20 text-left text-sm text-teal flex items-start gap-2">
-                <Video className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>Your video consultation link will be shared with you 1 hour before your appointment via WhatsApp/SMS.</span>
+
+            {type === "clinic" && patientsAhead !== null && (
+              <div className="mb-4 p-3 rounded-xl bg-royal/5 border border-royal/20 text-left text-sm text-royal">
+                <div className="flex items-center gap-2 font-semibold">
+                  <Users className="h-4 w-4" />
+                  {patientsAhead === 0
+                    ? "You're first in line — no wait!"
+                    : `${patientsAhead} patient${patientsAhead > 1 ? "s" : ""} ahead of you`}
+                </div>
+                {patientsAhead > 0 && (
+                  <div className="mt-1 text-xs text-royal/80 flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Estimated wait ~{estWaitMinutes} min
+                  </div>
+                )}
               </div>
+            )}
+
+            {type === "online" && (
+              <div className="mb-4 p-3 rounded-xl bg-teal/10 border border-teal/20 text-left text-sm text-teal flex items-start gap-2">
+                <Video className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>Your video consultation link will be shared with you 1 hour before your appointment.</span>
+              </div>
+            )}
+
+            {profile?.slug && (
+              <a
+                href={`/dr/${profile.slug}/manage?token=${encodeURIComponent(token)}&phone=${encodeURIComponent(phone)}`}
+                className="block text-xs text-royal hover:underline mb-4"
+              >
+                Manage this appointment (cancel or reschedule) →
+              </a>
             )}
             <Button variant="outline" onClick={reset}>Book Another Appointment</Button>
           </div>
@@ -149,7 +215,14 @@ const BookingWidget = () => {
     <section id="booking" className="py-16 md:py-24 bg-cloud-blue">
       <div className="container mx-auto px-4 max-w-2xl">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary text-center mb-2">Book an Appointment</h2>
-        <p className="text-text-gray text-center mb-8">Select your preference and book in under 2 minutes</p>
+        <p className="text-text-gray text-center mb-4">Select your preference and book in under 2 minutes</p>
+        {profile?.slug && (
+          <p className="text-center text-sm mb-6">
+            <a href={`/dr/${profile.slug}/manage`} className="text-royal hover:underline">
+              Already booked? Manage your appointment →
+            </a>
+          </p>
+        )}
 
         <div className="bg-card rounded-2xl shadow-xl p-6 md:p-8">
           <div className="flex gap-1 mb-6">
@@ -164,7 +237,6 @@ const BookingWidget = () => {
             </button>
           )}
 
-          {/* Step 1: Type */}
           {step === 1 && (
             <div className="space-y-4">
               <h3 className="font-heading font-semibold text-lg text-foreground">Select Consultation Type</h3>
@@ -179,7 +251,6 @@ const BookingWidget = () => {
             </div>
           )}
 
-          {/* Step 2: Service */}
           {step === 2 && (
             <div className="space-y-4">
               <h3 className="font-heading font-semibold text-lg text-foreground">Select Service</h3>
@@ -199,15 +270,14 @@ const BookingWidget = () => {
             </div>
           )}
 
-          {/* Step 3: Date */}
           {step === 3 && (
             <div className="space-y-4">
               <h3 className="font-heading font-semibold text-lg text-foreground">Select Date</h3>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {days.map((d, i) => {
                   const dow = d.getDay();
-                  const wh = workingHours.find((h) => h.day_of_week === dow);
-                  const closed = !wh?.is_open;
+                  const dwh = workingHours.find((h) => h.day_of_week === dow);
+                  const closed = !dwh?.is_open;
                   return (
                     <button key={i} disabled={closed} onClick={() => { setSelectedDate(d); setStep(4); }}
                       className={`flex-shrink-0 w-20 py-3 rounded-xl border-2 text-center transition-all ${closed ? "opacity-40 cursor-not-allowed border-border" : selectedDate?.getTime() === d.getTime() ? "border-royal bg-royal/5" : "border-border hover:border-royal/50"}`}>
@@ -222,23 +292,40 @@ const BookingWidget = () => {
             </div>
           )}
 
-          {/* Step 4: Time */}
           {step === 4 && (
             <div className="space-y-4">
               <h3 className="font-heading font-semibold text-lg text-foreground">Select Time Slot</h3>
+              <p className="text-xs text-muted-foreground">Live availability — full slots update automatically.</p>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {timeSlots.map((t) => (
-                  <button key={t} onClick={() => { setSelectedTime(t); setStep(5); }}
-                    className={`py-3 rounded-lg border-2 text-sm font-medium transition-all ${selectedTime === t ? "border-royal bg-royal text-primary-foreground" : "border-border text-foreground hover:border-royal"}`}>
-                    {t}
-                  </button>
-                ))}
+                {timeSlots.map((t) => {
+                  const full = isFull(t);
+                  return (
+                    <button
+                      key={t}
+                      disabled={full}
+                      onClick={() => { setSelectedTime(t); setStep(5); }}
+                      className={`py-3 rounded-lg border-2 text-sm font-medium transition-all relative ${
+                        full
+                          ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                          : selectedTime === t
+                          ? "border-royal bg-royal text-primary-foreground"
+                          : "border-border text-foreground hover:border-royal"
+                      }`}
+                    >
+                      {t}
+                      {full ? (
+                        <span className="block text-[9px] mt-0.5 font-semibold uppercase text-destructive">Full</span>
+                      ) : maxPerSlot > 1 ? (
+                        <span className="block text-[9px] mt-0.5 opacity-70">{bookedIn(t)}/{maxPerSlot}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
                 {timeSlots.length === 0 && <p className="text-muted-foreground text-sm col-span-full">No slots available for this date.</p>}
               </div>
             </div>
           )}
 
-          {/* Step 5: Patient details + Submit */}
           {step === 5 && (
             <div className="space-y-4">
               <h3 className="font-heading font-semibold text-lg text-foreground">Patient Details</h3>
