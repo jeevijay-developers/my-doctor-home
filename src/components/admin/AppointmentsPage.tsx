@@ -295,6 +295,11 @@ const AppointmentsPage = () => {
                           <Button size="sm" className="text-xs h-7 bg-destructive/10 text-destructive hover:bg-destructive/20 border-0" onClick={() => updateStatus(a.id, "cancelled")}>Cancel</Button>
                         </>
                       )}
+                      {a.appointment_type === "online" && a.status !== "cancelled" && (
+                        <Button size="sm" className="text-xs h-7 bg-teal/10 text-teal hover:bg-teal/20 border-0" onClick={() => generateZoomMeeting(a.id)}>
+                          <Video className="h-3 w-3 mr-1" /> Generate Meeting Link
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
