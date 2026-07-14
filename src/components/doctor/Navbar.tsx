@@ -102,6 +102,11 @@ const Navbar = () => {
               Blog
             </Link>
           )}
+          {slug && (
+            <Link to={`/dr/${slug}/manage`} onClick={() => setMobileOpen(false)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border">
+              My Appointment
+            </Link>
+          )}
           <Button className="w-full mt-3 gradient-hero text-primary-foreground font-heading" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>
