@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { CalendarCheck, Plus, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Phone, MapPin } from "lucide-react";
+import { CalendarCheck, Plus, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Phone, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
