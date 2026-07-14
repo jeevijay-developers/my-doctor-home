@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { CheckCircle2, ChevronLeft } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Video, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays } from "date-fns";
+import { toast } from "sonner";
 
 const getNextDays = (count: number) => {
   const days = [];
