@@ -209,6 +209,31 @@ const SettingsPage = () => {
                 <Label>Full Address</Label>
                 <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={3} />
               </div>
+
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-semibold">GST Registered</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Turn on to show GST breakup on invoices</p>
+                  </div>
+                  <Switch
+                    checked={form.gst_registered}
+                    onCheckedChange={(v) => setForm({ ...form, gst_registered: v })}
+                  />
+                </div>
+                {form.gst_registered && (
+                  <div className="space-y-1.5">
+                    <Label>GSTIN</Label>
+                    <Input
+                      value={form.gstin}
+                      onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })}
+                      placeholder="22ABCDE1234F1Z5"
+                      className="h-10 font-mono uppercase"
+                    />
+                  </div>
+                )}
+              </div>
+
               <Button onClick={save} disabled={saving} className="bg-royal hover:bg-royal/90 h-10">
                 {saving ? "Saving..." : "Save Clinic Details"}
               </Button>
