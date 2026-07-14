@@ -168,11 +168,11 @@ const Onboarding = () => {
                       <p className="text-sm text-muted-foreground">Your professional details</p>
                     </div>
                     <div>
-                      <Label>Full Name</Label>
+                      <Label>Full Name <span className="text-destructive">*</span></Label>
                       <Input value={form.full_name} onChange={(e) => update("full_name", e.target.value)} placeholder="Dr. Rahul Sharma" required className="h-11" />
                     </div>
                     <div>
-                      <Label>Specialization</Label>
+                      <Label>Specialization <span className="text-destructive">*</span></Label>
                       <Select value={form.specialization} onValueChange={(v) => update("specialization", v)}>
                         <SelectTrigger className="h-11"><SelectValue placeholder="Select specialization" /></SelectTrigger>
                         <SelectContent>
