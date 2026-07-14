@@ -72,6 +72,29 @@ const BlogPage = () => {
     setShowEditor(true);
   };
 
+  // Auto-enable show_blog once, the very first time a post gets published for this doctor.
+  const maybeAutoEnableBlogVisibility = async () => {
+    if (!profile) return;
+    const { data: ws } = await supabase
+      .from("website_settings")
+      .select("show_blog, blog_auto_enabled")
+      .eq("doctor_id", profile.id)
+      .single();
+    // Only auto-enable once: if we haven't auto-enabled before AND it's currently off.
+    if (ws && !(ws as any).blog_auto_enabled && !ws.show_blog) {
+      await supabase
+        .from("website_settings")
+        .update({ show_blog: true, blog_auto_enabled: true } as any)
+        .eq("doctor_id", profile.id);
+      toast({ title: "Blog is now live on your website" });
+    } else if (ws && !(ws as any).blog_auto_enabled) {
+      await supabase
+        .from("website_settings")
+        .update({ blog_auto_enabled: true } as any)
+        .eq("doctor_id", profile.id);
+    }
+  };
+
   const save = async () => {
     if (!profile || !form.title.trim()) {
       toast({ title: "Title is required", variant: "destructive" });
@@ -94,6 +117,7 @@ const BlogPage = () => {
       await supabase.from("blog_posts").insert({ ...payload, doctor_id: profile.id });
       toast({ title: "Post created" });
     }
+    if (form.is_published) await maybeAutoEnableBlogVisibility();
     setShowEditor(false);
     load();
   };
@@ -110,6 +134,7 @@ const BlogPage = () => {
       is_published: newStatus,
       published_at: newStatus ? new Date().toISOString() : null,
     }).eq("id", post.id);
+    if (newStatus) await maybeAutoEnableBlogVisibility();
     toast({ title: newStatus ? "Published" : "Unpublished" });
     load();
   };

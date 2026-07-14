@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { CalendarCheck, Plus, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Phone, MapPin } from "lucide-react";
+import { CalendarCheck, Plus, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Phone, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -63,6 +63,14 @@ const AppointmentsPage = () => {
     await supabase.from("appointments").update({ status: status as any }).eq("id", id);
     load();
     toast.success(`Appointment ${status}`);
+  };
+
+  const generateZoomMeeting = async (_appointmentId: string) => {
+    // Stub — Zoom SDK not yet configured. Real integration will replace this
+    // with a call to the create-zoom-meeting edge function.
+    toast.info("Zoom integration coming soon", {
+      description: "Meeting links will generate automatically once connected.",
+    });
   };
 
   const addAppointment = async () => {
@@ -286,6 +294,11 @@ const AppointmentsPage = () => {
                           <Button size="sm" className="text-xs h-7 bg-royal/10 text-royal hover:bg-royal/20 border-0" onClick={() => updateStatus(a.id, "completed")}>Complete</Button>
                           <Button size="sm" className="text-xs h-7 bg-destructive/10 text-destructive hover:bg-destructive/20 border-0" onClick={() => updateStatus(a.id, "cancelled")}>Cancel</Button>
                         </>
+                      )}
+                      {a.appointment_type === "online" && a.status !== "cancelled" && (
+                        <Button size="sm" className="text-xs h-7 bg-teal/10 text-teal hover:bg-teal/20 border-0" onClick={() => generateZoomMeeting(a.id)}>
+                          <Video className="h-3 w-3 mr-1" /> Generate Meeting Link
+                        </Button>
                       )}
                     </div>
                   </div>

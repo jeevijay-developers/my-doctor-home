@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -26,9 +27,11 @@ const SettingsPage = () => {
   const { profile } = useProfile();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [form, setForm] = useState({
     full_name: "", specialization: "", qualifications: "", experience_years: 0,
     phone: "", clinic_name: "", city: "", address: "",
+    gstin: "", gst_registered: false,
   });
 
   useEffect(() => {
@@ -42,6 +45,8 @@ const SettingsPage = () => {
         clinic_name: profile.clinic_name || "",
         city: profile.city || "",
         address: profile.address || "",
+        gstin: (profile as any).gstin || "",
+        gst_registered: Boolean((profile as any).gst_registered),
       });
     }
   }, [profile]);
@@ -49,9 +54,39 @@ const SettingsPage = () => {
   const save = async () => {
     if (!profile) return;
     setSaving(true);
-    await supabase.from("profiles").update(form).eq("id", profile.id);
+    await supabase.from("profiles").update(form as any).eq("id", profile.id);
     setSaving(false);
     toast.success("Settings saved");
+  };
+
+  const exportAllData = async () => {
+    if (!profile) return;
+    setExporting(true);
+    try {
+      const doctorId = profile.id;
+      const tables = [
+        "services", "packages", "working_hours", "appointments",
+        "patients", "reviews", "blog_posts", "invoices", "website_settings",
+      ] as const;
+      const results: Record<string, any> = { profile };
+      for (const t of tables) {
+        const { data } = await (supabase.from(t as any) as any).select("*").eq("doctor_id", doctorId);
+        results[t] = data || [];
+      }
+      const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = (profile.full_name || "doctor").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      a.download = `doctylia-full-export-${safeName}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Data export downloaded");
+    } catch (e: any) {
+      toast.error("Export failed: " + (e?.message || "unknown error"));
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,6 +209,31 @@ const SettingsPage = () => {
                 <Label>Full Address</Label>
                 <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={3} />
               </div>
+
+              <div className="rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-semibold">GST Registered</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Turn on to show GST breakup on invoices</p>
+                  </div>
+                  <Switch
+                    checked={form.gst_registered}
+                    onCheckedChange={(v) => setForm({ ...form, gst_registered: v })}
+                  />
+                </div>
+                {form.gst_registered && (
+                  <div className="space-y-1.5">
+                    <Label>GSTIN</Label>
+                    <Input
+                      value={form.gstin}
+                      onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })}
+                      placeholder="22ABCDE1234F1Z5"
+                      className="h-10 font-mono uppercase"
+                    />
+                  </div>
+                )}
+              </div>
+
               <Button onClick={save} disabled={saving} className="bg-royal hover:bg-royal/90 h-10">
                 {saving ? "Saving..." : "Save Clinic Details"}
               </Button>
@@ -251,9 +311,9 @@ const SettingsPage = () => {
                 <CardTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-royal" /> Export Data</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">Download a copy of your patient records and appointment history.</p>
-                <Button variant="outline" onClick={() => toast.info("Export feature coming soon!")}>
-                  <Download className="h-4 w-4 mr-2" /> Export All Data
+                <p className="text-sm text-muted-foreground mb-3">Download a full JSON snapshot of your profile, patients, appointments, invoices, blog and website data.</p>
+                <Button variant="outline" onClick={exportAllData} disabled={exporting}>
+                  <Download className="h-4 w-4 mr-2" /> {exporting ? "Preparing…" : "Export All Data"}
                 </Button>
               </CardContent>
             </Card>

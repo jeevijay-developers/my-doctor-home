@@ -22,12 +22,19 @@ export type Database = {
           created_at: string
           date: string
           doctor_id: string
+          gateway_order_id: string | null
+          gateway_payment_id: string | null
+          gateway_signature: string | null
           id: string
+          meeting_link: string | null
+          meeting_provider: string | null
+          meeting_status: string | null
           notes: string | null
           patient_age: number | null
           patient_gender: string | null
           patient_name: string
           patient_phone: string
+          payment_gateway: string | null
           payment_status: Database["public"]["Enums"]["payment_status"]
           service_name: string
           status: Database["public"]["Enums"]["appointment_status"]
@@ -42,12 +49,19 @@ export type Database = {
           created_at?: string
           date: string
           doctor_id: string
+          gateway_order_id?: string | null
+          gateway_payment_id?: string | null
+          gateway_signature?: string | null
           id?: string
+          meeting_link?: string | null
+          meeting_provider?: string | null
+          meeting_status?: string | null
           notes?: string | null
           patient_age?: number | null
           patient_gender?: string | null
           patient_name: string
           patient_phone: string
+          payment_gateway?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           service_name: string
           status?: Database["public"]["Enums"]["appointment_status"]
@@ -62,12 +76,19 @@ export type Database = {
           created_at?: string
           date?: string
           doctor_id?: string
+          gateway_order_id?: string | null
+          gateway_payment_id?: string | null
+          gateway_signature?: string | null
           id?: string
+          meeting_link?: string | null
+          meeting_provider?: string | null
+          meeting_status?: string | null
           notes?: string | null
           patient_age?: number | null
           patient_gender?: string | null
           patient_name?: string
           patient_phone?: string
+          payment_gateway?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           service_name?: string
           status?: Database["public"]["Enums"]["appointment_status"]
@@ -220,6 +241,69 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "gallery_photos_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount: number
+          appointment_id: string
+          clinic_gstin: string | null
+          created_at: string
+          doctor_id: string
+          gst_amount: number
+          gst_rate: number
+          id: string
+          invoice_number: string
+          patient_name: string
+          service_name: string
+          status: string
+          total_amount: number
+        }
+        Insert: {
+          amount?: number
+          appointment_id: string
+          clinic_gstin?: string | null
+          created_at?: string
+          doctor_id: string
+          gst_amount?: number
+          gst_rate?: number
+          id?: string
+          invoice_number: string
+          patient_name: string
+          service_name: string
+          status?: string
+          total_amount?: number
+        }
+        Update: {
+          amount?: number
+          appointment_id?: string
+          clinic_gstin?: string | null
+          created_at?: string
+          doctor_id?: string
+          gst_amount?: number
+          gst_rate?: number
+          id?: string
+          invoice_number?: string
+          patient_name?: string
+          service_name?: string
+          status?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_doctor_id_fkey"
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -394,6 +478,8 @@ export type Database = {
           created_at: string
           experience_years: number | null
           full_name: string | null
+          gst_registered: boolean
+          gstin: string | null
           id: string
           onboarding_completed: boolean
           phone: string | null
@@ -414,6 +500,8 @@ export type Database = {
           created_at?: string
           experience_years?: number | null
           full_name?: string | null
+          gst_registered?: boolean
+          gstin?: string | null
           id: string
           onboarding_completed?: boolean
           phone?: string | null
@@ -434,6 +522,8 @@ export type Database = {
           created_at?: string
           experience_years?: number | null
           full_name?: string | null
+          gst_registered?: boolean
+          gstin?: string | null
           id?: string
           onboarding_completed?: boolean
           phone?: string | null
@@ -564,6 +654,7 @@ export type Database = {
       website_settings: {
         Row: {
           auto_confirm: boolean
+          blog_auto_enabled: boolean
           booking_advance_days: number
           buffer_minutes: number
           created_at: string
@@ -573,6 +664,8 @@ export type Database = {
           max_per_slot: number
           online_duration: number | null
           online_fee: number | null
+          payment_gateway_enabled: boolean
+          razorpay_key_id: string | null
           require_payment: boolean
           seo_description: string | null
           seo_keywords: string | null
@@ -592,11 +685,13 @@ export type Database = {
           social_youtube: string | null
           theme: string
           updated_at: string
+          video_provider: string | null
           whatsapp_message: string | null
           whatsapp_number: string | null
         }
         Insert: {
           auto_confirm?: boolean
+          blog_auto_enabled?: boolean
           booking_advance_days?: number
           buffer_minutes?: number
           created_at?: string
@@ -606,6 +701,8 @@ export type Database = {
           max_per_slot?: number
           online_duration?: number | null
           online_fee?: number | null
+          payment_gateway_enabled?: boolean
+          razorpay_key_id?: string | null
           require_payment?: boolean
           seo_description?: string | null
           seo_keywords?: string | null
@@ -625,11 +722,13 @@ export type Database = {
           social_youtube?: string | null
           theme?: string
           updated_at?: string
+          video_provider?: string | null
           whatsapp_message?: string | null
           whatsapp_number?: string | null
         }
         Update: {
           auto_confirm?: boolean
+          blog_auto_enabled?: boolean
           booking_advance_days?: number
           buffer_minutes?: number
           created_at?: string
@@ -639,6 +738,8 @@ export type Database = {
           max_per_slot?: number
           online_duration?: number | null
           online_fee?: number | null
+          payment_gateway_enabled?: boolean
+          razorpay_key_id?: string | null
           require_payment?: boolean
           seo_description?: string | null
           seo_keywords?: string | null
@@ -658,6 +759,7 @@ export type Database = {
           social_youtube?: string | null
           theme?: string
           updated_at?: string
+          video_provider?: string | null
           whatsapp_message?: string | null
           whatsapp_number?: string | null
         }

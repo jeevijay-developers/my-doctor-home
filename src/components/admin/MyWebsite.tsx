@@ -376,6 +376,19 @@ const MyWebsite = () => {
                     </Select>
                   </div>
                 </div>
+                <div>
+                  <Label className="flex items-center gap-2">
+                    Video Provider
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Not connected yet</span>
+                  </Label>
+                  <Select value="zoom" disabled>
+                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Zoom (Coming Soon)" /></SelectTrigger>
+                    <SelectContent><SelectItem value="zoom">Zoom (Coming Soon)</SelectItem></SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Video calls will run on Zoom once connected. Until then, patients will be shown a "link coming soon" message after booking.
+                  </p>
+                </div>
               </AccordionContent>
             </AccordionItem>
 
@@ -401,6 +414,20 @@ const MyWebsite = () => {
                 <div className="flex items-center justify-between">
                   <Label>Require Online Payment</Label>
                   <Switch checked={settings.require_payment ?? false} onCheckedChange={(v) => updateSetting("require_payment", v)} />
+                </div>
+                <div>
+                  <Label className="flex items-center gap-2">
+                    Payment Gateway
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Not connected yet</span>
+                  </Label>
+                  <Select value="razorpay" disabled>
+                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Razorpay (Coming Soon)" /></SelectTrigger>
+                    <SelectContent><SelectItem value="razorpay">Razorpay (Coming Soon)</SelectItem></SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Online payments will activate automatically once Razorpay keys are added by the Doctylia team.
+                    Until then, all bookings will fall back to Pay at Clinic.
+                  </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <Label>Auto-Confirm Bookings</Label>
