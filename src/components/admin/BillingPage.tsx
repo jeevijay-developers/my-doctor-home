@@ -50,6 +50,17 @@ const BillingPage = () => {
 
   useEffect(() => { loadData(); }, [profile]);
 
+  // Realtime: refresh when appointments or invoices change for this doctor
+  useEffect(() => {
+    if (!profile) return;
+    const channel = supabase.channel(`billing-${profile.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: `doctor_id=eq.${profile.id}` }, () => loadData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
+
   // Auto-generate invoices for any paid appointment that doesn't yet have one.
   useEffect(() => {
     const run = async () => {
