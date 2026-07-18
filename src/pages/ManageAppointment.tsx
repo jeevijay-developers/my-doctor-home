@@ -130,9 +130,16 @@ const ManageAppointment = () => {
 
   const dow = newDate ? newDate.getDay() : -1;
   const wh = workingHours.find((h) => h.day_of_week === dow);
-  const timeSlots = wh?.is_open
+  const rawSlots = wh?.is_open
     ? [...generateTimeSlots(wh.start_time, wh.end_time), ...generateTimeSlots(wh.start_time_2, wh.end_time_2)]
     : [];
+  const timeSlots = newDate && isSameDay(newDate, new Date())
+    ? rawSlots.filter((t) => {
+        const [h, m] = t.split(":").map(Number);
+        const slot = new Date(); slot.setHours(h, m, 0, 0);
+        return slot.getTime() > Date.now();
+      })
+    : rawSlots;
 
   const cancel = async () => {
     if (!appt || !doctor) return;
