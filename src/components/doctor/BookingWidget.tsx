@@ -3,9 +3,10 @@ import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock } from "luci
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addDays } from "date-fns";
+import { format, addDays, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
+import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
 const getNextDays = (count: number) => {
   const days = [];
