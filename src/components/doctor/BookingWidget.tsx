@@ -88,7 +88,10 @@ const BookingWidget = () => {
 
   const submitBooking = async () => {
     if (!profile || !selectedService || !selectedDate || !selectedTime || !name || !phone) return;
+    if (!isValidIndianPhone(phone)) { toast.error(phoneErrorMessage); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("Enter a valid email or leave it blank."); return; }
     setSubmitting(true);
+    const normalizedPhone = normalizeIndianPhone(phone);
     const tkn = `T${Math.floor(Math.random() * 900) + 100}`;
     const dStr = format(selectedDate, "yyyy-MM-dd");
 
@@ -97,7 +100,7 @@ const BookingWidget = () => {
       .insert({
         doctor_id: profile.id,
         patient_name: name,
-        patient_phone: phone,
+        patient_phone: normalizedPhone,
         patient_age: age ? Number(age) : null,
         patient_gender: gender || null,
         service_name: selectedService.name,
