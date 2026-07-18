@@ -35,7 +35,7 @@ const DashboardHome = () => {
   const [newNote, setNewNote] = useState("");
   const [tipIndex, setTipIndex] = useState(0);
 
-  useEffect(() => {
+  const loadDashboard = () => {
     if (!profile) return;
     const id = profile.id;
     const today = format(new Date(), "yyyy-MM-dd");
