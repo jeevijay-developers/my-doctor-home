@@ -95,15 +95,15 @@ const AppointmentsPage = () => {
 
     const token = `T${Math.floor(Math.random() * 900) + 100}`;
     const { error } = await supabase.from("appointments").insert({
-      doctor_id: profile.id, ...newAppt, token_number: token, status: "confirmed" as any, payment_status: "pending" as any,
+      doctor_id: profile.id, ...newAppt, patient_phone: normalizedPhone, token_number: token, status: "confirmed" as any, payment_status: "pending" as any,
     });
     if (error) { toast.error("Could not add appointment"); return; }
 
-    const existing = await supabase.from("patients").select("id, total_visits").eq("doctor_id", profile.id).eq("phone", newAppt.patient_phone).single();
+    const existing = await supabase.from("patients").select("id, total_visits").eq("doctor_id", profile.id).eq("phone", normalizedPhone).maybeSingle();
     if (existing.data) {
       await supabase.from("patients").update({ total_visits: (existing.data.total_visits || 0) + 1, last_visit: newAppt.date }).eq("id", existing.data.id);
-    } else {
-      await supabase.from("patients").insert({ doctor_id: profile.id, name: newAppt.patient_name, phone: newAppt.patient_phone, first_visit: newAppt.date, last_visit: newAppt.date, total_visits: 1 });
+    } else if (normalizedPhone) {
+      await supabase.from("patients").insert({ doctor_id: profile.id, name: newAppt.patient_name, phone: normalizedPhone, first_visit: newAppt.date, last_visit: newAppt.date, total_visits: 1 });
     }
     setShowNew(false);
     setNewAppt({ patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic", date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0 });
