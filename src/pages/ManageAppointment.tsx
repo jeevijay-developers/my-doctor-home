@@ -355,6 +355,7 @@ const errorMessage = (code?: string) => {
     case "TOO_CLOSE": return "Too close to the appointment time — please call the clinic.";
     case "MAX_RESCHEDULES": return "You've reached the maximum number of reschedules.";
     case "SLOT_FULL": return "That slot was just taken. Please pick another.";
+    case "SLOT_IN_PAST": return "That time is in the past — please pick a future slot.";
     default: return "Something went wrong. Please try again.";
   }
 };
