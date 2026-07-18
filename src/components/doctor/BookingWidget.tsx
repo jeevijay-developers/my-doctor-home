@@ -125,6 +125,11 @@ const BookingWidget = () => {
         refresh();
         return;
       }
+      if (error.message?.includes("SLOT_IN_PAST")) {
+        toast.error("That time has already passed — please pick a later slot.");
+        setStep(4); setSelectedTime(""); refresh();
+        return;
+      }
       toast.error("Booking failed. Please try again.");
       return;
     }
@@ -134,15 +139,16 @@ const BookingWidget = () => {
       .from("patients")
       .select("id, total_visits")
       .eq("doctor_id", profile.id)
-      .eq("phone", phone)
+      .eq("phone", normalizedPhone)
       .maybeSingle();
     if (existing) {
       await supabase.from("patients").update({
         total_visits: (existing.total_visits || 0) + 1, last_visit: dStr,
-      }).eq("id", existing.id);
+        email: email || undefined,
+      } as any).eq("id", existing.id);
     } else {
       await supabase.from("patients").insert({
-        doctor_id: profile.id, name, phone, age: age ? Number(age) : null,
+        doctor_id: profile.id, name, phone: normalizedPhone, email: email || null, age: age ? Number(age) : null,
         gender: gender || null, first_visit: dStr, last_visit: dStr, total_visits: 1,
       });
     }
