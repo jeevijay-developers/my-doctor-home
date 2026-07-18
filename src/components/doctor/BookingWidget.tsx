@@ -56,9 +56,17 @@ const BookingWidget = () => {
   const dayOfWeek = selectedDate ? selectedDate.getDay() : -1;
   const wh = workingHours.find((h) => h.day_of_week === dayOfWeek);
 
-  const timeSlots = wh?.is_open
+  const rawTimeSlots = wh?.is_open
     ? [...generateTimeSlots(wh.start_time, wh.end_time), ...generateTimeSlots(wh.start_time_2, wh.end_time_2)]
     : [];
+  // Hide time slots that are already in the past for today
+  const timeSlots = selectedDate && isSameDay(selectedDate, new Date())
+    ? rawTimeSlots.filter((t) => {
+        const [h, m] = t.split(":").map(Number);
+        const slot = new Date(); slot.setHours(h, m, 0, 0);
+        return slot.getTime() > Date.now();
+      })
+    : rawTimeSlots;
 
   const filteredServices = services.filter((s) =>
     type === "online" ? s.type === "online" || s.type === "both" : s.type === "clinic" || s.type === "both"
