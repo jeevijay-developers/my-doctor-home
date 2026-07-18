@@ -18,6 +18,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
