@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format, addDays, subDays, isSameDay, startOfWeek } from "date-fns";
+import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
 type Appointment = {
   id: string; patient_name: string; patient_phone: string; patient_age: number | null;
