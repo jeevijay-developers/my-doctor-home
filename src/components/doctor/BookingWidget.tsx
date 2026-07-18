@@ -3,9 +3,10 @@ import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock } from "luci
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addDays } from "date-fns";
+import { format, addDays, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
+import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
 const getNextDays = (count: number) => {
   const days = [];
@@ -39,6 +40,7 @@ const BookingWidget = () => {
   const [selectedTime, setSelectedTime] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
   const [complaint, setComplaint] = useState("");
@@ -54,9 +56,17 @@ const BookingWidget = () => {
   const dayOfWeek = selectedDate ? selectedDate.getDay() : -1;
   const wh = workingHours.find((h) => h.day_of_week === dayOfWeek);
 
-  const timeSlots = wh?.is_open
+  const rawTimeSlots = wh?.is_open
     ? [...generateTimeSlots(wh.start_time, wh.end_time), ...generateTimeSlots(wh.start_time_2, wh.end_time_2)]
     : [];
+  // Hide time slots that are already in the past for today
+  const timeSlots = selectedDate && isSameDay(selectedDate, new Date())
+    ? rawTimeSlots.filter((t) => {
+        const [h, m] = t.split(":").map(Number);
+        const slot = new Date(); slot.setHours(h, m, 0, 0);
+        return slot.getTime() > Date.now();
+      })
+    : rawTimeSlots;
 
   const filteredServices = services.filter((s) =>
     type === "online" ? s.type === "online" || s.type === "both" : s.type === "clinic" || s.type === "both"
@@ -78,7 +88,10 @@ const BookingWidget = () => {
 
   const submitBooking = async () => {
     if (!profile || !selectedService || !selectedDate || !selectedTime || !name || !phone) return;
+    if (!isValidIndianPhone(phone)) { toast.error(phoneErrorMessage); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("Enter a valid email or leave it blank."); return; }
     setSubmitting(true);
+    const normalizedPhone = normalizeIndianPhone(phone);
     const tkn = `T${Math.floor(Math.random() * 900) + 100}`;
     const dStr = format(selectedDate, "yyyy-MM-dd");
 
@@ -87,7 +100,7 @@ const BookingWidget = () => {
       .insert({
         doctor_id: profile.id,
         patient_name: name,
-        patient_phone: phone,
+        patient_phone: normalizedPhone,
         patient_age: age ? Number(age) : null,
         patient_gender: gender || null,
         service_name: selectedService.name,
@@ -112,6 +125,11 @@ const BookingWidget = () => {
         refresh();
         return;
       }
+      if (error.message?.includes("SLOT_IN_PAST")) {
+        toast.error("That time has already passed — please pick a later slot.");
+        setStep(4); setSelectedTime(""); refresh();
+        return;
+      }
       toast.error("Booking failed. Please try again.");
       return;
     }
@@ -121,15 +139,16 @@ const BookingWidget = () => {
       .from("patients")
       .select("id, total_visits")
       .eq("doctor_id", profile.id)
-      .eq("phone", phone)
+      .eq("phone", normalizedPhone)
       .maybeSingle();
     if (existing) {
       await supabase.from("patients").update({
         total_visits: (existing.total_visits || 0) + 1, last_visit: dStr,
-      }).eq("id", existing.id);
+        email: email || undefined,
+      } as any).eq("id", existing.id);
     } else {
       await supabase.from("patients").insert({
-        doctor_id: profile.id, name, phone, age: age ? Number(age) : null,
+        doctor_id: profile.id, name, phone: normalizedPhone, email: email || null, age: age ? Number(age) : null,
         gender: gender || null, first_visit: dStr, last_visit: dStr, total_visits: 1,
       });
     }
@@ -148,7 +167,7 @@ const BookingWidget = () => {
 
   const reset = () => {
     setStep(1); setType("clinic"); setSelectedService(null); setSelectedDate(null);
-    setSelectedTime(""); setName(""); setPhone(""); setAge(""); setGender(""); setComplaint("");
+    setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
 
@@ -344,9 +363,14 @@ const BookingWidget = () => {
                   className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                 <div className="flex items-center gap-2">
                   <span className="px-3 py-3 rounded-lg border border-border bg-secondary text-sm text-foreground">+91</span>
-                  <input type="tel" placeholder="Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
+                  <input type="tel" inputMode="numeric" maxLength={13} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
                     className="flex-1 px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                 </div>
+                {phone && !isValidIndianPhone(phone) && (
+                  <p className="text-[11px] text-destructive -mt-1">{phoneErrorMessage}</p>
+                )}
+                <input type="email" placeholder="Email (optional — for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                 <div className="grid grid-cols-2 gap-3">
                   <input type="number" placeholder="Age" value={age} onChange={(e) => setAge(e.target.value)}
                     className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />

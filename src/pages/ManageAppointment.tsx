@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { format, addDays, differenceInHours, parseISO } from "date-fns";
+import { format, addDays, differenceInHours, parseISO, isSameDay } from "date-fns";
 import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight } from "lucide-react";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 
@@ -130,9 +130,16 @@ const ManageAppointment = () => {
 
   const dow = newDate ? newDate.getDay() : -1;
   const wh = workingHours.find((h) => h.day_of_week === dow);
-  const timeSlots = wh?.is_open
+  const rawSlots = wh?.is_open
     ? [...generateTimeSlots(wh.start_time, wh.end_time), ...generateTimeSlots(wh.start_time_2, wh.end_time_2)]
     : [];
+  const timeSlots = newDate && isSameDay(newDate, new Date())
+    ? rawSlots.filter((t) => {
+        const [h, m] = t.split(":").map(Number);
+        const slot = new Date(); slot.setHours(h, m, 0, 0);
+        return slot.getTime() > Date.now();
+      })
+    : rawSlots;
 
   const cancel = async () => {
     if (!appt || !doctor) return;
@@ -348,6 +355,7 @@ const errorMessage = (code?: string) => {
     case "TOO_CLOSE": return "Too close to the appointment time — please call the clinic.";
     case "MAX_RESCHEDULES": return "You've reached the maximum number of reschedules.";
     case "SLOT_FULL": return "That slot was just taken. Please pick another.";
+    case "SLOT_IN_PAST": return "That time is in the past — please pick a future slot.";
     default: return "Something went wrong. Please try again.";
   }
 };

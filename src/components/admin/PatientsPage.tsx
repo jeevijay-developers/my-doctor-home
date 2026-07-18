@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
 type Patient = {
   id: string; name: string; phone: string; email: string | null;
@@ -35,13 +36,24 @@ const PatientsPage = () => {
 
   useEffect(() => { load(); }, [profile]);
 
+  // Realtime: refresh when patients change for this doctor
+  useEffect(() => {
+    if (!profile) return;
+    const channel = supabase.channel(`patients-${profile.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile]);
+
   const addPatient = async () => {
     if (!profile || !newPatient.name || !newPatient.phone) return;
-    await supabase.from("patients").insert({
-      doctor_id: profile.id, name: newPatient.name, phone: newPatient.phone,
+    if (!isValidIndianPhone(newPatient.phone)) { toast.error(phoneErrorMessage); return; }
+    const { error } = await supabase.from("patients").insert({
+      doctor_id: profile.id, name: newPatient.name, phone: normalizeIndianPhone(newPatient.phone),
       email: newPatient.email || null, age: newPatient.age ? Number(newPatient.age) : null,
       gender: newPatient.gender || null,
     });
+    if (error) { toast.error("Could not add patient"); return; }
     setShowNew(false);
     setNewPatient({ name: "", phone: "", email: "", age: "", gender: "" });
     load();
@@ -114,7 +126,10 @@ const PatientsPage = () => {
               </div>
               <div className="space-y-1.5">
                 <Label>Phone *</Label>
-                <Input value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="+91" className="h-10" />
+                <Input value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+                {newPatient.phone && !isValidIndianPhone(newPatient.phone) && (
+                  <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Email</Label>
