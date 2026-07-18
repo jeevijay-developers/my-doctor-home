@@ -70,8 +70,7 @@ const Auth = () => {
           toast.success("Account created! Let's set up your profile.");
           navigate("/onboarding");
         } else {
-          toast.success("Account created! Please check your email to verify, then log in.");
-          setMode("login");
+          setSignupSuccess(email);
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
