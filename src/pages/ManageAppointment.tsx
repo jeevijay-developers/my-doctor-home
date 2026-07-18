@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { format, addDays, differenceInHours, parseISO } from "date-fns";
+import { format, addDays, differenceInHours, parseISO, isSameDay } from "date-fns";
 import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight } from "lucide-react";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 
