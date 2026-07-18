@@ -363,9 +363,14 @@ const BookingWidget = () => {
                   className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                 <div className="flex items-center gap-2">
                   <span className="px-3 py-3 rounded-lg border border-border bg-secondary text-sm text-foreground">+91</span>
-                  <input type="tel" placeholder="Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
+                  <input type="tel" inputMode="numeric" maxLength={13} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
                     className="flex-1 px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                 </div>
+                {phone && !isValidIndianPhone(phone) && (
+                  <p className="text-[11px] text-destructive -mt-1">{phoneErrorMessage}</p>
+                )}
+                <input type="email" placeholder="Email (optional — for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                 <div className="grid grid-cols-2 gap-3">
                   <input type="number" placeholder="Age" value={age} onChange={(e) => setAge(e.target.value)}
                     className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
