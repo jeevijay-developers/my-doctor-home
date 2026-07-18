@@ -77,6 +77,8 @@ const AppointmentsPage = () => {
 
   const addAppointment = async () => {
     if (!profile || !newAppt.patient_name || !newAppt.service_name) return;
+    if (newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
+    const normalizedPhone = normalizeIndianPhone(newAppt.patient_phone);
 
     // Soft overbook warning based on max_per_slot
     const { data: settingsRow } = await supabase
