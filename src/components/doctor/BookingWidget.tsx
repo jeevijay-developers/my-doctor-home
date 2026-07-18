@@ -167,7 +167,7 @@ const BookingWidget = () => {
 
   const reset = () => {
     setStep(1); setType("clinic"); setSelectedService(null); setSelectedDate(null);
-    setSelectedTime(""); setName(""); setPhone(""); setAge(""); setGender(""); setComplaint("");
+    setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
 
