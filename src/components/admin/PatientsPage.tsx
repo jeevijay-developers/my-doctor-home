@@ -126,7 +126,10 @@ const PatientsPage = () => {
               </div>
               <div className="space-y-1.5">
                 <Label>Phone *</Label>
-                <Input value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="+91" className="h-10" />
+                <Input value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+                {newPatient.phone && !isValidIndianPhone(newPatient.phone) && (
+                  <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Email</Label>
