@@ -71,7 +71,7 @@ const LandingHero = () => {
                 with India's #1
               </motion.span>
               <br />
-              <span className="relative inline-block h-[1.2em] overflow-hidden align-bottom">
+              <span className="relative inline-block h-[1.5em] overflow-hidden align-bottom leading-[1.4]">
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={wordIndex}
