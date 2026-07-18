@@ -332,6 +332,8 @@ const Auth = () => {
                 </p>
               )}
             </div>
+            </>
+            )}
           </div>
 
           {/* Mobile trust points */}
