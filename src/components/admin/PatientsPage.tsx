@@ -36,13 +36,24 @@ const PatientsPage = () => {
 
   useEffect(() => { load(); }, [profile]);
 
+  // Realtime: refresh when patients change for this doctor
+  useEffect(() => {
+    if (!profile) return;
+    const channel = supabase.channel(`patients-${profile.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile]);
+
   const addPatient = async () => {
     if (!profile || !newPatient.name || !newPatient.phone) return;
-    await supabase.from("patients").insert({
-      doctor_id: profile.id, name: newPatient.name, phone: newPatient.phone,
+    if (!isValidIndianPhone(newPatient.phone)) { toast.error(phoneErrorMessage); return; }
+    const { error } = await supabase.from("patients").insert({
+      doctor_id: profile.id, name: newPatient.name, phone: normalizeIndianPhone(newPatient.phone),
       email: newPatient.email || null, age: newPatient.age ? Number(newPatient.age) : null,
       gender: newPatient.gender || null,
     });
+    if (error) { toast.error("Could not add patient"); return; }
     setShowNew(false);
     setNewPatient({ name: "", phone: "", email: "", age: "", gender: "" });
     load();
