@@ -161,6 +161,29 @@ const Auth = () => {
           </Link>
 
           <div className="bg-card rounded-2xl shadow-xl border border-border p-5 sm:p-7">
+            {signupSuccess ? (
+              <div className="text-center py-4">
+                <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="h-7 w-7 text-success" />
+                </div>
+                <h1 className="font-heading font-bold text-xl text-primary mb-2">Check your email</h1>
+                <p className="text-sm text-muted-foreground mb-5">
+                  We sent a verification link to <strong className="text-foreground">{signupSuccess}</strong>.
+                  Click it to activate your account, then log in.
+                </p>
+                <Button className="w-full h-11 bg-royal hover:bg-royal/90 text-white font-semibold"
+                  onClick={() => { setSignupSuccess(null); setMode("login"); }}>
+                  Go to Login
+                </Button>
+                <button
+                  className="text-xs text-muted-foreground hover:text-royal mt-3"
+                  onClick={() => setSignupSuccess(null)}
+                >
+                  Use a different email
+                </button>
+              </div>
+            ) : (
+            <>
             <div className="text-center mb-6">
               <h1 className="font-heading font-bold text-2xl text-primary">
                 {mode === "signup" ? "Start Your Free Trial" : mode === "forgot" ? "Reset Password" : "Welcome Back"}
