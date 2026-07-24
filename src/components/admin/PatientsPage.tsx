@@ -290,7 +290,10 @@ const PatientsPage = () => {
                               <span className="font-medium text-sm text-foreground">{a.service_name}</span>
                               <span className="text-xs text-muted-foreground">{a.date}</span>
                             </div>
-                            <div className="text-xs text-muted-foreground">{a.time_slot?.slice(0, 5)} · {a.appointment_type} · ₹{a.amount}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {a.time_slot?.slice(0, 5)} · {a.appointment_type} · ₹{a.amount}
+                              {a.token_number && <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold">#{a.token_number}</span>}
+                            </div>
                           </div>
                         </div>
                       ))}
