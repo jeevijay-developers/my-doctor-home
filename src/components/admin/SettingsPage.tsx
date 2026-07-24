@@ -47,6 +47,7 @@ const SettingsPage = () => {
         clinic_name: profile.clinic_name || "",
         city: profile.city || "",
         address: profile.address || "",
+        consultation_fee: (profile as any).consultation_fee || 0,
         gstin: (profile as any).gstin || "",
         gst_registered: Boolean((profile as any).gst_registered),
       });
