@@ -153,8 +153,13 @@ const AppointmentsPage = () => {
   };
 
   const addAppointment = async () => {
-    if (!profile || !newAppt.patient_name || !newAppt.service_name) return;
-    if (newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
+    if (!profile) return;
+    if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
+    if (!newAppt.patient_phone.trim()) { toast.error("Phone number is required"); return; }
+    if (!isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
+    // Block past date / time
+    const apptTs = new Date(`${newAppt.date}T${newAppt.time_slot}`);
+    if (apptTs.getTime() < Date.now()) { toast.error("Cannot book an appointment for a past date or time slot."); return; }
     const normalizedPhone = normalizeIndianPhone(newAppt.patient_phone);
 
     const { data: settingsRow } = await supabase
@@ -171,14 +176,16 @@ const AppointmentsPage = () => {
 
     const token = `T${Math.floor(Math.random() * 900) + 100}`;
     const { status, ...rest } = newAppt;
+    const serviceName = rest.service_name.trim() || "Consultation";
     const { error } = await supabase.from("appointments").insert({
-      doctor_id: profile.id, ...rest, patient_phone: normalizedPhone,
+      doctor_id: profile.id, ...rest, service_name: serviceName,
+      appointment_type: "clinic",
+      patient_phone: normalizedPhone,
       token_number: token, status: status as any, payment_status: "pending" as any,
     });
     if (error) { toast.error("Could not add appointment"); return; }
 
-    // BUG-012: patient row created only when appointment is completed.
-    // Booking creates the appointment only.
+    // BUG-04: patient row created only when appointment is completed.
 
     setShowNew(false);
     setNewAppt({ patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic", date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0, status: "pending" });
@@ -204,8 +211,12 @@ const AppointmentsPage = () => {
     completed: appointments.filter(a => a.status === "completed").length,
   };
 
-  const timeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+  const allTimeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const timeSlots = newAppt.date === todayStr
+    ? allTimeSlots.filter((t) => new Date(`${todayStr}T${t}`).getTime() > Date.now())
+    : allTimeSlots;
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">
@@ -227,17 +238,20 @@ const AppointmentsPage = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone *</Label>
-                  <Input value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="+91" className="h-10" />
+                  <Input value={newAppt.patient_phone} inputMode="numeric" maxLength={13} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+                  {newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone) && (
+                    <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Service *</Label>
-                <Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} className="h-10" />
+                <Label>Service <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                <Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} placeholder="e.g. Consultation" className="h-10" />
               </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Date</Label>
-                  <Input type="date" value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" />
+                  <Input type="date" min={todayStr} value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Time Slot</Label>
@@ -252,10 +266,9 @@ const AppointmentsPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Type</Label>
-                  <Select value={newAppt.appointment_type} onValueChange={(v) => setNewAppt({ ...newAppt, appointment_type: v })}>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="clinic">Clinic</SelectItem><SelectItem value="online">Online</SelectItem></SelectContent>
-                  </Select>
+                  <div className="h-10 flex items-center px-3 rounded-md border border-border bg-muted/40 text-sm text-foreground">
+                    Clinic Visit
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Amount (₹)</Label>
@@ -364,7 +377,12 @@ const AppointmentsPage = () => {
                         {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
                       </div>
                       <div>
-                        <div className="font-medium text-foreground">{a.patient_name}</div>
+                        <div className="font-medium text-foreground flex items-center gap-2">
+                          {a.patient_name}
+                          {a.token_number && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold">#{a.token_number}</span>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                           <span>{a.service_name}</span>
                           <span>·</span>
@@ -422,7 +440,7 @@ const AppointmentsPage = () => {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Date</Label>
-              <Input type="date" value={rescheduleForm.date} onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} className="h-10" />
+              <Input type="date" min={todayStr} value={rescheduleForm.date} onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label>Time</Label>

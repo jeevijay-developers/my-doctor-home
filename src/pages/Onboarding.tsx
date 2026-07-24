@@ -33,9 +33,11 @@ const Onboarding = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { navigate("/auth"); return; }
-      const name = user.user_metadata?.full_name || "";
+      const { data: prof } = await supabase.from("profiles").select("onboarding_completed, full_name").eq("id", user.id).maybeSingle();
+      if (prof?.onboarding_completed) { navigate("/admin/dashboard", { replace: true }); return; }
+      const name = prof?.full_name || user.user_metadata?.full_name || "";
       setForm((f) => ({ ...f, full_name: name }));
     });
   }, [navigate]);

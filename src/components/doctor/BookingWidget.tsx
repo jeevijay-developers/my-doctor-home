@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock, Download } from "lucide-react";
+import jsPDF from "jspdf";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -134,25 +135,8 @@ const BookingWidget = () => {
       return;
     }
 
-    // Track patient contact but DO NOT count this appointment as a visit yet.
-    // Visit is counted when the doctor marks the appointment "completed".
-    const { data: existing } = await supabase
-      .from("patients")
-      .select("id")
-      .eq("doctor_id", profile.id)
-      .eq("phone", normalizedPhone)
-      .maybeSingle();
-    if (existing) {
-      await supabase.from("patients").update({
-        email: email || undefined,
-      } as any).eq("id", existing.id);
-    } else {
-      await supabase.from("patients").insert({
-        doctor_id: profile.id, name, phone: normalizedPhone, email: email || null,
-        age: age ? Number(age) : null, gender: gender || null,
-        first_visit: null, last_visit: null, total_visits: 0,
-      });
-    }
+    // BUG-04: Do NOT create the patient record on booking. Patient rows are
+    // created/updated only when the doctor marks an appointment "completed".
 
     // Queue count (for clinic bookings)
     if (type === "clinic" && inserted?.id) {
@@ -171,6 +155,40 @@ const BookingWidget = () => {
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
+
+  const downloadSlip = () => {
+    if (!selectedDate || !selectedService) return;
+    const doc = new jsPDF({ unit: "pt", format: "a5" });
+    const marginX = 32; let y = 40;
+    doc.setFontSize(16); doc.setFont("helvetica", "bold");
+    doc.text("Appointment Slip", marginX, y); y += 22;
+    doc.setDrawColor(200); doc.line(marginX, y, 380, y); y += 18;
+    doc.setFontSize(11); doc.setFont("helvetica", "normal");
+    const rows: [string, string][] = [
+      ["Token", `#${token}`],
+      ["Appointment ID", confirmedApptId || "—"],
+      ["Doctor", `Dr. ${profile?.full_name || ""}`],
+      ["Clinic", (profile as any)?.clinic_name || "—"],
+      ["Service", selectedService.name],
+      ["Type", type === "clinic" ? "Clinic Visit" : "Online"],
+      ["Date", format(selectedDate, "EEEE, d MMMM yyyy")],
+      ["Time", selectedTime],
+      ["Patient", name],
+      ["Phone", phone],
+      ["Amount", `₹${selectedService.price}`],
+      ["Status", settings?.auto_confirm ? "Confirmed" : "Requested"],
+    ];
+    rows.forEach(([k, v]) => {
+      doc.setFont("helvetica", "bold"); doc.text(`${k}:`, marginX, y);
+      doc.setFont("helvetica", "normal"); doc.text(String(v), marginX + 110, y);
+      y += 18;
+    });
+    y += 8;
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text("Please arrive 10 minutes early. Show this slip at the clinic.", marginX, y);
+    doc.save(`appointment-${token}.pdf`);
+  };
+
 
   const initiateRazorpayPayment = () => {
     toast.info("Payment gateway integration coming soon", {
@@ -234,7 +252,10 @@ const BookingWidget = () => {
                 Manage this appointment (cancel or reschedule) →
               </a>
             )}
-            <Button variant="outline" onClick={reset}>Book Another Appointment</Button>
+            <div className="flex gap-2 justify-center">
+              <Button variant="outline" onClick={downloadSlip} className="gap-1.5"><Download className="h-4 w-4" /> Download Slip</Button>
+              <Button variant="outline" onClick={reset}>Book Another</Button>
+            </div>
           </div>
         </div>
       </section>

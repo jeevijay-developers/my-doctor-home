@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Users, Plus, Search, Phone, Mail, Calendar, Activity, Download } from "lucide-react";
+import { Users, Plus, Search, Phone, Mail, Calendar, Activity, Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -27,6 +28,17 @@ const PatientsPage = () => {
   const [selected, setSelected] = useState<Patient | null>(null);
   const [patientAppts, setPatientAppts] = useState<any[]>([]);
   const [newPatient, setNewPatient] = useState({ name: "", phone: "", email: "", age: "", gender: "" });
+  const [deleting, setDeleting] = useState<Patient | null>(null);
+
+  const confirmDelete = async () => {
+    if (!deleting || !profile) return;
+    const { error } = await supabase.from("patients").delete().eq("id", deleting.id).eq("doctor_id", profile.id);
+    if (error) { toast.error("Could not delete patient"); return; }
+    setDeleting(null);
+    setSelected(null);
+    load();
+    toast.success("Patient deleted");
+  };
 
   const load = async () => {
     if (!profile) return;
@@ -278,18 +290,46 @@ const PatientsPage = () => {
                               <span className="font-medium text-sm text-foreground">{a.service_name}</span>
                               <span className="text-xs text-muted-foreground">{a.date}</span>
                             </div>
-                            <div className="text-xs text-muted-foreground">{a.time_slot?.slice(0, 5)} · {a.appointment_type} · ₹{a.amount}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {a.time_slot?.slice(0, 5)} · {a.appointment_type} · ₹{a.amount}
+                              {a.token_number && <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold">#{a.token_number}</span>}
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
+
+                <div className="pt-4 border-t border-border">
+                  <Button variant="outline" className="w-full text-destructive border-destructive/30 hover:bg-destructive/5"
+                    onClick={() => setDeleting(selected)}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete Patient Record
+                  </Button>
+                </div>
               </div>
             </>
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete patient record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes <strong>{deleting?.name}</strong>'s record and cannot be undone.
+              Their past appointments will be kept in the appointment history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
