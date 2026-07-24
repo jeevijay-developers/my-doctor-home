@@ -153,8 +153,13 @@ const AppointmentsPage = () => {
   };
 
   const addAppointment = async () => {
-    if (!profile || !newAppt.patient_name || !newAppt.service_name) return;
-    if (newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
+    if (!profile) return;
+    if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
+    if (!newAppt.patient_phone.trim()) { toast.error("Phone number is required"); return; }
+    if (!isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
+    // Block past date / time
+    const apptTs = new Date(`${newAppt.date}T${newAppt.time_slot}`);
+    if (apptTs.getTime() < Date.now()) { toast.error("Cannot book an appointment for a past date or time slot."); return; }
     const normalizedPhone = normalizeIndianPhone(newAppt.patient_phone);
 
     const { data: settingsRow } = await supabase
@@ -171,14 +176,16 @@ const AppointmentsPage = () => {
 
     const token = `T${Math.floor(Math.random() * 900) + 100}`;
     const { status, ...rest } = newAppt;
+    const serviceName = rest.service_name.trim() || "Consultation";
     const { error } = await supabase.from("appointments").insert({
-      doctor_id: profile.id, ...rest, patient_phone: normalizedPhone,
+      doctor_id: profile.id, ...rest, service_name: serviceName,
+      appointment_type: "clinic",
+      patient_phone: normalizedPhone,
       token_number: token, status: status as any, payment_status: "pending" as any,
     });
     if (error) { toast.error("Could not add appointment"); return; }
 
-    // BUG-012: patient row created only when appointment is completed.
-    // Booking creates the appointment only.
+    // BUG-04: patient row created only when appointment is completed.
 
     setShowNew(false);
     setNewAppt({ patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic", date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0, status: "pending" });
