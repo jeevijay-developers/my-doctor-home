@@ -416,6 +416,22 @@ const AppointmentsPage = () => {
           })}
         </div>
       )}
+      <Dialog open={!!rescheduling} onOpenChange={(o) => !o && setRescheduling(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Reschedule Appointment</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Date</Label>
+              <Input type="date" value={rescheduleForm.date} onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} className="h-10" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Time</Label>
+              <Input type="time" value={rescheduleForm.time_slot} onChange={(e) => setRescheduleForm({ ...rescheduleForm, time_slot: e.target.value })} className="h-10" />
+            </div>
+            <Button onClick={submitReschedule} className="w-full h-10 bg-royal hover:bg-royal/90">Save New Slot</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
