@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock, Download } from "lucide-react";
+import jsPDF from "jspdf";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
