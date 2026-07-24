@@ -13,8 +13,22 @@ const ClinicDetails = () => {
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary text-center mb-12">Clinic Details & Contact</h2>
         <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
           <div className="space-y-6">
-            <div className="aspect-video rounded-xl overflow-hidden bg-secondary flex items-center justify-center text-muted-foreground">
-              <MapPin size={32} className="mr-2" /> Map will display here
+            <div className="aspect-video rounded-xl overflow-hidden bg-secondary">
+              {profile?.address || profile?.city ? (
+                <iframe
+                  title="Clinic location"
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://www.google.com/maps?q=${encodeURIComponent(
+                    [profile?.clinic_name, profile?.address, profile?.city].filter(Boolean).join(", ")
+                  )}&output=embed`}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                  <MapPin size={32} className="mr-2" /> Location not set
+                </div>
+              )}
             </div>
             <div className="space-y-3">
               {profile?.address && (
