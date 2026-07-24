@@ -156,6 +156,40 @@ const BookingWidget = () => {
     setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
 
+  const downloadSlip = () => {
+    if (!selectedDate || !selectedService) return;
+    const doc = new jsPDF({ unit: "pt", format: "a5" });
+    const marginX = 32; let y = 40;
+    doc.setFontSize(16); doc.setFont("helvetica", "bold");
+    doc.text("Appointment Slip", marginX, y); y += 22;
+    doc.setDrawColor(200); doc.line(marginX, y, 380, y); y += 18;
+    doc.setFontSize(11); doc.setFont("helvetica", "normal");
+    const rows: [string, string][] = [
+      ["Token", `#${token}`],
+      ["Appointment ID", confirmedApptId || "—"],
+      ["Doctor", `Dr. ${profile?.full_name || ""}`],
+      ["Clinic", (profile as any)?.clinic_name || "—"],
+      ["Service", selectedService.name],
+      ["Type", type === "clinic" ? "Clinic Visit" : "Online"],
+      ["Date", format(selectedDate, "EEEE, d MMMM yyyy")],
+      ["Time", selectedTime],
+      ["Patient", name],
+      ["Phone", phone],
+      ["Amount", `₹${selectedService.price}`],
+      ["Status", settings?.auto_confirm ? "Confirmed" : "Requested"],
+    ];
+    rows.forEach(([k, v]) => {
+      doc.setFont("helvetica", "bold"); doc.text(`${k}:`, marginX, y);
+      doc.setFont("helvetica", "normal"); doc.text(String(v), marginX + 110, y);
+      y += 18;
+    });
+    y += 8;
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text("Please arrive 10 minutes early. Show this slip at the clinic.", marginX, y);
+    doc.save(`appointment-${token}.pdf`);
+  };
+
+
   const initiateRazorpayPayment = () => {
     toast.info("Payment gateway integration coming soon", {
       description: "Your booking will be created as Pay at Clinic for now.",
