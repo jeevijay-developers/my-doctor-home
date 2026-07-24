@@ -55,6 +55,9 @@ const Onboarding = () => {
     if (!form.clinic_name.trim()) return toast.error("Please enter your clinic/hospital name");
     if (!form.city.trim()) return toast.error("Please enter your city");
     if (!form.phone.trim()) return toast.error("Please enter your phone number");
+    // Lazy import to avoid TS churn if module missing.
+    const digits = form.phone.replace(/[^\d]/g, "").replace(/^91/, "").replace(/^0/, "");
+    if (!/^[6-9]\d{9}$/.test(digits)) return toast.error("Enter a valid 10-digit Indian mobile number (starting with 6/7/8/9)");
     if (!form.address.trim()) return toast.error("Please enter your full address");
     setStep(3);
   };

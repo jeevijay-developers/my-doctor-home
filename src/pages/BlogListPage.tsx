@@ -14,18 +14,29 @@ const BlogListPage = () => {
 
   useEffect(() => {
     if (!slug) return;
+    let doctorId: string | null = null;
+    const loadPosts = async (id: string) => {
+      const { data } = await supabase
+        .from("blog_posts").select("*").eq("doctor_id", id).eq("is_published", true)
+        .order("published_at", { ascending: false });
+      setPosts(data || []);
+    };
     const load = async () => {
       const { data: profile } = await supabase
         .from("profiles").select("*").eq("slug", slug).eq("onboarding_completed", true).single();
       if (!profile) { setLoading(false); return; }
       setDoctor(profile);
-      const { data } = await supabase
-        .from("blog_posts").select("*").eq("doctor_id", profile.id).eq("is_published", true)
-        .order("published_at", { ascending: false });
-      setPosts(data || []);
+      doctorId = profile.id;
+      await loadPosts(profile.id);
       setLoading(false);
     };
     load();
+    const channel = supabase.channel(`blog-${slug}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "blog_posts" }, () => {
+        if (doctorId) loadPosts(doctorId);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [slug]);
 
   if (loading) {

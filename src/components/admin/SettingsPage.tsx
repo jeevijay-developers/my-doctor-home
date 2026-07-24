@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { differenceInDays } from "date-fns";
+import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
 const specializations = [
   "General Physician", "Cardiologist", "Dermatologist", "Orthopedic", "Pediatrician",
@@ -31,6 +32,7 @@ const SettingsPage = () => {
   const [form, setForm] = useState({
     full_name: "", specialization: "", qualifications: "", experience_years: 0,
     phone: "", clinic_name: "", city: "", address: "",
+    consultation_fee: 0,
     gstin: "", gst_registered: false,
   });
 
@@ -45,6 +47,7 @@ const SettingsPage = () => {
         clinic_name: profile.clinic_name || "",
         city: profile.city || "",
         address: profile.address || "",
+        consultation_fee: (profile as any).consultation_fee || 0,
         gstin: (profile as any).gstin || "",
         gst_registered: Boolean((profile as any).gst_registered),
       });
@@ -53,8 +56,10 @@ const SettingsPage = () => {
 
   const save = async () => {
     if (!profile) return;
+    if (form.phone && !isValidIndianPhone(form.phone)) { toast.error(phoneErrorMessage); return; }
     setSaving(true);
-    await supabase.from("profiles").update(form as any).eq("id", profile.id);
+    const payload = { ...form, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
+    await supabase.from("profiles").update(payload as any).eq("id", profile.id);
     setSaving(false);
     toast.success("Settings saved");
   };
@@ -177,7 +182,17 @@ const SettingsPage = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Phone</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91" className="h-10" />
+                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+                  {form.phone && !isValidIndianPhone(form.phone) && (
+                    <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Default Consultation Fee (₹)</Label>
+                  <Input type="number" min={0} value={form.consultation_fee}
+                    onChange={(e) => setForm({ ...form, consultation_fee: Number(e.target.value) })}
+                    placeholder="500" className="h-10" />
+                  <p className="text-[11px] text-muted-foreground">Used as the fallback fee when a service doesn't set its own price.</p>
                 </div>
               </div>
 
@@ -318,16 +333,6 @@ const SettingsPage = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-border/60 shadow-none">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><LogOut className="h-5 w-5 text-muted-foreground" /> Session</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4 mr-2" /> Logout
-                </Button>
-              </CardContent>
-            </Card>
 
             <Card className="border-destructive/30 shadow-none">
               <CardHeader>
