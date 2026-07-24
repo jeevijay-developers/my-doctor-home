@@ -252,7 +252,10 @@ const BookingWidget = () => {
                 Manage this appointment (cancel or reschedule) →
               </a>
             )}
-            <Button variant="outline" onClick={reset}>Book Another Appointment</Button>
+            <div className="flex gap-2 justify-center">
+              <Button variant="outline" onClick={downloadSlip} className="gap-1.5"><Download className="h-4 w-4" /> Download Slip</Button>
+              <Button variant="outline" onClick={reset}>Book Another</Button>
+            </div>
           </div>
         </div>
       </section>
