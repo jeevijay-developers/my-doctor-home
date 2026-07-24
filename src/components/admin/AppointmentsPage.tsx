@@ -51,10 +51,34 @@ const AppointmentsPage = () => {
     if (statusFilter !== "all") q = q.eq("status", statusFilter as any);
     if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
     const { data } = await q;
-    setAppointments((data || []) as Appointment[]);
-  };
+    const rows = (data || []) as Appointment[];
 
-  useEffect(() => { load(); }, [profile, statusFilter, selectedDate, dateFilterActive]);
+    // BUG-006: Auto-mark past pending/confirmed appointments as no_show
+    const now = new Date();
+    const expired = rows.filter(
+      (a) =>
+        (a.status === "pending" || a.status === "confirmed") &&
+        new Date(`${a.date}T${a.time_slot}`) < now
+    );
+    if (expired.length) {
+      await supabase
+        .from("appointments")
+        .update({ status: "no_show" as any })
+        .in("id", expired.map((e) => e.id));
+      expired.forEach((e) => (e.status = "no_show"));
+    }
+
+    // BUG-007: Rank so cancelled / no_show sit at the bottom
+    const rank = (s: string) =>
+      s === "cancelled" ? 3 : s === "no_show" ? 2 : s === "completed" ? 1 : 0;
+    rows.sort((a, b) => {
+      const r = rank(a.status) - rank(b.status);
+      if (r !== 0) return r;
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return a.time_slot < b.time_slot ? -1 : 1;
+    });
+    setAppointments(rows);
+  };
 
   useEffect(() => {
     if (!profile) return;
