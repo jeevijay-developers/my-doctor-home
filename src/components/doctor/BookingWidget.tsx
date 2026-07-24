@@ -135,25 +135,8 @@ const BookingWidget = () => {
       return;
     }
 
-    // Track patient contact but DO NOT count this appointment as a visit yet.
-    // Visit is counted when the doctor marks the appointment "completed".
-    const { data: existing } = await supabase
-      .from("patients")
-      .select("id")
-      .eq("doctor_id", profile.id)
-      .eq("phone", normalizedPhone)
-      .maybeSingle();
-    if (existing) {
-      await supabase.from("patients").update({
-        email: email || undefined,
-      } as any).eq("id", existing.id);
-    } else {
-      await supabase.from("patients").insert({
-        doctor_id: profile.id, name, phone: normalizedPhone, email: email || null,
-        age: age ? Number(age) : null, gender: gender || null,
-        first_visit: null, last_visit: null, total_visits: 0,
-      });
-    }
+    // BUG-04: Do NOT create the patient record on booking. Patient rows are
+    // created/updated only when the doctor marks an appointment "completed".
 
     // Queue count (for clinic bookings)
     if (type === "clinic" && inserted?.id) {
