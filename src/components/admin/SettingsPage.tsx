@@ -333,16 +333,6 @@ const SettingsPage = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-border/60 shadow-none">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><LogOut className="h-5 w-5 text-muted-foreground" /> Session</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4 mr-2" /> Logout
-                </Button>
-              </CardContent>
-            </Card>
 
             <Card className="border-destructive/30 shadow-none">
               <CardHeader>
