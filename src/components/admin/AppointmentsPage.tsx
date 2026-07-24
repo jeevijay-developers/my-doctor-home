@@ -440,7 +440,7 @@ const AppointmentsPage = () => {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Date</Label>
-              <Input type="date" value={rescheduleForm.date} onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} className="h-10" />
+              <Input type="date" min={todayStr} value={rescheduleForm.date} onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label>Time</Label>
