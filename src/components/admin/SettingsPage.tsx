@@ -182,7 +182,17 @@ const SettingsPage = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Phone</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91" className="h-10" />
+                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+                  {form.phone && !isValidIndianPhone(form.phone) && (
+                    <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Default Consultation Fee (₹)</Label>
+                  <Input type="number" min={0} value={form.consultation_fee}
+                    onChange={(e) => setForm({ ...form, consultation_fee: Number(e.target.value) })}
+                    placeholder="500" className="h-10" />
+                  <p className="text-[11px] text-muted-foreground">Used as the fallback fee when a service doesn't set its own price.</p>
                 </div>
               </div>
 
