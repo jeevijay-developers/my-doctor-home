@@ -238,17 +238,20 @@ const AppointmentsPage = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone *</Label>
-                  <Input value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="+91" className="h-10" />
+                  <Input value={newAppt.patient_phone} inputMode="numeric" maxLength={13} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+                  {newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone) && (
+                    <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Service *</Label>
-                <Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} className="h-10" />
+                <Label>Service <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                <Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} placeholder="e.g. Consultation" className="h-10" />
               </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Date</Label>
-                  <Input type="date" value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" />
+                  <Input type="date" min={todayStr} value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Time Slot</Label>
@@ -263,10 +266,9 @@ const AppointmentsPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Type</Label>
-                  <Select value={newAppt.appointment_type} onValueChange={(v) => setNewAppt({ ...newAppt, appointment_type: v })}>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="clinic">Clinic</SelectItem><SelectItem value="online">Online</SelectItem></SelectContent>
-                  </Select>
+                  <div className="h-10 flex items-center px-3 rounded-md border border-border bg-muted/40 text-sm text-foreground">
+                    Clinic Visit
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Amount (₹)</Label>
