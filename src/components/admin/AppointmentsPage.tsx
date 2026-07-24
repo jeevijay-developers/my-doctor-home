@@ -40,7 +40,10 @@ const AppointmentsPage = () => {
   const [newAppt, setNewAppt] = useState({
     patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic",
     date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0,
+    status: "pending",
   });
+  const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
+  const [rescheduleForm, setRescheduleForm] = useState({ date: "", time_slot: "" });
 
   const load = async () => {
     if (!profile) return;
