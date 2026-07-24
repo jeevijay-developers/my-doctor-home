@@ -44,7 +44,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
               </button>
               <div className="h-5 w-px bg-border" />
-              <div className="flex items-center gap-2">
+              <Link to="/admin/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                 {profile?.profile_photo_url ? (
                   <img src={profile.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
                 ) : (
@@ -52,11 +52,11 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                     {profile?.full_name?.charAt(0)?.toUpperCase() || "D"}
                   </div>
                 )}
-                <div className="hidden md:block">
+                <div className="hidden md:block text-left">
                   <div className="text-xs font-medium text-foreground leading-tight">{profile?.full_name || "Doctor"}</div>
                   <div className="text-[10px] text-muted-foreground leading-tight">{profile?.specialization || "Doctor"}</div>
                 </div>
-              </div>
+              </Link>
             </div>
           </header>
           <main className="flex-1 bg-secondary p-4 md:p-6 overflow-auto">
