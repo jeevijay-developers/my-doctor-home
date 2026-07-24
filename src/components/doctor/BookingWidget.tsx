@@ -134,22 +134,23 @@ const BookingWidget = () => {
       return;
     }
 
-    // Upsert patient
+    // Track patient contact but DO NOT count this appointment as a visit yet.
+    // Visit is counted when the doctor marks the appointment "completed".
     const { data: existing } = await supabase
       .from("patients")
-      .select("id, total_visits")
+      .select("id")
       .eq("doctor_id", profile.id)
       .eq("phone", normalizedPhone)
       .maybeSingle();
     if (existing) {
       await supabase.from("patients").update({
-        total_visits: (existing.total_visits || 0) + 1, last_visit: dStr,
         email: email || undefined,
       } as any).eq("id", existing.id);
     } else {
       await supabase.from("patients").insert({
-        doctor_id: profile.id, name, phone: normalizedPhone, email: email || null, age: age ? Number(age) : null,
-        gender: gender || null, first_visit: dStr, last_visit: dStr, total_visits: 1,
+        doctor_id: profile.id, name, phone: normalizedPhone, email: email || null,
+        age: age ? Number(age) : null, gender: gender || null,
+        first_visit: null, last_visit: null, total_visits: 0,
       });
     }
 
