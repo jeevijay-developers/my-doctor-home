@@ -300,11 +300,36 @@ const PatientsPage = () => {
                     </div>
                   )}
                 </div>
+
+                <div className="pt-4 border-t border-border">
+                  <Button variant="outline" className="w-full text-destructive border-destructive/30 hover:bg-destructive/5"
+                    onClick={() => setDeleting(selected)}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete Patient Record
+                  </Button>
+                </div>
               </div>
             </>
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete patient record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes <strong>{deleting?.name}</strong>'s record and cannot be undone.
+              Their past appointments will be kept in the appointment history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
