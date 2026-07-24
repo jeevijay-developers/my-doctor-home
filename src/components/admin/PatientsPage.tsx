@@ -28,6 +28,17 @@ const PatientsPage = () => {
   const [selected, setSelected] = useState<Patient | null>(null);
   const [patientAppts, setPatientAppts] = useState<any[]>([]);
   const [newPatient, setNewPatient] = useState({ name: "", phone: "", email: "", age: "", gender: "" });
+  const [deleting, setDeleting] = useState<Patient | null>(null);
+
+  const confirmDelete = async () => {
+    if (!deleting || !profile) return;
+    const { error } = await supabase.from("patients").delete().eq("id", deleting.id).eq("doctor_id", profile.id);
+    if (error) { toast.error("Could not delete patient"); return; }
+    setDeleting(null);
+    setSelected(null);
+    load();
+    toast.success("Patient deleted");
+  };
 
   const load = async () => {
     if (!profile) return;
