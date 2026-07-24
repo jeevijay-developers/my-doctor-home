@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { differenceInDays } from "date-fns";
+import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
 const specializations = [
   "General Physician", "Cardiologist", "Dermatologist", "Orthopedic", "Pediatrician",
