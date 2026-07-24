@@ -377,7 +377,12 @@ const AppointmentsPage = () => {
                         {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
                       </div>
                       <div>
-                        <div className="font-medium text-foreground">{a.patient_name}</div>
+                        <div className="font-medium text-foreground flex items-center gap-2">
+                          {a.patient_name}
+                          {a.token_number && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold">#{a.token_number}</span>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                           <span>{a.service_name}</span>
                           <span>·</span>
