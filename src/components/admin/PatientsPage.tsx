@@ -98,8 +98,11 @@ const PatientsPage = () => {
     toast.success(`Exported ${patients.length} patients to CSV`);
   };
 
+  // Only show patients who have at least one completed visit — booked-but-not-completed
+  // patients live in Appointments until the doctor marks them completed.
   const filtered = patients.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)
+    (p.total_visits ?? 0) > 0 &&
+    (p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search))
   );
 
   return (
