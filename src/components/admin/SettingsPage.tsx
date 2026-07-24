@@ -32,6 +32,7 @@ const SettingsPage = () => {
   const [form, setForm] = useState({
     full_name: "", specialization: "", qualifications: "", experience_years: 0,
     phone: "", clinic_name: "", city: "", address: "",
+    consultation_fee: 0,
     gstin: "", gst_registered: false,
   });
 
