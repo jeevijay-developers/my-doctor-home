@@ -80,6 +80,8 @@ const AppointmentsPage = () => {
     setAppointments(rows);
   };
 
+  useEffect(() => { load(); }, [profile, statusFilter, selectedDate, dateFilterActive]);
+
   useEffect(() => {
     if (!profile) return;
     const channel = supabase.channel("appointments-changes")
@@ -88,15 +90,63 @@ const AppointmentsPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
+  const upsertPatientForCompletion = async (appt: Appointment) => {
+    if (!profile || !appt.patient_phone) return;
+    const { data: existing } = await supabase
+      .from("patients").select("id, total_visits, first_visit")
+      .eq("doctor_id", profile.id).eq("phone", appt.patient_phone).maybeSingle();
+    if (existing) {
+      await supabase.from("patients").update({
+        total_visits: (existing.total_visits || 0) + 1,
+        last_visit: appt.date,
+        first_visit: existing.first_visit || appt.date,
+      } as any).eq("id", existing.id);
+    } else {
+      await supabase.from("patients").insert({
+        doctor_id: profile.id, name: appt.patient_name, phone: appt.patient_phone,
+        first_visit: appt.date, last_visit: appt.date, total_visits: 1,
+        age: appt.patient_age, gender: appt.patient_gender,
+      });
+    }
+  };
+
+  // BUG-014: status can be changed at any time. On transition INTO "completed",
+  // the patient is added / their visit count incremented.
   const updateStatus = async (id: string, status: string) => {
+    const current = appointments.find((a) => a.id === id);
     await supabase.from("appointments").update({ status: status as any }).eq("id", id);
+    if (status === "completed" && current && current.status !== "completed") {
+      await upsertPatientForCompletion(current);
+    }
     load();
-    toast.success(`Appointment ${status}`);
+    toast.success(`Marked ${status.replace("_", " ")}`);
+  };
+
+  const togglePaid = async (a: Appointment) => {
+    const next = a.payment_status === "paid" ? "pending" : "paid";
+    await supabase.from("appointments").update({ payment_status: next as any }).eq("id", a.id);
+    load();
+    toast.success(next === "paid" ? "Marked as paid" : "Marked as unpaid");
+  };
+
+  const openReschedule = (a: Appointment) => {
+    setRescheduling(a);
+    setRescheduleForm({ date: a.date, time_slot: a.time_slot });
+  };
+
+  const submitReschedule = async () => {
+    if (!rescheduling) return;
+    const { error } = await supabase.from("appointments").update({
+      date: rescheduleForm.date, time_slot: rescheduleForm.time_slot,
+      reschedule_count: (rescheduling.reschedule_count ?? 0) + 1,
+    } as any).eq("id", rescheduling.id);
+    if (error) { toast.error(error.message.includes("SLOT_FULL") ? "That slot is full." : "Could not reschedule."); return; }
+    setRescheduling(null);
+    load();
+    toast.success("Appointment rescheduled");
   };
 
   const generateZoomMeeting = async (_appointmentId: string) => {
-    // Stub — Zoom SDK not yet configured. Real integration will replace this
-    // with a call to the create-zoom-meeting edge function.
     toast.info("Zoom integration coming soon", {
       description: "Meeting links will generate automatically once connected.",
     });
@@ -107,7 +157,6 @@ const AppointmentsPage = () => {
     if (newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
     const normalizedPhone = normalizeIndianPhone(newAppt.patient_phone);
 
-    // Soft overbook warning based on max_per_slot
     const { data: settingsRow } = await supabase
       .from("website_settings").select("max_per_slot").eq("doctor_id", profile.id).single();
     const cap = (settingsRow as any)?.max_per_slot || 1;
@@ -121,22 +170,22 @@ const AppointmentsPage = () => {
     }
 
     const token = `T${Math.floor(Math.random() * 900) + 100}`;
+    const { status, ...rest } = newAppt;
     const { error } = await supabase.from("appointments").insert({
-      doctor_id: profile.id, ...newAppt, patient_phone: normalizedPhone, token_number: token, status: "confirmed" as any, payment_status: "pending" as any,
+      doctor_id: profile.id, ...rest, patient_phone: normalizedPhone,
+      token_number: token, status: status as any, payment_status: "pending" as any,
     });
     if (error) { toast.error("Could not add appointment"); return; }
 
-    const existing = await supabase.from("patients").select("id, total_visits").eq("doctor_id", profile.id).eq("phone", normalizedPhone).maybeSingle();
-    if (existing.data) {
-      await supabase.from("patients").update({ total_visits: (existing.data.total_visits || 0) + 1, last_visit: newAppt.date }).eq("id", existing.data.id);
-    } else if (normalizedPhone) {
-      await supabase.from("patients").insert({ doctor_id: profile.id, name: newAppt.patient_name, phone: normalizedPhone, first_visit: newAppt.date, last_visit: newAppt.date, total_visits: 1 });
-    }
+    // BUG-012: patient row created only when appointment is completed.
+    // Booking creates the appointment only.
+
     setShowNew(false);
-    setNewAppt({ patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic", date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0 });
+    setNewAppt({ patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic", date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0, status: "pending" });
     load();
     toast.success("Appointment added");
   };
+
 
   const filtered = appointments.filter((a) =>
     a.patient_name.toLowerCase().includes(search.toLowerCase()) ||
