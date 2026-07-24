@@ -56,8 +56,10 @@ const SettingsPage = () => {
 
   const save = async () => {
     if (!profile) return;
+    if (form.phone && !isValidIndianPhone(form.phone)) { toast.error(phoneErrorMessage); return; }
     setSaving(true);
-    await supabase.from("profiles").update(form as any).eq("id", profile.id);
+    const payload = { ...form, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
+    await supabase.from("profiles").update(payload as any).eq("id", profile.id);
     setSaving(false);
     toast.success("Settings saved");
   };
