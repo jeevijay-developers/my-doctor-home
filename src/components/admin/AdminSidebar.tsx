@@ -1,4 +1,4 @@
-import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCircle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,7 @@ const mainItems = [
   { title: "Reviews", url: "/admin/reviews", icon: MessageSquare },
   { title: "Blog", url: "/admin/blog", icon: FileText },
   { title: "Billing", url: "/admin/billing", icon: CreditCard },
+  { title: "Profile", url: "/admin/profile", icon: UserCircle },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
