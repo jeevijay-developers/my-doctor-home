@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS consultation_fee NUMERIC NOT NULL DEFAULT 0;
