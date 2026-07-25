@@ -5,7 +5,13 @@ import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 
-const navLinks = ["About", "Services", "Gallery", "Reviews", "Contact"];
+const navLinks = [
+  { label: "About", target: "about" },
+  { label: "Services", target: "booking" },
+  { label: "Gallery", target: "gallery" },
+  { label: "Reviews", target: "reviews" },
+  { label: "Contact", target: "contact" },
+];
 
 const Navbar = () => {
   const { profile, settings } = useDoctorData();
