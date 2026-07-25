@@ -12,7 +12,7 @@ export function usePlatformSettings() {
       setSettings(Object.fromEntries((data ?? []).map((r: any) => [r.key, r.value])));
       setLoading(false);
     });
-    const ch = supabase.channel("platform_settings")
+    const ch = supabase.channel(`platform_settings_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "platform_settings" }, () => {
         supabase.from("platform_settings").select("*").then(({ data }) => {
           if (mounted) setSettings(Object.fromEntries((data ?? []).map((r: any) => [r.key, r.value])));
