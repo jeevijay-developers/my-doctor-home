@@ -45,7 +45,7 @@ const Navbar = () => {
     ? `https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(settings.whatsapp_message || "")}`
     : "#";
 
-  const showBlogLink = hasPublishedBlog && slug && settings?.show_blog !== false;
+  const showBlogLink = hasPublishedBlog && slug && settings?.show_blog === true;
   const navLinks = allNavLinks.filter((l) => !l.settingKey || settings?.[l.settingKey] !== false);
 
   return (
