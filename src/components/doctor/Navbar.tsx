@@ -65,8 +65,8 @@ const Navbar = () => {
 
         <div className="hidden lg:flex items-center gap-6">
           {navLinks.map((l) => (
-            <button key={l} onClick={() => scrollTo(l)} className="text-sm font-medium text-foreground hover:text-royal transition-colors">
-              {l}
+            <button key={l.label} onClick={() => scrollTo(l.target)} className="text-sm font-medium text-foreground hover:text-royal transition-colors">
+              {l.label}
             </button>
           ))}
           {showBlogLink && (
