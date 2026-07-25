@@ -99,8 +99,8 @@ const Navbar = () => {
       {mobileOpen && (
         <div className="lg:hidden bg-card shadow-lg border-t border-border px-4 pb-4">
           {navLinks.map((l) => (
-            <button key={l} onClick={() => scrollTo(l)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border last:border-0">
-              {l}
+            <button key={l.label} onClick={() => scrollTo(l.target)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border last:border-0">
+              {l.label}
             </button>
           ))}
           {showBlogLink && (
