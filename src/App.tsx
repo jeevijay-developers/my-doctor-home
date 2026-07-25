@@ -31,6 +31,7 @@ const App = () => (
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/superadmin" element={<SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>} />
           <Route path="/dr/:slug" element={<DoctorPublicPage />} />
           <Route path="/dr/:slug/blog" element={<BlogListPage />} />
           <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
