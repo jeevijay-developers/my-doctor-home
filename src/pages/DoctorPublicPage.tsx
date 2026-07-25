@@ -35,6 +35,17 @@ const DoctorPageContent = () => {
     );
   }
 
+  if (profile.plan_status === "cancelled") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-secondary p-6">
+        <div className="max-w-md text-center bg-card border rounded-2xl p-8 shadow-lg">
+          <h1 className="font-heading font-bold text-2xl text-primary mb-2">This clinic is temporarily unavailable</h1>
+          <p className="text-muted-foreground">Please check back later or contact the clinic directly.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       <Navbar />

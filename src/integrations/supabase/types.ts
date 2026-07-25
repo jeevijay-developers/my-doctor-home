@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_user_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_table: string | null
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           amount: number
@@ -182,6 +212,7 @@ export type Database = {
       }
       enquiries: {
         Row: {
+          assigned_to: string | null
           city: string | null
           clinic_name: string | null
           created_at: string
@@ -193,6 +224,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          assigned_to?: string | null
           city?: string | null
           clinic_name?: string | null
           created_at?: string
@@ -204,6 +236,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          assigned_to?: string | null
           city?: string | null
           clinic_name?: string | null
           created_at?: string
@@ -429,6 +462,24 @@ export type Database = {
           },
         ]
       }
+      platform_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       prescriptions: {
         Row: {
           created_at: string
@@ -488,6 +539,7 @@ export type Database = {
           onboarding_completed: boolean
           phone: string | null
           plan_status: Database["public"]["Enums"]["plan_status"]
+          plan_tier: string
           profile_photo_url: string | null
           qualifications: string | null
           revenue_goal: number | null
@@ -511,6 +563,7 @@ export type Database = {
           onboarding_completed?: boolean
           phone?: string | null
           plan_status?: Database["public"]["Enums"]["plan_status"]
+          plan_tier?: string
           profile_photo_url?: string | null
           qualifications?: string | null
           revenue_goal?: number | null
@@ -534,6 +587,7 @@ export type Database = {
           onboarding_completed?: boolean
           phone?: string | null
           plan_status?: Database["public"]["Enums"]["plan_status"]
+          plan_tier?: string
           profile_photo_url?: string | null
           qualifications?: string | null
           revenue_goal?: number | null
@@ -632,6 +686,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "services_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          doctor_id: string
+          id: string
+          notes: string | null
+          priority: string
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          doctor_id: string
+          id?: string
+          notes?: string | null
+          priority?: string
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          doctor_id?: string
+          id?: string
+          notes?: string | null
+          priority?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_doctor_id_fkey"
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
