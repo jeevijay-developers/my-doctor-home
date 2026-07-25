@@ -82,8 +82,16 @@ const Auth = () => {
           setSignupSuccess(email);
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        const { data: isAdmin } = await supabase.rpc("has_role", {
+          _user_id: signInData.user.id,
+          _role: "admin",
+        });
+        if (isAdmin) {
+          navigate("/superadmin");
+          return;
+        }
         const { data: profile } = await supabase
           .from("profiles")
           .select("onboarding_completed")
