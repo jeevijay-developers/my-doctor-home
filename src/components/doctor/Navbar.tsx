@@ -5,7 +5,13 @@ import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 
-const navLinks = ["About", "Services", "Gallery", "Reviews", "Contact"];
+const navLinks = [
+  { label: "About", target: "about" },
+  { label: "Services", target: "booking" },
+  { label: "Gallery", target: "gallery" },
+  { label: "Reviews", target: "reviews" },
+  { label: "Contact", target: "contact" },
+];
 
 const Navbar = () => {
   const { profile, settings } = useDoctorData();
@@ -59,8 +65,8 @@ const Navbar = () => {
 
         <div className="hidden lg:flex items-center gap-6">
           {navLinks.map((l) => (
-            <button key={l} onClick={() => scrollTo(l)} className="text-sm font-medium text-foreground hover:text-royal transition-colors">
-              {l}
+            <button key={l.label} onClick={() => scrollTo(l.target)} className="text-sm font-medium text-foreground hover:text-royal transition-colors">
+              {l.label}
             </button>
           ))}
           {showBlogLink && (
@@ -93,8 +99,8 @@ const Navbar = () => {
       {mobileOpen && (
         <div className="lg:hidden bg-card shadow-lg border-t border-border px-4 pb-4">
           {navLinks.map((l) => (
-            <button key={l} onClick={() => scrollTo(l)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border last:border-0">
-              {l}
+            <button key={l.label} onClick={() => scrollTo(l.target)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border last:border-0">
+              {l.label}
             </button>
           ))}
           {showBlogLink && (
