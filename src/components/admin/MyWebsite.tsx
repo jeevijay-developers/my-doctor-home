@@ -494,8 +494,8 @@ const MyWebsite = () => {
                           <Pin className="h-3 w-3" />
                         </Button>
                         <Button size="sm" variant="ghost" className={`h-7 px-2 ${r.is_visible ? "text-muted-foreground" : "text-destructive"}`}
-                          onClick={() => toggleReviewVisibility(r.id, !r.is_visible)} title={r.is_visible ? "Hide" : "Show"}>
-                          {r.is_visible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          onClick={() => toggleReviewVisibility(r.id, !r.is_visible)} title={r.is_visible ? "Visible — click to hide" : "Hidden — click to show"}>
+                          {r.is_visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                         </Button>
                       </div>
                     </div>
