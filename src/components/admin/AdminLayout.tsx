@@ -2,8 +2,9 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
 import { useLocation, Link } from "react-router-dom";
-import { Bell, ChevronRight, Home } from "lucide-react";
+import { Bell, ChevronRight, Home, Megaphone } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
@@ -20,6 +21,8 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   const { profile } = useProfile();
   const location = useLocation();
   const pageTitle = pageTitles[location.pathname] || "Dashboard";
+  const { settings } = usePlatformSettings();
+  const banner = typeof settings.announcement_banner === "string" ? settings.announcement_banner : "";
 
   return (
     <SidebarProvider>
@@ -59,6 +62,12 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
               </Link>
             </div>
           </header>
+          {banner && (
+            <div className="bg-spark/20 border-b border-spark/30 px-4 py-2 flex items-center gap-2 text-sm text-primary">
+              <Megaphone className="h-4 w-4 flex-shrink-0" />
+              <span>{banner}</span>
+            </div>
+          )}
           <main className="flex-1 bg-secondary p-4 md:p-6 overflow-auto">
             {children}
           </main>

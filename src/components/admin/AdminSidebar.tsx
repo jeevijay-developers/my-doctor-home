@@ -2,6 +2,7 @@ import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, Log
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import ContactSupportDialog from "./ContactSupportDialog";
 import {
   Sidebar,
   SidebarContent,
@@ -75,7 +76,8 @@ const AdminSidebar = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="bg-primary p-3">
+      <SidebarFooter className="bg-primary p-3 space-y-1">
+        <ContactSupportDialog />
         <button
           onClick={handleLogout}
           className="flex items-center gap-2 text-primary-foreground/60 hover:text-white text-sm w-full px-2 py-1.5"
