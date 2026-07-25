@@ -22,8 +22,17 @@ const Auth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate("/admin/dashboard");
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return;
+      const { data: isAdmin } = await supabase.rpc("has_role", {
+        _user_id: session.user.id,
+        _role: "admin",
+      });
+      if (isAdmin) {
+        navigate("/superadmin");
+      } else {
+        navigate("/admin/dashboard");
+      }
     });
   }, [navigate]);
 
