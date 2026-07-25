@@ -26,6 +26,7 @@ const steps = [
 const Onboarding = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [form, setForm] = useState({
     full_name: "", specialization: "", qualifications: "", experience_years: "",
     clinic_name: "", city: "", address: "", phone: "", bio: "", consultation_fee: "",
@@ -34,13 +35,22 @@ const Onboarding = () => {
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { navigate("/auth"); return; }
+      if (!user) { navigate("/auth", { replace: true }); return; }
       const { data: prof } = await supabase.from("profiles").select("onboarding_completed, full_name").eq("id", user.id).maybeSingle();
       if (prof?.onboarding_completed) { navigate("/admin/dashboard", { replace: true }); return; }
       const name = prof?.full_name || user.user_metadata?.full_name || "";
       setForm((f) => ({ ...f, full_name: name }));
+      setChecking(false);
     });
   }, [navigate]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-secondary">
+        <Loader2 className="h-8 w-8 animate-spin text-royal" />
+      </div>
+    );
+  }
 
   const update = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
 
