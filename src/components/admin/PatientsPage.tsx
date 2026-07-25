@@ -179,7 +179,7 @@ const PatientsPage = () => {
         <Input className="pl-9 h-10" placeholder="Search by name or phone..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      {/* Patient Grid Cards */}
+      {/* Patient Table */}
       {filtered.length === 0 ? (
         <Card className="border-border/60 shadow-none">
           <CardContent className="py-16 text-center">
@@ -189,51 +189,62 @@ const PatientsPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map((p) => (
-            <Card
-              key={p.id}
-              className="border-border/60 shadow-none hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
-              onClick={() => viewPatient(p)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-full bg-teal/10 flex items-center justify-center text-lg font-bold text-teal flex-shrink-0">
-                    {p.name?.charAt(0)?.toUpperCase() || "P"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-semibold text-foreground truncate">{p.name}</h3>
-                      <Badge variant="secondary" className={`text-[10px] flex-shrink-0 ${
+        <Card className="border-border/60 shadow-none overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/60 border-b border-border">
+                <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <th className="px-4 py-3">Patient</th>
+                  <th className="px-4 py-3">Phone</th>
+                  <th className="px-4 py-3 hidden md:table-cell">Age / Gender</th>
+                  <th className="px-4 py-3 hidden lg:table-cell">Last Visit</th>
+                  <th className="px-4 py-3">Visits</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p) => (
+                  <tr
+                    key={p.id}
+                    className="border-b border-border/60 last:border-0 hover:bg-secondary/40 cursor-pointer transition-colors"
+                    onClick={() => viewPatient(p)}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-teal/10 flex items-center justify-center text-sm font-bold text-teal flex-shrink-0">
+                          {p.name?.charAt(0)?.toUpperCase() || "P"}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-foreground truncate">{p.name}</div>
+                          {p.email && <div className="text-xs text-muted-foreground truncate">{p.email}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-foreground whitespace-nowrap">{p.phone}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell whitespace-nowrap">
+                      {p.age || p.gender ? `${p.age ?? "—"}${p.gender ? `, ${p.gender}` : ""}` : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
+                      {p.last_visit || "—"}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-foreground">{p.total_visits}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant="secondary" className={`text-[10px] ${
                         p.total_visits >= 10 ? "bg-success/10 text-success" :
                         p.total_visits >= 3 ? "bg-royal/10 text-royal" :
                         "bg-warning/10 text-warning"
                       }`}>
-                        {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : "New"} · {p.total_visits}
+                        {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : "New"}
                       </Badge>
-                    </div>
-                    <div className="mt-1.5 space-y-1 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Phone className="h-3 w-3" /> {p.phone}
-                      </div>
-                      {p.age && p.gender && (
-                        <div className="flex items-center gap-1.5">
-                          <Activity className="h-3 w-3" /> {p.age}y, {p.gender}
-                        </div>
-                      )}
-                      {p.last_visit && (
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3 w-3" /> Last: {p.last_visit}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
+
 
       {/* Patient Detail Sheet */}
       <Sheet open={!!selected} onOpenChange={() => setSelected(null)}>
