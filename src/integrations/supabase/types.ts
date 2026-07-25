@@ -478,6 +478,7 @@ export type Database = {
           address: string | null
           city: string | null
           clinic_name: string | null
+          consultation_fee: number
           created_at: string
           experience_years: number | null
           full_name: string | null
@@ -500,6 +501,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name?: string | null
+          consultation_fee?: number
           created_at?: string
           experience_years?: number | null
           full_name?: string | null
@@ -522,6 +524,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name?: string | null
+          consultation_fee?: number
           created_at?: string
           experience_years?: number | null
           full_name?: string | null
