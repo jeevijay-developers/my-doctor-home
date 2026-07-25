@@ -434,6 +434,25 @@ const AppointmentsPage = () => {
                           <Video className="h-3 w-3 mr-1" /> Meeting Link
                         </Button>
                       )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="text-xs h-7 text-destructive border-destructive/40 hover:bg-destructive/10">
+                            <Trash2 className="h-3 w-3 mr-1" /> Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this appointment?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently remove {a.patient_name}'s appointment on {a.date} at {a.time_slot?.slice(0, 5)}. This cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteAppointment(a.id)}>Delete</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </CardContent>
