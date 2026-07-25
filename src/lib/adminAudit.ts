@@ -13,6 +13,6 @@ export async function logAdminAction(
     action,
     target_table: targetTable ?? null,
     target_id: targetId ?? null,
-    details: details ?? null,
-  });
+    details: (details ?? null) as any,
+  } as any);
 }
