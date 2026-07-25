@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,7 +14,19 @@ import BlogPostPage from "./pages/BlogPostPage";
 import ManageAppointment from "./pages/ManageAppointment";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SuperAdminRoute from "./components/SuperAdminRoute";
-import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import SuperAdminLayout from "./components/superadmin/SuperAdminLayout";
+import SAOverview from "./components/superadmin/SAOverview";
+import SADoctors from "./components/superadmin/SADoctors";
+import SADoctorDetail from "./components/superadmin/SADoctorDetail";
+import SALeads from "./components/superadmin/SALeads";
+import SASubscriptions from "./components/superadmin/SASubscriptions";
+import SATickets from "./components/superadmin/SATickets";
+import SAModeration from "./components/superadmin/SAModeration";
+import SABilling from "./components/superadmin/SABilling";
+import SAFlags from "./components/superadmin/SAFlags";
+import SAAuditLog from "./components/superadmin/SAAuditLog";
+import SATeam from "./components/superadmin/SATeam";
+import MaintenanceGate from "./components/MaintenanceGate";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,19 +37,34 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-          <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/superadmin" element={<SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>} />
-          <Route path="/dr/:slug" element={<DoctorPublicPage />} />
-          <Route path="/dr/:slug/blog" element={<BlogListPage />} />
-          <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
-          <Route path="/dr/:slug/manage" element={<ManageAppointment />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <MaintenanceGate>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+            <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/superadmin" element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
+              <Route index element={<Navigate to="overview" replace />} />
+              <Route path="overview" element={<SAOverview />} />
+              <Route path="doctors" element={<SADoctors />} />
+              <Route path="doctors/:id" element={<SADoctorDetail />} />
+              <Route path="leads" element={<SALeads />} />
+              <Route path="subscriptions" element={<SASubscriptions />} />
+              <Route path="tickets" element={<SATickets />} />
+              <Route path="moderation" element={<SAModeration />} />
+              <Route path="billing" element={<SABilling />} />
+              <Route path="flags" element={<SAFlags />} />
+              <Route path="audit-log" element={<SAAuditLog />} />
+              <Route path="team" element={<SATeam />} />
+            </Route>
+            <Route path="/dr/:slug" element={<DoctorPublicPage />} />
+            <Route path="/dr/:slug/blog" element={<BlogListPage />} />
+            <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
+            <Route path="/dr/:slug/manage" element={<ManageAppointment />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </MaintenanceGate>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
