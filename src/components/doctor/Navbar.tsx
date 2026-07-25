@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 
-const navLinks = [
-  { label: "About", target: "about" },
-  { label: "Services", target: "booking" },
-  { label: "Gallery", target: "gallery" },
-  { label: "Reviews", target: "reviews" },
-  { label: "Contact", target: "contact" },
+const allNavLinks = [
+  { label: "About", target: "about", settingKey: "show_about" },
+  { label: "Services", target: "booking", settingKey: "show_services" },
+  { label: "Gallery", target: "gallery", settingKey: "show_gallery" },
+  { label: "Reviews", target: "reviews", settingKey: "show_reviews" },
+  { label: "Contact", target: "contact", settingKey: null },
 ];
 
 const Navbar = () => {
@@ -45,7 +45,8 @@ const Navbar = () => {
     ? `https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(settings.whatsapp_message || "")}`
     : "#";
 
-  const showBlogLink = hasPublishedBlog && slug;
+  const showBlogLink = hasPublishedBlog && slug && settings?.show_blog !== false;
+  const navLinks = allNavLinks.filter((l) => !l.settingKey || settings?.[l.settingKey] !== false);
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-card shadow-md" : "bg-transparent"}`}>
