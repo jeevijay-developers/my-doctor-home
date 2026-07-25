@@ -130,6 +130,13 @@ const AppointmentsPage = () => {
     toast.success(next === "paid" ? "Marked as paid" : "Marked as unpaid");
   };
 
+  const deleteAppointment = async (id: string) => {
+    const { error } = await supabase.from("appointments").delete().eq("id", id);
+    if (error) { toast.error("Could not delete appointment"); return; }
+    toast.success("Appointment deleted");
+    load();
+  };
+
   const openReschedule = (a: Appointment) => {
     setRescheduling(a);
     setRescheduleForm({ date: a.date, time_slot: a.time_slot });
