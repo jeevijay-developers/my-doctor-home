@@ -46,16 +46,30 @@ const ProfilePage = () => {
     }
   }, [profile]);
 
+  const generateSlug = (name: string) =>
+    name.toLowerCase().trim().replace(/^dr\.?\s*/i, "dr-").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
   const save = async () => {
     if (!profile) return;
     if (form.phone && !isValidIndianPhone(form.phone)) { toast.error(phoneErrorMessage); return; }
     setSaving(true);
-    const payload = { ...form, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
-    const { error } = await supabase.from("profiles").update(payload as any).eq("id", profile.id);
+    const payload: any = { ...form, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
+
+    // BUG-M05: keep public URL slug in sync when the doctor's name changes.
+    if (form.full_name && form.full_name !== (profile as any).full_name) {
+      let slug = generateSlug(form.full_name);
+      if (slug && slug !== (profile as any).slug) {
+        const { data: clash } = await supabase.from("profiles").select("id").eq("slug", slug).neq("id", profile.id).maybeSingle();
+        if (clash) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+        payload.slug = slug;
+      }
+    }
+
+    const { error } = await supabase.from("profiles").update(payload).eq("id", profile.id);
     setSaving(false);
     if (error) { toast.error("Could not save profile"); return; }
     refetch();
-    toast.success("Profile saved");
+    toast.success(payload.slug ? `Profile saved. New URL: /dr/${payload.slug}` : "Profile saved");
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
