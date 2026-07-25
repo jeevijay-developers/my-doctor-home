@@ -124,7 +124,7 @@ const PatientsPage = () => {
           <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
             <Users className="h-6 w-6 text-teal" /> Patients
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{patients.length} total patients</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} of {patients.length} patients with completed visits</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportPatients} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
