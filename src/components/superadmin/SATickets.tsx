@@ -26,7 +26,7 @@ const SATickets = () => {
   useEffect(() => { load(); }, []);
 
   const update = async (id: string, patch: Record<string, any>, action: string) => {
-    const { error } = await supabase.from("support_tickets").update(patch).eq("id", id);
+    const { error } = await supabase.from("support_tickets").update(patch as any).eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     await logAdminAction(action, "support_tickets", id, patch);
     toast({ title: "Ticket updated" });
