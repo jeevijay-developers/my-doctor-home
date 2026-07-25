@@ -397,19 +397,30 @@ const MyWebsite = () => {
               <AccordionTrigger className="text-sm font-semibold text-primary">Booking Settings</AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
+                  <div className="space-y-1.5">
                     <Label>Advance Booking (days)</Label>
-                    <Select value={String(settings.booking_advance_days || 7)} onValueChange={(v) => updateSetting("booking_advance_days", Number(v))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3">3 days</SelectItem>
-                        <SelectItem value="7">7 days</SelectItem>
-                        <SelectItem value="14">14 days</SelectItem>
-                        <SelectItem value="30">30 days</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={settings.booking_advance_days ?? 7}
+                      onChange={(e) => updateSetting("booking_advance_days", e.target.value === "" ? "" : Number(e.target.value))}
+                      className="h-10"
+                    />
+                    <p className="text-[11px] text-muted-foreground">How far ahead patients can book (1–365 days).</p>
                   </div>
-                  <div><Label>Max per Slot</Label><Input type="number" value={settings.max_per_slot || 1} onChange={(e) => updateSetting("max_per_slot", Number(e.target.value))} /></div>
+                  <div className="space-y-1.5">
+                    <Label>Max Bookings per Slot</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={settings.max_per_slot ?? 1}
+                      onChange={(e) => updateSetting("max_per_slot", e.target.value === "" ? "" : Number(e.target.value))}
+                      className="h-10"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Number of patients allowed in the same time slot.</p>
+                  </div>
                 </div>
                 <div>
                   <Label>Patient Cancel/Reschedule Cutoff (hours)</Label>
