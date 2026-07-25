@@ -45,7 +45,8 @@ const Navbar = () => {
     ? `https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(settings.whatsapp_message || "")}`
     : "#";
 
-  const showBlogLink = hasPublishedBlog && slug;
+  const showBlogLink = hasPublishedBlog && slug && settings?.show_blog !== false;
+  const navLinks = allNavLinks.filter((l) => !l.settingKey || settings?.[l.settingKey] !== false);
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-card shadow-md" : "bg-transparent"}`}>
