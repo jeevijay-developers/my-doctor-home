@@ -596,16 +596,80 @@ const AppointmentsPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this appointment?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the appointment. This cannot be undone.
+              This action cannot be undone. Patient records will remain, but this appointment will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               onClick={() => { if (deletingId) { deleteAppointment(deletingId); setDeletingId(null); } }}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Floating bulk action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div
+          role="toolbar"
+          aria-label="Bulk actions"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-md"
+        >
+          <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-full px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+            <span className="text-sm font-medium text-foreground whitespace-nowrap">
+              {selectedIds.size} appointment{selectedIds.size === 1 ? "" : "s"} selected
+            </span>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelection}>
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-4"
+              onClick={() => { setBulkConfirmText(""); setBulkDeleteOpen(true); }}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Selected
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(o) => { setBulkDeleteOpen(o); if (!o) setBulkConfirmText(""); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} appointment{selectedIds.size === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. Patient records will remain, but these appointments will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {selectedIds.size >= 10 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                To confirm, type <span className="font-mono font-semibold">{selectedIds.size}</span> below:
+              </Label>
+              <Input
+                value={bulkConfirmText}
+                onChange={(e) => setBulkConfirmText(e.target.value)}
+                placeholder={String(selectedIds.size)}
+                className="h-10"
+                autoFocus
+              />
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={selectedIds.size >= 10 && bulkConfirmText.trim() !== String(selectedIds.size)}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground disabled:opacity-50"
+              onClick={(e) => { e.preventDefault(); bulkDelete(); }}
+            >
+              Delete {selectedIds.size}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
