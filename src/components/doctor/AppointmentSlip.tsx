@@ -243,27 +243,28 @@ const AppointmentSlip = ({
 
                 {/* Instruction + QR */}
                 <div
-                  className="mt-4 grid grid-cols-[1fr_auto] gap-3 items-center border rounded-xl p-3"
+                  className="mt-4 grid grid-cols-[minmax(0,1fr)_84px] gap-4 items-center border rounded-xl px-4 py-3"
                   style={{ borderColor: `${TEAL}55` }}
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 font-bold text-[11.5px]" style={{ color: TEAL_DARK }}>
+                    <div className="flex items-center gap-2 font-bold text-[11.5px]" style={{ color: TEAL_DARK }}>
                       <Bell className="h-3.5 w-3.5 shrink-0" />
                       <span>PLEASE ARRIVE 10 MINUTES EARLY</span>
                     </div>
-                    <p className="text-[10.5px] mt-1 leading-snug" style={{ color: "#6b7280" }}>
+                    <p className="text-[10.5px] mt-1.5 leading-snug" style={{ color: "#6b7280" }}>
                       Carry a valid ID proof and previous medical documents (if any).
                     </p>
                   </div>
                   <div className="flex flex-col items-center shrink-0">
                     {qrDataUrl ? (
-                      <img src={qrDataUrl} alt="Scan for location" className="w-16 h-16 rounded" />
+                      <img src={qrDataUrl} alt="Scan for location" className="w-[72px] h-[72px] rounded" />
                     ) : (
-                      <div className="w-16 h-16 bg-muted rounded animate-pulse" />
+                      <div className="w-[72px] h-[72px] bg-muted rounded animate-pulse" />
                     )}
-                    <div className="text-[9px] mt-1" style={{ color: TEAL_DARK }}>Scan for Location</div>
+                    <div className="text-[9px] mt-1 font-medium" style={{ color: TEAL_DARK }}>Scan for Location</div>
                   </div>
                 </div>
+
 
                 {/* Thank you */}
                 <div className="text-center mt-4">
