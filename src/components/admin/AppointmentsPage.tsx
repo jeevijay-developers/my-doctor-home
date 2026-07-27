@@ -331,45 +331,60 @@ const AppointmentsPage = () => {
         </Dialog>
       </div>
 
-      {/* Calendar Strip */}
+      {/* Date filter */}
       <Card className="border-border/60 shadow-none">
         <CardContent className="p-3">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0" onClick={() => setSelectedDate(d => subDays(d, 7))}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1 grid grid-cols-7 gap-1 overflow-x-auto">
-              {calendarDays.map((day) => {
-                const isToday = isSameDay(day, new Date());
-                const isSelected = dateFilterActive && isSameDay(day, selectedDate);
-                return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => { setSelectedDate(day); setDateFilterActive(true); }}
-                    className={`flex flex-col items-center py-2 px-1 rounded-xl text-center transition-all ${
-                      isSelected ? "bg-royal text-white" :
-                      isToday ? "bg-royal/10 text-royal" :
-                      "hover:bg-secondary text-foreground"
-                    }`}
-                  >
-                    <span className="text-[10px] font-medium opacity-70">{format(day, "EEE")}</span>
-                    <span className="text-sm font-bold">{format(day, "d")}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setSelectedDate(d => addDays(d, 7))}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  {dateFilterActive ? format(selectedDate, "EEE, d MMM yyyy") : "Filter by date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={dateFilterActive ? selectedDate : undefined}
+                  onSelect={(d) => {
+                    if (!d) return;
+                    setSelectedDate(d);
+                    setDateFilterActive(true);
+                    setCalendarOpen(false);
+                  }}
+                  modifiers={{
+                    hasAppointments: (day) => datesWithAppointments.has(format(day, "yyyy-MM-dd")),
+                  }}
+                  modifiersClassNames={{
+                    hasAppointments:
+                      "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:rounded-full after:bg-royal",
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            {dateFilterActive ? (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  Showing: {format(selectedDate, "EEEE, d MMMM yyyy")}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 text-xs text-royal"
+                  onClick={() => setDateFilterActive(false)}
+                >
+                  <X className="h-3 w-3" /> Clear
+                </Button>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">Showing all upcoming appointments</span>
+            )}
           </div>
-          {dateFilterActive && (
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/60">
-              <span className="text-xs text-muted-foreground">Showing: {format(selectedDate, "MMMM d, yyyy")}</span>
-              <Button variant="ghost" size="sm" className="text-xs h-6 text-royal" onClick={() => setDateFilterActive(false)}>Show All</Button>
-            </div>
-          )}
         </CardContent>
       </Card>
+
 
       {/* Status Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
