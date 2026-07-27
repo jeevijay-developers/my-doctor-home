@@ -2,9 +2,10 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
 import { useLocation, Link } from "react-router-dom";
-import { Bell, ChevronRight, Home, Megaphone } from "lucide-react";
+import { Bell, BellOff, ChevronRight, Home, Megaphone } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
