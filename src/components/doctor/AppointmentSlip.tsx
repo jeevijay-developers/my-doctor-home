@@ -122,52 +122,52 @@ const AppointmentSlip = ({
 
 
             {/* CONTENT LAYER */}
-            <div className="relative grid grid-cols-[35%_65%] h-full">
+            <div className="relative grid grid-cols-[30%_70%] h-full">
               {/* LEFT COLUMN */}
-              <div className="flex flex-col justify-between text-white p-5 md:p-7">
+              <div className="flex flex-col justify-between text-white p-4 md:p-5">
                 {/* Logo + clinic name */}
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
-                    <Plus className="h-6 w-6" strokeWidth={3.5} style={{ color: TEAL_DARK }} />
+                <div className="flex items-start gap-2.5">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Plus className="h-5 w-5" strokeWidth={3.5} style={{ color: TEAL_DARK }} />
                   </div>
                   <div className="min-w-0 pt-0.5">
-                    <div className="font-heading font-extrabold text-[15px] md:text-[17px] leading-tight uppercase tracking-wide">
+                    <div className="font-heading font-extrabold text-[13px] md:text-[14px] leading-tight uppercase tracking-wide break-words">
                       {clinicName}
                     </div>
-                    <div className="text-[10.5px] italic opacity-90 mt-1">{tagline}</div>
+                    <div className="text-[9.5px] italic opacity-90 mt-1 leading-snug">{tagline}</div>
                   </div>
                 </div>
 
                 {/* Contact — white text on teal curved panel */}
-                <div className="space-y-2.5 text-[11px] pb-2 text-white">
+                <div className="space-y-2 text-[10px] pb-1 text-white">
                   {clinicAddr && (
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <div className="flex items-start gap-1.5">
+                      <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
                       <span className="leading-snug break-words">{clinicAddr}</span>
                     </div>
                   )}
                   {clinicPhone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-3.5 w-3.5 shrink-0" />
+                    <div className="flex items-center gap-1.5">
+                      <Phone className="h-3 w-3 shrink-0" />
                       <span className="break-all">{clinicPhone}</span>
                     </div>
                   )}
                   {clinicEmail && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-3.5 w-3.5 shrink-0" />
-                      <span className="break-all">{clinicEmail}</span>
+                    <div className="flex items-start gap-1.5">
+                      <Mail className="h-3 w-3 mt-0.5 shrink-0" />
+                      <span className="break-all leading-snug">{clinicEmail}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-3.5 w-3.5 shrink-0" />
-                    <span className="break-all">{websiteLabel}</span>
+                  <div className="flex items-start gap-1.5">
+                    <Globe className="h-3 w-3 mt-0.5 shrink-0" />
+                    <span className="break-all leading-snug">{websiteLabel}</span>
                   </div>
                 </div>
               </div>
 
 
               {/* RIGHT COLUMN */}
-              <div className="flex flex-col p-5 md:p-7 pl-2 md:pl-4">
+              <div className="flex flex-col p-5 md:p-6 pl-5 md:pl-7">
                 {/* Header badge + title */}
                 <div className="flex flex-col items-center">
                   <div
