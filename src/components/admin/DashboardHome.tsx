@@ -64,6 +64,7 @@ const DashboardHome = () => {
       setTodayAppointments(todayData.slice(0, 6));
       setServicesCount(svcRes.count || 0);
       setBlogCount(blogRes.count || 0);
+      setDashboardReady(true);
     });
   };
 
