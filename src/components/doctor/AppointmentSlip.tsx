@@ -105,26 +105,21 @@ const AppointmentSlip = ({
                   <stop offset="100%" stopColor={TEAL_DARK} />
                 </linearGradient>
               </defs>
-              {/* Big curved shape: extends full-height on the left with an elegant outward bulge */}
+              {/* Teal panel constrained to left sidebar area only */}
               <path
-                d="M 0 0 L 280 0 Q 430 340 340 560 Q 240 800 360 1044 L 0 1044 Z"
+                d="M 0 0 L 230 0 Q 250 340 235 560 Q 220 800 250 1044 L 0 1044 Z"
                 fill="url(#tealGrad)"
               />
-              {/* Decorative thin curve accent */}
+              {/* Decorative thin curve accent along the edge */}
               <path
-                d="M 280 0 Q 430 340 340 560 Q 240 800 360 1044"
+                d="M 230 0 Q 250 340 235 560 Q 220 800 250 1044"
                 fill="none"
                 stroke="#ffffff"
                 strokeOpacity="0.22"
                 strokeWidth="2"
               />
-              {/* Faint caduceus watermark — positioned to the right, behind token/details area */}
-              <g opacity="0.06" transform="translate(560, 470)">
-                <ellipse cx="0" cy="0" rx="130" ry="150" fill={TEAL_DARK} />
-                <rect x="-3" y="-140" width="6" height="280" fill={TEAL_DARK} />
-              </g>
-
             </svg>
+
 
             {/* CONTENT LAYER */}
             <div className="relative grid grid-cols-[35%_65%] h-full">
