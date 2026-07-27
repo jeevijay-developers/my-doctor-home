@@ -122,7 +122,7 @@ const AppointmentSlip = ({
 
 
             {/* CONTENT LAYER */}
-            <div className="relative grid grid-cols-[30%_70%] h-full">
+            <div className="relative grid grid-cols-[34%_66%] h-full">
               {/* LEFT COLUMN */}
               <div className="flex flex-col justify-between text-white p-4 md:p-5">
                 {/* Logo + clinic name */}
