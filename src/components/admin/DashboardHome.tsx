@@ -122,14 +122,7 @@ const DashboardHome = () => {
     { icon: Globe, label: "Website Status", value: profile?.onboarding_completed ? "Live" : "Draft", bgClass: "bg-ai-purple/10", iconClass: "text-ai-purple", sub: profile?.slug ? `/${profile.slug}` : "—" },
   ];
 
-  const quickActions = [
-    { icon: Pen, label: "Edit Website", desc: "Customize pages", href: "/admin/my-website", color: "text-royal" },
-    { icon: Eye, label: "View Live", desc: "Patient view", href: profile?.slug ? `/dr/${profile.slug}` : "#", external: true, color: "text-teal" },
-    { icon: CalendarCheck, label: "Appointments", desc: "Manage bookings", href: "/admin/appointments", color: "text-success" },
-    { icon: UserPlus, label: "Patients", desc: "Patient records", href: "/admin/patients", color: "text-warning" },
-    { icon: FileText, label: "Blog", desc: "Write articles", href: "/admin/blog", color: "text-ai-purple" },
-    { icon: Settings, label: "Settings", desc: "Your account", href: "/admin/settings", color: "text-muted-foreground" },
-  ];
+
 
   const statusColor = (status: string) => {
     switch (status) {
