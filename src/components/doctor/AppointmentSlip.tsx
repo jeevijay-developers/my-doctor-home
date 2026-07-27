@@ -3,10 +3,11 @@ import QRCode from "qrcode";
 import { format } from "date-fns";
 import {
   Stethoscope, Building2, ClipboardList, Calendar, Clock, User, Phone,
-  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Video, Download, Printer, X, Plus,
+  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Video, Download, Printer, X, Plus, Check,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import doctyliaLogo from "@/assets/doctylia-logo.png";
 
 type Props = {
   open: boolean;
