@@ -85,7 +85,7 @@ const AdminSidebar = () => {
         <ContactSupportDialog />
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <button className="flex items-center gap-2 text-primary-foreground/60 hover:text-white text-sm w-full px-2 py-1.5">
+            <button className="flex items-center gap-2 text-sidebar-foreground hover:text-destructive text-sm w-full px-2 py-1.5 rounded-lg hover:bg-sidebar-accent transition-colors">
               <LogOut className="h-4 w-4" />
               {!collapsed && <span>Logout</span>}
             </button>
