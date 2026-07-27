@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { CalendarCheck, Plus, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Phone, Video, Trash2, CheckSquare, X } from "lucide-react";
+import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Trash2, CheckSquare, X, Calendar as CalendarIcon } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { format, addDays, subDays, isSameDay, startOfWeek } from "date-fns";
+import { format, isSameDay, parseISO } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
 type Appointment = {
@@ -40,6 +42,8 @@ const AppointmentsPage = () => {
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dateFilterActive, setDateFilterActive] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
   const [newAppt, setNewAppt] = useState({
     patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic",
     date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0,
@@ -126,6 +130,18 @@ const AppointmentsPage = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
+
+  // Load distinct dates that have any appointments (for calendar dot indicators)
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("appointments").select("date").eq("doctor_id", profile.id);
+      if (cancelled) return;
+      setDatesWithAppointments(new Set((data || []).map((r: any) => r.date)));
+    })();
+    return () => { cancelled = true; };
+  }, [profile, appointments.length]);
 
   const upsertPatientForCompletion = async (appt: Appointment) => {
     if (!profile || !appt.patient_phone) return;
@@ -236,9 +252,6 @@ const AppointmentsPage = () => {
     a.service_name.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Calendar strip: 7 days centered on selected date
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-  const calendarDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   // Status summary counts
   const statusCounts = {
@@ -318,45 +331,60 @@ const AppointmentsPage = () => {
         </Dialog>
       </div>
 
-      {/* Calendar Strip */}
+      {/* Date filter */}
       <Card className="border-border/60 shadow-none">
         <CardContent className="p-3">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0" onClick={() => setSelectedDate(d => subDays(d, 7))}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1 grid grid-cols-7 gap-1 overflow-x-auto">
-              {calendarDays.map((day) => {
-                const isToday = isSameDay(day, new Date());
-                const isSelected = dateFilterActive && isSameDay(day, selectedDate);
-                return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => { setSelectedDate(day); setDateFilterActive(true); }}
-                    className={`flex flex-col items-center py-2 px-1 rounded-xl text-center transition-all ${
-                      isSelected ? "bg-royal text-white" :
-                      isToday ? "bg-royal/10 text-royal" :
-                      "hover:bg-secondary text-foreground"
-                    }`}
-                  >
-                    <span className="text-[10px] font-medium opacity-70">{format(day, "EEE")}</span>
-                    <span className="text-sm font-bold">{format(day, "d")}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setSelectedDate(d => addDays(d, 7))}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  {dateFilterActive ? format(selectedDate, "EEE, d MMM yyyy") : "Filter by date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={dateFilterActive ? selectedDate : undefined}
+                  onSelect={(d) => {
+                    if (!d) return;
+                    setSelectedDate(d);
+                    setDateFilterActive(true);
+                    setCalendarOpen(false);
+                  }}
+                  modifiers={{
+                    hasAppointments: (day) => datesWithAppointments.has(format(day, "yyyy-MM-dd")),
+                  }}
+                  modifiersClassNames={{
+                    hasAppointments:
+                      "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:rounded-full after:bg-royal",
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            {dateFilterActive ? (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  Showing: {format(selectedDate, "EEEE, d MMMM yyyy")}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 text-xs text-royal"
+                  onClick={() => setDateFilterActive(false)}
+                >
+                  <X className="h-3 w-3" /> Clear
+                </Button>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">Showing all upcoming appointments</span>
+            )}
           </div>
-          {dateFilterActive && (
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/60">
-              <span className="text-xs text-muted-foreground">Showing: {format(selectedDate, "MMMM d, yyyy")}</span>
-              <Button variant="ghost" size="sm" className="text-xs h-6 text-royal" onClick={() => setDateFilterActive(false)}>Show All</Button>
-            </div>
-          )}
         </CardContent>
       </Card>
+
 
       {/* Status Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
