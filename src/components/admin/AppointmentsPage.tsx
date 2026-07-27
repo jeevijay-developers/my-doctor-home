@@ -131,6 +131,18 @@ const AppointmentsPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
+  // Load distinct dates that have any appointments (for calendar dot indicators)
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("appointments").select("date").eq("doctor_id", profile.id);
+      if (cancelled) return;
+      setDatesWithAppointments(new Set((data || []).map((r: any) => r.date)));
+    })();
+    return () => { cancelled = true; };
+  }, [profile, appointments.length]);
+
   const upsertPatientForCompletion = async (appt: Appointment) => {
     if (!profile || !appt.patient_phone) return;
     const { data: existing } = await supabase
