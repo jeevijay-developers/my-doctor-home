@@ -350,10 +350,11 @@ const BookingWidget = () => {
 
     // ---- Instruction + QR row ----
     const infoBoxY = ry + 6;
-    const infoBoxH = 110;
-    const qrSize = 92;
-    const qrX = R_X + R_W - qrSize - 12;
-    const infoBoxW = qrX - R_X - 16;
+    const infoBoxH = 96;
+    const qrSize = 78;
+    const qrPad = 10;
+    const qrX = R_X + R_W - qrSize - qrPad;
+    const infoBoxW = qrX - R_X - 14;
 
     // Instruction box
     doc.setDrawColor(...TEAL);
@@ -361,23 +362,19 @@ const BookingWidget = () => {
     doc.roundedRect(R_X, infoBoxY, infoBoxW, infoBoxH, 8, 8, "S");
     // bell mark
     doc.setFillColor(...TEAL);
-    doc.circle(R_X + 20, infoBoxY + 22, 3, "F");
+    doc.circle(R_X + 18, infoBoxY + 22, 3, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setTextColor(...TEAL_DARK);
-    doc.text("PLEASE ARRIVE 10 MINUTES EARLY", R_X + 32, infoBoxY + 25);
+    doc.text("PLEASE ARRIVE 10 MINUTES EARLY", R_X + 28, infoBoxY + 24);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(...MUTED);
     const noteLines = doc.splitTextToSize(
-      "Carry a valid ID proof and any previous medical documents / prescriptions relevant to your visit.",
-      infoBoxW - 24
+      "Carry a valid ID proof and previous medical documents (if any).",
+      infoBoxW - 22
     );
-    doc.text(noteLines, R_X + 12, infoBoxY + 46);
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(8);
-    doc.setTextColor(...MUTED);
-    doc.text(`Appointment ID: ${confirmedApptId || "—"}`, R_X + 12, infoBoxY + infoBoxH - 12);
+    doc.text(noteLines, R_X + 12, infoBoxY + 44);
 
     // ---- QR code (dynamic doctor URL) ----
     try {
@@ -386,15 +383,16 @@ const BookingWidget = () => {
         width: 400,
         color: { dark: "#0A4E58", light: "#FFFFFF" },
       });
-      doc.addImage(qrDataUrl, "PNG", qrX, infoBoxY, qrSize, qrSize);
+      const qrY = infoBoxY + (infoBoxH - qrSize) / 2;
+      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setTextColor(...TEAL_DARK);
-      doc.text("Scan to Visit", qrX + qrSize / 2, infoBoxY + qrSize + 12, { align: "center" });
-      doc.text("Doctor's Website", qrX + qrSize / 2, infoBoxY + qrSize + 22, { align: "center" });
+      doc.text("Scan for Location", qrX + qrSize / 2, qrY + qrSize + 9, { align: "center" });
     } catch {
       // if QR fails silently, keep slip usable
     }
+
 
     // ---- Thank you footer ----
     doc.setFont("times", "italic");
