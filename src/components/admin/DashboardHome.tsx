@@ -28,11 +28,8 @@ const DashboardHome = () => {
   const { profile } = useProfile();
   const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, weekRevenue: 0, lastWeekAppts: 0 });
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
-  const [recentPatients, setRecentPatients] = useState<any[]>([]);
   const [servicesCount, setServicesCount] = useState(0);
   const [blogCount, setBlogCount] = useState(0);
-  const [notes, setNotes] = useState<any[]>([]);
-  const [newNote, setNewNote] = useState("");
   const [tipIndex, setTipIndex] = useState(0);
 
   const loadDashboard = () => {
