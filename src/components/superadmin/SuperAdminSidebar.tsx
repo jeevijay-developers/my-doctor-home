@@ -48,7 +48,7 @@ const SuperAdminSidebar = () => {
           )}
         </div>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-primary-foreground/40 text-xs uppercase">Platform</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-primary-foreground/70 text-xs font-semibold uppercase tracking-wider">Platform</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
@@ -56,8 +56,8 @@ const SuperAdminSidebar = () => {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      className="text-primary-foreground/70 hover:bg-sidebar-accent hover:text-white"
-                      activeClassName="bg-sidebar-accent text-white font-medium"
+                      className="text-primary-foreground/90 font-medium hover:bg-white/10 hover:text-white transition-colors"
+                      activeClassName="!bg-white/15 !text-white !font-semibold shadow-md"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -68,6 +68,7 @@ const SuperAdminSidebar = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
       </SidebarContent>
       <SidebarFooter className="bg-primary p-3">
         <AlertDialog>
