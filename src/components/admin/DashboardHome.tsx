@@ -197,9 +197,9 @@ const DashboardHome = () => {
         </CardContent>
       </Card>
 
-      <div className="grid lg:grid-cols-3 gap-3 xl:gap-4 xl:flex-1 xl:min-h-0">
+      <div className={`grid gap-3 xl:gap-4 xl:flex-1 xl:min-h-0 ${completedSteps === checklist.length ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
         {/* Today's Schedule Timeline */}
-        <Card className="lg:col-span-2 border-0 rounded-2xl shadow-sm bg-card xl:flex xl:flex-col xl:min-h-0">
+        <Card className={`border-0 rounded-2xl shadow-sm bg-card xl:flex xl:flex-col xl:min-h-0 ${completedSteps === checklist.length ? "" : "lg:col-span-2"}`}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -258,7 +258,8 @@ const DashboardHome = () => {
           </CardContent>
         </Card>
 
-        {/* Getting Started */}
+        {/* Getting Started — hidden once all steps are complete */}
+        {completedSteps < checklist.length && (
         <Card className="border-0 rounded-2xl shadow-sm bg-card xl:flex xl:flex-col xl:min-h-0">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -279,14 +280,9 @@ const DashboardHome = () => {
                 {!item.done && <ArrowRight className="h-3 w-3 text-muted-foreground/40 ml-auto" />}
               </Link>
             ))}
-            {completedSteps === checklist.length && (
-              <div className="text-center pt-3">
-                <Sparkles className="h-5 w-5 text-spark mx-auto mb-1" />
-                <p className="text-xs font-medium text-success">All set! Your clinic is ready 🎉</p>
-              </div>
-            )}
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* WhatsApp Share + Revenue Goal */}
