@@ -199,7 +199,7 @@ const DashboardHome = () => {
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Today's Schedule Timeline */}
-        <Card className="lg:col-span-2 border-border/60 shadow-none">
+        <Card className="lg:col-span-2 border-0 rounded-2xl shadow-sm bg-card">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -258,7 +258,7 @@ const DashboardHome = () => {
         </Card>
 
         {/* Getting Started */}
-        <Card className="border-border/60 shadow-none">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Getting Started</CardTitle>
@@ -291,7 +291,7 @@ const DashboardHome = () => {
       {/* WhatsApp Share + Revenue Goal */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* WhatsApp Share Widget */}
-        <Card className="border-border/60 shadow-none border-l-4 border-l-success">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-success">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Share2 className="h-4 w-4 text-success" /> Share Your Website
@@ -327,7 +327,7 @@ const DashboardHome = () => {
         </Card>
 
         {/* Revenue Goal Tracker */}
-        <Card className="border-border/60 shadow-none border-l-4 border-l-royal">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-royal">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
