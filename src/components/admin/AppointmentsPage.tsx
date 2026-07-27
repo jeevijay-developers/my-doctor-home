@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { CalendarCheck, Plus, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Phone, Video, Trash2, MoreHorizontal } from "lucide-react";
+import { CalendarCheck, Plus, Search, Filter, ChevronLeft, ChevronRight, Clock, User, Phone, Video, Trash2, MoreHorizontal, CheckSquare, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -47,6 +48,31 @@ const AppointmentsPage = () => {
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [rescheduleForm, setRescheduleForm] = useState({ date: "", time_slot: "" });
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkConfirmText, setBulkConfirmText] = useState("");
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const exitSelectMode = () => { setSelectMode(false); clearSelection(); };
+  const bulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    const { error } = await supabase.from("appointments").delete().in("id", ids);
+    if (error) { toast.error("Could not delete appointments"); return; }
+    toast.success(`${ids.length} appointment${ids.length === 1 ? "" : "s"} deleted`);
+    setBulkDeleteOpen(false);
+    setBulkConfirmText("");
+    exitSelectMode();
+    load();
+  };
 
   const load = async () => {
     if (!profile) return;
@@ -347,7 +373,7 @@ const AppointmentsPage = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className={`flex flex-col sm:flex-row gap-3 transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9 h-10" placeholder="Search patient or service..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -365,6 +391,43 @@ const AppointmentsPage = () => {
         </Select>
       </div>
 
+      {/* Select mode toggle */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs text-muted-foreground">
+            {selectMode ? (
+              <span>{selectedIds.size} of {filtered.length} selected</span>
+            ) : (
+              <span>{filtered.length} appointment{filtered.length === 1 ? "" : "s"}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {selectMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => {
+                  if (selectedIds.size === filtered.length) clearSelection();
+                  else setSelectedIds(new Set(filtered.map((a) => a.id)));
+                }}
+              >
+                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant={selectMode ? "secondary" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              aria-pressed={selectMode}
+            >
+              {selectMode ? (<><X className="h-3.5 w-3.5 mr-1" /> Done</>) : (<><CheckSquare className="h-3.5 w-3.5 mr-1" /> Select</>)}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Appointment Cards */}
       {filtered.length === 0 ? (
         <Card className="border-border/60 shadow-none">
@@ -378,11 +441,28 @@ const AppointmentsPage = () => {
         <div className="space-y-2">
           {filtered.map((a) => {
             const sc = statusConfig[a.status] || statusConfig.pending;
+            const isSelected = selectedIds.has(a.id);
+            const borderColor = sc.bg.split(" ").find((c) => c.startsWith("border-l-")) || "";
             return (
-              <Card key={a.id} className={`border-border/60 shadow-none border-l-4 ${sc.bg.split(" ")[0].replace("bg-", "border-l-")} hover:shadow-md transition-shadow`}>
+              <Card
+                key={a.id}
+                className={`relative border-border/60 shadow-none border-l-4 ${borderColor} transition-all ${
+                  selectMode ? "cursor-pointer" : "hover:shadow-md"
+                } ${isSelected ? "bg-royal/5 ring-2 ring-royal ring-offset-2" : ""}`}
+                onClick={selectMode ? () => toggleSelected(a.id) : undefined}
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
+                      {selectMode && (
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelected(a.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Select appointment for ${a.patient_name}`}
+                          className="h-5 w-5 rounded-full"
+                        />
+                      )}
                       <div className="w-10 h-10 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
                         {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
                       </div>
@@ -414,7 +494,7 @@ const AppointmentsPage = () => {
                       )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
                     </div>
-                    {(() => {
+                    {!selectMode && (() => {
                       const primaryMap: Record<string, { label: string; next: string } | null> = {
                         pending: { label: "Confirm", next: "confirmed" },
                         confirmed: { label: "Complete", next: "completed" },
@@ -516,16 +596,80 @@ const AppointmentsPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this appointment?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the appointment. This cannot be undone.
+              This action cannot be undone. Patient records will remain, but this appointment will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               onClick={() => { if (deletingId) { deleteAppointment(deletingId); setDeletingId(null); } }}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Floating bulk action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div
+          role="toolbar"
+          aria-label="Bulk actions"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-md"
+        >
+          <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-full px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+            <span className="text-sm font-medium text-foreground whitespace-nowrap">
+              {selectedIds.size} appointment{selectedIds.size === 1 ? "" : "s"} selected
+            </span>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelection}>
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-4"
+              onClick={() => { setBulkConfirmText(""); setBulkDeleteOpen(true); }}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Selected
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(o) => { setBulkDeleteOpen(o); if (!o) setBulkConfirmText(""); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} appointment{selectedIds.size === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. Patient records will remain, but these appointments will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {selectedIds.size >= 10 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                To confirm, type <span className="font-mono font-semibold">{selectedIds.size}</span> below:
+              </Label>
+              <Input
+                value={bulkConfirmText}
+                onChange={(e) => setBulkConfirmText(e.target.value)}
+                placeholder={String(selectedIds.size)}
+                className="h-10"
+                autoFocus
+              />
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={selectedIds.size >= 10 && bulkConfirmText.trim() !== String(selectedIds.size)}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground disabled:opacity-50"
+              onClick={(e) => { e.preventDefault(); bulkDelete(); }}
+            >
+              Delete {selectedIds.size}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
