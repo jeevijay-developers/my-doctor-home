@@ -19,6 +19,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
 
   // Preserve a same-origin relative `next` (e.g. /.lovable/oauth/consent?authorization_id=...)
@@ -28,7 +29,10 @@ const Auth = () => {
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
+      if (!session) {
+        setCheckingSession(false);
+        return;
+      }
       if (safeNext) {
         window.location.href = safeNext;
         return;
@@ -38,9 +42,9 @@ const Auth = () => {
         _role: "admin",
       });
       if (isAdmin) {
-        navigate("/superadmin");
+        navigate("/superadmin", { replace: true });
       } else {
-        navigate("/admin/dashboard");
+        navigate("/admin/dashboard", { replace: true });
       }
     });
   }, [navigate, safeNext]);
@@ -133,6 +137,14 @@ const Auth = () => {
     { icon: Zap, text: "Go live in under 5 minutes" },
     { icon: Shield, text: "7-day free trial · No credit card" },
   ];
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-secondary">
+        <Loader2 className="h-8 w-8 animate-spin text-royal" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -306,7 +318,7 @@ const Auth = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                     </button>
                   </div>
                   {mode === "signup" && password && (
