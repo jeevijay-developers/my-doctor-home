@@ -43,6 +43,7 @@ const AppointmentsPage = () => {
     patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic",
     date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0,
     status: "pending",
+  });
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [rescheduleForm, setRescheduleForm] = useState({ date: "", time_slot: "" });
