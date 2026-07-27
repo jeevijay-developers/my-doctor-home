@@ -103,10 +103,10 @@ const DashboardHome = () => {
   const completedSteps = checklist.filter((c) => c.done).length;
 
   const statCards = [
-    { icon: CalendarCheck, label: "Total Appointments", value: String(stats.appointments), bgClass: "bg-royal/10", iconClass: "text-royal", sub: `${stats.todayCount} today` },
-    { icon: Users, label: "Total Patients", value: String(stats.patients), bgClass: "bg-teal/10", iconClass: "text-teal", sub: "All time" },
-    { icon: CreditCard, label: "Revenue Earned", value: `₹${stats.revenue.toLocaleString("en-IN")}`, bgClass: "bg-success/10", iconClass: "text-success", sub: "Paid appointments" },
-    { icon: Globe, label: "Website Status", value: profile?.onboarding_completed ? "Live" : "Draft", bgClass: "bg-ai-purple/10", iconClass: "text-ai-purple", sub: profile?.slug ? `/${profile.slug}` : "—" },
+    { icon: CalendarCheck, label: "APPOINTMENTS", value: String(stats.appointments), bgClass: "bg-royal/15", iconClass: "text-royal", sub: `${stats.todayCount} today` },
+    { icon: Users, label: "PATIENTS", value: String(stats.patients), bgClass: "bg-pink/15", iconClass: "text-pink", sub: "All time" },
+    { icon: CreditCard, label: "REVENUE", value: `₹${stats.revenue.toLocaleString("en-IN")}`, bgClass: "bg-teal/15", iconClass: "text-teal", sub: "Paid appointments" },
+    { icon: Globe, label: "WEBSITE", value: profile?.onboarding_completed ? "Live" : "Draft", bgClass: "bg-orange/15", iconClass: "text-orange", sub: profile?.slug ? `/${profile.slug}` : "—" },
   ];
 
 
