@@ -178,18 +178,18 @@ const DashboardHome = () => {
       </div>
 
       {/* Growth Tip Banner */}
-      <Card className="border-spark/30 bg-spark/5 shadow-none">
-        <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-spark/20 flex items-center justify-center flex-shrink-0">
-            <Lightbulb className="h-5 w-5 text-spark" />
+      <Card className="border-spark/30 bg-spark/5 shadow-none xl:flex-shrink-0">
+        <CardContent className="p-3 flex flex-row items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-spark/20 flex items-center justify-center flex-shrink-0">
+            <Lightbulb className="h-4 w-4 text-spark" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-spark/80 mb-0.5">GROWTH TIP</p>
-            <p className="text-sm font-medium text-foreground">{currentTip.tip}</p>
+            <p className="text-[10px] font-semibold text-spark/80">GROWTH TIP</p>
+            <p className="text-xs md:text-sm font-medium text-foreground truncate">{currentTip.tip}</p>
           </div>
           {currentTip.action && (
             <Link to={currentTip.action}>
-              <Button size="sm" variant="outline" className="text-xs border-spark/30 text-spark hover:bg-spark/10 flex-shrink-0">
+              <Button size="sm" variant="outline" className="text-xs border-spark/30 text-spark hover:bg-spark/10 flex-shrink-0 h-8">
                 Do it <ArrowRight className="h-3 w-3 ml-1" />
               </Button>
             </Link>
