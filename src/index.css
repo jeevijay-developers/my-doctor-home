@@ -87,6 +87,12 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
   }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: hsl(220 15% 45%);
+    opacity: 1;
+  }
 }
 
 @layer utilities {
