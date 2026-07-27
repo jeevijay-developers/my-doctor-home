@@ -87,13 +87,12 @@ const AppointmentSlip = ({
 
         <div data-slip-print-root>
           <div className="slip-card relative overflow-hidden bg-white">
-            <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] relative">
+            <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] relative items-stretch">
               {/* Left teal panel */}
               <div
-                className="relative text-white p-6 md:p-7 min-h-[640px] hidden md:flex flex-col justify-between"
+                className="relative text-white p-6 md:p-7 hidden md:flex flex-col justify-between h-full"
                 style={{
                   background: "linear-gradient(160deg, #0f6e7c 0%, #0a4e58 100%)",
-                  clipPath: "path('M0,0 L260,0 C 210,320 260,640 260,960 L0,960 Z')",
                 }}
               >
                 <div>
