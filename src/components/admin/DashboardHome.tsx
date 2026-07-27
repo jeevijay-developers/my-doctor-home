@@ -3,9 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
   CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
-  TrendingUp, Sparkles, ExternalLink, Pen, Eye, Settings,
-  CheckCircle2, Circle, Stethoscope, UserPlus, FileText, Copy, BarChart3,
-  Lightbulb, StickyNote, Plus, X, Send, Share2, Target
+  TrendingUp, Sparkles, ExternalLink, Copy, Eye, FileText,
+  CheckCircle2, Circle, Stethoscope,
+  Lightbulb, Send, Share2, Target
 } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -28,11 +28,8 @@ const DashboardHome = () => {
   const { profile } = useProfile();
   const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, weekRevenue: 0, lastWeekAppts: 0 });
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
-  const [recentPatients, setRecentPatients] = useState<any[]>([]);
   const [servicesCount, setServicesCount] = useState(0);
   const [blogCount, setBlogCount] = useState(0);
-  const [notes, setNotes] = useState<any[]>([]);
-  const [newNote, setNewNote] = useState("");
   const [tipIndex, setTipIndex] = useState(0);
 
   const loadDashboard = () => {
@@ -47,13 +44,11 @@ const DashboardHome = () => {
       supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id),
       supabase.from("appointments").select("amount").eq("doctor_id", id).eq("payment_status", "paid"),
       supabase.from("appointments").select("*").eq("doctor_id", id).eq("date", today).order("time_slot"),
-      supabase.from("patients").select("*").eq("doctor_id", id).order("created_at", { ascending: false }).limit(5),
       supabase.from("services").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("active", true),
       supabase.from("blog_posts").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("is_published", true),
       supabase.from("appointments").select("amount").eq("doctor_id", id).eq("payment_status", "paid").gte("date", weekAgo),
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo),
-      supabase.from("doctor_notes").select("*").eq("doctor_id", id).order("created_at", { ascending: false }).limit(10),
-    ]).then(([apptRes, patRes, revRes, todayRes, recentPat, svcRes, blogRes, weekRevRes, lastWeekRes, notesRes]) => {
+    ]).then(([apptRes, patRes, revRes, todayRes, svcRes, blogRes, weekRevRes, lastWeekRes]) => {
       const revenue = (revRes.data || []).reduce((s, r) => s + (r.amount || 0), 0);
       const weekRevenue = (weekRevRes.data || []).reduce((s, r) => s + (r.amount || 0), 0);
       const todayData = todayRes.data || [];
@@ -66,10 +61,8 @@ const DashboardHome = () => {
         lastWeekAppts: lastWeekRes.count || 0,
       });
       setTodayAppointments(todayData.slice(0, 6));
-      setRecentPatients((recentPat.data || []).slice(0, 4));
       setServicesCount(svcRes.count || 0);
       setBlogCount(blogRes.count || 0);
-      setNotes(notesRes.data || []);
     });
   };
 
@@ -92,17 +85,8 @@ const DashboardHome = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const addNote = async () => {
-    if (!newNote.trim() || !profile) return;
-    const { data } = await supabase.from("doctor_notes").insert({ doctor_id: profile.id, content: newNote.trim() }).select().single();
-    if (data) setNotes((prev) => [data, ...prev].slice(0, 10));
-    setNewNote("");
-  };
 
-  const deleteNote = async (id: string) => {
-    await supabase.from("doctor_notes").delete().eq("id", id);
-    setNotes((prev) => prev.filter((n) => n.id !== id));
-  };
+
 
   const daysLeft = profile?.trial_end
     ? Math.max(0, differenceInDays(new Date(profile.trial_end), new Date()))
@@ -125,14 +109,7 @@ const DashboardHome = () => {
     { icon: Globe, label: "Website Status", value: profile?.onboarding_completed ? "Live" : "Draft", bgClass: "bg-ai-purple/10", iconClass: "text-ai-purple", sub: profile?.slug ? `/${profile.slug}` : "—" },
   ];
 
-  const quickActions = [
-    { icon: Pen, label: "Edit Website", desc: "Customize pages", href: "/admin/my-website", color: "text-royal" },
-    { icon: Eye, label: "View Live", desc: "Patient view", href: profile?.slug ? `/dr/${profile.slug}` : "#", external: true, color: "text-teal" },
-    { icon: CalendarCheck, label: "Appointments", desc: "Manage bookings", href: "/admin/appointments", color: "text-success" },
-    { icon: UserPlus, label: "Patients", desc: "Patient records", href: "/admin/patients", color: "text-warning" },
-    { icon: FileText, label: "Blog", desc: "Write articles", href: "/admin/blog", color: "text-ai-purple" },
-    { icon: Settings, label: "Settings", desc: "Your account", href: "/admin/settings", color: "text-muted-foreground" },
-  ];
+
 
   const statusColor = (status: string) => {
     switch (status) {
@@ -393,180 +370,6 @@ const DashboardHome = () => {
         </Card>
       </div>
 
-      {/* Website + Revenue + Notes */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Website Preview */}
-        <Card className="border-border/60 shadow-none">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Globe className="h-4 w-4 text-royal" /> Your Website
-              </CardTitle>
-              <Badge variant={profile?.onboarding_completed ? "default" : "secondary"} className={profile?.onboarding_completed ? "bg-success text-white text-[10px]" : "text-[10px]"}>
-                {profile?.onboarding_completed ? "Live" : "Draft"}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {liveUrl ? (
-              <div className="space-y-3">
-                <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-destructive/60" />
-                    <div className="w-2 h-2 rounded-full bg-warning/60" />
-                    <div className="w-2 h-2 rounded-full bg-success/60" />
-                    <div className="flex-1 ml-2 bg-card rounded px-2 py-0.5 text-[10px] text-muted-foreground truncate border border-border">{liveUrl}</div>
-                  </div>
-                  <div className="bg-card rounded border border-border p-2.5 space-y-1.5">
-                    <div className="h-2.5 w-20 bg-royal/20 rounded" />
-                    <div className="h-1.5 w-full bg-secondary rounded" />
-                    <div className="h-1.5 w-3/4 bg-secondary rounded" />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => { navigator.clipboard.writeText(liveUrl); toast.success("URL copied!"); }}>
-                    <Copy className="h-3 w-3 mr-1" /> Copy
-                  </Button>
-                  <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full text-xs h-8"><ExternalLink className="h-3 w-3 mr-1" /> Open</Button>
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <Globe className="h-8 w-8 text-royal/20 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Complete onboarding to go live</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Weekly Revenue */}
-        <Card className="border-border/60 shadow-none">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-success" /> This Week
-              </CardTitle>
-              <span className="text-sm font-bold text-success">₹{stats.weekRevenue.toLocaleString("en-IN")}</span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {stats.weekRevenue === 0 ? (
-              <div className="text-center py-6">
-                <BarChart3 className="h-8 w-8 text-success/20 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No revenue yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-end justify-between gap-1.5 h-28 px-1">
-                  {weekDays.map((day, i) => (
-                    <div key={day} className="flex flex-col items-center gap-1 flex-1">
-                      <div className="w-full rounded-t-sm bg-gradient-to-t from-royal to-teal transition-all duration-500" style={{ height: `${barHeights[i]}%` }} />
-                      <span className="text-[9px] text-muted-foreground">{day}</span>
-                    </div>
-                  ))}
-                </div>
-                <Link to="/admin/billing" className="text-xs text-royal font-medium hover:underline flex items-center gap-1 justify-center">
-                  View Details <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Quick Notes */}
-        <Card className="border-border/60 shadow-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <StickyNote className="h-4 w-4 text-warning" /> Quick Notes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 mb-3">
-              <Input
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                placeholder="Jot a quick note..."
-                className="h-8 text-xs"
-                onKeyDown={(e) => e.key === "Enter" && addNote()}
-              />
-              <Button size="sm" className="h-8 w-8 p-0 bg-royal hover:bg-royal/90" onClick={addNote}>
-                <Plus className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
-              {notes.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">No notes yet</p>
-              ) : notes.map((note) => (
-                <div key={note.id} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/60 group">
-                  <p className="text-xs text-foreground flex-1">{note.content}</p>
-                  <button onClick={() => deleteNote(note.id)} className="text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div>
-        <h2 className="font-heading font-semibold text-lg text-foreground mb-3">Quick Actions</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {quickActions.map((a) =>
-            a.external ? (
-              <a key={a.label} href={a.href} target="_blank" rel="noopener noreferrer"
-                className="group flex flex-col items-center text-center p-4 rounded-xl bg-card border border-border/60 hover:border-royal/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                <div className="w-11 h-11 rounded-xl bg-secondary flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
-                  <a.icon className={`h-5 w-5 ${a.color}`} />
-                </div>
-                <div className="text-sm font-medium text-foreground">{a.label}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{a.desc}</div>
-              </a>
-            ) : (
-              <Link key={a.label} to={a.href}
-                className="group flex flex-col items-center text-center p-4 rounded-xl bg-card border border-border/60 hover:border-royal/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                <div className="w-11 h-11 rounded-xl bg-secondary flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
-                  <a.icon className={`h-5 w-5 ${a.color}`} />
-                </div>
-                <div className="text-sm font-medium text-foreground">{a.label}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{a.desc}</div>
-              </Link>
-            )
-          )}
-        </div>
-      </div>
-
-      {/* Recent Patients */}
-      {recentPatients.length > 0 && (
-        <Card className="border-border/60 shadow-none">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Recent Patients</CardTitle>
-              <Link to="/admin/patients" className="text-sm text-royal flex items-center gap-1 hover:underline font-medium">
-                View All <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {recentPatients.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/60 hover:bg-secondary transition-colors">
-                  <div className="w-10 h-10 rounded-full bg-teal/10 flex items-center justify-center text-sm font-bold text-teal">
-                    {p.name?.charAt(0)?.toUpperCase() || "P"}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-foreground truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground">{p.phone}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };
