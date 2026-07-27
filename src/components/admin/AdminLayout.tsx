@@ -2,9 +2,10 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
 import { useLocation, Link } from "react-router-dom";
-import { Bell, ChevronRight, Home, Megaphone } from "lucide-react";
+import { Bell, BellOff, ChevronRight, Home, Megaphone } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
@@ -42,10 +43,28 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors relative">
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
-              </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    aria-label="Notifications"
+                    className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors relative"
+                  >
+                    <Bell className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 p-0">
+                  <div className="px-4 py-3 border-b border-border">
+                    <h4 className="font-semibold text-sm text-foreground">Notifications</h4>
+                  </div>
+                  <div className="p-6 flex flex-col items-center justify-center text-center">
+                    <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mb-3">
+                      <BellOff className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-foreground">No notifications yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">You're all caught up.</p>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <div className="h-5 w-px bg-border" />
               <Link to="/admin/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                 {profile?.profile_photo_url ? (
