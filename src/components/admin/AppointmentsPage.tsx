@@ -441,11 +441,28 @@ const AppointmentsPage = () => {
         <div className="space-y-2">
           {filtered.map((a) => {
             const sc = statusConfig[a.status] || statusConfig.pending;
+            const isSelected = selectedIds.has(a.id);
+            const borderColor = sc.bg.split(" ").find((c) => c.startsWith("border-l-")) || "";
             return (
-              <Card key={a.id} className={`border-border/60 shadow-none border-l-4 ${sc.bg.split(" ")[0].replace("bg-", "border-l-")} hover:shadow-md transition-shadow`}>
+              <Card
+                key={a.id}
+                className={`relative border-border/60 shadow-none border-l-4 ${borderColor} transition-all ${
+                  selectMode ? "cursor-pointer" : "hover:shadow-md"
+                } ${isSelected ? "bg-royal/5 ring-2 ring-royal ring-offset-2" : ""}`}
+                onClick={selectMode ? () => toggleSelected(a.id) : undefined}
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
+                      {selectMode && (
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelected(a.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Select appointment for ${a.patient_name}`}
+                          className="h-5 w-5 rounded-full"
+                        />
+                      )}
                       <div className="w-10 h-10 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
                         {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
                       </div>
@@ -477,7 +494,7 @@ const AppointmentsPage = () => {
                       )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
                     </div>
-                    {(() => {
+                    {!selectMode && (() => {
                       const primaryMap: Record<string, { label: string; next: string } | null> = {
                         pending: { label: "Confirm", next: "confirmed" },
                         confirmed: { label: "Complete", next: "completed" },
