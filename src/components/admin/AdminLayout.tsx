@@ -30,7 +30,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
       <div className="min-h-screen flex w-full">
         <AdminSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center justify-between border-b border-border bg-card px-4 md:px-6">
+          <header className="h-14 flex items-center justify-between bg-background px-4 md:px-6">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               <div className="hidden md:block h-5 w-px bg-border" />
