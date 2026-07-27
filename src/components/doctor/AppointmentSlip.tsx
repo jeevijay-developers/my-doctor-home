@@ -127,24 +127,24 @@ const AppointmentSlip = ({
             </svg>
 
             {/* CONTENT LAYER */}
-            <div className="relative grid grid-cols-[38%_62%] h-full">
+            <div className="relative grid grid-cols-[35%_65%] h-full">
               {/* LEFT COLUMN */}
-              <div className="flex flex-col justify-between text-white p-5 md:p-6">
+              <div className="flex flex-col justify-between text-white p-5 md:p-7">
                 {/* Logo + clinic name */}
-                <div className="flex items-start gap-2.5">
+                <div className="flex items-start gap-3">
                   <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
                     <Plus className="h-6 w-6" strokeWidth={3.5} style={{ color: TEAL_DARK }} />
                   </div>
                   <div className="min-w-0 pt-0.5">
-                    <div className="font-heading font-extrabold text-[15px] md:text-base leading-tight uppercase tracking-wide">
+                    <div className="font-heading font-extrabold text-[15px] md:text-[17px] leading-tight uppercase tracking-wide">
                       {clinicName}
                     </div>
-                    <div className="text-[10.5px] italic opacity-85 mt-0.5">{tagline}</div>
+                    <div className="text-[10.5px] italic opacity-90 mt-1">{tagline}</div>
                   </div>
                 </div>
 
-                {/* Contact — bottom, on white area beneath the curve. We keep dark text since curve ends before this. */}
-                <div className="space-y-2 text-[11px] pb-1" style={{ color: TEAL_DARK }}>
+                {/* Contact — white text on teal curved panel */}
+                <div className="space-y-2.5 text-[11px] pb-2 text-white">
                   {clinicAddr && (
                     <div className="flex items-start gap-2">
                       <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -169,6 +169,7 @@ const AppointmentSlip = ({
                   </div>
                 </div>
               </div>
+
 
               {/* RIGHT COLUMN */}
               <div className="flex flex-col p-5 md:p-7 pl-2 md:pl-4">
