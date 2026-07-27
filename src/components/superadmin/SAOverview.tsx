@@ -51,23 +51,23 @@ const SAOverview = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-white/60 -m-2 p-2 rounded-2xl">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {cards.map((c) => (
-          <Card key={c.label}>
+          <Card key={c.label} className="rounded-2xl border-transparent bg-white shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${c.color}`}>
-                <c.icon className="h-4 w-4" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${c.color}`}>
+                <c.icon className="h-5 w-5" />
               </div>
-              <div className="text-xs text-muted-foreground">{c.label}</div>
-              <div className="font-heading font-bold text-lg text-primary">{c.value}</div>
+              <div className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground">{c.label}</div>
+              <div className="font-heading font-bold text-3xl text-primary leading-tight mt-1">{c.value}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Signups over time</CardTitle></CardHeader>
+      <Card className="rounded-2xl border-transparent bg-white shadow-sm">
+        <CardHeader><CardTitle className="text-lg font-heading font-semibold text-primary">Signups over time</CardTitle></CardHeader>
         <CardContent>
           <div className="h-64">
             <ResponsiveContainer>
@@ -83,8 +83,9 @@ const SAOverview = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Trials ending in next 7 days ({trialsEnding.length})</CardTitle></CardHeader>
+
+      <Card className="rounded-2xl border-transparent bg-white shadow-sm">
+        <CardHeader><CardTitle className="text-lg font-heading font-semibold text-primary">Trials ending in next 7 days ({trialsEnding.length})</CardTitle></CardHeader>
         <CardContent>
           {trialsEnding.length === 0 ? (
             <p className="text-sm text-muted-foreground">No trials ending soon.</p>
