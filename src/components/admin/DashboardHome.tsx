@@ -197,9 +197,9 @@ const DashboardHome = () => {
         </CardContent>
       </Card>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-3 xl:gap-4 xl:flex-1 xl:min-h-0">
         {/* Today's Schedule Timeline */}
-        <Card className="lg:col-span-2 border-0 rounded-2xl shadow-sm bg-card">
+        <Card className="lg:col-span-2 border-0 rounded-2xl shadow-sm bg-card xl:flex xl:flex-col xl:min-h-0">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
