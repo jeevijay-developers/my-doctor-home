@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
   CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
-  TrendingUp, Sparkles, ExternalLink, Copy,
+  TrendingUp, Sparkles, ExternalLink, Copy, Eye, FileText,
   CheckCircle2, Circle, Stethoscope,
   Lightbulb, Send, Share2, Target
 } from "lucide-react";
