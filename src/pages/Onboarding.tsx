@@ -95,7 +95,7 @@ const Onboarding = () => {
       if (!user) throw new Error("Not authenticated");
       const slug = await getUniqueSlug(form.full_name);
       const { error } = await supabase.from("profiles").update({
-        full_name: form.full_name, specialization: form.specialization,
+        full_name: form.full_name, specialization: form.specialization === "Other" ? form.specialization_other.trim() : form.specialization,
         qualifications: form.qualifications, experience_years: parseInt(form.experience_years) || 0,
         clinic_name: form.clinic_name, city: form.city, address: form.address,
         phone: form.phone, slug, onboarding_completed: true,
