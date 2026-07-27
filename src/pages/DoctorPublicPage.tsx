@@ -22,7 +22,7 @@ const DoctorPageContent = () => {
     const previousTitle = document.title;
     const name = profile.display_name.trim();
     const formatted = /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
-    document.title = `${formatted} | Doctylia`;
+    document.title = formatted;
     return () => {
       document.title = previousTitle;
     };
