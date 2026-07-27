@@ -8,28 +8,38 @@ const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
-    const check = async (session: any) => {
+
+    const verify = (session: any) => {
       if (!session) {
         if (mounted) setStatus("no-session");
         return;
       }
-      const { data: isAdmin } = await supabase.rpc("has_role", {
-        _user_id: session.user.id,
-        _role: "admin",
-      });
-      if (!mounted) return;
-      setStatus(isAdmin ? "ok" : "not-admin");
+      // Defer supabase call out of the auth callback to avoid deadlocks.
+      setTimeout(async () => {
+        const { data: isAdmin } = await supabase.rpc("has_role", {
+          _user_id: session.user.id,
+          _role: "admin",
+        });
+        if (!mounted) return;
+        setStatus(isAdmin ? "ok" : "not-admin");
+      }, 0);
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      check(session);
+      verify(session);
     });
-    supabase.auth.getSession().then(({ data: { session } }) => check(session));
+    supabase.auth.getSession().then(({ data: { session } }) => verify(session));
+
+    const failsafe = setTimeout(() => {
+      if (mounted && status === "loading") setStatus("no-session");
+    }, 5000);
 
     return () => {
       mounted = false;
+      clearTimeout(failsafe);
       subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (status === "loading") {
