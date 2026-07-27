@@ -53,6 +53,14 @@ const AppointmentsPage = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
+  const [viewing, setViewing] = useState<Appointment | null>(null);
+
+  // Keep detail view in sync with the latest data after mutations
+  useEffect(() => {
+    if (!viewing) return;
+    const fresh = appointments.find((a) => a.id === viewing.id);
+    if (fresh && fresh !== viewing) setViewing(fresh);
+  }, [appointments]);
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
