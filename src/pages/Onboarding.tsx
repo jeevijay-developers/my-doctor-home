@@ -246,7 +246,7 @@ const Onboarding = () => {
 
                 {/* Step 2 */}
                 {step === 2 && (
-                  <div className="space-y-5">
+                  <div className="space-y-6">
                     <div className="text-center mb-2">
                       <div className="w-14 h-14 rounded-2xl bg-teal/10 flex items-center justify-center mx-auto mb-3">
                         <Building className="h-7 w-7 text-teal" />
@@ -254,12 +254,12 @@ const Onboarding = () => {
                       <h2 className="font-heading font-bold text-xl text-primary">Your Clinic</h2>
                       <p className="text-sm text-muted-foreground">Where do you practice?</p>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label className="flex items-center gap-1.5"><Building className="h-3.5 w-3.5" /> Clinic / Hospital Name <span className="text-destructive">*</span></Label>
                       <Input value={form.clinic_name} onChange={(e) => update("clinic_name", e.target.value)} placeholder="Sharma Heart Care" className="h-11" />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="space-y-2">
                         <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> State <span className="text-destructive">*</span></Label>
                         <Select value={form.state} onValueChange={(v) => setForm((f) => ({ ...f, state: v, city: "" }))}>
                           <SelectTrigger className="h-11"><SelectValue placeholder="Select state" /></SelectTrigger>
@@ -268,13 +268,13 @@ const Onboarding = () => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone Number <span className="text-destructive">*</span></Label>
                         <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+91 98765 43210" className="h-11" />
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="space-y-2">
                         <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> City <span className="text-destructive">*</span></Label>
                         <Select value={form.city} onValueChange={(v) => update("city", v)} disabled={!form.state}>
                           <SelectTrigger className="h-11"><SelectValue placeholder={form.state ? "Select city" : "Select a state first"} /></SelectTrigger>
@@ -284,11 +284,11 @@ const Onboarding = () => {
                         </Select>
                       </div>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label>Full Address <span className="text-destructive">*</span></Label>
                       <Textarea value={form.address} onChange={(e) => update("address", e.target.value)} placeholder="Building, Street, Area, City" rows={2} />
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 pt-1">
                       <Button variant="outline" className="flex-1 h-11 gap-2" onClick={() => setStep(1)}>
                         <ArrowLeft className="h-4 w-4" /> Back
                       </Button>
