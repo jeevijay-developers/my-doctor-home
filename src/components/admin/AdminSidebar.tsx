@@ -44,30 +44,30 @@ const AdminSidebar = () => {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0">
-      <SidebarContent className="bg-primary">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarContent className="bg-sidebar">
         {/* Logo */}
         <div className="px-4 py-5 flex items-center gap-2">
           {!collapsed && (
-            <img src="/doctylia-logo.png" alt="Doctylia" className="h-7 brightness-0 invert" />
+            <img src="/doctylia-logo.png" alt="Doctylia" className="h-7" />
           )}
           {collapsed && (
-            <span className="text-white font-heading font-bold text-lg">D</span>
+            <span className="text-primary font-heading font-bold text-lg">D</span>
           )}
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-primary-foreground/40 text-xs uppercase">Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="rounded-xl h-11">
                     <NavLink
                       to={item.url}
                       end
-                      className="text-primary-foreground/70 hover:bg-sidebar-accent hover:text-white"
-                      activeClassName="bg-sidebar-accent text-white font-medium"
+                      className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      activeClassName="!bg-primary !text-primary-foreground font-medium shadow-md"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -80,7 +80,8 @@ const AdminSidebar = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="bg-primary p-3 space-y-1">
+      <SidebarFooter className="bg-sidebar p-3 space-y-1 border-t border-sidebar-border">
+
         <ContactSupportDialog />
         <AlertDialog>
           <AlertDialogTrigger asChild>
