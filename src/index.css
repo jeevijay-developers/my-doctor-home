@@ -20,10 +20,10 @@
     --primary-foreground: 0 0% 100%;
 
     --secondary: 214 45% 94%;
-    --secondary-foreground: 222 47% 20%;
+    --secondary-foreground: 222 47% 15%;
 
     --muted: 214 40% 93%;
-    --muted-foreground: 220 12% 46%;
+    --muted-foreground: 220 18% 32%;
 
     --accent: 187 85% 45%;
     --accent-foreground: 0 0% 100%;
@@ -31,8 +31,8 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 90%;
-    --input: 214 32% 90%;
+    --border: 214 28% 82%;
+    --input: 214 28% 80%;
     --ring: 217 91% 60%;
 
     --radius: 1rem;
@@ -49,23 +49,23 @@
     --pink: 340 82% 66%;
     --orange: 25 95% 60%;
     --cloud-blue: 214 45% 94%;
-    --text-gray: 220 12% 46%;
+    --text-gray: 220 18% 30%;
     --near-black: 222 47% 11%;
 
     /* Softer shadows for the airy aesthetic */
-    --shadow-sm: 0 1px 2px hsla(217, 40%, 30%, 0.05);
-    --shadow-md: 0 4px 16px hsla(217, 40%, 30%, 0.06);
-    --shadow-lg: 0 10px 30px hsla(217, 40%, 30%, 0.08);
-    --shadow-xl: 0 20px 50px hsla(217, 40%, 30%, 0.10);
+    --shadow-sm: 0 1px 2px hsla(217, 40%, 30%, 0.08);
+    --shadow-md: 0 4px 16px hsla(217, 40%, 30%, 0.10);
+    --shadow-lg: 0 10px 30px hsla(217, 40%, 30%, 0.12);
+    --shadow-xl: 0 20px 50px hsla(217, 40%, 30%, 0.14);
 
     /* Light sidebar per reference (deeper blue-gray, not dark) */
     --sidebar-background: 214 42% 95%;
-    --sidebar-foreground: 220 20% 40%;
+    --sidebar-foreground: 222 35% 22%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 45% 90%;
-    --sidebar-accent-foreground: 222 47% 20%;
-    --sidebar-border: 214 35% 88%;
+    --sidebar-accent: 214 45% 88%;
+    --sidebar-accent-foreground: 222 47% 15%;
+    --sidebar-border: 214 30% 80%;
     --sidebar-ring: 217 91% 60%;
   }
 }
