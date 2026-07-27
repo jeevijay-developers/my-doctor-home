@@ -157,36 +157,251 @@ const BookingWidget = () => {
     setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
 
-  const downloadSlip = () => {
+  const downloadSlip = async () => {
     if (!selectedDate || !selectedService) return;
-    const doc = new jsPDF({ unit: "pt", format: "a5" });
-    const marginX = 32; let y = 40;
-    doc.setFontSize(16); doc.setFont("helvetica", "bold");
-    doc.text("Appointment Slip", marginX, y); y += 22;
-    doc.setDrawColor(200); doc.line(marginX, y, 380, y); y += 18;
-    doc.setFontSize(11); doc.setFont("helvetica", "normal");
-    const rows: [string, string][] = [
-      ["Token", `#${token}`],
-      ["Appointment ID", confirmedApptId || "—"],
+
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const PAGE_W = 595;
+    const PAGE_H = 842;
+
+    // Colors
+    const TEAL: [number, number, number] = [15, 110, 124];      // deep teal panel
+    const TEAL_DARK: [number, number, number] = [10, 78, 88];
+    const INK: [number, number, number] = [17, 44, 56];         // heading ink
+    const MUTED: [number, number, number] = [110, 120, 128];
+    const RULE: [number, number, number] = [223, 231, 235];
+    const SUCCESS: [number, number, number] = [22, 163, 74];
+    const WARN: [number, number, number] = [202, 138, 4];
+    const DANGER: [number, number, number] = [220, 38, 38];
+
+    // ---- Left teal panel with curved right edge ----
+    doc.setFillColor(...TEAL);
+    doc.rect(0, 0, 230, PAGE_H, "F");
+    // curve illusion: large white ellipse overlapping right edge of panel
+    doc.setFillColor(255, 255, 255);
+    doc.ellipse(430, PAGE_H / 2, 360, 520, "F");
+    // faint teal accent stripe at very left
+    doc.setFillColor(...TEAL_DARK);
+    doc.rect(0, 0, 6, PAGE_H, "F");
+
+    // ---- Left panel content: logo + clinic name ----
+    const clinicName = (profile as any)?.clinic_name || `Dr. ${profile?.full_name || ""} Clinic`;
+    const tagline = (profile as any)?.tagline || "Care You Can Trust";
+
+    // Logo circle
+    doc.setFillColor(255, 255, 255);
+    doc.circle(48, 60, 16, "F");
+    doc.setDrawColor(...TEAL);
+    doc.setLineWidth(1.2);
+    // small plus mark
+    doc.setFillColor(...TEAL);
+    doc.rect(45, 52, 6, 16, "F");
+    doc.rect(40, 57, 16, 6, "F");
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(clinicName.toUpperCase().slice(0, 20), 76, 58);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(220, 240, 245);
+    doc.text(tagline, 76, 74, { maxWidth: 140 });
+
+    // Bottom contact block (white text on teal)
+    const contactY = PAGE_H - 170;
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    const clinicAddr = (profile as any)?.clinic_address || (profile as any)?.address || (profile as any)?.city || "";
+    const clinicPhone = (profile as any)?.clinic_phone || (profile as any)?.phone || "";
+    const clinicEmail = (profile as any)?.clinic_email || (profile as any)?.email || "";
+    const publicOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    const doctorUrl = profile?.slug ? `${publicOrigin}/dr/${profile.slug}` : publicOrigin;
+    const website = doctorUrl.replace(/^https?:\/\//, "");
+
+    const contactRows: Array<[string, string]> = [];
+    if (clinicAddr) contactRows.push(["◉", String(clinicAddr)]);
+    if (clinicPhone) contactRows.push(["☏", String(clinicPhone)]);
+    if (clinicEmail) contactRows.push(["✉", String(clinicEmail)]);
+    contactRows.push(["⌘", website]);
+
+    let cy = contactY;
+    contactRows.forEach(([icon, val]) => {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(180, 220, 228);
+      doc.text(icon, 24, cy);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(255, 255, 255);
+      const lines = doc.splitTextToSize(val, 160);
+      doc.text(lines, 40, cy);
+      cy += 14 + (lines.length - 1) * 11;
+    });
+
+    // ================= RIGHT SIDE =================
+    const R_X = 260;    // right content start
+    const R_W = PAGE_W - R_X - 40;
+
+    // Top emblem (small clipboard-check circle)
+    const emblemCx = R_X + R_W / 2;
+    doc.setDrawColor(...TEAL);
+    doc.setLineWidth(1.5);
+    doc.circle(emblemCx, 78, 22, "S");
+    doc.setFillColor(...TEAL);
+    // simple check tick inside
+    doc.setLineWidth(2.5);
+    doc.line(emblemCx - 8, 78, emblemCx - 2, 84);
+    doc.line(emblemCx - 2, 84, emblemCx + 9, 72);
+
+    // Heading
+    doc.setTextColor(...TEAL_DARK);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("APPOINTMENT SLIP", emblemCx, 128, { align: "center" });
+
+    // heartbeat line under heading
+    doc.setDrawColor(...TEAL);
+    doc.setLineWidth(1);
+    const hbY = 142;
+    doc.line(R_X + 30, hbY, emblemCx - 30, hbY);
+    doc.line(emblemCx - 30, hbY, emblemCx - 22, hbY - 5);
+    doc.line(emblemCx - 22, hbY - 5, emblemCx - 14, hbY + 8);
+    doc.line(emblemCx - 14, hbY + 8, emblemCx - 6, hbY - 10);
+    doc.line(emblemCx - 6, hbY - 10, emblemCx + 2, hbY + 6);
+    doc.line(emblemCx + 2, hbY + 6, emblemCx + 10, hbY);
+    doc.line(emblemCx + 10, hbY, R_X + R_W - 30, hbY);
+
+    // Token box
+    const tokenBoxW = 220;
+    const tokenBoxH = 70;
+    const tokenX = emblemCx - tokenBoxW / 2;
+    const tokenY = 168;
+    doc.setDrawColor(...TEAL);
+    doc.setLineWidth(1.2);
+    doc.roundedRect(tokenX, tokenY, tokenBoxW, tokenBoxH, 8, 8, "S");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(...MUTED);
+    doc.text("TOKEN", emblemCx, tokenY + 20, { align: "center" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(30);
+    doc.setTextColor(...TEAL_DARK);
+    doc.text(`#${token}`, emblemCx, tokenY + 52, { align: "center" });
+
+    // ---- Detail rows ----
+    const rows: Array<[string, string]> = [
       ["Doctor", `Dr. ${profile?.full_name || ""}`],
-      ["Clinic", (profile as any)?.clinic_name || "—"],
+      ["Clinic", clinicName],
       ["Service", selectedService.name],
-      ["Type", type === "clinic" ? "Clinic Visit" : "Online"],
+      ["Type", type === "clinic" ? "Clinic Visit" : "Online Consultation"],
       ["Date", format(selectedDate, "EEEE, d MMMM yyyy")],
       ["Time", selectedTime],
       ["Patient", name],
       ["Phone", phone],
-      ["Amount", `₹${selectedService.price}`],
-      ["Status", settings?.auto_confirm ? "Confirmed" : "Requested"],
+      ["Amount", `Rs. ${selectedService.price}`],
     ];
+
+    let ry = tokenY + tokenBoxH + 28;
+    const labelX = R_X + 20;
+    const valueX = R_X + 110;
+    const rowH = 26;
+
     rows.forEach(([k, v]) => {
-      doc.setFont("helvetica", "bold"); doc.text(`${k}:`, marginX, y);
-      doc.setFont("helvetica", "normal"); doc.text(String(v), marginX + 110, y);
-      y += 18;
+      // bullet
+      doc.setFillColor(...TEAL);
+      doc.circle(R_X + 8, ry - 4, 2.2, "F");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(...MUTED);
+      doc.text(k, labelX, ry);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...INK);
+      doc.text(String(v), valueX, ry, { maxWidth: R_W - 110 });
+      // separator line
+      doc.setDrawColor(...RULE);
+      doc.setLineWidth(0.5);
+      doc.line(R_X + 4, ry + 8, R_X + R_W - 4, ry + 8);
+      ry += rowH;
     });
-    y += 8;
-    doc.setFontSize(9); doc.setTextColor(120);
-    doc.text("Please arrive 10 minutes early. Show this slip at the clinic.", marginX, y);
+
+    // Status row (colored)
+    const statusLabel = settings?.auto_confirm ? "Confirmed" : "Pending";
+    const statusColor: [number, number, number] = settings?.auto_confirm ? SUCCESS : WARN;
+    doc.setFillColor(...TEAL);
+    doc.circle(R_X + 8, ry - 4, 2.2, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(...MUTED);
+    doc.text("Status", labelX, ry);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...statusColor);
+    doc.text(statusLabel, valueX, ry);
+    // status pill circle check
+    doc.setFillColor(...statusColor);
+    doc.circle(valueX + doc.getTextWidth(statusLabel) + 12, ry - 4, 6, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.text(settings?.auto_confirm ? "✓" : "!", valueX + doc.getTextWidth(statusLabel) + 12, ry - 1, { align: "center" });
+    doc.setDrawColor(...RULE);
+    doc.line(R_X + 4, ry + 8, R_X + R_W - 4, ry + 8);
+    ry += rowH + 8;
+
+    // ---- Instruction + QR row ----
+    const infoBoxY = ry + 6;
+    const infoBoxH = 110;
+    const qrSize = 92;
+    const qrX = R_X + R_W - qrSize - 12;
+    const infoBoxW = qrX - R_X - 16;
+
+    // Instruction box
+    doc.setDrawColor(...TEAL);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(R_X, infoBoxY, infoBoxW, infoBoxH, 8, 8, "S");
+    // bell mark
+    doc.setFillColor(...TEAL);
+    doc.circle(R_X + 20, infoBoxY + 22, 3, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...TEAL_DARK);
+    doc.text("PLEASE ARRIVE 10 MINUTES EARLY", R_X + 32, infoBoxY + 25);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    const noteLines = doc.splitTextToSize(
+      "Carry a valid ID proof and any previous medical documents / prescriptions relevant to your visit.",
+      infoBoxW - 24
+    );
+    doc.text(noteLines, R_X + 12, infoBoxY + 46);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(...MUTED);
+    doc.text(`Appointment ID: ${confirmedApptId || "—"}`, R_X + 12, infoBoxY + infoBoxH - 12);
+
+    // ---- QR code (dynamic doctor URL) ----
+    try {
+      const qrDataUrl = await QRCode.toDataURL(doctorUrl, {
+        margin: 1,
+        width: 400,
+        color: { dark: "#0A4E58", light: "#FFFFFF" },
+      });
+      doc.addImage(qrDataUrl, "PNG", qrX, infoBoxY, qrSize, qrSize);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...TEAL_DARK);
+      doc.text("Scan to Visit", qrX + qrSize / 2, infoBoxY + qrSize + 12, { align: "center" });
+      doc.text("Doctor's Website", qrX + qrSize / 2, infoBoxY + qrSize + 22, { align: "center" });
+    } catch {
+      // if QR fails silently, keep slip usable
+    }
+
+    // ---- Thank you footer ----
+    doc.setFont("times", "italic");
+    doc.setFontSize(24);
+    doc.setTextColor(...TEAL_DARK);
+    doc.text("Thank You!", emblemCx, PAGE_H - 60, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(...MUTED);
+    doc.text("We wish you good health.", emblemCx, PAGE_H - 42, { align: "center" });
+
     doc.save(`appointment-${token}.pdf`);
   };
 
