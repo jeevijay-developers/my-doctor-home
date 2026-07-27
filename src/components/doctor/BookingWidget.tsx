@@ -472,12 +472,31 @@ const BookingWidget = () => {
                 Manage this appointment (cancel or reschedule) →
               </a>
             )}
-            <div className="flex gap-2 justify-center">
-              <Button variant="outline" onClick={downloadSlip} className="gap-1.5"><Download className="h-4 w-4" /> Download Slip</Button>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <Button onClick={() => setSlipOpen(true)} className="gap-1.5 bg-royal hover:bg-royal/90 text-white">
+                <FileText className="h-4 w-4" /> View Appointment Slip
+              </Button>
+              <Button variant="outline" onClick={downloadSlip} className="gap-1.5"><Download className="h-4 w-4" /> Download PDF</Button>
               <Button variant="outline" onClick={reset}>Book Another</Button>
             </div>
           </div>
         </div>
+
+        <AppointmentSlip
+          open={slipOpen}
+          onClose={() => setSlipOpen(false)}
+          profile={profile}
+          settings={settings}
+          token={token}
+          service={selectedService}
+          type={type}
+          date={selectedDate}
+          time={selectedTime}
+          patientName={name}
+          patientPhone={phone}
+          paymentStatus="pay_at_clinic"
+          onDownload={downloadSlip}
+        />
       </section>
     );
   }
