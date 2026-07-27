@@ -48,6 +48,31 @@ const AppointmentsPage = () => {
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [rescheduleForm, setRescheduleForm] = useState({ date: "", time_slot: "" });
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkConfirmText, setBulkConfirmText] = useState("");
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const exitSelectMode = () => { setSelectMode(false); clearSelection(); };
+  const bulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    const { error } = await supabase.from("appointments").delete().in("id", ids);
+    if (error) { toast.error("Could not delete appointments"); return; }
+    toast.success(`${ids.length} appointment${ids.length === 1 ? "" : "s"} deleted`);
+    setBulkDeleteOpen(false);
+    setBulkConfirmText("");
+    exitSelectMode();
+    load();
+  };
 
   const load = async () => {
     if (!profile) return;
