@@ -39,6 +39,15 @@ const BlogListPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [slug]);
 
+  useEffect(() => {
+    if (!doctor?.display_name) return;
+    const prev = document.title;
+    const name = doctor.display_name.trim();
+    const formatted = /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
+    document.title = `Blog · ${formatted} | Doctylia`;
+    return () => { document.title = prev; };
+  }, [doctor?.display_name]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
