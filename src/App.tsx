@@ -12,6 +12,7 @@ import DoctorPublicPage from "./pages/DoctorPublicPage";
 import BlogListPage from "./pages/BlogListPage";
 import BlogPostPage from "./pages/BlogPostPage";
 import ManageAppointment from "./pages/ManageAppointment";
+import OAuthConsent from "./pages/OAuthConsent";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SuperAdminRoute from "./components/SuperAdminRoute";
 import SuperAdminLayout from "./components/superadmin/SuperAdminLayout";
@@ -40,6 +41,7 @@ const App = () => (
         <MaintenanceGate>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

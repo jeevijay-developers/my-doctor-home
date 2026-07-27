@@ -21,9 +21,18 @@ const Auth = () => {
   const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Preserve a same-origin relative `next` (e.g. /.lovable/oauth/consent?authorization_id=...)
+  const rawNext = searchParams.get("next");
+  const safeNext =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) return;
+      if (safeNext) {
+        window.location.href = safeNext;
+        return;
+      }
       const { data: isAdmin } = await supabase.rpc("has_role", {
         _user_id: session.user.id,
         _role: "admin",
@@ -34,7 +43,7 @@ const Auth = () => {
         navigate("/admin/dashboard");
       }
     });
-  }, [navigate]);
+  }, [navigate, safeNext]);
 
   const getPasswordStrength = (pwd: string) => {
     if (!pwd) return { level: 0, label: "", color: "" };
@@ -71,11 +80,17 @@ const Auth = () => {
           password,
           options: {
             data: { full_name: fullName },
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: safeNext
+              ? `${window.location.origin}${safeNext}`
+              : window.location.origin,
           },
         });
         if (error) throw error;
         if (data.session) {
+          if (safeNext) {
+            window.location.href = safeNext;
+            return;
+          }
           toast.success("Account created! Let's set up your profile.");
           navigate("/onboarding");
         } else {
@@ -84,6 +99,10 @@ const Auth = () => {
       } else {
         const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        if (safeNext) {
+          window.location.href = safeNext;
+          return;
+        }
         const { data: isAdmin } = await supabase.rpc("has_role", {
           _user_id: signInData.user.id,
           _role: "admin",
