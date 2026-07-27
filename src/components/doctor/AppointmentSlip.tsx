@@ -3,10 +3,11 @@ import QRCode from "qrcode";
 import { format } from "date-fns";
 import {
   Stethoscope, Building2, ClipboardList, Calendar, Clock, User, Phone,
-  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Video, Download, Printer, X, Plus,
+  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Video, Download, Printer, X, Plus, Check,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import doctyliaLogo from "@/assets/doctylia-logo.png";
 
 type Props = {
   open: boolean;
@@ -105,22 +106,48 @@ const AppointmentSlip = ({
             {/* CONTENT LAYER */}
             <div className="relative grid grid-cols-[34%_66%] h-full">
               {/* LEFT COLUMN */}
-              <div className="flex flex-col justify-between text-white p-4 md:p-5">
-                {/* Logo + clinic name */}
-                <div className="flex items-start gap-2.5">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
-                    <Plus className="h-5 w-5" strokeWidth={3.5} style={{ color: TEAL_DARK }} />
+              <div className="flex flex-col text-white p-4 md:p-5">
+                {/* Top branding */}
+                <div className="flex items-start gap-2">
+                  <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Plus className="h-4 w-4" strokeWidth={3.5} style={{ color: TEAL_DARK }} />
                   </div>
                   <div className="min-w-0 pt-0.5">
-                    <div className="font-heading font-extrabold text-[13px] md:text-[14px] leading-tight uppercase tracking-wide break-words">
+                    <div className="font-heading font-extrabold text-[13px] leading-tight uppercase tracking-wide break-words">
                       {clinicName}
                     </div>
-                    <div className="text-[9.5px] italic opacity-90 mt-1 leading-snug">{tagline}</div>
+                    <div className="text-[9px] italic opacity-90 mt-0.5 leading-snug">{tagline}</div>
                   </div>
                 </div>
 
-                {/* Contact — white text on teal curved panel */}
-                <div className="space-y-2 text-[10px] pb-1 text-white">
+                {/* Center: Doctylia logo circle + caption */}
+                <div className="flex flex-col items-center text-center mt-8 mb-8">
+                  <div className="w-20 h-20 rounded-full border-2 border-white/40 bg-white/10 flex items-center justify-center p-3 shadow-inner">
+                    <img
+                      src={doctyliaLogo}
+                      alt="Doctylia"
+                      className="w-full h-full object-contain"
+                      style={{ filter: "brightness(0) invert(1)" }}
+                    />
+                  </div>
+                  <div className="text-[10px] italic opacity-95 mt-3 leading-snug px-2">
+                    Trusted care,<br />every single visit.
+                  </div>
+                </div>
+
+                <div className="flex-1" />
+
+                {/* Bottom: 3 badge icons */}
+                <div className="flex justify-center gap-2 mb-3">
+                  {[Clock, Check, MapPin].map((Icon, i) => (
+                    <div key={i} className="w-6 h-6 rounded-full border border-white/40 bg-white/10 flex items-center justify-center">
+                      <Icon className="h-3 w-3" strokeWidth={2.5} />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Contact */}
+                <div className="space-y-1.5 text-[9.5px] text-white/95">
                   {clinicAddr && (
                     <div className="flex items-start gap-1.5">
                       <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
@@ -131,12 +158,6 @@ const AppointmentSlip = ({
                     <div className="flex items-center gap-1.5">
                       <Phone className="h-3 w-3 shrink-0" />
                       <span className="break-all">{clinicPhone}</span>
-                    </div>
-                  )}
-                  {clinicEmail && (
-                    <div className="flex items-start gap-1.5">
-                      <Mail className="h-3 w-3 mt-0.5 shrink-0" />
-                      <span className="break-all leading-snug">{clinicEmail}</span>
                     </div>
                   )}
                   <div className="flex items-start gap-1.5">
