@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { format } from "date-fns";
 import {
   Stethoscope, Building2, ClipboardList, Calendar, Clock, User, Phone,
-  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Video, Download, Printer, X, HeartPulse,
+  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Video, Download, Printer, X, Plus,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,10 @@ type Props = {
   paymentStatus?: string;
   onDownload: () => void;
 };
+
+const TEAL_DARK = "#0a4e58";
+const TEAL = "#0f6e7c";
+const TEAL_LIGHT = "#1c8a99";
 
 const AppointmentSlip = ({
   open, onClose, profile, settings, token, service, type, date, time,
@@ -46,7 +50,7 @@ const AppointmentSlip = ({
   useEffect(() => {
     if (!open) return;
     QRCode.toDataURL(doctorUrl, {
-      margin: 1, width: 400, color: { dark: "#0A4E58", light: "#FFFFFF" },
+      margin: 1, width: 400, color: { dark: TEAL_DARK, light: "#FFFFFF" },
     }).then(setQrDataUrl).catch(() => setQrDataUrl(""));
   }, [open, doctorUrl]);
 
@@ -63,8 +67,8 @@ const AppointmentSlip = ({
   const rows: Array<{ icon: any; label: string; value: string }> = [
     { icon: Stethoscope, label: "Doctor", value: `Dr. ${profile?.full_name || ""}` },
     { icon: Building2, label: "Clinic", value: clinicName },
-    { icon: ClipboardList, label: "Service", value: service?.name || "" },
-    { icon: type === "online" ? Video : Building2, label: "Type", value: type === "clinic" ? "Clinic Visit" : "Online Consultation" },
+    { icon: Stethoscope, label: "Service", value: service?.name || "" },
+    { icon: ClipboardList, label: "Type", value: type === "clinic" ? "Clinic Visit" : "Online Consultation" },
     { icon: Calendar, label: "Date", value: date ? format(date, "EEEE, d MMMM yyyy") : "" },
     { icon: Clock, label: "Time", value: time },
     { icon: User, label: "Patient", value: patientName },
@@ -74,10 +78,10 @@ const AppointmentSlip = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl p-0 gap-0 max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:border-0">
+      <DialogContent className="max-w-[720px] p-0 gap-0 max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:border-0 bg-white">
         <style>{`
           @media print {
-            @page { size: A4; margin: 12mm; }
+            @page { size: A4 portrait; margin: 10mm; }
             body.printing-slip > *:not([data-slip-print-root]) { display: none !important; }
             body.printing-slip [data-slip-print-root] { display: block !important; position: static !important; }
             [data-slip-print-hide] { display: none !important; }
@@ -86,138 +90,190 @@ const AppointmentSlip = ({
         `}</style>
 
         <div data-slip-print-root>
-          <div className="slip-card relative overflow-hidden bg-white">
-            <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] relative items-stretch">
-              {/* Left teal panel */}
-              <div
-                className="relative text-white p-6 md:p-7 hidden md:flex flex-col justify-between h-full"
-                style={{
-                  background: "linear-gradient(160deg, #0f6e7c 0%, #0a4e58 100%)",
-                }}
-              >
-                <div>
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0">
-                      <div className="relative w-5 h-5">
-                        <span className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1.5 rounded-sm" style={{ background: "#0a4e58" }} />
-                        <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-sm" style={{ background: "#0a4e58" }} />
-                      </div>
+          <div className="slip-card relative bg-white overflow-hidden" style={{ aspectRatio: "1 / 1.45" }}>
+            {/* Curved teal panel — SVG covers left with a diagonal curve */}
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox="0 0 720 1044"
+              preserveAspectRatio="none"
+              aria-hidden
+            >
+              <defs>
+                <linearGradient id="tealGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor={TEAL_LIGHT} />
+                  <stop offset="60%" stopColor={TEAL} />
+                  <stop offset="100%" stopColor={TEAL_DARK} />
+                </linearGradient>
+              </defs>
+              {/* Big curved shape: straight left edge, curve arcs from top-right down to bottom-left area */}
+              <path
+                d="M 0 0 L 300 0 Q 260 260 300 522 Q 340 780 220 1044 L 0 1044 Z"
+                fill="url(#tealGrad)"
+              />
+              {/* Decorative thin curve accent */}
+              <path
+                d="M 300 0 Q 260 260 300 522 Q 340 780 220 1044"
+                fill="none"
+                stroke="#ffffff"
+                strokeOpacity="0.18"
+                strokeWidth="2"
+              />
+              {/* Faint caduceus watermark on right side */}
+              <g opacity="0.05" transform="translate(500, 470)">
+                <circle cx="0" cy="0" r="90" fill={TEAL_DARK} />
+                <rect x="-4" y="-90" width="8" height="180" fill={TEAL_DARK} />
+              </g>
+            </svg>
+
+            {/* CONTENT LAYER */}
+            <div className="relative grid grid-cols-[38%_62%] h-full">
+              {/* LEFT COLUMN */}
+              <div className="flex flex-col justify-between text-white p-5 md:p-6">
+                {/* Logo + clinic name */}
+                <div className="flex items-start gap-2.5">
+                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Plus className="h-6 w-6" strokeWidth={3.5} style={{ color: TEAL_DARK }} />
+                  </div>
+                  <div className="min-w-0 pt-0.5">
+                    <div className="font-heading font-extrabold text-[15px] md:text-base leading-tight uppercase tracking-wide">
+                      {clinicName}
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-heading font-bold text-base leading-tight uppercase tracking-wide truncate">
-                        {clinicName}
-                      </div>
-                      <div className="text-[11px] italic opacity-80 truncate">{tagline}</div>
-                    </div>
+                    <div className="text-[10.5px] italic opacity-85 mt-0.5">{tagline}</div>
                   </div>
                 </div>
 
-                <div className="space-y-3 text-[11.5px] pr-4">
-                  <div className="text-[10px] uppercase tracking-widest opacity-70 font-semibold mb-1">Contact</div>
+                {/* Contact — bottom, on white area beneath the curve. We keep dark text since curve ends before this. */}
+                <div className="space-y-2 text-[11px] pb-1" style={{ color: TEAL_DARK }}>
                   {clinicAddr && (
-                    <div className="flex items-start gap-2"><MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-80" /><span className="leading-snug break-words">{clinicAddr}</span></div>
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span className="leading-snug break-words">{clinicAddr}</span>
+                    </div>
                   )}
                   {clinicPhone && (
-                    <div className="flex items-start gap-2"><Phone className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-80" /><span className="break-all">{clinicPhone}</span></div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3.5 w-3.5 shrink-0" />
+                      <span className="break-all">{clinicPhone}</span>
+                    </div>
                   )}
                   {clinicEmail && (
-                    <div className="flex items-start gap-2"><Mail className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-80" /><span className="break-all">{clinicEmail}</span></div>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <span className="break-all">{clinicEmail}</span>
+                    </div>
                   )}
-                  <div className="flex items-start gap-2"><Globe className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-80" /><span className="break-all">{websiteLabel}</span></div>
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-3.5 w-3.5 shrink-0" />
+                    <span className="break-all">{websiteLabel}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Mobile-only clinic header */}
-              <div className="md:hidden p-5 text-white" style={{ background: "linear-gradient(135deg, #0f6e7c, #0a4e58)" }}>
-                <div className="font-heading font-bold text-lg uppercase tracking-wide">{clinicName}</div>
-                <div className="text-xs italic opacity-80">{tagline}</div>
-                <div className="mt-3 space-y-1.5 text-[11.5px]">
-                  {clinicAddr && <div className="flex items-start gap-2"><MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-80" /><span>{clinicAddr}</span></div>}
-                  {clinicPhone && <div className="flex items-start gap-2"><Phone className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-80" /><span>{clinicPhone}</span></div>}
-                  {clinicEmail && <div className="flex items-start gap-2"><Mail className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-80" /><span className="break-all">{clinicEmail}</span></div>}
-                  <div className="flex items-start gap-2"><Globe className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-80" /><span className="break-all">{websiteLabel}</span></div>
-                </div>
-              </div>
-
-              {/* Right content */}
-              <div className="p-5 md:p-8 md:pl-6">
+              {/* RIGHT COLUMN */}
+              <div className="flex flex-col p-5 md:p-7 pl-2 md:pl-4">
+                {/* Header badge + title */}
                 <div className="flex flex-col items-center">
-                  <div className="w-14 h-14 rounded-full border-2 flex items-center justify-center mb-3" style={{ borderColor: "#0f6e7c", color: "#0a4e58" }}>
+                  <div
+                    className="w-12 h-12 rounded-full border-[2.5px] flex items-center justify-center mb-2"
+                    style={{ borderColor: TEAL, color: TEAL_DARK }}
+                  >
                     <ClipboardList className="h-6 w-6" />
                   </div>
-                  <h2 className="font-heading font-bold text-2xl md:text-3xl tracking-wide text-center" style={{ color: "#0a4e58" }}>
+                  <h2
+                    className="font-heading font-extrabold text-2xl md:text-[26px] tracking-wider text-center"
+                    style={{ color: TEAL_DARK }}
+                  >
                     APPOINTMENT SLIP
                   </h2>
-                  <div className="flex items-center gap-1 mt-2 mb-5 w-full max-w-xs" style={{ color: "#0f6e7c" }}>
-                    <div className="h-px flex-1 bg-current opacity-60" />
-                    <HeartPulse className="h-4 w-4" />
-                    <div className="h-px flex-1 bg-current opacity-60" />
-                  </div>
+                  {/* Heartbeat divider */}
+                  <svg width="180" height="16" viewBox="0 0 180 16" className="mt-1.5 mb-4" aria-hidden>
+                    <path
+                      d="M0 8 L60 8 L68 8 L74 2 L82 14 L90 5 L98 11 L106 8 L180 8"
+                      fill="none" stroke={TEAL} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                    />
+                  </svg>
 
-                  <div className="border-2 rounded-xl px-10 py-3 text-center mb-6 min-w-[220px]" style={{ borderColor: "#0f6e7c" }}>
-                    <div className="text-[11px] tracking-[0.25em] text-muted-foreground">TOKEN</div>
-                    <div className="font-heading font-bold text-3xl md:text-4xl leading-tight" style={{ color: "#0a4e58" }}>
+                  {/* Token box */}
+                  <div
+                    className="border-[2px] rounded-xl px-8 py-2.5 text-center mb-5 min-w-[200px]"
+                    style={{ borderColor: TEAL }}
+                  >
+                    <div className="text-[10.5px] tracking-[0.3em] font-semibold" style={{ color: TEAL }}>TOKEN</div>
+                    <div className="font-heading font-extrabold text-[30px] leading-none mt-0.5" style={{ color: TEAL_DARK }}>
                       #{token}
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-xl border divide-y" style={{ borderColor: "#0f6e7c22" }}>
+                {/* Details list */}
+                <div className="divide-y" style={{ borderColor: `${TEAL}22` }}>
                   {rows.map((r) => (
-                    <div key={r.label} className="grid grid-cols-[24px_88px_1fr] sm:grid-cols-[28px_110px_1fr] items-center gap-3 px-3 sm:px-4 py-2.5">
-                      <r.icon className="h-4 w-4" style={{ color: "#0a4e58" }} />
-                      <div className="text-xs sm:text-sm text-muted-foreground">{r.label}</div>
-                      <div className="text-sm font-semibold break-words text-right sm:text-left" style={{ color: "#0a4e58" }}>{r.value || "—"}</div>
-                    </div>
-                  ))}
-
-                  {paymentStatus && (
-                    <div className="grid grid-cols-[24px_88px_1fr] sm:grid-cols-[28px_110px_1fr] items-center gap-3 px-3 sm:px-4 py-2.5">
-                      <IndianRupee className="h-4 w-4" style={{ color: "#0a4e58" }} />
-                      <div className="text-xs sm:text-sm text-muted-foreground">Payment</div>
-                      <div className="text-sm font-semibold capitalize text-right sm:text-left" style={{ color: "#0a4e58" }}>
-                        {paymentStatus.replace(/_/g, " ")}
+                    <div key={r.label} className="grid grid-cols-[22px_1fr_1.4fr] items-center gap-2 py-2">
+                      <r.icon className="h-4 w-4" style={{ color: TEAL_DARK }} />
+                      <div className="text-[12px]" style={{ color: "#6b7280" }}>{r.label}</div>
+                      <div className="text-[13px] font-bold break-words" style={{ color: TEAL_DARK }}>
+                        {r.value || "—"}
                       </div>
                     </div>
-                  )}
-
-                  <div className="grid grid-cols-[24px_88px_1fr] sm:grid-cols-[28px_110px_1fr] items-center gap-3 px-3 sm:px-4 py-2.5">
-                    <BadgeCheck className="h-4 w-4" style={{ color: "#0a4e58" }} />
-                    <div className="text-xs sm:text-sm text-muted-foreground">Status</div>
-                    <div className="flex items-center gap-2 justify-end sm:justify-start">
-                      <span className={`text-sm font-bold ${statusIsConfirmed ? "text-green-600" : "text-amber-600"}`}>{statusLabel}</span>
-                      <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-[10px] font-bold ${statusIsConfirmed ? "bg-green-600" : "bg-amber-500"}`}>
+                  ))}
+                  <div className="grid grid-cols-[22px_1fr_1.4fr] items-center gap-2 py-2">
+                    <BadgeCheck className="h-4 w-4" style={{ color: TEAL_DARK }} />
+                    <div className="text-[12px]" style={{ color: "#6b7280" }}>Status</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[13px] font-extrabold ${statusIsConfirmed ? "text-green-600" : "text-amber-600"}`}>
+                        {statusLabel}
+                      </span>
+                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-white text-[9px] font-bold ${statusIsConfirmed ? "bg-green-600" : "bg-amber-500"}`}>
                         {statusIsConfirmed ? "✓" : "!"}
                       </span>
                     </div>
                   </div>
+                  {paymentStatus && (
+                    <div className="grid grid-cols-[22px_1fr_1.4fr] items-center gap-2 py-2">
+                      <IndianRupee className="h-4 w-4" style={{ color: TEAL_DARK }} />
+                      <div className="text-[12px]" style={{ color: "#6b7280" }}>Payment</div>
+                      <div className="text-[13px] font-bold capitalize" style={{ color: TEAL_DARK }}>
+                        {paymentStatus.replace(/_/g, " ")}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-5 items-center border rounded-xl p-4 sm:p-5" style={{ borderColor: "#0f6e7c33" }}>
+                {/* Instruction + QR */}
+                <div
+                  className="mt-4 grid grid-cols-[1fr_auto] gap-3 items-center border rounded-xl p-3"
+                  style={{ borderColor: `${TEAL}55` }}
+                >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 font-bold text-sm" style={{ color: "#0a4e58" }}>
-                      <Bell className="h-4 w-4 shrink-0" />
+                    <div className="flex items-center gap-1.5 font-bold text-[11.5px]" style={{ color: TEAL_DARK }}>
+                      <Bell className="h-3.5 w-3.5 shrink-0" />
                       <span>PLEASE ARRIVE 10 MINUTES EARLY</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                      Carry a valid ID proof and any previous medical documents or prescriptions relevant to your visit.
+                    <p className="text-[10.5px] mt-1 leading-snug" style={{ color: "#6b7280" }}>
+                      Carry a valid ID proof and previous medical documents (if any).
                     </p>
                   </div>
-                  <div className="flex flex-col items-center shrink-0 sm:pl-4 sm:border-l" style={{ borderColor: "#0f6e7c22" }}>
+                  <div className="flex flex-col items-center shrink-0">
                     {qrDataUrl ? (
-                      <img src={qrDataUrl} alt="Scan to visit doctor's website" className="w-24 h-24 rounded-md border" />
+                      <img src={qrDataUrl} alt="Scan for location" className="w-16 h-16 rounded" />
                     ) : (
-                      <div className="w-24 h-24 bg-muted rounded-md animate-pulse" />
+                      <div className="w-16 h-16 bg-muted rounded animate-pulse" />
                     )}
-                    <div className="text-[10px] font-semibold mt-1.5 text-center leading-tight" style={{ color: "#0a4e58" }}>
-                      Scan to Visit<br />Doctor's Website
-                    </div>
+                    <div className="text-[9px] mt-1" style={{ color: TEAL_DARK }}>Scan for Location</div>
                   </div>
                 </div>
 
-                <div className="text-center mt-6">
-                  <div className="font-serif italic text-2xl" style={{ color: "#0a4e58" }}>Thank You!</div>
-                  <div className="text-xs text-muted-foreground">We wish you good health.</div>
+                {/* Thank you */}
+                <div className="text-center mt-4">
+                  <div
+                    className="text-[26px] leading-none"
+                    style={{ color: TEAL_DARK, fontFamily: "'Great Vibes', 'Dancing Script', cursive", fontStyle: "italic" }}
+                  >
+                    Thank You!
+                  </div>
+                  <div className="text-[10.5px] mt-1" style={{ color: "#6b7280" }}>
+                    We wish you good health.
+                  </div>
                 </div>
               </div>
             </div>
