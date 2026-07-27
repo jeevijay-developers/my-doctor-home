@@ -82,13 +82,24 @@ const AdminSidebar = () => {
 
       <SidebarFooter className="bg-primary p-3 space-y-1">
         <ContactSupportDialog />
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 text-primary-foreground/60 hover:text-white text-sm w-full px-2 py-1.5"
-        >
-          <LogOut className="h-4 w-4" />
-          {!collapsed && <span>Logout</span>}
-        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button className="flex items-center gap-2 text-primary-foreground/60 hover:text-white text-sm w-full px-2 py-1.5">
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span>Logout</span>}
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Log out of Doctylia?</AlertDialogTitle>
+              <AlertDialogDescription>You'll need to sign in again to access your dashboard.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleLogout}>Log Out</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SidebarFooter>
     </Sidebar>
   );
