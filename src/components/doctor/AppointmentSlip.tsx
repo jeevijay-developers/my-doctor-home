@@ -91,34 +91,15 @@ const AppointmentSlip = ({
 
         <div data-slip-print-root>
           <div className="slip-card relative bg-white overflow-hidden" style={{ aspectRatio: "1 / 1.45" }}>
-            {/* Curved teal panel — SVG covers left with a diagonal curve */}
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox="0 0 720 1044"
-              preserveAspectRatio="none"
+            {/* Straight teal sidebar panel */}
+            <div
+              className="absolute inset-y-0 left-0 w-[34%] pointer-events-none"
+              style={{
+                background: `linear-gradient(135deg, ${TEAL_LIGHT} 0%, ${TEAL} 60%, ${TEAL_DARK} 100%)`,
+              }}
               aria-hidden
-            >
-              <defs>
-                <linearGradient id="tealGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor={TEAL_LIGHT} />
-                  <stop offset="60%" stopColor={TEAL} />
-                  <stop offset="100%" stopColor={TEAL_DARK} />
-                </linearGradient>
-              </defs>
-              {/* Teal panel constrained to left sidebar area only */}
-              <path
-                d="M 0 0 L 230 0 Q 250 340 235 560 Q 220 800 250 1044 L 0 1044 Z"
-                fill="url(#tealGrad)"
-              />
-              {/* Decorative thin curve accent along the edge */}
-              <path
-                d="M 230 0 Q 250 340 235 560 Q 220 800 250 1044"
-                fill="none"
-                stroke="#ffffff"
-                strokeOpacity="0.22"
-                strokeWidth="2"
-              />
-            </svg>
+            />
+
 
 
             {/* CONTENT LAYER */}
