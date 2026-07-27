@@ -570,8 +570,8 @@ const AppointmentsPage = () => {
                 { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
               ],
               confirmed: [
-                { label: "Mark Completed", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
-                { label: "Mark No-show", next: "no_show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
+                { label: "Completed", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
+                { label: "No Show", next: "no_show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
                 { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
               ],
               completed: [],
