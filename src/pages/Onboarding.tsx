@@ -193,7 +193,7 @@ const Onboarding = () => {
               <div className="bg-card rounded-2xl shadow-xl border border-border p-5 sm:p-7">
                 {/* Step 1 */}
                 {step === 1 && (
-                  <div className="space-y-5">
+                  <div className="space-y-6">
                     <div className="text-center mb-2">
                       <div className="w-14 h-14 rounded-2xl bg-royal/10 flex items-center justify-center mx-auto mb-3">
                         <Stethoscope className="h-7 w-7 text-royal" />
@@ -201,11 +201,11 @@ const Onboarding = () => {
                       <h2 className="font-heading font-bold text-xl text-primary">Tell Us About You</h2>
                       <p className="text-sm text-muted-foreground">Your professional details</p>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label>Full Name <span className="text-destructive">*</span></Label>
                       <Input value={form.full_name} onChange={(e) => update("full_name", e.target.value)} placeholder="Rahul Sharma" required className="h-11" />
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label>Specialization <span className="text-destructive">*</span></Label>
                       <Select value={form.specialization} onValueChange={(v) => update("specialization", v)}>
                         <SelectTrigger className="h-11"><SelectValue placeholder="Select specialization" /></SelectTrigger>
@@ -215,26 +215,26 @@ const Onboarding = () => {
                       </Select>
                     </div>
                     {form.specialization === "Other" && (
-                      <div>
+                      <div className="space-y-2">
                         <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Please specify your specialization <span className="text-destructive">*</span></Label>
                         <Input value={form.specialization_other} onChange={(e) => update("specialization_other", e.target.value)} placeholder="e.g. Sports Medicine" className="h-11" />
                       </div>
                     )}
-                    <div>
+                    <div className="space-y-2">
                       <Label className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> Qualifications <span className="text-destructive">*</span></Label>
                       <Input value={form.qualifications} onChange={(e) => update("qualifications", e.target.value)} placeholder="MBBS, MD (Cardiology)" className="h-11" />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="space-y-2">
                         <Label>Years of Experience <span className="text-destructive">*</span></Label>
                         <Input type="number" value={form.experience_years} onChange={(e) => update("experience_years", e.target.value)} placeholder="15" className="h-11" />
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label>Consultation Fee (₹) <span className="text-destructive">*</span></Label>
                         <Input type="number" value={form.consultation_fee} onChange={(e) => update("consultation_fee", e.target.value)} placeholder="500" className="h-11" />
                       </div>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label>About / Bio (optional)</Label>
                       <Textarea value={form.bio} onChange={(e) => update("bio", e.target.value)} placeholder="Tell patients about your practice..." rows={3} />
                     </div>
