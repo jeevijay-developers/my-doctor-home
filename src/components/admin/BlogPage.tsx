@@ -307,12 +307,10 @@ const BlogPage = () => {
             </div>
             <div className="space-y-1.5">
               <Label>Content</Label>
-              <Textarea
+              <RichTextEditor
                 value={form.content}
-                onChange={(e) => setForm({ ...form, content: e.target.value })}
-                rows={16}
+                onChange={(html) => setForm({ ...form, content: html })}
                 placeholder="Write your article content here..."
-                className="font-body text-sm leading-relaxed"
               />
             </div>
             <div className="flex items-center justify-between">
