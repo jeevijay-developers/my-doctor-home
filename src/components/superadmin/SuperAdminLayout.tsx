@@ -1,6 +1,8 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Shield } from "lucide-react";
+import { Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 
 const titles: Record<string, string> = {
@@ -19,25 +21,44 @@ const titles: Record<string, string> = {
 const SuperAdminLayout = () => {
   const location = useLocation();
   const title = Object.entries(titles).find(([k]) => location.pathname.startsWith(k))?.[1] || "Super Admin";
+  const [userName, setUserName] = useState("Admin");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const n = (data.user?.user_metadata as any)?.full_name || data.user?.email?.split("@")[0] || "Admin";
+      setUserName(n);
+    });
+  }, []);
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="sa-theme min-h-screen flex w-full bg-[#F7F9FC]">
         <SuperAdminSidebar />
-        <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center justify-between border-b border-border bg-card px-4 md:px-6">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-              <div className="hidden md:flex items-center gap-2 text-sm">
-                <Shield className="h-4 w-4 text-royal" />
-                <span className="font-semibold text-foreground">{title}</span>
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-16 flex items-center justify-between bg-white px-4 md:px-8 border-b border-slate-100">
+            <div className="flex items-center gap-3 flex-1 max-w-xl">
+              <SidebarTrigger className="text-slate-500 hover:text-slate-900" />
+              <div className="relative flex-1 hidden md:block">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="w-full h-10 pl-9 pr-4 rounded-full bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-royal/20 focus:border-royal/40"
+                />
               </div>
+              <div className="md:hidden font-heading font-bold text-slate-900">{title}</div>
             </div>
-            <span className="text-[10px] uppercase tracking-wider bg-primary text-primary-foreground px-2 py-1 rounded font-bold">
-              Super Admin
-            </span>
+            <div className="flex items-center gap-3 text-right">
+              <div className="hidden sm:block">
+                <div className="text-[10px] uppercase tracking-widest text-slate-400 font-medium">Welcome</div>
+                <div className="text-sm font-semibold text-slate-900">{userName}</div>
+              </div>
+              <span className="text-[10px] uppercase tracking-wider bg-royal text-white px-2.5 py-1 rounded-full font-bold">
+                Super Admin
+              </span>
+            </div>
           </header>
-          <main className="flex-1 bg-secondary p-4 md:p-6 overflow-auto">
+          <main className="flex-1 p-4 md:p-8 overflow-auto">
             <Outlet />
           </main>
         </div>
