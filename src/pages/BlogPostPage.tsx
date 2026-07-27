@@ -108,15 +108,24 @@ const BlogPostPage = () => {
         </div>
 
         {/* Content */}
-        <article className="prose prose-slate max-w-none leading-relaxed">
-          {post.content?.split("\n").map((para: string, i: number) => {
-            if (!para.trim()) return null;
-            if (para.startsWith("# ")) return <h2 key={i} className="font-heading font-bold text-2xl text-primary mt-8 mb-4">{para.slice(2)}</h2>;
-            if (para.startsWith("## ")) return <h3 key={i} className="font-heading font-semibold text-xl text-primary mt-6 mb-3">{para.slice(3)}</h3>;
-            if (para.startsWith("- ")) return <li key={i} className="text-foreground ml-4 mb-1">{para.slice(2)}</li>;
-            return <p key={i} className="text-foreground mb-4 leading-relaxed">{para}</p>;
-          })}
-        </article>
+        <article
+          className="prose prose-slate max-w-none leading-relaxed prose-headings:font-heading prose-headings:text-primary prose-a:text-royal prose-img:rounded-xl"
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(
+              /<\/?[a-z][\s\S]*>/i.test(post.content || "")
+                ? (post.content || "")
+                : (post.content || "").split("\n").map((p: string) => {
+                    if (!p.trim()) return "";
+                    if (p.startsWith("## ")) return `<h3>${p.slice(3)}</h3>`;
+                    if (p.startsWith("# ")) return `<h2>${p.slice(2)}</h2>`;
+                    if (p.startsWith("- ")) return `<li>${p.slice(2)}</li>`;
+                    return `<p>${p}</p>`;
+                  }).join(""),
+              { ADD_TAGS: ["iframe"], ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling", "target"] }
+            ),
+          }}
+        />
+
 
         {/* Back Link */}
         <div className="mt-12 pt-8 border-t border-border">
