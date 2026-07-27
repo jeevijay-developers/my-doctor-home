@@ -87,7 +87,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
               <span>{banner}</span>
             </div>
           )}
-          <main className="flex-1 bg-secondary p-4 md:p-6 overflow-auto">
+          <main className="flex-1 bg-background p-4 md:p-6 overflow-auto">
             {children}
           </main>
         </div>
