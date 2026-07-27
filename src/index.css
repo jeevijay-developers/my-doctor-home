@@ -59,14 +59,15 @@
     --shadow-xl: 0 20px 50px hsla(217, 40%, 30%, 0.14);
 
     /* Light sidebar per reference (deeper blue-gray, not dark) */
-    --sidebar-background: 214 42% 95%;
-    --sidebar-foreground: 222 35% 22%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 45% 88%;
-    --sidebar-accent-foreground: 222 47% 15%;
-    --sidebar-border: 214 30% 80%;
-    --sidebar-ring: 217 91% 60%;
+   --sidebar-background: 214 42% 95%;
+   --sidebar-foreground: 222 40% 18%;
+   --sidebar-primary: 217 91% 55%;
+   --sidebar-primary-foreground: 0 0% 100%;
+   --sidebar-accent: 214 55% 85%;
+   --sidebar-accent-foreground: 222 47% 12%;
+   --sidebar-border: 214 30% 78%;
+   --sidebar-ring: 217 91% 60%;
+
   }
 }
 
