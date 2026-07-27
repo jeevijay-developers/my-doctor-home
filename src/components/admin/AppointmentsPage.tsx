@@ -373,7 +373,7 @@ const AppointmentsPage = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className={`flex flex-col sm:flex-row gap-3 transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9 h-10" placeholder="Search patient or service..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -390,6 +390,43 @@ const AppointmentsPage = () => {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Select mode toggle */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs text-muted-foreground">
+            {selectMode ? (
+              <span>{selectedIds.size} of {filtered.length} selected</span>
+            ) : (
+              <span>{filtered.length} appointment{filtered.length === 1 ? "" : "s"}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {selectMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => {
+                  if (selectedIds.size === filtered.length) clearSelection();
+                  else setSelectedIds(new Set(filtered.map((a) => a.id)));
+                }}
+              >
+                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant={selectMode ? "secondary" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              aria-pressed={selectMode}
+            >
+              {selectMode ? (<><X className="h-3.5 w-3.5 mr-1" /> Done</>) : (<><CheckSquare className="h-3.5 w-3.5 mr-1" /> Select</>)}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Appointment Cards */}
       {filtered.length === 0 ? (
