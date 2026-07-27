@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { DoctorProvider, useDoctorData } from "@/contexts/DoctorContext";
 import Navbar from "@/components/doctor/Navbar";
 import HeroBanner from "@/components/doctor/HeroBanner";
@@ -15,6 +16,18 @@ import AnimatedSection from "@/components/landing/AnimatedSection";
 
 const DoctorPageContent = () => {
   const { profile, settings, loading, services, packages, reviews, gallery } = useDoctorData();
+
+  useEffect(() => {
+    if (!profile?.display_name) return;
+    const previousTitle = document.title;
+    const name = profile.display_name.trim();
+    const formatted = /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
+    document.title = `${formatted} | Doctylia`;
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [profile?.display_name]);
+
 
   if (loading) {
     return (
