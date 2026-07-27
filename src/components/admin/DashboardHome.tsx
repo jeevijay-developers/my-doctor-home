@@ -31,6 +31,7 @@ const DashboardHome = () => {
   const [servicesCount, setServicesCount] = useState(0);
   const [blogCount, setBlogCount] = useState(0);
   const [tipIndex, setTipIndex] = useState(0);
+  const [dashboardReady, setDashboardReady] = useState(false);
 
   const loadDashboard = () => {
     if (!profile) return;
