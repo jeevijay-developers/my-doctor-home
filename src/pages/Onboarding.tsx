@@ -58,7 +58,7 @@ const Onboarding = () => {
   const validateStep1 = () => {
     if (!form.full_name.trim()) return toast.error("Please enter your full name");
     if (!form.specialization) return toast.error("Please select your specialization");
-    if (form.specialization === "Other" && !form.specialization_other.trim()) return toast.error("Please specify your specialization");
+    
     if (!form.qualifications.trim()) return toast.error("Please enter your qualifications");
     if (!form.experience_years || parseInt(form.experience_years) < 0) return toast.error("Please enter years of experience");
     if (!form.consultation_fee || parseInt(form.consultation_fee) < 0) return toast.error("Please enter your consultation fee");
@@ -95,7 +95,7 @@ const Onboarding = () => {
       if (!user) throw new Error("Not authenticated");
       const slug = await getUniqueSlug(form.full_name);
       const { error } = await supabase.from("profiles").update({
-        full_name: form.full_name, specialization: form.specialization === "Other" ? form.specialization_other.trim() : form.specialization,
+        full_name: form.full_name, specialization: form.specialization === "Other" ? (form.specialization_other.trim() || "Other") : form.specialization,
         qualifications: form.qualifications, experience_years: parseInt(form.experience_years) || 0,
         clinic_name: form.clinic_name, city: form.city, address: form.address,
         phone: form.phone, slug, onboarding_completed: true,
@@ -216,7 +216,7 @@ const Onboarding = () => {
                     </div>
                     {form.specialization === "Other" && (
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Please specify your specialization <span className="text-destructive">*</span></Label>
+                        <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Please specify your specialization</Label>
                         <Input value={form.specialization_other} onChange={(e) => update("specialization_other", e.target.value)} placeholder="e.g. Sports Medicine" className="h-11" />
                       </div>
                     )}
