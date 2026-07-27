@@ -456,9 +456,9 @@ const AppointmentsPage = () => {
               <Card
                 key={a.id}
                 className={`relative border-border/60 shadow-none border-l-4 ${borderColor} transition-all ${
-                  selectMode ? "cursor-pointer" : "hover:shadow-md"
+                  selectMode ? "cursor-pointer" : "cursor-pointer hover:shadow-md"
                 } ${isSelected ? "bg-royal/5 ring-2 ring-royal ring-offset-2" : ""}`}
-                onClick={selectMode ? () => toggleSelected(a.id) : undefined}
+                onClick={selectMode ? () => toggleSelected(a.id) : () => setViewing(a)}
               >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -503,80 +503,54 @@ const AppointmentsPage = () => {
                       )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
                     </div>
-                    {!selectMode && (() => {
-                      const primaryMap: Record<string, { label: string; next: string } | null> = {
-                        pending: { label: "Confirm", next: "confirmed" },
-                        confirmed: { label: "Complete", next: "completed" },
-                        no_show: { label: "Reschedule", next: "__reschedule__" },
-                        completed: null,
-                        cancelled: null,
-                      };
-                      const primary = primaryMap[a.status] ?? null;
-                      const overflowByStatus: Record<string, string[]> = {
-                        pending: ["reschedule", "cancel", "delete"],
-                        confirmed: ["reschedule", "cancel", "no_show", "delete"],
-                        completed: ["delete"],
-                        no_show: ["delete"],
-                        cancelled: ["delete"],
-                      };
-                      const items = overflowByStatus[a.status] ?? ["delete"];
-                      const isUnpaid = a.payment_status !== "paid";
-                      return (
-                        <div className="flex gap-1.5 items-center">
-                          {isUnpaid && (
-                            <Button size="sm" variant="outline" className="text-xs h-8 border-warning/40 text-warning" onClick={() => togglePaid(a)}>
-                              Mark Paid
-                            </Button>
-                          )}
-                          {a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
-                            <Button size="sm" variant="outline" className="text-xs h-8 bg-teal/10 text-teal hover:bg-teal/20 border-teal/20" onClick={() => generateZoomMeeting(a.id)}>
-                              <Video className="h-3 w-3 mr-1" /> Meeting
-                            </Button>
-                          )}
-                          {primary && (
+                    {!selectMode && (
+                      <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
+                        {a.payment_status !== "paid" && (
+                          <Button size="sm" variant="outline" className="text-xs h-8 border-warning/40 text-warning" onClick={() => togglePaid(a)}>
+                            Mark Paid
+                          </Button>
+                        )}
+                        {a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
+                          <Button size="sm" variant="outline" className="text-xs h-8 bg-teal/10 text-teal hover:bg-teal/20 border-teal/20" onClick={() => generateZoomMeeting(a.id)}>
+                            <Video className="h-3 w-3 mr-1" /> Meeting
+                          </Button>
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <Button
                               size="sm"
-                              className="text-xs h-8 px-3 bg-royal hover:bg-royal/90 text-white"
-                              onClick={() => primary.next === "__reschedule__" ? openReschedule(a) : updateStatus(a.id, primary.next)}
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-muted-foreground"
+                              aria-label={`More actions for ${a.patient_name}`}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {primary.label}
+                              <MoreHorizontal className="h-4 w-4" />
                             </Button>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-muted-foreground"
-                                aria-label={`More actions for ${a.patient_name}`}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              {items.includes("reschedule") && (
-                                <DropdownMenuItem onClick={() => openReschedule(a)}>Reschedule</DropdownMenuItem>
-                              )}
-                              {items.includes("cancel") && (
-                                <DropdownMenuItem onClick={() => updateStatus(a.id, "cancelled")}>Cancel</DropdownMenuItem>
-                              )}
-                              {items.includes("no_show") && (
-                                <DropdownMenuItem onClick={() => updateStatus(a.id, "no_show")}>No-show</DropdownMenuItem>
-                              )}
-                              {items.includes("delete") && <DropdownMenuSeparator />}
-                              {items.includes("delete") && (
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onSelect={(e) => { e.preventDefault(); setDeletingId(a.id); }}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      );
-                    })()}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem
+                              disabled={a.status === "completed" || a.status === "cancelled"}
+                              onSelect={() => openReschedule(a)}
+                            >
+                              Reschedule
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={a.status === "completed" || a.status === "cancelled" || a.status === "no_show"}
+                              onSelect={() => updateStatus(a.id, "cancelled")}
+                            >
+                              Cancel
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onSelect={(e) => { e.preventDefault(); setDeletingId(a.id); }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -584,6 +558,125 @@ const AppointmentsPage = () => {
           })}
         </div>
       )}
+
+      {/* Appointment Detail Sheet */}
+      <Sheet open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          {viewing && (() => {
+            const sc = statusConfig[viewing.status] || statusConfig.pending;
+            const transitions: Record<string, { label: string; next: string; tone: string }[]> = {
+              pending: [
+                { label: "Confirm", next: "confirmed", tone: "bg-success text-white hover:bg-success/90" },
+                { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
+              ],
+              confirmed: [
+                { label: "Mark Completed", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
+                { label: "Mark No-show", next: "no_show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
+                { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
+              ],
+              completed: [],
+              no_show: [],
+              cancelled: [],
+            };
+            const options = transitions[viewing.status] ?? [];
+            return (
+              <>
+                <SheetHeader>
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="w-16 h-16 rounded-full bg-royal/10 flex items-center justify-center text-2xl font-bold text-royal">
+                      {viewing.patient_name?.charAt(0)?.toUpperCase() || "P"}
+                    </div>
+                    <div className="min-w-0">
+                      <SheetTitle className="text-primary text-lg truncate">{viewing.patient_name}</SheetTitle>
+                      <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {viewing.patient_phone}</span>
+                        {viewing.token_number && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold">#{viewing.token_number}</span>}
+                      </p>
+                    </div>
+                  </div>
+                </SheetHeader>
+                <div className="mt-6 space-y-6">
+                  {/* Status */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide">Current status</span>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${sc.bg}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
+                        {sc.label}
+                      </span>
+                    </div>
+                    {options.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {options.map((o) => (
+                          <Button
+                            key={o.next}
+                            size="sm"
+                            className={`h-9 text-xs ${o.tone}`}
+                            onClick={() => updateStatus(viewing.id, o.next)}
+                          >
+                            {o.label}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">This appointment is in a final state. No further status changes are available.</p>
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: "Date", value: viewing.date },
+                      { label: "Time", value: viewing.time_slot?.slice(0, 5) },
+                      { label: "Service", value: viewing.service_name },
+                      { label: "Type", value: viewing.appointment_type },
+                      { label: "Amount", value: `₹${viewing.amount}` },
+                      { label: "Payment", value: viewing.payment_status === "paid" ? "Paid" : "Unpaid" },
+                    ].map((item) => (
+                      <div key={item.label} className="bg-secondary rounded-xl p-3">
+                        <div className="text-[11px] text-muted-foreground mb-1">{item.label}</div>
+                        <div className="font-medium text-sm text-foreground capitalize truncate">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {(viewing.chief_complaint || viewing.notes) && (
+                    <div className="space-y-2">
+                      {viewing.chief_complaint && (
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-1">Chief complaint</div>
+                          <p className="text-sm text-foreground">{viewing.chief_complaint}</p>
+                        </div>
+                      )}
+                      {viewing.notes && (
+                        <div>
+                          <div className="text-[11px] text-muted-foreground mb-1">Notes</div>
+                          <p className="text-sm text-foreground whitespace-pre-wrap">{viewing.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Secondary actions */}
+                  <div className="pt-4 border-t border-border flex flex-wrap gap-2">
+                    {viewing.payment_status !== "paid" && (
+                      <Button variant="outline" size="sm" className="h-9 text-xs border-warning/40 text-warning" onClick={() => togglePaid(viewing)}>
+                        Mark Paid
+                      </Button>
+                    )}
+                    {viewing.status !== "completed" && viewing.status !== "cancelled" && (
+                      <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => { const a = viewing; setViewing(null); openReschedule(a); }}>
+                        Reschedule
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
       <Dialog open={!!rescheduling} onOpenChange={(o) => !o && setRescheduling(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Reschedule Appointment</DialogTitle></DialogHeader>
