@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock, Download, FileText } from "lucide-react";
 import jsPDF from "jspdf";
-import QRCode from "qrcode";
+
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
