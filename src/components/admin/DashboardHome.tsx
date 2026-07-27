@@ -259,7 +259,7 @@ const DashboardHome = () => {
         </Card>
 
         {/* Getting Started */}
-        <Card className="border-0 rounded-2xl shadow-sm bg-card">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card xl:flex xl:flex-col xl:min-h-0">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Getting Started</CardTitle>
