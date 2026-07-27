@@ -570,8 +570,8 @@ const AppointmentsPage = () => {
                 { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
               ],
               confirmed: [
-                { label: "Mark Completed", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
-                { label: "Mark No-show", next: "no_show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
+                { label: "Completed", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
+                { label: "No Show", next: "no_show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
                 { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
               ],
               completed: [],
@@ -658,18 +658,13 @@ const AppointmentsPage = () => {
                   )}
 
                   {/* Secondary actions */}
-                  <div className="pt-4 border-t border-border flex flex-wrap gap-2">
-                    {viewing.payment_status !== "paid" && (
-                      <Button variant="outline" size="sm" className="h-9 text-xs border-warning/40 text-warning" onClick={() => togglePaid(viewing)}>
-                        Mark Paid
-                      </Button>
-                    )}
-                    {viewing.status !== "completed" && viewing.status !== "cancelled" && (
+                  {viewing.status !== "completed" && viewing.status !== "cancelled" && (
+                    <div className="pt-4 border-t border-border flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => { const a = viewing; setViewing(null); openReschedule(a); }}>
                         Reschedule
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </>
             );
