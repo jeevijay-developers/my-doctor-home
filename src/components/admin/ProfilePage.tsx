@@ -70,6 +70,10 @@ const ProfilePage = () => {
     const { error } = await supabase.from("profiles").update(payload).eq("id", profile.id);
     setSaving(false);
     if (error) { toast.error("Could not save profile"); return; }
+    // Archive old slug so old URLs keep working via redirect.
+    if (oldSlugToArchive && payload.slug) {
+      await supabase.from("slug_history" as any).insert({ doctor_id: profile.id, old_slug: oldSlugToArchive });
+    }
     refetch();
     toast.success(payload.slug ? `Profile saved. New URL: /dr/${payload.slug}` : "Profile saved");
   };
