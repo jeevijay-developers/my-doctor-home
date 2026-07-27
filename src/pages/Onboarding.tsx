@@ -216,7 +216,7 @@ const Onboarding = () => {
                     </div>
                     {form.specialization === "Other" && (
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Please specify your specialization <span className="text-destructive">*</span></Label>
+                        <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Please specify your specialization</Label>
                         <Input value={form.specialization_other} onChange={(e) => update("specialization_other", e.target.value)} placeholder="e.g. Sports Medicine" className="h-11" />
                       </div>
                     )}
