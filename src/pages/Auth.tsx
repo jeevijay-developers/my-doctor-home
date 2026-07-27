@@ -138,6 +138,14 @@ const Auth = () => {
     { icon: Shield, text: "7-day free trial · No credit card" },
   ];
 
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-secondary">
+        <Loader2 className="h-8 w-8 animate-spin text-royal" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex">
       {/* Left Brand Panel — hidden on mobile */}
