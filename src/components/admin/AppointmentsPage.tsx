@@ -42,6 +42,8 @@ const AppointmentsPage = () => {
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dateFilterActive, setDateFilterActive] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
   const [newAppt, setNewAppt] = useState({
     patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic",
     date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0,
