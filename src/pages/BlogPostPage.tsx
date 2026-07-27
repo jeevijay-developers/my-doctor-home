@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Calendar, Tag, User } from "lucide-react";
 import { format } from "date-fns";
+import DOMPurify from "dompurify";
 
 const BlogPostPage = () => {
   const { slug, postId } = useParams<{ slug: string; postId: string }>();
