@@ -126,9 +126,9 @@ const DashboardHome = () => {
   const currentTip = growthTips[tipIndex];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto w-full flex flex-col gap-3 xl:gap-4 xl:h-[calc(100dvh-3.5rem-3rem)] xl:overflow-hidden">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl gradient-navy-teal p-6 md:p-8">
+      <div className="relative overflow-hidden rounded-2xl gradient-navy-teal p-4 md:p-5 xl:flex-shrink-0">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-10 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
           <div className="absolute bottom-2 right-40 w-24 h-24 rounded-full bg-white/10 blur-xl" />
@@ -139,10 +139,10 @@ const DashboardHome = () => {
               <Sparkles className="h-5 w-5 text-spark" />
               <span className="text-sm font-medium text-white/70">{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
             </div>
-            <h1 className="font-heading font-extrabold text-2xl md:text-3xl text-white">
+            <h1 className="font-heading font-extrabold text-xl md:text-2xl text-white">
               Welcome back, {profile?.full_name?.split(" ")[0] || "Doctor"} 👋
             </h1>
-            <p className="text-white/60 mt-1 text-sm">Here's what's happening with your practice today.</p>
+            <p className="text-white/60 mt-0.5 text-xs md:text-sm">Here's what's happening with your practice today.</p>
           </div>
           {profile?.plan_status === "trial" && (
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 min-w-[220px]">
@@ -160,36 +160,36 @@ const DashboardHome = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:flex-shrink-0">
         {statCards.map((s) => (
           <Card key={s.label} className="border-0 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 bg-card">
-            <CardContent className="p-5">
-              <div className="flex items-start gap-3 mb-4">
-                <div className={`w-11 h-11 rounded-xl ${s.bgClass} flex items-center justify-center flex-shrink-0`}>
-                  <s.icon className={`h-5 w-5 ${s.iconClass}`} />
+            <CardContent className="p-3 xl:p-4">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className={`w-9 h-9 rounded-xl ${s.bgClass} flex items-center justify-center flex-shrink-0`}>
+                  <s.icon className={`h-4 w-4 ${s.iconClass}`} />
                 </div>
-                <div className="text-[10px] font-semibold text-muted-foreground tracking-wider pt-3">{s.label}</div>
+                <div className="text-[10px] font-semibold text-muted-foreground tracking-wider">{s.label}</div>
               </div>
-              <div className="font-heading font-bold text-2xl sm:text-3xl text-foreground leading-tight">{s.value}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">{s.sub}</div>
+              <div className="font-heading font-bold text-xl xl:text-2xl text-foreground leading-tight">{s.value}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Growth Tip Banner */}
-      <Card className="border-spark/30 bg-spark/5 shadow-none">
-        <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-spark/20 flex items-center justify-center flex-shrink-0">
-            <Lightbulb className="h-5 w-5 text-spark" />
+      <Card className="border-spark/30 bg-spark/5 shadow-none xl:flex-shrink-0">
+        <CardContent className="p-3 flex flex-row items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-spark/20 flex items-center justify-center flex-shrink-0">
+            <Lightbulb className="h-4 w-4 text-spark" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-spark/80 mb-0.5">GROWTH TIP</p>
-            <p className="text-sm font-medium text-foreground">{currentTip.tip}</p>
+            <p className="text-[10px] font-semibold text-spark/80">GROWTH TIP</p>
+            <p className="text-xs md:text-sm font-medium text-foreground truncate">{currentTip.tip}</p>
           </div>
           {currentTip.action && (
             <Link to={currentTip.action}>
-              <Button size="sm" variant="outline" className="text-xs border-spark/30 text-spark hover:bg-spark/10 flex-shrink-0">
+              <Button size="sm" variant="outline" className="text-xs border-spark/30 text-spark hover:bg-spark/10 flex-shrink-0 h-8">
                 Do it <ArrowRight className="h-3 w-3 ml-1" />
               </Button>
             </Link>
@@ -197,9 +197,9 @@ const DashboardHome = () => {
         </CardContent>
       </Card>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-3 xl:gap-4 xl:flex-1 xl:min-h-0">
         {/* Today's Schedule Timeline */}
-        <Card className="lg:col-span-2 border-0 rounded-2xl shadow-sm bg-card">
+        <Card className="lg:col-span-2 border-0 rounded-2xl shadow-sm bg-card xl:flex xl:flex-col xl:min-h-0">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -213,7 +213,8 @@ const DashboardHome = () => {
               </Link>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="xl:flex-1 xl:min-h-0 xl:overflow-auto">
+
             {todayAppointments.length === 0 ? (
               <div className="text-center py-10">
                 <div className="w-16 h-16 rounded-2xl bg-royal/5 flex items-center justify-center mx-auto mb-3">
@@ -258,7 +259,7 @@ const DashboardHome = () => {
         </Card>
 
         {/* Getting Started */}
-        <Card className="border-0 rounded-2xl shadow-sm bg-card">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card xl:flex xl:flex-col xl:min-h-0">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Getting Started</CardTitle>
@@ -266,7 +267,7 @@ const DashboardHome = () => {
             </div>
             <Progress value={(completedSteps / checklist.length) * 100} className="h-2 mt-2 bg-secondary [&>div]:bg-royal" />
           </CardHeader>
-          <CardContent className="space-y-1">
+          <CardContent className="space-y-1 xl:flex-1 xl:min-h-0 xl:overflow-auto">
             {checklist.map((item) => (
               <Link key={item.label} to={item.href} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/60 transition-colors group">
                 {item.done ? (
@@ -289,7 +290,7 @@ const DashboardHome = () => {
       </div>
 
       {/* WhatsApp Share + Revenue Goal */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-3 xl:gap-4 xl:flex-shrink-0">
         {/* WhatsApp Share Widget */}
         <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-success">
           <CardHeader className="pb-3">
