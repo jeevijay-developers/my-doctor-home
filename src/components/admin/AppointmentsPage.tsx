@@ -159,13 +159,6 @@ const AppointmentsPage = () => {
     toast.success(`Marked ${status.replace("_", " ")}`);
   };
 
-  const togglePaid = async (a: Appointment) => {
-    const next = a.payment_status === "paid" ? "pending" : "paid";
-    await supabase.from("appointments").update({ payment_status: next as any }).eq("id", a.id);
-    load();
-    toast.success(next === "paid" ? "Marked as paid" : "Marked as unpaid");
-  };
-
   const deleteAppointment = async (id: string) => {
     const { error } = await supabase.from("appointments").delete().eq("id", id);
     if (error) { toast.error("Could not delete appointment"); return; }
