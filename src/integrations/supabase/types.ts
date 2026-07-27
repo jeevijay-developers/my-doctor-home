@@ -693,6 +693,35 @@ export type Database = {
           },
         ]
       }
+      slug_history: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          id: string
+          old_slug: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          id?: string
+          old_slug: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          old_slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slug_history_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
           assigned_to: string | null
