@@ -44,13 +44,11 @@ const DashboardHome = () => {
       supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id),
       supabase.from("appointments").select("amount").eq("doctor_id", id).eq("payment_status", "paid"),
       supabase.from("appointments").select("*").eq("doctor_id", id).eq("date", today).order("time_slot"),
-      supabase.from("patients").select("*").eq("doctor_id", id).order("created_at", { ascending: false }).limit(5),
       supabase.from("services").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("active", true),
       supabase.from("blog_posts").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("is_published", true),
       supabase.from("appointments").select("amount").eq("doctor_id", id).eq("payment_status", "paid").gte("date", weekAgo),
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo),
-      supabase.from("doctor_notes").select("*").eq("doctor_id", id).order("created_at", { ascending: false }).limit(10),
-    ]).then(([apptRes, patRes, revRes, todayRes, recentPat, svcRes, blogRes, weekRevRes, lastWeekRes, notesRes]) => {
+    ]).then(([apptRes, patRes, revRes, todayRes, svcRes, blogRes, weekRevRes, lastWeekRes]) => {
       const revenue = (revRes.data || []).reduce((s, r) => s + (r.amount || 0), 0);
       const weekRevenue = (weekRevRes.data || []).reduce((s, r) => s + (r.amount || 0), 0);
       const todayData = todayRes.data || [];
@@ -63,10 +61,8 @@ const DashboardHome = () => {
         lastWeekAppts: lastWeekRes.count || 0,
       });
       setTodayAppointments(todayData.slice(0, 6));
-      setRecentPatients((recentPat.data || []).slice(0, 4));
       setServicesCount(svcRes.count || 0);
       setBlogCount(blogRes.count || 0);
-      setNotes(notesRes.data || []);
     });
   };
 
