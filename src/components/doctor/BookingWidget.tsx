@@ -52,6 +52,9 @@ const BookingWidget = () => {
   const [token, setToken] = useState("");
   const [patientsAhead, setPatientsAhead] = useState<number | null>(null);
   const [confirmedApptId, setConfirmedApptId] = useState<string | null>(null);
+  const [slipOpen, setSlipOpen] = useState(false);
+
+  useEffect(() => { if (confirmed) setSlipOpen(true); }, [confirmed]);
 
   const advanceDays = settings?.booking_advance_days || 7;
   const days = useMemo(() => getNextDays(advanceDays), [advanceDays]);
