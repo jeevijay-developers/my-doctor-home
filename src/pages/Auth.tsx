@@ -29,7 +29,10 @@ const Auth = () => {
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
+      if (!session) {
+        setCheckingSession(false);
+        return;
+      }
       if (safeNext) {
         window.location.href = safeNext;
         return;
@@ -39,9 +42,9 @@ const Auth = () => {
         _role: "admin",
       });
       if (isAdmin) {
-        navigate("/superadmin");
+        navigate("/superadmin", { replace: true });
       } else {
-        navigate("/admin/dashboard");
+        navigate("/admin/dashboard", { replace: true });
       }
     });
   }, [navigate, safeNext]);
