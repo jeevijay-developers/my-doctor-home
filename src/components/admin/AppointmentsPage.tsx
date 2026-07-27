@@ -505,50 +505,11 @@ const AppointmentsPage = () => {
                     </div>
                     {!selectMode && (
                       <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
-                        {a.payment_status !== "paid" && (
-                          <Button size="sm" variant="outline" className="text-xs h-8 border-warning/40 text-warning" onClick={() => togglePaid(a)}>
-                            Mark Paid
-                          </Button>
-                        )}
                         {a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
                           <Button size="sm" variant="outline" className="text-xs h-8 bg-teal/10 text-teal hover:bg-teal/20 border-teal/20" onClick={() => generateZoomMeeting(a.id)}>
                             <Video className="h-3 w-3 mr-1" /> Meeting
                           </Button>
                         )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0 text-muted-foreground"
-                              aria-label={`More actions for ${a.patient_name}`}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem
-                              disabled={a.status === "completed" || a.status === "cancelled"}
-                              onSelect={() => openReschedule(a)}
-                            >
-                              Reschedule
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={a.status === "completed" || a.status === "cancelled" || a.status === "no_show"}
-                              onSelect={() => updateStatus(a.id, "cancelled")}
-                            >
-                              Cancel
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onSelect={(e) => { e.preventDefault(); setDeletingId(a.id); }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
                     )}
                   </div>
