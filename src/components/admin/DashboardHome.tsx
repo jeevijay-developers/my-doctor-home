@@ -260,8 +260,8 @@ const DashboardHome = () => {
           </CardContent>
         </Card>
 
-        {/* Getting Started — hidden once all steps are complete */}
-        {completedSteps < checklist.length && (
+        {/* Getting Started — only shown after data loads, and only if tasks remain */}
+        {dashboardReady && completedSteps < checklist.length && (
         <Card className="border-0 rounded-2xl shadow-sm bg-card xl:flex xl:flex-col xl:min-h-0">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
