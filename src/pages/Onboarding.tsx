@@ -29,7 +29,7 @@ const Onboarding = () => {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [form, setForm] = useState({
-    full_name: "", specialization: "", qualifications: "", experience_years: "",
+    full_name: "", specialization: "", specialization_other: "", qualifications: "", experience_years: "",
     clinic_name: "", state: "", city: "", address: "", phone: "", bio: "", consultation_fee: "",
   });
   const navigate = useNavigate();
@@ -58,6 +58,7 @@ const Onboarding = () => {
   const validateStep1 = () => {
     if (!form.full_name.trim()) return toast.error("Please enter your full name");
     if (!form.specialization) return toast.error("Please select your specialization");
+    if (form.specialization === "Other" && !form.specialization_other.trim()) return toast.error("Please specify your specialization");
     if (!form.qualifications.trim()) return toast.error("Please enter your qualifications");
     if (!form.experience_years || parseInt(form.experience_years) < 0) return toast.error("Please enter years of experience");
     if (!form.consultation_fee || parseInt(form.consultation_fee) < 0) return toast.error("Please enter your consultation fee");
@@ -94,7 +95,7 @@ const Onboarding = () => {
       if (!user) throw new Error("Not authenticated");
       const slug = await getUniqueSlug(form.full_name);
       const { error } = await supabase.from("profiles").update({
-        full_name: form.full_name, specialization: form.specialization,
+        full_name: form.full_name, specialization: form.specialization === "Other" ? form.specialization_other.trim() : form.specialization,
         qualifications: form.qualifications, experience_years: parseInt(form.experience_years) || 0,
         clinic_name: form.clinic_name, city: form.city, address: form.address,
         phone: form.phone, slug, onboarding_completed: true,
@@ -202,7 +203,7 @@ const Onboarding = () => {
                     </div>
                     <div>
                       <Label>Full Name <span className="text-destructive">*</span></Label>
-                      <Input value={form.full_name} onChange={(e) => update("full_name", e.target.value)} placeholder="Dr. Rahul Sharma" required className="h-11" />
+                      <Input value={form.full_name} onChange={(e) => update("full_name", e.target.value)} placeholder="Rahul Sharma" required className="h-11" />
                     </div>
                     <div>
                       <Label>Specialization <span className="text-destructive">*</span></Label>
@@ -213,6 +214,12 @@ const Onboarding = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                    {form.specialization === "Other" && (
+                      <div>
+                        <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Please specify your specialization <span className="text-destructive">*</span></Label>
+                        <Input value={form.specialization_other} onChange={(e) => update("specialization_other", e.target.value)} placeholder="e.g. Sports Medicine" className="h-11" />
+                      </div>
+                    )}
                     <div>
                       <Label className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> Qualifications <span className="text-destructive">*</span></Label>
                       <Input value={form.qualifications} onChange={(e) => update("qualifications", e.target.value)} placeholder="MBBS, MD (Cardiology)" className="h-11" />
