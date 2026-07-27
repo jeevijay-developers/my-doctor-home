@@ -105,45 +105,46 @@ const AppointmentSlip = ({
                   <stop offset="100%" stopColor={TEAL_DARK} />
                 </linearGradient>
               </defs>
-              {/* Big curved shape: straight left edge, curve arcs from top-right down to bottom-left area */}
+              {/* Big curved shape: extends full-height on the left with an elegant outward bulge */}
               <path
-                d="M 0 0 L 300 0 Q 260 260 300 522 Q 340 780 220 1044 L 0 1044 Z"
+                d="M 0 0 L 280 0 Q 430 340 340 560 Q 240 800 360 1044 L 0 1044 Z"
                 fill="url(#tealGrad)"
               />
               {/* Decorative thin curve accent */}
               <path
-                d="M 300 0 Q 260 260 300 522 Q 340 780 220 1044"
+                d="M 280 0 Q 430 340 340 560 Q 240 800 360 1044"
                 fill="none"
                 stroke="#ffffff"
-                strokeOpacity="0.18"
+                strokeOpacity="0.22"
                 strokeWidth="2"
               />
-              {/* Faint caduceus watermark on right side */}
-              <g opacity="0.05" transform="translate(500, 470)">
-                <circle cx="0" cy="0" r="90" fill={TEAL_DARK} />
-                <rect x="-4" y="-90" width="8" height="180" fill={TEAL_DARK} />
+              {/* Faint caduceus watermark — positioned to the right, behind token/details area */}
+              <g opacity="0.06" transform="translate(560, 470)">
+                <ellipse cx="0" cy="0" rx="130" ry="150" fill={TEAL_DARK} />
+                <rect x="-3" y="-140" width="6" height="280" fill={TEAL_DARK} />
               </g>
+
             </svg>
 
             {/* CONTENT LAYER */}
-            <div className="relative grid grid-cols-[38%_62%] h-full">
+            <div className="relative grid grid-cols-[35%_65%] h-full">
               {/* LEFT COLUMN */}
-              <div className="flex flex-col justify-between text-white p-5 md:p-6">
+              <div className="flex flex-col justify-between text-white p-5 md:p-7">
                 {/* Logo + clinic name */}
-                <div className="flex items-start gap-2.5">
+                <div className="flex items-start gap-3">
                   <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
                     <Plus className="h-6 w-6" strokeWidth={3.5} style={{ color: TEAL_DARK }} />
                   </div>
                   <div className="min-w-0 pt-0.5">
-                    <div className="font-heading font-extrabold text-[15px] md:text-base leading-tight uppercase tracking-wide">
+                    <div className="font-heading font-extrabold text-[15px] md:text-[17px] leading-tight uppercase tracking-wide">
                       {clinicName}
                     </div>
-                    <div className="text-[10.5px] italic opacity-85 mt-0.5">{tagline}</div>
+                    <div className="text-[10.5px] italic opacity-90 mt-1">{tagline}</div>
                   </div>
                 </div>
 
-                {/* Contact — bottom, on white area beneath the curve. We keep dark text since curve ends before this. */}
-                <div className="space-y-2 text-[11px] pb-1" style={{ color: TEAL_DARK }}>
+                {/* Contact — white text on teal curved panel */}
+                <div className="space-y-2.5 text-[11px] pb-2 text-white">
                   {clinicAddr && (
                     <div className="flex items-start gap-2">
                       <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -168,6 +169,7 @@ const AppointmentSlip = ({
                   </div>
                 </div>
               </div>
+
 
               {/* RIGHT COLUMN */}
               <div className="flex flex-col p-5 md:p-7 pl-2 md:pl-4">
@@ -241,27 +243,28 @@ const AppointmentSlip = ({
 
                 {/* Instruction + QR */}
                 <div
-                  className="mt-4 grid grid-cols-[1fr_auto] gap-3 items-center border rounded-xl p-3"
+                  className="mt-4 grid grid-cols-[minmax(0,1fr)_84px] gap-4 items-center border rounded-xl px-4 py-3"
                   style={{ borderColor: `${TEAL}55` }}
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 font-bold text-[11.5px]" style={{ color: TEAL_DARK }}>
+                    <div className="flex items-center gap-2 font-bold text-[11.5px]" style={{ color: TEAL_DARK }}>
                       <Bell className="h-3.5 w-3.5 shrink-0" />
                       <span>PLEASE ARRIVE 10 MINUTES EARLY</span>
                     </div>
-                    <p className="text-[10.5px] mt-1 leading-snug" style={{ color: "#6b7280" }}>
+                    <p className="text-[10.5px] mt-1.5 leading-snug" style={{ color: "#6b7280" }}>
                       Carry a valid ID proof and previous medical documents (if any).
                     </p>
                   </div>
                   <div className="flex flex-col items-center shrink-0">
                     {qrDataUrl ? (
-                      <img src={qrDataUrl} alt="Scan for location" className="w-16 h-16 rounded" />
+                      <img src={qrDataUrl} alt="Scan for location" className="w-[72px] h-[72px] rounded" />
                     ) : (
-                      <div className="w-16 h-16 bg-muted rounded animate-pulse" />
+                      <div className="w-[72px] h-[72px] bg-muted rounded animate-pulse" />
                     )}
-                    <div className="text-[9px] mt-1" style={{ color: TEAL_DARK }}>Scan for Location</div>
+                    <div className="text-[9px] mt-1 font-medium" style={{ color: TEAL_DARK }}>Scan for Location</div>
                   </div>
                 </div>
+
 
                 {/* Thank you */}
                 <div className="text-center mt-4">
