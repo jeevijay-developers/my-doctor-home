@@ -85,17 +85,8 @@ const DashboardHome = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const addNote = async () => {
-    if (!newNote.trim() || !profile) return;
-    const { data } = await supabase.from("doctor_notes").insert({ doctor_id: profile.id, content: newNote.trim() }).select().single();
-    if (data) setNotes((prev) => [data, ...prev].slice(0, 10));
-    setNewNote("");
-  };
 
-  const deleteNote = async (id: string) => {
-    await supabase.from("doctor_notes").delete().eq("id", id);
-    setNotes((prev) => prev.filter((n) => n.id !== id));
-  };
+
 
   const daysLeft = profile?.trial_end
     ? Math.max(0, differenceInDays(new Date(profile.trial_end), new Date()))
