@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { ArrowRight, ArrowLeft, Loader2, CheckCircle, Stethoscope, Building, Sparkles, Globe, Phone, MapPin, GraduationCap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { INDIA_STATES, getCitiesForState } from "@/lib/indiaStatesCities";
 
 const specializations = [
   "General Physician", "Cardiologist", "Dermatologist", "Pediatrician", "Orthopedic",
@@ -29,7 +30,7 @@ const Onboarding = () => {
   const [checking, setChecking] = useState(true);
   const [form, setForm] = useState({
     full_name: "", specialization: "", qualifications: "", experience_years: "",
-    clinic_name: "", city: "", address: "", phone: "", bio: "", consultation_fee: "",
+    clinic_name: "", state: "", city: "", address: "", phone: "", bio: "", consultation_fee: "",
   });
   const navigate = useNavigate();
 
@@ -65,9 +66,9 @@ const Onboarding = () => {
 
   const validateStep2 = () => {
     if (!form.clinic_name.trim()) return toast.error("Please enter your clinic/hospital name");
-    if (!form.city.trim()) return toast.error("Please enter your city");
+    if (!form.state) return toast.error("Please select your state");
+    if (!form.city) return toast.error("Please select your city");
     if (!form.phone.trim()) return toast.error("Please enter your phone number");
-    // Lazy import to avoid TS churn if module missing.
     const digits = form.phone.replace(/[^\d]/g, "").replace(/^91/, "").replace(/^0/, "");
     if (!/^[6-9]\d{9}$/.test(digits)) return toast.error("Enter a valid 10-digit Indian mobile number (starting with 6/7/8/9)");
     if (!form.address.trim()) return toast.error("Please enter your full address");
@@ -252,12 +253,28 @@ const Onboarding = () => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> City <span className="text-destructive">*</span></Label>
-                        <Input value={form.city} onChange={(e) => update("city", e.target.value)} placeholder="Mumbai" className="h-11" />
+                        <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> State <span className="text-destructive">*</span></Label>
+                        <Select value={form.state} onValueChange={(v) => setForm((f) => ({ ...f, state: v, city: "" }))}>
+                          <SelectTrigger className="h-11"><SelectValue placeholder="Select state" /></SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {INDIA_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone Number <span className="text-destructive">*</span></Label>
                         <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+91 98765 43210" className="h-11" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> City <span className="text-destructive">*</span></Label>
+                        <Select value={form.city} onValueChange={(v) => update("city", v)} disabled={!form.state}>
+                          <SelectTrigger className="h-11"><SelectValue placeholder={form.state ? "Select city" : "Select a state first"} /></SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {getCitiesForState(form.state).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                     <div>
