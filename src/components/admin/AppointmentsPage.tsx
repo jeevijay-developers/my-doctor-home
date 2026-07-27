@@ -414,48 +414,80 @@ const AppointmentsPage = () => {
                       )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
                     </div>
-                    <div className="flex gap-1.5 flex-wrap items-center">
-                      <Select value={a.status} onValueChange={(v) => updateStatus(a.id, v)}>
-                        <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="confirmed">Confirmed</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                          <SelectItem value="no_show">No Show</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button size="sm" variant="outline" className={`text-xs h-7 ${a.payment_status === "paid" ? "border-success/40 text-success" : "border-warning/40 text-warning"}`} onClick={() => togglePaid(a)}>
-                        {a.payment_status === "paid" ? "Paid" : "Mark Paid"}
-                      </Button>
-                      {a.status !== "cancelled" && a.status !== "completed" && (
-                        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => openReschedule(a)}>Reschedule</Button>
-                      )}
-                      {a.appointment_type === "online" && a.status !== "cancelled" && (
-                        <Button size="sm" className="text-xs h-7 bg-teal/10 text-teal hover:bg-teal/20 border-0" onClick={() => generateZoomMeeting(a.id)}>
-                          <Video className="h-3 w-3 mr-1" /> Meeting Link
-                        </Button>
-                      )}
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="outline" className="text-xs h-7 text-destructive border-destructive/40 hover:bg-destructive/10">
-                            <Trash2 className="h-3 w-3 mr-1" /> Delete
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete this appointment?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently remove {a.patient_name}'s appointment on {a.date} at {a.time_slot?.slice(0, 5)}. This cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteAppointment(a.id)}>Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                    {(() => {
+                      const primaryMap: Record<string, { label: string; next: string } | null> = {
+                        pending: { label: "Confirm", next: "confirmed" },
+                        confirmed: { label: "Complete", next: "completed" },
+                        no_show: { label: "Reschedule", next: "__reschedule__" },
+                        completed: null,
+                        cancelled: null,
+                      };
+                      const primary = primaryMap[a.status] ?? null;
+                      const overflowByStatus: Record<string, string[]> = {
+                        pending: ["reschedule", "cancel", "delete"],
+                        confirmed: ["reschedule", "cancel", "no_show", "delete"],
+                        completed: ["delete"],
+                        no_show: ["delete"],
+                        cancelled: ["delete"],
+                      };
+                      const items = overflowByStatus[a.status] ?? ["delete"];
+                      const isUnpaid = a.payment_status !== "paid";
+                      return (
+                        <div className="flex gap-1.5 items-center">
+                          {isUnpaid && (
+                            <Button size="sm" variant="outline" className="text-xs h-8 border-warning/40 text-warning" onClick={() => togglePaid(a)}>
+                              Mark Paid
+                            </Button>
+                          )}
+                          {a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
+                            <Button size="sm" variant="outline" className="text-xs h-8 bg-teal/10 text-teal hover:bg-teal/20 border-teal/20" onClick={() => generateZoomMeeting(a.id)}>
+                              <Video className="h-3 w-3 mr-1" /> Meeting
+                            </Button>
+                          )}
+                          {primary && (
+                            <Button
+                              size="sm"
+                              className="text-xs h-8 px-3 bg-royal hover:bg-royal/90 text-white"
+                              onClick={() => primary.next === "__reschedule__" ? openReschedule(a) : updateStatus(a.id, primary.next)}
+                            >
+                              {primary.label}
+                            </Button>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-muted-foreground"
+                                aria-label={`More actions for ${a.patient_name}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              {items.includes("reschedule") && (
+                                <DropdownMenuItem onClick={() => openReschedule(a)}>Reschedule</DropdownMenuItem>
+                              )}
+                              {items.includes("cancel") && (
+                                <DropdownMenuItem onClick={() => updateStatus(a.id, "cancelled")}>Cancel</DropdownMenuItem>
+                              )}
+                              {items.includes("no_show") && (
+                                <DropdownMenuItem onClick={() => updateStatus(a.id, "no_show")}>No-show</DropdownMenuItem>
+                              )}
+                              {items.includes("delete") && <DropdownMenuSeparator />}
+                              {items.includes("delete") && (
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onSelect={(e) => { e.preventDefault(); setDeletingId(a.id); }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </CardContent>
               </Card>
