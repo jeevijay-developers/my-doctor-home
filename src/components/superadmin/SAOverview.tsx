@@ -84,8 +84,8 @@ const SAOverview = () => {
       </Card>
 
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Trials ending in next 7 days ({trialsEnding.length})</CardTitle></CardHeader>
+      <Card className="rounded-2xl border-transparent bg-white shadow-sm">
+        <CardHeader><CardTitle className="text-lg font-heading font-semibold text-primary">Trials ending in next 7 days ({trialsEnding.length})</CardTitle></CardHeader>
         <CardContent>
           {trialsEnding.length === 0 ? (
             <p className="text-sm text-muted-foreground">No trials ending soon.</p>
