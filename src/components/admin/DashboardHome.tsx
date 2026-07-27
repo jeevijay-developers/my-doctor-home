@@ -199,7 +199,7 @@ const DashboardHome = () => {
         </CardContent>
       </Card>
 
-      <div className={`grid gap-3 xl:gap-4 xl:flex-1 xl:min-h-0 ${completedSteps === checklist.length ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
+      <div className={`grid gap-3 xl:gap-4 xl:flex-1 xl:min-h-0 ${(!dashboardReady || completedSteps === checklist.length) ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
         {/* Today's Schedule Timeline */}
         <Card className={`border-0 rounded-2xl shadow-sm bg-card xl:flex xl:flex-col xl:min-h-0 ${completedSteps === checklist.length ? "" : "lg:col-span-2"}`}>
           <CardHeader className="pb-3">
