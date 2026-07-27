@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock, Download } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock, Download, FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { format, addDays, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
+import AppointmentSlip from "./AppointmentSlip";
 
 const getNextDays = (count: number) => {
   const days = [];
