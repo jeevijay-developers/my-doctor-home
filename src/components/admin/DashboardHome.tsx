@@ -160,18 +160,18 @@ const DashboardHome = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:flex-shrink-0">
         {statCards.map((s) => (
           <Card key={s.label} className="border-0 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 bg-card">
-            <CardContent className="p-5">
-              <div className="flex items-start gap-3 mb-4">
-                <div className={`w-11 h-11 rounded-xl ${s.bgClass} flex items-center justify-center flex-shrink-0`}>
-                  <s.icon className={`h-5 w-5 ${s.iconClass}`} />
+            <CardContent className="p-3 xl:p-4">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className={`w-9 h-9 rounded-xl ${s.bgClass} flex items-center justify-center flex-shrink-0`}>
+                  <s.icon className={`h-4 w-4 ${s.iconClass}`} />
                 </div>
-                <div className="text-[10px] font-semibold text-muted-foreground tracking-wider pt-3">{s.label}</div>
+                <div className="text-[10px] font-semibold text-muted-foreground tracking-wider">{s.label}</div>
               </div>
-              <div className="font-heading font-bold text-2xl sm:text-3xl text-foreground leading-tight">{s.value}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">{s.sub}</div>
+              <div className="font-heading font-bold text-xl xl:text-2xl text-foreground leading-tight">{s.value}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
             </CardContent>
           </Card>
         ))}
