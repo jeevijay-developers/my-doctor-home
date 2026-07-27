@@ -25,6 +25,16 @@ const BlogPostPage = () => {
     load();
   }, [slug, postId]);
 
+  useEffect(() => {
+    if (!doctor?.display_name) return;
+    const prev = document.title;
+    const name = doctor.display_name.trim();
+    const formatted = /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
+    const postTitle = post?.title ? `${post.title} · ` : "";
+    document.title = `${postTitle}${formatted} | Doctylia`;
+    return () => { document.title = prev; };
+  }, [doctor?.display_name, post?.title]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
