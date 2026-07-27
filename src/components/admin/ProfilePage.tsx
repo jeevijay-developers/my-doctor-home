@@ -56,12 +56,14 @@ const ProfilePage = () => {
     const payload: any = { ...form, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
 
     // BUG-M05: keep public URL slug in sync when the doctor's name changes.
+    let oldSlugToArchive: string | null = null;
     if (form.full_name && form.full_name !== (profile as any).full_name) {
       let slug = generateSlug(form.full_name);
       if (slug && slug !== (profile as any).slug) {
         const { data: clash } = await supabase.from("profiles").select("id").eq("slug", slug).neq("id", profile.id).maybeSingle();
         if (clash) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
         payload.slug = slug;
+        oldSlugToArchive = (profile as any).slug || null;
       }
     }
 
