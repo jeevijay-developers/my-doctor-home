@@ -103,10 +103,10 @@ const DashboardHome = () => {
   const completedSteps = checklist.filter((c) => c.done).length;
 
   const statCards = [
-    { icon: CalendarCheck, label: "Total Appointments", value: String(stats.appointments), bgClass: "bg-royal/10", iconClass: "text-royal", sub: `${stats.todayCount} today` },
-    { icon: Users, label: "Total Patients", value: String(stats.patients), bgClass: "bg-teal/10", iconClass: "text-teal", sub: "All time" },
-    { icon: CreditCard, label: "Revenue Earned", value: `₹${stats.revenue.toLocaleString("en-IN")}`, bgClass: "bg-success/10", iconClass: "text-success", sub: "Paid appointments" },
-    { icon: Globe, label: "Website Status", value: profile?.onboarding_completed ? "Live" : "Draft", bgClass: "bg-ai-purple/10", iconClass: "text-ai-purple", sub: profile?.slug ? `/${profile.slug}` : "—" },
+    { icon: CalendarCheck, label: "APPOINTMENTS", value: String(stats.appointments), bgClass: "bg-royal/15", iconClass: "text-royal", sub: `${stats.todayCount} today` },
+    { icon: Users, label: "PATIENTS", value: String(stats.patients), bgClass: "bg-pink/15", iconClass: "text-pink", sub: "All time" },
+    { icon: CreditCard, label: "REVENUE", value: `₹${stats.revenue.toLocaleString("en-IN")}`, bgClass: "bg-teal/15", iconClass: "text-teal", sub: "Paid appointments" },
+    { icon: Globe, label: "WEBSITE", value: profile?.onboarding_completed ? "Live" : "Draft", bgClass: "bg-orange/15", iconClass: "text-orange", sub: profile?.slug ? `/${profile.slug}` : "—" },
   ];
 
 
@@ -162,17 +162,16 @@ const DashboardHome = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((s) => (
-          <Card key={s.label} className="border-border/60 shadow-none hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+          <Card key={s.label} className="border-0 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 bg-card">
             <CardContent className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className={`w-11 h-11 rounded-xl ${s.bgClass} flex items-center justify-center`}>
+              <div className="flex items-start gap-3 mb-4">
+                <div className={`w-11 h-11 rounded-xl ${s.bgClass} flex items-center justify-center flex-shrink-0`}>
                   <s.icon className={`h-5 w-5 ${s.iconClass}`} />
                 </div>
-                <TrendingUp className="h-4 w-4 text-muted-foreground/40" />
+                <div className="text-[10px] font-semibold text-muted-foreground tracking-wider pt-3">{s.label}</div>
               </div>
-              <div className="font-heading font-bold text-xl sm:text-2xl text-foreground">{s.value}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
-              <div className="text-[11px] text-muted-foreground/60 mt-1">{s.sub}</div>
+              <div className="font-heading font-bold text-2xl sm:text-3xl text-foreground leading-tight">{s.value}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">{s.sub}</div>
             </CardContent>
           </Card>
         ))}
@@ -200,7 +199,7 @@ const DashboardHome = () => {
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Today's Schedule Timeline */}
-        <Card className="lg:col-span-2 border-border/60 shadow-none">
+        <Card className="lg:col-span-2 border-0 rounded-2xl shadow-sm bg-card">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -259,7 +258,7 @@ const DashboardHome = () => {
         </Card>
 
         {/* Getting Started */}
-        <Card className="border-border/60 shadow-none">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Getting Started</CardTitle>
@@ -292,7 +291,7 @@ const DashboardHome = () => {
       {/* WhatsApp Share + Revenue Goal */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* WhatsApp Share Widget */}
-        <Card className="border-border/60 shadow-none border-l-4 border-l-success">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-success">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Share2 className="h-4 w-4 text-success" /> Share Your Website
@@ -328,7 +327,7 @@ const DashboardHome = () => {
         </Card>
 
         {/* Revenue Goal Tracker */}
-        <Card className="border-border/60 shadow-none border-l-4 border-l-royal">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-royal">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">

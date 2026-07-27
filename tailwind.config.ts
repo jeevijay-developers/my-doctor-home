@@ -68,6 +68,8 @@ export default {
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
         "ai-purple": "hsl(var(--ai-purple))",
+        pink: "hsl(var(--pink))",
+        orange: "hsl(var(--orange))",
         "cloud-blue": "hsl(var(--cloud-blue))",
         "text-gray": "hsl(var(--text-gray))",
         "near-black": "hsl(var(--near-black))",
