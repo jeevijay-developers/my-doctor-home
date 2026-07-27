@@ -203,7 +203,7 @@ const Onboarding = () => {
                     </div>
                     <div>
                       <Label>Full Name <span className="text-destructive">*</span></Label>
-                      <Input value={form.full_name} onChange={(e) => update("full_name", e.target.value)} placeholder="Dr. Rahul Sharma" required className="h-11" />
+                      <Input value={form.full_name} onChange={(e) => update("full_name", e.target.value)} placeholder="Rahul Sharma" required className="h-11" />
                     </div>
                     <div>
                       <Label>Specialization <span className="text-destructive">*</span></Label>
@@ -214,6 +214,12 @@ const Onboarding = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                    {form.specialization === "Other" && (
+                      <div>
+                        <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Please specify your specialization <span className="text-destructive">*</span></Label>
+                        <Input value={form.specialization_other} onChange={(e) => update("specialization_other", e.target.value)} placeholder="e.g. Sports Medicine" className="h-11" />
+                      </div>
+                    )}
                     <div>
                       <Label className="flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> Qualifications <span className="text-destructive">*</span></Label>
                       <Input value={form.qualifications} onChange={(e) => update("qualifications", e.target.value)} placeholder="MBBS, MD (Cardiology)" className="h-11" />
