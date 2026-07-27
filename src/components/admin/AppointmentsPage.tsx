@@ -658,18 +658,13 @@ const AppointmentsPage = () => {
                   )}
 
                   {/* Secondary actions */}
-                  <div className="pt-4 border-t border-border flex flex-wrap gap-2">
-                    {viewing.payment_status !== "paid" && (
-                      <Button variant="outline" size="sm" className="h-9 text-xs border-warning/40 text-warning" onClick={() => togglePaid(viewing)}>
-                        Mark Paid
-                      </Button>
-                    )}
-                    {viewing.status !== "completed" && viewing.status !== "cancelled" && (
+                  {viewing.status !== "completed" && viewing.status !== "cancelled" && (
+                    <div className="pt-4 border-t border-border flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => { const a = viewing; setViewing(null); openReschedule(a); }}>
                         Reschedule
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </>
             );
