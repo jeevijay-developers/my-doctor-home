@@ -23,8 +23,24 @@ const DoctorPageContent = () => {
     const name = profile.display_name.trim();
     const formatted = /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
     document.title = formatted;
+
+    // Also sync og:title and twitter:title so social/preview scrapers reflect the doctor
+    const setMeta = (selector: string, value: string) => {
+      const el = document.head.querySelector<HTMLMetaElement>(selector);
+      if (el) {
+        const prev = el.content;
+        el.content = value;
+        return () => { el.content = prev; };
+      }
+      return () => {};
+    };
+    const restoreOg = setMeta('meta[property="og:title"]', formatted);
+    const restoreTw = setMeta('meta[name="twitter:title"]', formatted);
+
     return () => {
       document.title = previousTitle;
+      restoreOg();
+      restoreTw();
     };
   }, [profile?.display_name]);
 
