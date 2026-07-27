@@ -252,9 +252,6 @@ const AppointmentsPage = () => {
     a.service_name.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Calendar strip: 7 days centered on selected date
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-  const calendarDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   // Status summary counts
   const statusCounts = {
