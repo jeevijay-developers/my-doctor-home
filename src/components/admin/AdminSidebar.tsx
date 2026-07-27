@@ -47,12 +47,18 @@ const AdminSidebar = () => {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarContent className="bg-sidebar">
         {/* Logo */}
-        <div className="px-4 py-5 flex items-center gap-2">
+        <div className="px-4 py-6 flex items-center gap-2">
           {!collapsed && (
-            <img src="/doctylia-logo.png" alt="Doctylia" className="h-7" />
+            <img
+              src="/doctylia-logo.png"
+              alt="Doctylia"
+              className="h-12 w-auto object-contain select-none"
+              draggable={false}
+              style={{ imageRendering: "-webkit-optimize-contrast" }}
+            />
           )}
           {collapsed && (
-            <span className="text-primary font-heading font-bold text-lg">D</span>
+            <span className="text-primary font-heading font-bold text-xl">D</span>
           )}
         </div>
 
