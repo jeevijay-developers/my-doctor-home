@@ -58,6 +58,7 @@ const Onboarding = () => {
   const validateStep1 = () => {
     if (!form.full_name.trim()) return toast.error("Please enter your full name");
     if (!form.specialization) return toast.error("Please select your specialization");
+    if (form.specialization === "Other" && !form.specialization_other.trim()) return toast.error("Please specify your specialization");
     if (!form.qualifications.trim()) return toast.error("Please enter your qualifications");
     if (!form.experience_years || parseInt(form.experience_years) < 0) return toast.error("Please enter years of experience");
     if (!form.consultation_fee || parseInt(form.consultation_fee) < 0) return toast.error("Please enter your consultation fee");
