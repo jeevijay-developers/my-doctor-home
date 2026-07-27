@@ -139,10 +139,10 @@ const DashboardHome = () => {
               <Sparkles className="h-5 w-5 text-spark" />
               <span className="text-sm font-medium text-white/70">{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
             </div>
-            <h1 className="font-heading font-extrabold text-2xl md:text-3xl text-white">
+            <h1 className="font-heading font-extrabold text-xl md:text-2xl text-white">
               Welcome back, {profile?.full_name?.split(" ")[0] || "Doctor"} 👋
             </h1>
-            <p className="text-white/60 mt-1 text-sm">Here's what's happening with your practice today.</p>
+            <p className="text-white/60 mt-0.5 text-xs md:text-sm">Here's what's happening with your practice today.</p>
           </div>
           {profile?.plan_status === "trial" && (
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 min-w-[220px]">
