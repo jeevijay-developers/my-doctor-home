@@ -37,14 +37,20 @@ const SuperAdminSidebar = () => {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarContent className="bg-primary">
-        <div className="px-4 py-5 flex items-center gap-2">
+        <div className="px-4 py-6 flex items-center gap-2">
           {!collapsed ? (
             <>
-              <img src="/doctylia-logo.png" alt="Doctylia" className="h-6 brightness-0 invert" />
+              <img
+                src="/doctylia-logo.png"
+                alt="Doctylia"
+                className="h-12 w-auto object-contain select-none brightness-0 invert"
+                draggable={false}
+                style={{ imageRendering: "-webkit-optimize-contrast" }}
+              />
               <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-spark text-primary px-2 py-0.5 rounded">Super</span>
             </>
           ) : (
-            <Shield className="h-5 w-5 text-spark" />
+            <Shield className="h-6 w-6 text-spark" />
           )}
         </div>
         <SidebarGroup>
