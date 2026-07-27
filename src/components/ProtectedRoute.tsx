@@ -9,17 +9,46 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [suspended, setSuspended] = useState(false);
 
   useEffect(() => {
-    const check = async (s: any) => {
+    let mounted = true;
+
+    // Synchronous listener only — never await supabase calls inside this callback
+    // (doing so deadlocks the auth client on refresh / token refresh events).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (!mounted) return;
       setSession(s);
-      if (s) {
-        const { data: prof } = await supabase.from("profiles").select("plan_status").eq("id", s.user.id).maybeSingle();
-        setSuspended(prof?.plan_status === "cancelled");
-      }
       setLoading(false);
+      if (s?.user?.id) {
+        // Defer the profile lookup so the auth callback returns immediately.
+        setTimeout(async () => {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("plan_status")
+            .eq("id", s.user.id)
+            .maybeSingle();
+          if (mounted) setSuspended(prof?.plan_status === "cancelled");
+        }, 0);
+      } else {
+        setSuspended(false);
+      }
+    });
+
+    // Prime with current session in case no auth event fires immediately.
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      if (!mounted) return;
+      setSession((prev: any) => prev ?? s);
+      setLoading(false);
+    });
+
+    // Safety net: never stay in loading forever.
+    const failsafe = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 4000);
+
+    return () => {
+      mounted = false;
+      clearTimeout(failsafe);
+      subscription.unsubscribe();
     };
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => check(s));
-    supabase.auth.getSession().then(({ data: { session } }) => check(session));
-    return () => subscription.unsubscribe();
   }, []);
 
   if (loading) {
