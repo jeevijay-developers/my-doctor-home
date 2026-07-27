@@ -29,7 +29,7 @@ const Onboarding = () => {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [form, setForm] = useState({
-    full_name: "", specialization: "", qualifications: "", experience_years: "",
+    full_name: "", specialization: "", specialization_other: "", qualifications: "", experience_years: "",
     clinic_name: "", state: "", city: "", address: "", phone: "", bio: "", consultation_fee: "",
   });
   const navigate = useNavigate();
