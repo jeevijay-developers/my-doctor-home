@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Trash2, CheckSquare, X, Calendar as CalendarIcon } from "lucide-react";
+import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Trash2, X, Calendar as CalendarIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
