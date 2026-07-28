@@ -92,59 +92,43 @@ const AppointmentSlip = ({
 
         <div data-slip-print-root>
           <div className="slip-card relative bg-white overflow-hidden" style={{ aspectRatio: "1 / 1.45" }}>
-            {/* Diagonal curved teal sidebar panel */}
-            <svg
-              className="absolute inset-y-0 left-0 h-full pointer-events-none"
-              style={{ width: "42%" }}
-              viewBox="0 0 100 145"
-              preserveAspectRatio="none"
+            {/* Solid straight teal sidebar panel */}
+            <div
+              className="absolute inset-y-0 left-0 pointer-events-none"
+              style={{
+                width: "36%",
+                background: "linear-gradient(135deg, #1c8998 0%, #0a4f5a 100%)",
+              }}
               aria-hidden
-            >
-              <defs>
-                <linearGradient id="slipTealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#1c8998" />
-                  <stop offset="100%" stopColor="#0a4f5a" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M0,0 L100,0 Q78,72 100,145 L0,145 Z"
-                fill="url(#slipTealGrad)"
-              />
-            </svg>
+            />
 
             {/* CONTENT LAYER */}
             <div className="relative grid grid-cols-[36%_64%] h-full">
               {/* LEFT COLUMN */}
               <div className="flex flex-col text-white p-4 md:p-5">
-                {/* Top branding */}
-                <div className="text-center pt-1">
-                  <div className="font-heading font-extrabold text-[15px] leading-tight uppercase tracking-wide break-words">
-                    {clinicName}
-                  </div>
-                  <div
-                    className="text-[11px] mt-1 leading-snug"
-                    style={{
-                      color: "#c8f57a",
-                      fontFamily: "'Great Vibes', 'Dancing Script', cursive",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    {tagline}
-                  </div>
-                </div>
-
-                {/* Center: Doctylia logo as-is (no circle border) */}
-                <div className="flex flex-col items-center justify-center flex-1 my-4">
+                {/* Top branding: original Doctylia logo + "Doctylia" name */}
+                <div className="flex items-center justify-center gap-2 pt-1">
                   <img
                     src={doctyliaLogo}
-                    alt="Doctylia — The complete doctor platform"
-                    className="w-[78%] max-w-[140px] h-auto object-contain"
-                    style={{
-                      filter:
-                        "brightness(0) invert(1) sepia(1) saturate(6) hue-rotate(35deg) brightness(1.15)",
-                    }}
+                    alt="Doctylia"
+                    className="h-8 w-auto object-contain shrink-0"
                   />
+                  <span className="font-heading font-extrabold text-[18px] leading-none tracking-tight text-white">
+                    Doctylia
+                  </span>
                 </div>
+                <div
+                  className="text-[11px] mt-2 leading-snug text-center"
+                  style={{
+                    color: "#c8f57a",
+                    fontFamily: "'Great Vibes', 'Dancing Script', cursive",
+                    fontStyle: "italic",
+                  }}
+                >
+                  {tagline}
+                </div>
+
+                <div className="flex-1" />
 
                 {/* Contact block */}
                 <div className="space-y-2 text-[9.5px] text-white/95 pb-1">
