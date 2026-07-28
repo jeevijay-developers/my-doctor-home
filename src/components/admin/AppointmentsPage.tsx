@@ -712,6 +712,30 @@ const AppointmentsPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Double-booking confirmation */}
+      <AlertDialog open={!!slotConflict} onOpenChange={(o) => !o && setSlotConflict(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-warning/15">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-warning"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <AlertDialogTitle className="text-center">Time Slot Already Booked</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              This time slot ({slotConflict?.time}) already has {slotConflict?.taken}/{slotConflict?.cap} appointment{(slotConflict?.taken ?? 0) === 1 ? "" : "s"} scheduled. Do you want to book another appointment at the same time anyway?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setSlotConflict(null); addAppointment(true); }}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+            >
+              Book Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Floating bulk action bar */}
       {selectMode && selectedIds.size > 0 && (
         <div
