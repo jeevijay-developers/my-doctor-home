@@ -262,55 +262,74 @@ const PrescriptionsPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((rx) => {
-            const isSelected = selectedIds.has(rx.id);
-            return (
-              <Card
-                key={rx.id}
-                className={`border-border/60 shadow-none border-l-4 border-l-ai-purple/40 transition-all cursor-pointer ${
-                  selectMode ? "" : "hover:shadow-md"
-                } ${isSelected ? "bg-royal/5 ring-2 ring-royal ring-offset-2" : ""}`}
-                onClick={selectMode ? () => toggleSelected(rx.id) : () => setViewing(rx)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    {selectMode && (
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleSelected(rx.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={`Select prescription for ${rx.patient_name}`}
-                        className="h-5 w-5 rounded-full mt-1"
-                      />
-                    )}
-                    <div className="w-10 h-10 rounded-full bg-ai-purple/10 flex items-center justify-center text-sm font-bold text-ai-purple flex-shrink-0">
-                      {rx.patient_name?.charAt(0)?.toUpperCase() || "P"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-foreground">{rx.patient_name}</h3>
-                        <Badge variant="secondary" className="text-[10px] bg-secondary">{rx.date}</Badge>
-                      </div>
-                      {rx.diagnosis && (
-                        <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
+        <Card className="border-border/60 shadow-none overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/60 border-b border-border">
+                <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {selectMode && <th className="pl-4 pr-2 py-3 w-10"></th>}
+                  <th className="px-4 py-3">Patient</th>
+                  <th className="px-4 py-3 hidden md:table-cell">Diagnosis</th>
+                  <th className="px-4 py-3 hidden lg:table-cell">Medications</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((rx) => {
+                  const isSelected = selectedIds.has(rx.id);
+                  return (
+                    <tr
+                      key={rx.id}
+                      className={`border-b border-border/60 last:border-0 cursor-pointer transition-colors ${
+                        isSelected ? "bg-royal/5" : "hover:bg-secondary/40"
+                      }`}
+                      onClick={selectMode ? () => toggleSelected(rx.id) : () => setViewing(rx)}
+                    >
+                      {selectMode && (
+                        <td className="pl-4 pr-2 py-3 w-10" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelected(rx.id)}
+                            aria-label={`Select prescription for ${rx.patient_name}`}
+                            className="h-5 w-5 rounded"
+                          />
+                        </td>
+                      )}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-ai-purple/10 flex items-center justify-center text-sm font-bold text-ai-purple flex-shrink-0">
+                            {rx.patient_name?.charAt(0)?.toUpperCase() || "P"}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-foreground truncate">{rx.patient_name}</div>
+                            <div className="text-xs text-muted-foreground md:hidden truncate">
+                              {rx.diagnosis || "—"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell max-w-[220px]">
+                        <div className="flex items-center gap-1.5">
                           <Stethoscope className="h-3.5 w-3.5 text-royal flex-shrink-0" />
-                          <span className="truncate">{rx.diagnosis}</span>
+                          <span className="truncate">{rx.diagnosis || "—"}</span>
                         </div>
-                      )}
-                      {rx.medications && (
-                        <div className="flex items-start gap-1.5 mt-1 text-sm text-muted-foreground">
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell max-w-[280px]">
+                        <div className="flex items-start gap-1.5">
                           <Pill className="h-3.5 w-3.5 text-teal flex-shrink-0 mt-0.5" />
-                          <span className="line-clamp-2 whitespace-pre-line">{rx.medications}</span>
+                          <span className="line-clamp-1">{rx.medications || "—"}</span>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <Badge variant="secondary" className="text-[10px] bg-secondary">{rx.date}</Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
       {/* Prescription detail sheet */}

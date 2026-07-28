@@ -73,47 +73,82 @@ const ReviewsManagePage = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {reviews.map((r) => (
-            <Card key={r.id} className={`border-border/60 shadow-none hover:shadow-md transition-shadow ${!r.is_visible ? "opacity-60" : ""} ${r.is_pinned ? "border-l-4 border-l-warning" : ""}`}>
-              <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center text-sm font-bold text-warning flex-shrink-0">
-                      {r.patient_name?.charAt(0)?.toUpperCase() || "P"}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-foreground">{r.patient_name}</h3>
-                        <div className="flex items-center gap-0.5">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? "text-warning fill-warning" : "text-muted-foreground/20"}`} />
-                          ))}
+        <Card className="border-border/60 shadow-none overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/60 border-b border-border">
+                <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <th className="px-4 py-3">Patient</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Rating</th>
+                  <th className="px-4 py-3 hidden md:table-cell">Review</th>
+                  <th className="px-4 py-3 hidden lg:table-cell whitespace-nowrap">Date</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reviews.map((r) => (
+                  <tr
+                    key={r.id}
+                    className={`border-b border-border/60 last:border-0 transition-colors hover:bg-secondary/40 ${
+                      !r.is_visible ? "opacity-60" : ""
+                    } ${r.is_pinned ? "bg-warning/5" : ""}`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-warning/10 flex items-center justify-center text-sm font-bold text-warning flex-shrink-0">
+                          {r.patient_name?.charAt(0)?.toUpperCase() || "P"}
                         </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-foreground truncate">{r.patient_name}</div>
+                          <div className="text-[11px] text-muted-foreground lg:hidden">
+                            {new Date(r.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? "text-warning fill-warning" : "text-muted-foreground/20"}`} />
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell max-w-[320px]">
+                      <span className="line-clamp-2">{r.review_text || "—"}</span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
                         {r.is_verified && <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">Verified</Badge>}
                         {r.is_pinned && <Badge variant="secondary" className="text-[10px] bg-warning/10 text-warning">Pinned</Badge>}
                         {!r.is_visible && <Badge variant="secondary" className="text-[10px] bg-destructive/10 text-destructive">Hidden</Badge>}
+                        {r.is_visible && !r.is_pinned && !r.is_verified && (
+                          <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">Visible</Badge>
+                        )}
                       </div>
-                      {r.review_text && <p className="text-sm text-muted-foreground mt-1">{r.review_text}</p>}
-                      <p className="text-[11px] text-muted-foreground/60 mt-1">{new Date(r.created_at).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggle(r.id, "is_pinned", r.is_pinned)} title={r.is_pinned ? "Unpin" : "Pin"}>
-                      <Pin className={`h-4 w-4 ${r.is_pinned ? "text-warning" : "text-muted-foreground/40"}`} />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggle(r.id, "is_visible", r.is_visible)} title={r.is_visible ? "Hide" : "Show"}>
-                      {r.is_visible ? <Eye className="h-4 w-4 text-success" /> : <EyeOff className="h-4 w-4 text-muted-foreground/40" />}
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/60 hover:text-destructive" onClick={() => deleteReview(r.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggle(r.id, "is_pinned", r.is_pinned)} title={r.is_pinned ? "Unpin" : "Pin"}>
+                          <Pin className={`h-4 w-4 ${r.is_pinned ? "text-warning" : "text-muted-foreground/40"}`} />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggle(r.id, "is_visible", r.is_visible)} title={r.is_visible ? "Hide" : "Show"}>
+                          {r.is_visible ? <Eye className="h-4 w-4 text-success" /> : <EyeOff className="h-4 w-4 text-muted-foreground/40" />}
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive/60 hover:text-destructive" onClick={() => deleteReview(r.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </div>
   );
