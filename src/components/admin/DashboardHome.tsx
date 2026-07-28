@@ -78,6 +78,7 @@ const DashboardHome = () => {
     const channel = supabase.channel(`dash-${profile.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
       .on("postgres_changes", { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
