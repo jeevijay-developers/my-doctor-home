@@ -269,6 +269,16 @@ const AppointmentsPage = () => {
     ? allTimeSlots.filter((t) => new Date(`${todayStr}T${t}`).getTime() > Date.now())
     : allTimeSlots;
 
+  // Auto-select first available slot when dialog opens or slot list changes
+  useEffect(() => {
+    if (!showNew) return;
+    if (timeSlots.length === 0) return;
+    if (!timeSlots.includes(newAppt.time_slot)) {
+      setNewAppt((prev) => ({ ...prev, time_slot: timeSlots[0] }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNew, newAppt.date, timeSlots.join(",")]);
+
   return (
     <div className="max-w-6xl mx-auto space-y-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -323,7 +333,7 @@ const AppointmentsPage = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Amount (₹)</Label>
-                  <Input type="number" value={newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: Number(e.target.value) })} className="h-10" />
+                  <Input type="number" min={0} placeholder="0" value={newAppt.amount === 0 ? "" : newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
                 </div>
               </div>
               <Button onClick={addAppointment} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
