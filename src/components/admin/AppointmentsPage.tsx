@@ -340,7 +340,7 @@ const AppointmentsPage = () => {
                   <Input type="number" min={0} placeholder="0" value={newAppt.amount === 0 ? "" : newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
                 </div>
               </div>
-              <Button onClick={addAppointment} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
+              <Button onClick={() => addAppointment()} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
             </div>
           </DialogContent>
         </Dialog>
