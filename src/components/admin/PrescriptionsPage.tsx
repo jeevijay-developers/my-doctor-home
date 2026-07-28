@@ -65,6 +65,20 @@ const PrescriptionsPage = () => {
 
   useEffect(() => { load(); loadPatients(); }, [profile]);
 
+  // Keep patients list in sync with Patients section (add/delete/update)
+  useEffect(() => {
+    if (!profile) return;
+    const channel = supabase
+      .channel(`rx-patients-${profile.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` },
+        () => loadPatients()
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile]);
+
   // Keep detail view in sync with latest data
   useEffect(() => {
     if (!viewing) return;
@@ -163,7 +177,7 @@ const PrescriptionsPage = () => {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{prescriptions.length} total records</p>
         </div>
-        <Dialog open={showNew} onOpenChange={setShowNew}>
+        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); }}>
           <DialogTrigger asChild>
             <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> New Prescription</Button>
           </DialogTrigger>
