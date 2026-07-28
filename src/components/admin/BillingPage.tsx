@@ -120,10 +120,14 @@ const BillingPage = () => {
   const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
+  // Revenue totals are computed from the persisted invoices table (not from
+  // live appointments), so deleting an appointment or patient later does NOT
+  // retroactively reduce Revenue / Billing figures.
+  const invoiceDate = (inv: Invoice) => (inv.created_at || "").slice(0, 10);
   const paid = appointments.filter((a) => a.payment_status === "paid");
-  const todayRev = paid.filter((a) => a.date === today).reduce((s, a) => s + a.amount, 0);
-  const weekRev = paid.filter((a) => a.date >= weekStart && a.date <= weekEnd).reduce((s, a) => s + a.amount, 0);
-  const monthRev = paid.filter((a) => a.date >= monthStart && a.date <= monthEnd).reduce((s, a) => s + a.amount, 0);
+  const todayRev = invoices.filter((i) => invoiceDate(i) === today).reduce((s, i) => s + Number(i.amount || 0), 0);
+  const weekRev = invoices.filter((i) => invoiceDate(i) >= weekStart && invoiceDate(i) <= weekEnd).reduce((s, i) => s + Number(i.amount || 0), 0);
+  const monthRev = invoices.filter((i) => invoiceDate(i) >= monthStart && invoiceDate(i) <= monthEnd).reduce((s, i) => s + Number(i.amount || 0), 0);
 
   const filtered = filter === "all" ? appointments : appointments.filter((a) => a.payment_status === filter);
 

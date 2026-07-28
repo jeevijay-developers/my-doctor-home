@@ -43,15 +43,17 @@ const DashboardHome = () => {
     Promise.all([
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id),
       supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id),
-      supabase.from("appointments").select("amount").eq("doctor_id", id).eq("payment_status", "paid"),
+      // Revenue is now sourced from the persisted invoices table so it survives
+      // appointment / patient deletions.
+      (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id),
       supabase.from("appointments").select("*").eq("doctor_id", id).eq("date", today).order("time_slot"),
       supabase.from("services").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("active", true),
       supabase.from("blog_posts").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("is_published", true),
-      supabase.from("appointments").select("amount").eq("doctor_id", id).eq("payment_status", "paid").gte("date", weekAgo),
+      (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id).gte("created_at", `${weekAgo}T00:00:00`),
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo),
     ]).then(([apptRes, patRes, revRes, todayRes, svcRes, blogRes, weekRevRes, lastWeekRes]) => {
-      const revenue = (revRes.data || []).reduce((s, r) => s + (r.amount || 0), 0);
-      const weekRevenue = (weekRevRes.data || []).reduce((s, r) => s + (r.amount || 0), 0);
+      const revenue = (revRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
+      const weekRevenue = (weekRevRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const todayData = todayRes.data || [];
       setStats({
         appointments: apptRes.count || 0,
@@ -76,6 +78,7 @@ const DashboardHome = () => {
     const channel = supabase.channel(`dash-${profile.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
       .on("postgres_changes", { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

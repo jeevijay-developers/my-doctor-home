@@ -287,7 +287,7 @@ export type Database = {
       invoices: {
         Row: {
           amount: number
-          appointment_id: string
+          appointment_id: string | null
           clinic_gstin: string | null
           created_at: string
           doctor_id: string
@@ -302,7 +302,7 @@ export type Database = {
         }
         Insert: {
           amount?: number
-          appointment_id: string
+          appointment_id?: string | null
           clinic_gstin?: string | null
           created_at?: string
           doctor_id: string
@@ -317,7 +317,7 @@ export type Database = {
         }
         Update: {
           amount?: number
-          appointment_id?: string
+          appointment_id?: string | null
           clinic_gstin?: string | null
           created_at?: string
           doctor_id?: string

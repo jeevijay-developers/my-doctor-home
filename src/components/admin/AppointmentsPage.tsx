@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format, isSameDay, parseISO } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
+import { ensureInvoiceForAppointment } from "@/lib/invoiceGeneration";
 
 type Appointment = {
   id: string; patient_name: string; patient_phone: string; patient_age: number | null;
@@ -171,6 +172,19 @@ const AppointmentsPage = () => {
     await supabase.from("appointments").update({ status: status as any }).eq("id", id);
     if (status === "completed" && current && current.status !== "completed") {
       await upsertPatientForCompletion(current);
+      // Persist an invoice now so Revenue/Billing remain intact even if the
+      // appointment is deleted later.
+      try {
+        await ensureInvoiceForAppointment({
+          id: current.id,
+          doctor_id: (profile as any).id,
+          patient_name: current.patient_name,
+          service_name: current.service_name,
+          amount: current.amount,
+        });
+      } catch (e) {
+        console.warn("Invoice generation failed", e);
+      }
     }
     load();
     toast.success(`Marked ${status.replace("_", " ")}`);
