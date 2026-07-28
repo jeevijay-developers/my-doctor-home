@@ -58,6 +58,7 @@ const AppointmentsPage = () => {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
   const [viewing, setViewing] = useState<Appointment | null>(null);
+  const [slotConflict, setSlotConflict] = useState<{ taken: number; cap: number; time: string } | null>(null);
 
   // Keep detail view in sync with the latest data after mutations
   useEffect(() => {
@@ -206,7 +207,7 @@ const AppointmentsPage = () => {
     });
   };
 
-  const addAppointment = async () => {
+  const addAppointment = async (bypassSlotCheck = false) => {
     if (!profile) return;
     if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
     if (!newAppt.patient_phone.trim()) { toast.error("Phone number is required"); return; }
@@ -216,16 +217,18 @@ const AppointmentsPage = () => {
     if (apptTs.getTime() < Date.now()) { toast.error("Cannot book an appointment for a past date or time slot."); return; }
     const normalizedPhone = normalizeIndianPhone(newAppt.patient_phone);
 
-    const { data: settingsRow } = await supabase
-      .from("website_settings").select("max_per_slot").eq("doctor_id", profile.id).single();
-    const cap = (settingsRow as any)?.max_per_slot || 1;
-    const { count: taken } = await supabase
-      .from("appointments").select("*", { count: "exact", head: true })
-      .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
-      .neq("status", "cancelled");
-    if ((taken ?? 0) >= cap) {
-      const ok = confirm(`This slot already has ${taken}/${cap} appointments. Add anyway?`);
-      if (!ok) return;
+    if (!bypassSlotCheck) {
+      const { data: settingsRow } = await supabase
+        .from("website_settings").select("max_per_slot").eq("doctor_id", profile.id).single();
+      const cap = (settingsRow as any)?.max_per_slot || 1;
+      const { count: taken } = await supabase
+        .from("appointments").select("*", { count: "exact", head: true })
+        .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
+        .neq("status", "cancelled");
+      if ((taken ?? 0) >= cap) {
+        setSlotConflict({ taken: taken ?? 0, cap, time: newAppt.time_slot });
+        return;
+      }
     }
 
     const token = `T${Math.floor(Math.random() * 900) + 100}`;
@@ -242,6 +245,7 @@ const AppointmentsPage = () => {
     // BUG-04: patient row created only when appointment is completed.
 
     setShowNew(false);
+    setSlotConflict(null);
     setNewAppt({ patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic", date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0, status: "pending" });
     load();
     toast.success("Appointment added");
@@ -336,7 +340,7 @@ const AppointmentsPage = () => {
                   <Input type="number" min={0} placeholder="0" value={newAppt.amount === 0 ? "" : newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
                 </div>
               </div>
-              <Button onClick={addAppointment} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
+              <Button onClick={() => addAppointment()} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -703,6 +707,30 @@ const AppointmentsPage = () => {
               onClick={() => { if (deletingId) { deleteAppointment(deletingId); setDeletingId(null); } }}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Double-booking confirmation */}
+      <AlertDialog open={!!slotConflict} onOpenChange={(o) => !o && setSlotConflict(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-warning/15">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-warning"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <AlertDialogTitle className="text-center">Time Slot Already Booked</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              This time slot ({slotConflict?.time}) already has {slotConflict?.taken}/{slotConflict?.cap} appointment{(slotConflict?.taken ?? 0) === 1 ? "" : "s"} scheduled. Do you want to book another appointment at the same time anyway?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setSlotConflict(null); addAppointment(true); }}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+            >
+              Book Anyway
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
