@@ -106,32 +106,20 @@ const AppointmentSlip = ({
             <div className="relative grid grid-cols-[36%_64%] h-full">
               {/* LEFT COLUMN */}
               <div className="flex flex-col text-white p-4 md:p-5">
-                {/* Top branding: original Doctylia logo + "Doctylia" name */}
+                {/* Top branding: original Doctylia logo only */}
                 <div className="flex items-center justify-center gap-2 pt-1">
                   <img
                     src={doctyliaLogo}
                     alt="Doctylia"
-                    className="h-8 w-auto object-contain shrink-0"
+                    className="h-9 w-auto object-contain shrink-0"
                   />
-                  <span className="font-heading font-extrabold text-[18px] leading-none tracking-tight text-white">
-                    Doctylia
-                  </span>
-                </div>
-                <div
-                  className="text-[11px] mt-2 leading-snug text-center"
-                  style={{
-                    color: "#c8f57a",
-                    fontFamily: "'Great Vibes', 'Dancing Script', cursive",
-                    fontStyle: "italic",
-                  }}
-                >
-                  {tagline}
                 </div>
 
-                <div className="flex-1" />
-
-                {/* Contact block */}
-                <div className="space-y-2 text-[9.5px] text-white/95 pb-1">
+                {/* Contact block — moved to header, aligned below logo */}
+                <div className="mt-4 space-y-2.5 text-[9.5px] text-white/95">
+                  <div className="text-[10px] tracking-[0.25em] font-semibold text-white/70 border-b border-white/15 pb-2 mb-2">
+                    CONTACT
+                  </div>
                   {clinicAddr && (
                     <div className="flex items-start gap-1.5">
                       <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
