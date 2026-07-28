@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -261,15 +262,23 @@ const PrescriptionsPage = () => {
                 {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
               </Button>
             )}
-            <Button
-              size="sm"
-              variant={selectMode ? "secondary" : "outline"}
-              className="h-8 text-xs"
-              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-              aria-pressed={selectMode}
-            >
-              {selectMode ? (<><X className="h-3.5 w-3.5 mr-1" /> Done</>) : (<><CheckSquare className="h-3.5 w-3.5 mr-1" /> Select</>)}
-            </Button>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={selectMode ? "default" : "outline"}
+                    className={`h-8 w-8 p-0 ${selectMode ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}`}
+                    onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                    aria-pressed={selectMode}
+                    aria-label={selectMode ? "Exit selection mode" : "Select items to delete"}
+                  >
+                    {selectMode ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       )}
