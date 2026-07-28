@@ -147,9 +147,16 @@ const AppointmentsPage = () => {
 
   const upsertPatientForCompletion = async (appt: Appointment) => {
     if (!profile || !appt.patient_phone) return;
-    const { data: existing } = await supabase
-      .from("patients").select("id, total_visits, first_visit")
-      .eq("doctor_id", profile.id).eq("phone", appt.patient_phone).maybeSingle();
+    // Identify a patient by (phone + normalized name) so that two different
+    // people sharing a mobile number remain distinct patient records. The
+    // patient's UUID (patients.id) is the true identity; phone is contact info.
+    const normalizedName = (appt.patient_name || "").trim().toLowerCase();
+    const { data: candidates } = await supabase
+      .from("patients").select("id, name, total_visits, first_visit")
+      .eq("doctor_id", profile.id).eq("phone", appt.patient_phone);
+    const existing = (candidates || []).find(
+      (p: any) => (p.name || "").trim().toLowerCase() === normalizedName
+    );
     if (existing) {
       await supabase.from("patients").update({
         total_visits: (existing.total_visits || 0) + 1,
