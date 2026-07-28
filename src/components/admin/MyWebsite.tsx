@@ -27,6 +27,7 @@ const MyWebsite = () => {
   const nav = useNavigate();
   const { profile } = useProfile();
   const [settings, setSettings] = useState<WebSettings>({});
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
