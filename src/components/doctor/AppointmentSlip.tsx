@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { format } from "date-fns";
 import {
   Stethoscope, Building2, ClipboardList, Calendar, Clock, User, Phone,
-  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Video, Download, Printer, X, Plus, Check,
+  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Download, Printer, X,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -92,62 +92,62 @@ const AppointmentSlip = ({
 
         <div data-slip-print-root>
           <div className="slip-card relative bg-white overflow-hidden" style={{ aspectRatio: "1 / 1.45" }}>
-            {/* Straight teal sidebar panel */}
-            <div
-              className="absolute inset-y-0 left-0 w-[34%] pointer-events-none"
-              style={{
-                background: `linear-gradient(135deg, ${TEAL_LIGHT} 0%, ${TEAL} 60%, ${TEAL_DARK} 100%)`,
-              }}
+            {/* Diagonal curved teal sidebar panel */}
+            <svg
+              className="absolute inset-y-0 left-0 h-full pointer-events-none"
+              style={{ width: "42%" }}
+              viewBox="0 0 100 145"
+              preserveAspectRatio="none"
               aria-hidden
-            />
-
-
+            >
+              <defs>
+                <linearGradient id="slipTealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#1c8998" />
+                  <stop offset="100%" stopColor="#0a4f5a" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M0,0 L100,0 Q78,72 100,145 L0,145 Z"
+                fill="url(#slipTealGrad)"
+              />
+            </svg>
 
             {/* CONTENT LAYER */}
-            <div className="relative grid grid-cols-[34%_66%] h-full">
+            <div className="relative grid grid-cols-[36%_64%] h-full">
               {/* LEFT COLUMN */}
               <div className="flex flex-col text-white p-4 md:p-5">
                 {/* Top branding */}
-                <div className="flex items-start gap-2">
-                  <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
-                    <Plus className="h-4 w-4" strokeWidth={3.5} style={{ color: TEAL_DARK }} />
+                <div className="text-center pt-1">
+                  <div className="font-heading font-extrabold text-[15px] leading-tight uppercase tracking-wide break-words">
+                    {clinicName}
                   </div>
-                  <div className="min-w-0 pt-0.5">
-                    <div className="font-heading font-extrabold text-[13px] leading-tight uppercase tracking-wide break-words">
-                      {clinicName}
-                    </div>
-                    <div className="text-[9px] italic opacity-90 mt-0.5 leading-snug">{tagline}</div>
-                  </div>
-                </div>
-
-                {/* Center: Doctylia logo circle + caption */}
-                <div className="flex flex-col items-center text-center mt-8 mb-8">
-                  <div className="w-20 h-20 rounded-full border-2 border-white/40 bg-white/10 flex items-center justify-center p-3 shadow-inner">
-                    <img
-                      src={doctyliaLogo}
-                      alt="Doctylia"
-                      className="w-full h-full object-contain"
-                      style={{ filter: "brightness(0) invert(1)" }}
-                    />
-                  </div>
-                  <div className="text-[10px] italic opacity-95 mt-3 leading-snug px-2">
-                    Trusted care,<br />every single visit.
+                  <div
+                    className="text-[11px] mt-1 leading-snug"
+                    style={{
+                      color: "#c8f57a",
+                      fontFamily: "'Great Vibes', 'Dancing Script', cursive",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    {tagline}
                   </div>
                 </div>
 
-                <div className="flex-1" />
-
-                {/* Bottom: 3 badge icons */}
-                <div className="flex justify-center gap-2 mb-3">
-                  {[Clock, Check, MapPin].map((Icon, i) => (
-                    <div key={i} className="w-6 h-6 rounded-full border border-white/40 bg-white/10 flex items-center justify-center">
-                      <Icon className="h-3 w-3" strokeWidth={2.5} />
-                    </div>
-                  ))}
+                {/* Center: Doctylia logo as-is (no circle border) */}
+                <div className="flex flex-col items-center justify-center flex-1 my-4">
+                  <img
+                    src={doctyliaLogo}
+                    alt="Doctylia — The complete doctor platform"
+                    className="w-[78%] max-w-[140px] h-auto object-contain"
+                    style={{
+                      filter:
+                        "brightness(0) invert(1) sepia(1) saturate(6) hue-rotate(35deg) brightness(1.15)",
+                    }}
+                  />
                 </div>
 
-                {/* Contact */}
-                <div className="space-y-1.5 text-[9.5px] text-white/95">
+                {/* Contact block */}
+                <div className="space-y-2 text-[9.5px] text-white/95 pb-1">
                   {clinicAddr && (
                     <div className="flex items-start gap-1.5">
                       <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
@@ -160,12 +160,19 @@ const AppointmentSlip = ({
                       <span className="break-all">{clinicPhone}</span>
                     </div>
                   )}
+                  {clinicEmail && (
+                    <div className="flex items-center gap-1.5">
+                      <Mail className="h-3 w-3 shrink-0" />
+                      <span className="break-all">{clinicEmail}</span>
+                    </div>
+                  )}
                   <div className="flex items-start gap-1.5">
                     <Globe className="h-3 w-3 mt-0.5 shrink-0" />
                     <span className="break-all leading-snug">{websiteLabel}</span>
                   </div>
                 </div>
               </div>
+
 
 
               {/* RIGHT COLUMN */}
@@ -227,16 +234,9 @@ const AppointmentSlip = ({
                       </span>
                     </div>
                   </div>
-                  {paymentStatus && (
-                    <div className="grid grid-cols-[22px_1fr_1.4fr] items-center gap-2 py-2">
-                      <IndianRupee className="h-4 w-4" style={{ color: TEAL_DARK }} />
-                      <div className="text-[12px]" style={{ color: "#6b7280" }}>Payment</div>
-                      <div className="text-[13px] font-bold capitalize" style={{ color: TEAL_DARK }}>
-                        {paymentStatus.replace(/_/g, " ")}
-                      </div>
-                    </div>
-                  )}
                 </div>
+
+
 
                 {/* Instruction + QR */}
                 <div
