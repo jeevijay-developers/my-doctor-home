@@ -603,6 +603,15 @@ const MyWebsite = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit About / Profile</DialogTitle>
+          </DialogHeader>
+          <ProfilePage />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
