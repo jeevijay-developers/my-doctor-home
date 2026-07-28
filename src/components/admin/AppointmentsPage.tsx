@@ -29,7 +29,6 @@ type Appointment = {
 
 const statusConfig: Record<string, { bg: string; dot: string; label: string }> = {
   pending: { bg: "bg-warning/10 text-warning border-l-warning", dot: "bg-warning", label: "Pending" },
-  confirmed: { bg: "bg-success/10 text-success border-l-success", dot: "bg-success", label: "Confirmed" },
   completed: { bg: "bg-royal/10 text-royal border-l-royal", dot: "bg-royal", label: "Completed" },
   cancelled: { bg: "bg-destructive/10 text-destructive border-l-destructive", dot: "bg-destructive", label: "Cancelled" },
   no_show: { bg: "bg-muted text-muted-foreground border-l-muted-foreground", dot: "bg-muted-foreground", label: "No Show" },
@@ -261,9 +260,9 @@ const AppointmentsPage = () => {
   // Status summary counts
   const statusCounts = {
     total: appointments.length,
-    pending: appointments.filter(a => a.status === "pending").length,
-    confirmed: appointments.filter(a => a.status === "confirmed").length,
+    pending: appointments.filter(a => a.status === "pending" || a.status === "confirmed").length,
     completed: appointments.filter(a => a.status === "completed").length,
+    cancelled: appointments.filter(a => a.status === "cancelled").length,
   };
 
   const allTimeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
@@ -406,8 +405,8 @@ const AppointmentsPage = () => {
         {[
           { label: "Total", count: statusCounts.total, color: "text-foreground", bg: "bg-secondary" },
           { label: "Pending", count: statusCounts.pending, color: "text-warning", bg: "bg-warning/10" },
-          { label: "Confirmed", count: statusCounts.confirmed, color: "text-success", bg: "bg-success/10" },
           { label: "Completed", count: statusCounts.completed, color: "text-royal", bg: "bg-royal/10" },
+          { label: "Cancelled", count: statusCounts.cancelled, color: "text-destructive", bg: "bg-destructive/10" },
         ].map(s => (
           <div key={s.label} className={`${s.bg} rounded-xl p-3 text-center`}>
             <div className={`font-heading font-bold text-xl ${s.color}`}>{s.count}</div>
@@ -427,7 +426,7 @@ const AppointmentsPage = () => {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
+            
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
             <SelectItem value="no_show">No Show</SelectItem>
@@ -570,11 +569,12 @@ const AppointmentsPage = () => {
             const sc = statusConfig[viewing.status] || statusConfig.pending;
             const transitions: Record<string, { label: string; next: string; tone: string }[]> = {
               pending: [
-                { label: "Confirm", next: "confirmed", tone: "bg-success text-white hover:bg-success/90" },
+                { label: "Complete", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
+                { label: "No Show", next: "no_show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
                 { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
               ],
               confirmed: [
-                { label: "Completed", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
+                { label: "Complete", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
                 { label: "No Show", next: "no_show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
                 { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
               ],
