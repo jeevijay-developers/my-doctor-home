@@ -261,7 +261,7 @@ const MyWebsite = () => {
                           <SelectContent><SelectItem value="clinic">Clinic</SelectItem><SelectItem value="online">Online</SelectItem><SelectItem value="both">Both</SelectItem></SelectContent>
                         </Select>
                       </div>
-                      <div><Label className="text-xs">Duration</Label><Input type="number" value={s.duration} onChange={(e) => updateService(i, "duration", Number(e.target.value))} /></div>
+                      <div><Label className="text-xs">Duration</Label><Input type="number" placeholder="0" value={s.duration || ""} onChange={(e) => updateService(i, "duration", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
                     </div>
                   </div>
                 ))}
