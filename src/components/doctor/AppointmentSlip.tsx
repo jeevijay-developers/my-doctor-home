@@ -115,11 +115,8 @@ const AppointmentSlip = ({
                   />
                 </div>
 
-                {/* Contact block — moved to header, aligned below logo */}
-                <div className="mt-4 space-y-2.5 text-[9.5px] text-white/95">
-                  <div className="text-[10px] tracking-[0.25em] font-semibold text-white/70 border-b border-white/15 pb-2 mb-2">
-                    CONTACT
-                  </div>
+                {/* Contact block — pinned to the bottom, nudged up a few px */}
+                <div className="mt-auto space-y-2 text-[9.5px] text-white/95 pb-2">
                   {clinicAddr && (
                     <div className="flex items-start gap-1.5">
                       <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
