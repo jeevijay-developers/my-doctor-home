@@ -236,7 +236,7 @@ const AppointmentSlip = ({
                   </div>
                 </div>
 
-                </div>
+
 
                 {/* Instruction + QR */}
                 <div
