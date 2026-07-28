@@ -65,6 +65,20 @@ const PrescriptionsPage = () => {
 
   useEffect(() => { load(); loadPatients(); }, [profile]);
 
+  // Keep patients list in sync with Patients section (add/delete/update)
+  useEffect(() => {
+    if (!profile) return;
+    const channel = supabase
+      .channel(`rx-patients-${profile.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` },
+        () => loadPatients()
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile]);
+
   // Keep detail view in sync with latest data
   useEffect(() => {
     if (!viewing) return;
