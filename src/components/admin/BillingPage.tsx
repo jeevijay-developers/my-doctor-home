@@ -305,7 +305,7 @@ const BillingPage = () => {
                   {filtered.map((a) => {
                     const pc = paymentColors[a.payment_status] || paymentColors.pending;
                     return (
-                      <Card key={a.id} className="border-border/60 shadow-none hover:shadow-sm transition-shadow">
+                      <Card key={a.key} className="border-border/60 shadow-none hover:shadow-sm transition-shadow">
                         <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-sm font-bold text-success flex-shrink-0">
