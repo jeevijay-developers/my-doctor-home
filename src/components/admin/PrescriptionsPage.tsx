@@ -163,7 +163,7 @@ const PrescriptionsPage = () => {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{prescriptions.length} total records</p>
         </div>
-        <Dialog open={showNew} onOpenChange={setShowNew}>
+        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); }}>
           <DialogTrigger asChild>
             <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> New Prescription</Button>
           </DialogTrigger>
