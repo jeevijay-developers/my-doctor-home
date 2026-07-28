@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ProfilePage from "@/components/admin/ProfilePage";
 import { toast } from "@/hooks/use-toast";
 import { Star } from "lucide-react";
 
@@ -25,6 +27,7 @@ const MyWebsite = () => {
   const nav = useNavigate();
   const { profile } = useProfile();
   const [settings, setSettings] = useState<WebSettings>({});
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
@@ -222,7 +225,10 @@ const MyWebsite = () => {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
-                <p className="text-xs text-muted-foreground">About info is managed from Settings → Profile.</p>
+                <p className="text-xs text-muted-foreground">
+                  Edit your name, specialization, qualifications, experience, phone, clinic and consultation fee. Changes reflect on your public website and Profile page.
+                </p>
+                <Button size="sm" onClick={() => setAboutOpen(true)}>Edit About / Profile</Button>
               </AccordionContent>
             </AccordionItem>
 
@@ -597,6 +603,15 @@ const MyWebsite = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit About / Profile</DialogTitle>
+          </DialogHeader>
+          <ProfilePage />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
