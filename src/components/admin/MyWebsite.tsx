@@ -288,8 +288,8 @@ const MyWebsite = () => {
                     <Input placeholder="Package name" value={p.name} onChange={(e) => updatePackage(i, "name", e.target.value)} />
                     <Input placeholder="Tagline" value={p.tagline} onChange={(e) => updatePackage(i, "tagline", e.target.value)} />
                     <div className="grid grid-cols-3 gap-2">
-                      <div><Label className="text-xs">Price ₹</Label><Input type="number" value={p.price} onChange={(e) => updatePackage(i, "price", Number(e.target.value))} /></div>
-                      <div><Label className="text-xs">Original ₹</Label><Input type="number" value={p.original_price} onChange={(e) => updatePackage(i, "original_price", Number(e.target.value))} /></div>
+                      <div><Label className="text-xs">Price ₹</Label><Input type="number" placeholder="0" value={p.price || ""} onChange={(e) => updatePackage(i, "price", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
+                      <div><Label className="text-xs">Original ₹</Label><Input type="number" placeholder="0" value={p.original_price || ""} onChange={(e) => updatePackage(i, "original_price", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
                       <div>
                         <Label className="text-xs">Duration</Label>
                         <Select value={p.duration} onValueChange={(v) => updatePackage(i, "duration", v)}>
