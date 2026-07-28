@@ -202,7 +202,6 @@ const BillingPage = () => {
       "Amount (INR)": a.amount,
       "Payment Status": a.payment_status,
       "Appointment Status": a.status,
-      "Appointment Type": a.appointment_type,
     }));
     if (rows.length === 0) { toast.error("No transactions to export"); return; }
     const headers = Object.keys(rows[0]);
