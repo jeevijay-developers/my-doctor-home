@@ -58,6 +58,7 @@ const AppointmentsPage = () => {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
   const [viewing, setViewing] = useState<Appointment | null>(null);
+  const [slotConflict, setSlotConflict] = useState<{ taken: number; cap: number; time: string } | null>(null);
 
   // Keep detail view in sync with the latest data after mutations
   useEffect(() => {
