@@ -225,7 +225,10 @@ const MyWebsite = () => {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
-                <p className="text-xs text-muted-foreground">About info is managed from Settings → Profile.</p>
+                <p className="text-xs text-muted-foreground">
+                  Edit your name, specialization, qualifications, experience, phone, clinic and consultation fee. Changes reflect on your public website and Profile page.
+                </p>
+                <Button size="sm" onClick={() => setAboutOpen(true)}>Edit About / Profile</Button>
               </AccordionContent>
             </AccordionItem>
 
