@@ -59,8 +59,15 @@ const PrescriptionsPage = () => {
 
   const loadPatients = async () => {
     if (!profile) return;
-    const { data } = await supabase.from("patients").select("id, name, phone").eq("doctor_id", profile.id).order("name");
-    setPatients(data || []);
+    // Match the Patients page: only show patients with at least one completed visit.
+    // Otherwise records the doctor believes are "deleted" (hidden from Patients) still surface here.
+    const { data } = await supabase
+      .from("patients")
+      .select("id, name, phone, total_visits")
+      .eq("doctor_id", profile.id)
+      .gt("total_visits", 0)
+      .order("name");
+    setPatients((data || []).map(({ id, name, phone }) => ({ id, name, phone })));
   };
 
   useEffect(() => { load(); loadPatients(); }, [profile]);
