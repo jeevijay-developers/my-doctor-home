@@ -124,18 +124,55 @@ const BillingPage = () => {
   // live appointments), so deleting an appointment or patient later does NOT
   // retroactively reduce Revenue / Billing figures.
   const invoiceDate = (inv: Invoice) => (inv.created_at || "").slice(0, 10);
-  const paid = appointments.filter((a) => a.payment_status === "paid");
   const todayRev = invoices.filter((i) => invoiceDate(i) === today).reduce((s, i) => s + Number(i.amount || 0), 0);
   const weekRev = invoices.filter((i) => invoiceDate(i) >= weekStart && invoiceDate(i) <= weekEnd).reduce((s, i) => s + Number(i.amount || 0), 0);
   const monthRev = invoices.filter((i) => invoiceDate(i) >= monthStart && invoiceDate(i) <= monthEnd).reduce((s, i) => s + Number(i.amount || 0), 0);
 
-  const filtered = filter === "all" ? appointments : appointments.filter((a) => a.payment_status === filter);
+  // Persisted transaction rows are built from the invoices table (which
+  // survives appointment/patient deletion via ON DELETE SET NULL). We then
+  // append appointments that haven't been invoiced yet (pending / pay-at-
+  // clinic / refunded) so the doctor still sees open items.
+  type TxRow = {
+    key: string;
+    patient_name: string;
+    service_name: string;
+    date: string;
+    amount: number;
+    payment_status: "paid" | "pending" | "refunded" | "pay_at_clinic";
+    status: string;
+  };
+  const invoicedApptIds = new Set(invoices.map(i => i.appointment_id).filter(Boolean));
+  const invoiceTx: TxRow[] = invoices.map(i => ({
+    key: `inv-${i.id}`,
+    patient_name: i.patient_name,
+    service_name: i.service_name,
+    date: invoiceDate(i),
+    amount: Number(i.amount || 0),
+    payment_status: "paid",
+    status: "completed",
+  }));
+  const openApptTx: TxRow[] = appointments
+    .filter(a => !invoicedApptIds.has(a.id) && a.payment_status !== "paid")
+    .map(a => ({
+      key: `apt-${a.id}`,
+      patient_name: a.patient_name,
+      service_name: a.service_name,
+      date: a.date,
+      amount: Number(a.amount || 0),
+      payment_status: a.payment_status,
+      status: a.status,
+    }));
+  const transactions: TxRow[] = [...invoiceTx, ...openApptTx].sort(
+    (a, b) => (b.date || "").localeCompare(a.date || "")
+  );
 
-  const paidCount = appointments.filter(a => a.payment_status === "paid").length;
-  const pendingCount = appointments.filter(a => a.payment_status === "pending").length;
-  const clinicCount = appointments.filter(a => a.payment_status === "pay_at_clinic").length;
-  const refundedCount = appointments.filter(a => a.payment_status === "refunded").length;
-  const totalCount = appointments.length || 1;
+  const filtered = filter === "all" ? transactions : transactions.filter(t => t.payment_status === filter);
+
+  const paidCount = transactions.filter(t => t.payment_status === "paid").length;
+  const pendingCount = transactions.filter(t => t.payment_status === "pending").length;
+  const clinicCount = transactions.filter(t => t.payment_status === "pay_at_clinic").length;
+  const refundedCount = transactions.filter(t => t.payment_status === "refunded").length;
+  const totalCount = transactions.length || 1;
 
   const paymentColors: Record<string, { bg: string; text: string; label: string }> = {
     paid: { bg: "bg-success/10", text: "text-success", label: "Paid" },
@@ -165,7 +202,6 @@ const BillingPage = () => {
       "Amount (INR)": a.amount,
       "Payment Status": a.payment_status,
       "Appointment Status": a.status,
-      "Appointment Type": a.appointment_type,
     }));
     if (rows.length === 0) { toast.error("No transactions to export"); return; }
     const headers = Object.keys(rows[0]);
@@ -269,7 +305,7 @@ const BillingPage = () => {
                   {filtered.map((a) => {
                     const pc = paymentColors[a.payment_status] || paymentColors.pending;
                     return (
-                      <Card key={a.id} className="border-border/60 shadow-none hover:shadow-sm transition-shadow">
+                      <Card key={a.key} className="border-border/60 shadow-none hover:shadow-sm transition-shadow">
                         <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-sm font-bold text-success flex-shrink-0">
