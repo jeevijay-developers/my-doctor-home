@@ -116,7 +116,7 @@ const BookingWidget = () => {
         amount: selectedService.price,
         token_number: tkn,
         chief_complaint: complaint || null,
-        status: (settings?.auto_confirm ? "confirmed" : "pending") as any,
+        status: "pending" as any,
         payment_status: "pay_at_clinic" as any,
       })
       .select("id")
