@@ -207,7 +207,7 @@ const AppointmentsPage = () => {
     });
   };
 
-  const addAppointment = async () => {
+  const addAppointment = async (bypassSlotCheck = false) => {
     if (!profile) return;
     if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
     if (!newAppt.patient_phone.trim()) { toast.error("Phone number is required"); return; }
@@ -217,16 +217,18 @@ const AppointmentsPage = () => {
     if (apptTs.getTime() < Date.now()) { toast.error("Cannot book an appointment for a past date or time slot."); return; }
     const normalizedPhone = normalizeIndianPhone(newAppt.patient_phone);
 
-    const { data: settingsRow } = await supabase
-      .from("website_settings").select("max_per_slot").eq("doctor_id", profile.id).single();
-    const cap = (settingsRow as any)?.max_per_slot || 1;
-    const { count: taken } = await supabase
-      .from("appointments").select("*", { count: "exact", head: true })
-      .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
-      .neq("status", "cancelled");
-    if ((taken ?? 0) >= cap) {
-      const ok = confirm(`This slot already has ${taken}/${cap} appointments. Add anyway?`);
-      if (!ok) return;
+    if (!bypassSlotCheck) {
+      const { data: settingsRow } = await supabase
+        .from("website_settings").select("max_per_slot").eq("doctor_id", profile.id).single();
+      const cap = (settingsRow as any)?.max_per_slot || 1;
+      const { count: taken } = await supabase
+        .from("appointments").select("*", { count: "exact", head: true })
+        .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
+        .neq("status", "cancelled");
+      if ((taken ?? 0) >= cap) {
+        setSlotConflict({ taken: taken ?? 0, cap, time: newAppt.time_slot });
+        return;
+      }
     }
 
     const token = `T${Math.floor(Math.random() * 900) + 100}`;
@@ -243,6 +245,7 @@ const AppointmentsPage = () => {
     // BUG-04: patient row created only when appointment is completed.
 
     setShowNew(false);
+    setSlotConflict(null);
     setNewAppt({ patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic", date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0, status: "pending" });
     load();
     toast.success("Appointment added");
