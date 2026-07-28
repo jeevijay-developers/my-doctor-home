@@ -34,7 +34,7 @@ const ContactSupportDialog = ({ trigger }: { trigger?: React.ReactNode }) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <button className="flex items-center gap-2 text-primary-foreground/60 hover:text-white text-sm w-full px-2 py-1.5">
+          <button className="flex items-center gap-2 text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 rounded-lg transition-colors">
             <LifeBuoy className="h-4 w-4" /> <span>Contact Support</span>
           </button>
         )}
