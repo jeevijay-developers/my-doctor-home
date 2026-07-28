@@ -115,15 +115,28 @@ const PatientsPage = () => {
 
   const exportPatients = () => {
     if (!patients.length) { toast.info("No patients to export"); return; }
+    // Force Excel to treat a value as text (prevents scientific notation on
+    // phone numbers and prevents dates from collapsing to "#######").
+    const asText = (v: string | number | null | undefined) => {
+      if (v === null || v === undefined || v === "") return "";
+      const s = String(v).replace(/"/g, '""');
+      return `="${s}"`;
+    };
+    const fmtDate = (d: string | null | undefined) => {
+      if (!d) return "";
+      // Stored as YYYY-MM-DD → display DD/MM/YYYY
+      const [y, m, day] = d.split("-");
+      return y && m && day ? `${day}/${m}/${y}` : d;
+    };
     const headers = ["Name", "Phone", "Email", "Age", "Gender", "First Visit", "Last Visit", "Total Visits", "Notes"];
     const rows = patients.map((p) => [
       `"${p.name.replace(/"/g, '""')}"`,
-      p.phone,
+      asText(p.phone),
       p.email ? `"${p.email.replace(/"/g, '""')}"` : "",
       p.age ?? "",
       p.gender ?? "",
-      p.first_visit ?? "",
-      p.last_visit ?? "",
+      asText(fmtDate(p.first_visit)),
+      asText(fmtDate(p.last_visit)),
       p.total_visits,
       p.notes ? `"${p.notes.replace(/"/g, '""')}"` : "",
     ]);
