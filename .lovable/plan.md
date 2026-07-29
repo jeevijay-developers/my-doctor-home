@@ -1,41 +1,70 @@
-## Doctylia QA Bug Fixes — Implementation Plan
+## Zoom Integration Plan
 
-Implement the fixes from `task-qa-bug-fixes.md`. Skipping items that the doc itself flags as "already implemented" or "product decision needed" (A5, B2, B3).
+### Creation Timing recommendation: **Lazy (on-demand)**
 
-### A1. Hero descender clipping (P3)
-- `src/components/landing/LandingHero.tsx`: change rotating word wrapper from `h-[1.2em] overflow-hidden` to `h-[1.5em]` (or drop `overflow-hidden` and use `pb-1`) so descenders in "Billing", "Blog" render fully at all breakpoints.
+Generate the Zoom meeting when the **doctor clicks "Start Meeting"** (or 15 min before, whichever comes first), not at booking time.
 
-### A2. Realtime sync on admin pages (P1)
-- Add the same `supabase.channel(...).on('postgres_changes', ...)` pattern already in `AppointmentsPage.tsx` to:
-  - `src/components/admin/DashboardHome.tsx` — subscribe to `appointments` and `patients` filtered by `doctor_id=eq.{profile.id}`, re-run `load()` on any change.
-  - `src/components/admin/PatientsPage.tsx` — subscribe to `patients` (and `appointments` for visit counts) → re-run load.
-  - `src/components/admin/BillingPage.tsx` — subscribe to `appointments` and `invoices` → re-run load.
-- Clean up channel on unmount.
+Trade-offs:
+- **Lazy pros:** No wasted Zoom meetings for no-shows/cancellations. No reschedule-sync race conditions before the day of the visit. Fewer Zoom API calls (rate limits). Cheaper.
+- **Lazy cons:** Slight delay (~1s) on first click. Patient can't preview the link far in advance.
+- **Eager cons:** Every cancel/reschedule must call Zoom API; meetings pile up if patient never joins; harder to recover from Zoom API outages at booking time.
 
-### A3. Indian mobile validation (P1)
-- New helper `src/lib/phone.ts` exporting `sanitizePhone(v)` (digits only, max 10) and `isValidIndianMobile(v)` (exactly 10 digits, starts 6–9).
-- Wire into three forms:
-  - `src/components/doctor/BookingWidget.tsx` Step 5 — sanitize onChange, `maxLength=10`, inline error, disable submit when invalid.
-  - `src/components/admin/PatientsPage.tsx` Add/Edit Patient dialog — same.
-  - `src/components/admin/AppointmentsPage.tsx` New Appointment dialog — same.
+We still store the generated `join_url` / `start_url` after first generation, so subsequent clicks are instant and reschedule/cancel still sync.
 
-### A4. Optional email at booking (P2)
-- `BookingWidget.tsx` Step 5: add optional Email input with basic format check (only if non-empty).
-- Include email in `patients` upsert so it lands on `patients.email`. No schema change needed (column exists).
+### 1. Secrets
+Request `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` via `add_secret` (Server-to-Server OAuth app).
 
-### A6. Prevent booking past time slots (P0)
-- Add helper `filterFutureSlots(slots, dateStr, bufferMinutes=15)` in `src/lib/phone.ts` (or new `src/lib/slots.ts`).
-- Apply in `BookingWidget.tsx` and `ManageAppointment.tsx` when building the visible slot list — if selected date is today, drop slots ≤ now + 15 min.
-- Server-side guard: extend the existing `enforce_slot_capacity` / `enforce_slot_capacity_update` triggers (or add a new small trigger) to `RAISE EXCEPTION 'SLOT_IN_PAST'` when `(NEW.date + NEW.time_slot) < now()` and the caller is not the doctor. Also update `reschedule_appointment_by_token` to return `{ok:false, error:'SLOT_IN_PAST'}` in that case. Frontend surfaces a friendly toast.
+### 2. Database migration
+Add nullable columns to `appointments`:
+- `zoom_meeting_id text`
+- `zoom_join_url text`
+- `zoom_start_url text`
 
-### B1. Signup UX when email confirmation is on
-- `src/pages/Auth.tsx`: when signup returns no `data.session`, instead of just a toast + mode switch, render an on-page success card: "Check your email — we've sent a verification link to {email}. Click the link, then come back to log in." Keep the toast as backup. No Supabase auth setting change (user hasn't asked to toggle it).
+**RLS:** Existing row-level policies already restrict `appointments` to doctor + assigned patient. To hide `zoom_start_url` from patients we do NOT rely on column-level RLS (PostgREST supports it but it's fragile with anon patient access). Instead:
+- The edge function is the only path that returns `start_url` to clients.
+- Client code (`AppointmentsPage`, `VideoConsultationCard`) never selects `zoom_start_url` on the patient side; patient-side manage page selects only `zoom_join_url`.
+- Add a `REVOKE SELECT (zoom_start_url) ... GRANT SELECT (zoom_start_url) TO authenticated` so the anon role used for patient-manage pages cannot read it. Doctor role (authenticated) still can.
 
-### Out of scope (per the task doc itself)
-- A5 (reschedule) — already implemented; no code change.
-- B2 (`/dashboard`) — no fix required.
-- B3 (`/search`) — needs product decision; will flag back rather than build.
+### 3. Edge function `create-zoom-meeting` (rewrite)
+Actions:
+- `POST { appointment_id, action: "get" | "create" | "update" | "delete" }`
+- Verify JWT → `user.id`.
+- Load appointment; authorize: user is doctor (`profiles.user_id = appointment.doctor_profile.user_id`) OR user is the assigned patient (`appointment.patient_user_id = user.id`).
+- Fetch Zoom OAuth token (server-to-server, cached in-memory per invocation).
+- `create`: if no meeting yet, POST `/users/me/meetings`, store `id/join_url/start_url` on row. Doctor only.
+- `update`: PATCH meeting time. Doctor only (also invoked from reschedule flow).
+- `delete`: DELETE meeting. Doctor only.
+- `get`: return `{ join_url }` to patient, `{ join_url, start_url }` to doctor. Never leak `start_url` to patient.
 
-### Verification
-- Typecheck.
-- Playwright: load `/`, screenshot hero to confirm no clip; open booking widget, try invalid phone (blocked), pick today + a past time (no past slots visible).
+### 4. Frontend
+New `src/components/VideoConsultationCard.tsx`:
+- Props: `appointment`, `role: "doctor" | "patient"`.
+- Computes `minutesUntil = (appt_time - now) / 60000`.
+- Button disabled with tooltip until `minutesUntil <= 15`.
+- On click: `supabase.functions.invoke("create-zoom-meeting", { body: { appointment_id, action: role === "doctor" ? "create" : "get" }})`. Opens returned URL in new tab (`start_url` for doctor, `join_url` for patient).
+- Loading state, Sonner error toasts.
+
+Integrate card into:
+- `AppointmentsPage.tsx` for online appointments (replaces existing `generateZoomMeeting` stub button).
+- `ManageAppointment.tsx` patient view for online appointments.
+
+### 5. Lifecycle sync
+In `AppointmentsPage.tsx`:
+- On **reschedule** (already exists): if row has `zoom_meeting_id`, call function with `action: "update"`.
+- On **cancel/delete**: if row has `zoom_meeting_id`, call function with `action: "delete"` before deleting row.
+
+### 6. Config
+Add `[functions.create-zoom-meeting] verify_jwt = true` (already present — confirm).
+
+### Technical notes
+- Use `npm:@supabase/supabase-js@2` inside function to load appointment with service role.
+- Return 401/403 with clear messages so Sonner toasts show useful errors.
+- 15-minute gate is enforced **both** client-side (UX) and server-side (create/get returns 425 if `now < scheduled - 60min` — a bit more lenient than UI to allow doctor prep).
+
+### Order of implementation
+1. Add secrets prompt.
+2. Migration for columns + grants.
+3. Rewrite edge function.
+4. Build `VideoConsultationCard`.
+5. Wire into `AppointmentsPage` + `ManageAppointment`.
+6. Reschedule/cancel sync hooks.
