@@ -131,7 +131,7 @@ const DashboardHome = () => {
   const currentTip = growthTips[tipIndex];
 
   return (
-    <div className="max-w-7xl mx-auto w-full flex flex-col gap-3 xl:gap-4">
+    <div className="max-w-7xl mx-auto w-full flex flex-col gap-2 lg:gap-2.5 xl:gap-3 lg:h-[calc(100dvh-3.5rem-2rem)] xl:h-[calc(100dvh-3.5rem-3rem)] lg:overflow-hidden">
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-2xl gradient-navy-teal p-4 md:p-5">
         <div className="absolute inset-0 opacity-10">
@@ -202,9 +202,9 @@ const DashboardHome = () => {
         </CardContent>
       </Card>
 
-      <div className={`grid gap-3 xl:gap-4 ${(!dashboardReady || completedSteps === checklist.length) ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
+      <div className={`grid gap-2 lg:gap-2.5 xl:gap-3 lg:flex-1 lg:min-h-0 ${(!dashboardReady || completedSteps === checklist.length) ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
         {/* Today's Schedule Timeline */}
-        <Card className={`border-0 rounded-2xl shadow-sm bg-card ${(!dashboardReady || completedSteps === checklist.length) ? "" : "lg:col-span-2"}`}>
+        <Card className={`border-0 rounded-2xl shadow-sm bg-card flex flex-col lg:min-h-0 lg:overflow-hidden ${(!dashboardReady || completedSteps === checklist.length) ? "" : "lg:col-span-2"}`}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -218,7 +218,7 @@ const DashboardHome = () => {
               </Link>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 lg:min-h-0 lg:overflow-y-auto">
 
             {todayAppointments.length === 0 ? (
               <div className="text-center py-10">
@@ -265,7 +265,7 @@ const DashboardHome = () => {
 
         {/* Getting Started — only shown after data loads, and only if tasks remain */}
         {dashboardReady && completedSteps < checklist.length && (
-        <Card className="border-0 rounded-2xl shadow-sm bg-card">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card flex flex-col lg:min-h-0 lg:overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Getting Started</CardTitle>
@@ -273,7 +273,7 @@ const DashboardHome = () => {
             </div>
             <Progress value={(completedSteps / checklist.length) * 100} className="h-2 mt-2 bg-secondary [&>div]:bg-royal" />
           </CardHeader>
-          <CardContent className="space-y-1">
+          <CardContent className="space-y-1 flex-1 lg:min-h-0 lg:overflow-y-auto">
             {checklist.map((item) => (
               <Link key={item.label} to={item.href} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/60 transition-colors group">
                 {item.done ? (
@@ -291,7 +291,7 @@ const DashboardHome = () => {
       </div>
 
       {/* WhatsApp Share + Revenue Goal */}
-      <div className="grid lg:grid-cols-2 gap-3 xl:gap-4">
+      <div className="grid lg:grid-cols-2 gap-2 lg:gap-2.5 xl:gap-3">
         {/* WhatsApp Share Widget */}
         <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-success">
           <CardHeader className="pb-3">
