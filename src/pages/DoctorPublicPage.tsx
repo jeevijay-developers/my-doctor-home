@@ -15,7 +15,7 @@ import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 
 const DoctorPageContent = () => {
-  const { profile, settings, loading, services, packages, reviews, gallery } = useDoctorData();
+  const { profile, settings, loading, services, reviews, gallery } = useDoctorData();
 
   useEffect(() => {
     if (!profile?.display_name) return;
@@ -87,9 +87,6 @@ const DoctorPageContent = () => {
       )}
       {settings.show_services !== false && services.length > 0 && (
         <AnimatedSection><ServicesSection /></AnimatedSection>
-      )}
-      {settings.show_packages && packages.length > 0 && (
-        <AnimatedSection><ServicesSection showPackagesOnly /></AnimatedSection>
       )}
       {settings.show_gallery && gallery.length > 0 && (
         <AnimatedSection><GallerySection /></AnimatedSection>
