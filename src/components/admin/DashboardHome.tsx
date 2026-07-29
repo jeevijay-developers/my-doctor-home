@@ -133,7 +133,7 @@ const DashboardHome = () => {
   return (
     <div className="max-w-7xl mx-auto w-full flex flex-col gap-3 xl:gap-4">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl gradient-navy-teal p-4 md:p-5 xl:flex-shrink-0">
+      <div className="relative overflow-hidden rounded-2xl gradient-navy-teal p-4 md:p-5">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-10 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
           <div className="absolute bottom-2 right-40 w-24 h-24 rounded-full bg-white/10 blur-xl" />
