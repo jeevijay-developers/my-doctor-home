@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { format } from "date-fns";
 import {
   Stethoscope, Building2, ClipboardList, Calendar, Clock, User, Phone,
-  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Download, Printer, X, Video,
+  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Download, Printer, X,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,6 @@ type Props = {
   patientName: string;
   patientPhone: string;
   paymentStatus?: string;
-  zoomJoinUrl?: string | null;
   onDownload: () => void;
 };
 
@@ -32,7 +31,7 @@ const TEAL_LIGHT = "#1c8a99";
 
 const AppointmentSlip = ({
   open, onClose, profile, settings, token, service, type, date, time,
-  patientName, patientPhone, paymentStatus, zoomJoinUrl, onDownload,
+  patientName, patientPhone, paymentStatus, onDownload,
 }: Props) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
@@ -206,39 +205,6 @@ const AppointmentSlip = ({
                   </div>
                 </div>
 
-                {/* Video Consultation Link — online appointments only */}
-                {type === "online" && (
-                  <div
-                    className="mt-4 border rounded-xl px-4 py-3"
-                    style={{ borderColor: `${TEAL}55`, background: `${TEAL}0d` }}
-                  >
-                    <div className="flex items-center gap-2 font-bold text-[11.5px] mb-1.5" style={{ color: TEAL_DARK }}>
-                      <Video className="h-3.5 w-3.5 shrink-0" />
-                      <span>VIDEO CONSULTATION LINK</span>
-                    </div>
-                    {zoomJoinUrl ? (
-                      <>
-                        <a
-                          href={zoomJoinUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-bold text-white"
-                          style={{ background: TEAL }}
-                          data-slip-print-hide
-                        >
-                          <Video className="h-3.5 w-3.5" /> Join Video Consultation
-                        </a>
-                        <div className="text-[10px] mt-1.5 break-all" style={{ color: "#6b7280" }}>
-                          {zoomJoinUrl}
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-[10.5px] leading-snug" style={{ color: "#6b7280" }}>
-                        Your video consultation link will be available closer to your appointment time.
-                      </p>
-                    )}
-                  </div>
-                )}
 
 
                 {/* Instruction + QR */}
