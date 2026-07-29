@@ -72,6 +72,9 @@ export type Database = {
           time_slot: string
           token_number: string | null
           updated_at: string
+          zoom_join_url: string | null
+          zoom_meeting_id: string | null
+          zoom_start_url: string | null
         }
         Insert: {
           amount?: number
@@ -100,6 +103,9 @@ export type Database = {
           time_slot: string
           token_number?: string | null
           updated_at?: string
+          zoom_join_url?: string | null
+          zoom_meeting_id?: string | null
+          zoom_start_url?: string | null
         }
         Update: {
           amount?: number
@@ -128,6 +134,9 @@ export type Database = {
           time_slot?: string
           token_number?: string | null
           updated_at?: string
+          zoom_join_url?: string | null
+          zoom_meeting_id?: string | null
+          zoom_start_url?: string | null
         }
         Relationships: [
           {

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { format, addDays, differenceInHours, parseISO, isSameDay } from "date-fns";
 import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight } from "lucide-react";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
+import VideoConsultationCard from "@/components/VideoConsultationCard";
 
 type Appt = {
   id: string; doctor_id: string; patient_name: string; patient_phone: string;
@@ -238,6 +239,19 @@ const ManageAppointment = () => {
                     </span>
                     <span className="ml-auto text-[10px] flex items-center gap-1 opacity-70"><RefreshCw className="h-3 w-3" /> live</span>
                   </div>
+                )}
+
+                {appt.appointment_type === "online" && (appt.status === "pending" || appt.status === "confirmed") && (
+                  <VideoConsultationCard
+                    appointmentId={appt.id}
+                    date={appt.date}
+                    timeSlot={appt.time_slot}
+                    role="patient"
+                    status={appt.status}
+                    hasMeeting={!!appt.meeting_link}
+                    patientToken={appt.token_number}
+                    patientPhone={appt.patient_phone}
+                  />
                 )}
 
                 {tooClose && (appt.status === "pending" || appt.status === "confirmed") && (

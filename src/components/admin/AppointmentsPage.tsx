@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { format, isSameDay, parseISO } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { ensureInvoiceForAppointment } from "@/lib/invoiceGeneration";
+import VideoConsultationCard from "@/components/VideoConsultationCard";
 
 type Appointment = {
   id: string; patient_name: string; patient_phone: string; patient_age: number | null;
@@ -26,6 +27,8 @@ type Appointment = {
   date: string; time_slot: string; status: string; payment_status: string;
   amount: number; token_number: string | null; chief_complaint: string | null; notes: string | null;
   reschedule_count?: number | null;
+  zoom_meeting_id?: string | null;
+  zoom_join_url?: string | null;
 };
 
 const statusConfig: Record<string, { bg: string; dot: string; label: string }> = {
@@ -174,6 +177,16 @@ const AppointmentsPage = () => {
 
   // BUG-014: status can be changed at any time. On transition INTO "completed",
   // the patient is added / their visit count incremented.
+  const syncZoom = async (appointmentId: string, action: "update" | "delete") => {
+    try {
+      await supabase.functions.invoke("create-zoom-meeting", {
+        body: { appointment_id: appointmentId, action },
+      });
+    } catch (e) {
+      console.warn(`Zoom ${action} sync failed`, e);
+    }
+  };
+
   const updateStatus = async (id: string, status: string) => {
     const current = appointments.find((a) => a.id === id);
     await supabase.from("appointments").update({ status: status as any }).eq("id", id);
@@ -193,11 +206,19 @@ const AppointmentsPage = () => {
         console.warn("Invoice generation failed", e);
       }
     }
+    // Delete Zoom meeting if the appointment is cancelled or a no-show.
+    if ((status === "cancelled" || status === "no_show") && current?.zoom_meeting_id) {
+      await syncZoom(id, "delete");
+    }
     load();
     toast.success(`Marked ${status.replace("_", " ")}`);
   };
 
   const deleteAppointment = async (id: string) => {
+    const current = appointments.find((a) => a.id === id);
+    if (current?.zoom_meeting_id) {
+      await syncZoom(id, "delete");
+    }
     const { error } = await supabase.from("appointments").delete().eq("id", id);
     if (error) { toast.error("Could not delete appointment"); return; }
     toast.success("Appointment deleted");
@@ -216,16 +237,15 @@ const AppointmentsPage = () => {
       reschedule_count: (rescheduling.reschedule_count ?? 0) + 1,
     } as any).eq("id", rescheduling.id);
     if (error) { toast.error(error.message.includes("SLOT_FULL") ? "That slot is full." : "Could not reschedule."); return; }
+    // Keep Zoom in sync when the underlying appointment moves.
+    if (rescheduling.zoom_meeting_id) {
+      await syncZoom(rescheduling.id, "update");
+    }
     setRescheduling(null);
     load();
     toast.success("Appointment rescheduled");
   };
 
-  const generateZoomMeeting = async (_appointmentId: string) => {
-    toast.info("Zoom integration coming soon", {
-      description: "Meeting links will generate automatically once connected.",
-    });
-  };
 
   const addAppointment = async (bypassSlotCheck = false) => {
     if (!profile) return;
@@ -566,13 +586,11 @@ const AppointmentsPage = () => {
                       )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
                     </div>
-                    {!selectMode && (
+                    {!selectMode && a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
                       <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
-                        {a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
-                          <Button size="sm" variant="outline" className="text-xs h-8 bg-teal/10 text-teal hover:bg-teal/20 border-teal/20" onClick={() => generateZoomMeeting(a.id)}>
-                            <Video className="h-3 w-3 mr-1" /> Meeting
-                          </Button>
-                        )}
+                        <Badge variant="outline" className="text-[10px] bg-teal/10 text-teal border-teal/20">
+                          <Video className="h-3 w-3 mr-1" /> Video call
+                        </Badge>
                       </div>
                     )}
                   </div>
@@ -664,6 +682,18 @@ const AppointmentsPage = () => {
                       </div>
                     ))}
                   </div>
+
+                  {viewing.appointment_type === "online" && (
+                    <VideoConsultationCard
+                      appointmentId={viewing.id}
+                      date={viewing.date}
+                      timeSlot={viewing.time_slot}
+                      role="doctor"
+                      status={viewing.status}
+                      hasMeeting={!!viewing.zoom_join_url}
+                      onCreated={load}
+                    />
+                  )}
 
                   {(viewing.chief_complaint || viewing.notes) && (
                     <div className="space-y-2">
