@@ -20,7 +20,7 @@ const ServicesSection = () => {
 
         <div className="flex flex-wrap justify-center gap-5">
           {services.map((s) => (
-            <div key={s.id} className="w-full sm:w-[320px] bg-card border border-border rounded-xl p-6 hover:shadow-lg transition-shadow flex flex-col">
+            <div key={s.id} className="hover-lift w-full sm:w-[320px] bg-card border border-border rounded-xl p-6 flex flex-col">
               <div className="w-12 h-12 rounded-xl gradient-hero flex items-center justify-center mb-4">
                 <Heart size={22} className="text-primary-foreground" />
               </div>
