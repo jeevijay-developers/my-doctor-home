@@ -42,6 +42,8 @@ const DashboardHome = () => {
     const today = format(new Date(), "yyyy-MM-dd");
     const weekAgo = format(new Date(Date.now() - 7 * 86400000), "yyyy-MM-dd");
     const twoWeeksAgo = format(new Date(Date.now() - 14 * 86400000), "yyyy-MM-dd");
+    const thirtyDaysAgoDate = subDays(new Date(), 29);
+    const thirtyDaysAgo = format(thirtyDaysAgoDate, "yyyy-MM-dd");
 
     Promise.all([
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id),
