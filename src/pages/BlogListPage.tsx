@@ -99,31 +99,36 @@ const BlogListPage = () => {
         )}
 
         {/* Posts Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((post, i) => (
-            <AnimatedSection key={post.id} delay={i * 0.1}>
-              <Link to={`/dr/${slug}/blog/${post.id}`} className="group block bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow">
-                {post.featured_image_url && (
-                  <img src={post.featured_image_url} alt={post.title} className="w-full h-48 object-cover" />
-                )}
-                <div className="p-5 space-y-3">
-                  <div className="flex items-center gap-2">
-                    {post.category && (
-                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-pill bg-ai-purple/10 text-ai-purple font-medium">
-                        <Tag className="h-3 w-3" /> {post.category}
-                      </span>
+        <div className="flex flex-wrap justify-center gap-6">
+          {filtered.map((post, i) => {
+            const dateVal = post.published_at || post.created_at;
+            return (
+              <AnimatedSection key={post.id} delay={i * 0.1} className="w-full sm:w-[340px]">
+                <Link to={`/dr/${slug}/blog/${post.id}`} className="group block bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow h-full">
+                  {post.featured_image_url && (
+                    <img src={post.featured_image_url} alt={post.title} className="w-full h-48 object-cover" />
+                  )}
+                  <div className="p-5 space-y-3">
+                    <div className="flex items-center gap-2">
+                      {post.category && (
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-pill bg-ai-purple/10 text-ai-purple font-medium">
+                          <Tag className="h-3 w-3" /> {post.category}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="font-heading font-semibold text-primary group-hover:text-royal transition-colors line-clamp-2">{post.title}</h3>
+                    {post.excerpt && <p className="text-sm text-muted-foreground line-clamp-2">{post.excerpt}</p>}
+                    {dateVal && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        {format(new Date(dateVal), "MMM d, yyyy")}
+                      </div>
                     )}
                   </div>
-                  <h3 className="font-heading font-semibold text-primary group-hover:text-royal transition-colors line-clamp-2">{post.title}</h3>
-                  {post.excerpt && <p className="text-sm text-muted-foreground line-clamp-2">{post.excerpt}</p>}
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    {post.published_at ? format(new Date(post.published_at), "MMM d, yyyy") : ""}
-                  </div>
-                </div>
-              </Link>
-            </AnimatedSection>
-          ))}
+                </Link>
+              </AnimatedSection>
+            );
+          })}
         </div>
 
         {filtered.length === 0 && (
