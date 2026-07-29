@@ -3,7 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Shield } from "lucide-react";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
-import AppearanceSelector from "@/components/AppearanceSelector";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const titles: Record<string, string> = {
   "/superadmin/overview": "Overview",
@@ -37,7 +37,7 @@ const SuperAdminLayout = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <AppearanceSelector mode={mode} onChange={setTheme} className="hidden sm:inline-flex" />
+              <ThemeToggle mode={mode} onChange={setTheme} />
               <span className="text-[10px] uppercase tracking-wider bg-primary text-primary-foreground px-2 py-1 rounded font-bold">
                 Super Admin
               </span>

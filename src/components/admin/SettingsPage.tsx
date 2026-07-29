@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Settings, Crown, Shield, Download, Trash2, Palette } from "lucide-react";
+import { Settings, Crown, Shield, Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -9,13 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
-import { usePanelTheme } from "@/hooks/usePanelTheme";
-import AppearanceSelector from "@/components/AppearanceSelector";
 
 const SettingsPage = () => {
   const { profile } = useProfile();
   const [exporting, setExporting] = useState(false);
-  const { mode, setTheme } = usePanelTheme("doctylia-admin-theme");
 
   const exportAllData = async () => {
     if (!profile) return;
