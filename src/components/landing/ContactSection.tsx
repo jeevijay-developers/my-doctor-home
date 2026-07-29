@@ -7,11 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Mail, Phone, MapPin, Send, CheckCircle } from "lucide-react";
 import { z } from "zod";
+import { isValidIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
 const enquirySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
   email: z.string().trim().email("Invalid email address").max(255),
-  phone: z.string().trim().max(15).optional(),
+  phone: z.string().trim().min(1, "Phone number is required").refine(isValidIndianPhone, phoneErrorMessage),
   clinic_name: z.string().trim().max(100).optional(),
   city: z.string().trim().max(50).optional(),
   message: z.string().trim().max(1000).optional(),
@@ -133,11 +134,12 @@ const ContactSection = () => {
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" placeholder="+91 98765 43210" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <Label htmlFor="phone">Phone *</Label>
+                  <Input id="phone" placeholder="+91 98765 43210" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={errors.phone ? "border-destructive" : ""} />
+                  {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="clinic_name">Clinic Name</Label>
+                  <Label htmlFor="clinic_name">Clinic</Label>
                   <Input id="clinic_name" placeholder="Your Clinic Name" value={form.clinic_name} onChange={(e) => setForm({ ...form, clinic_name: e.target.value })} />
                 </div>
               </div>
