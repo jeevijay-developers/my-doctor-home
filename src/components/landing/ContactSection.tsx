@@ -134,11 +134,12 @@ const ContactSection = () => {
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" placeholder="+91 98765 43210" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <Label htmlFor="phone">Phone *</Label>
+                  <Input id="phone" placeholder="+91 98765 43210" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={errors.phone ? "border-destructive" : ""} />
+                  {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="clinic_name">Clinic Name</Label>
+                  <Label htmlFor="clinic_name">Clinic</Label>
                   <Input id="clinic_name" placeholder="Your Clinic Name" value={form.clinic_name} onChange={(e) => setForm({ ...form, clinic_name: e.target.value })} />
                 </div>
               </div>
