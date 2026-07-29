@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
@@ -10,8 +10,9 @@ import { ExternalLink } from "lucide-react";
 const SADoctors = () => {
   const [rows, setRows] = useState<any[]>([]);
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState("all");
-  const [tier, setTier] = useState("all");
+  // Combined filter value. Uses prefixes to distinguish status vs tier.
+  // "all" | "status:trial" | "tier:pro" etc.
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
@@ -20,8 +21,8 @@ const SADoctors = () => {
   const filtered = rows.filter((r) => {
     const t = q.toLowerCase();
     if (t && !`${r.full_name} ${r.clinic_name} ${r.city}`.toLowerCase().includes(t)) return false;
-    if (status !== "all" && r.plan_status !== status) return false;
-    if (tier !== "all" && r.plan_tier !== tier) return false;
+    if (filter.startsWith("status:") && r.plan_status !== filter.slice(7)) return false;
+    if (filter.startsWith("tier:") && (r.plan_tier || "free") !== filter.slice(5)) return false;
     return true;
   });
 
@@ -29,23 +30,23 @@ const SADoctors = () => {
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row gap-3">
         <Input placeholder="Search name, clinic, city…" value={q} onChange={(e) => setQ(e.target.value)} className="md:max-w-sm" />
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="md:w-44"><SelectValue /></SelectTrigger>
+        <Select value={filter} onValueChange={setFilter}>
+          <SelectTrigger className="md:w-56"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="trial">Trial</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
-            <SelectItem value="cancelled">Cancelled/Suspended</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={tier} onValueChange={setTier}>
-          <SelectTrigger className="md:w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All tiers</SelectItem>
-            <SelectItem value="free">Free</SelectItem>
-            <SelectItem value="pro">Pro</SelectItem>
-            <SelectItem value="premium">Premium</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectGroup>
+              <SelectLabel>Status</SelectLabel>
+              <SelectItem value="status:trial">Trial</SelectItem>
+              <SelectItem value="status:active">Active</SelectItem>
+              <SelectItem value="status:expired">Expired</SelectItem>
+              <SelectItem value="status:cancelled">Cancelled/Suspended</SelectItem>
+            </SelectGroup>
+            <SelectGroup>
+              <SelectLabel>Tier</SelectLabel>
+              <SelectItem value="tier:free">Free</SelectItem>
+              <SelectItem value="tier:pro">Pro</SelectItem>
+              <SelectItem value="tier:premium">Premium</SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
       </div>
