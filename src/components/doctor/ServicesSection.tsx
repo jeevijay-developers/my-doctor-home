@@ -31,7 +31,7 @@ const ServicesSection = () => {
                 <span className="text-xs text-text-gray">{s.duration} mins</span>
               </div>
               <p className="font-heading font-extrabold text-2xl text-primary mb-4">₹{s.price.toLocaleString()}</p>
-              <Button className="w-full bg-teal text-primary-foreground hover:opacity-90 font-heading font-semibold" onClick={() => scrollTo("booking")}>
+              <Button className="btn-pop w-full bg-teal text-primary-foreground hover:opacity-90 font-heading font-semibold" onClick={() => scrollTo("booking")}>
                 Book Now
               </Button>
             </div>
