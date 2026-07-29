@@ -20,9 +20,9 @@ const applyClass = (effective: "light" | "dark") => {
  */
 export function usePanelTheme(storageKey: string) {
   const [mode, setMode] = useState<ThemeMode>(() => {
-    if (typeof window === "undefined") return "light";
+    if (typeof window === "undefined") return "dark";
     const saved = window.localStorage.getItem(storageKey) as ThemeMode | null;
-    return saved || "light";
+    return saved || "dark";
   });
 
   useEffect(() => {
