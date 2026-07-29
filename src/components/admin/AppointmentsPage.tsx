@@ -586,13 +586,11 @@ const AppointmentsPage = () => {
                       )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
                     </div>
-                    {!selectMode && (
+                    {!selectMode && a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
                       <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
-                        {a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
-                          <Button size="sm" variant="outline" className="text-xs h-8 bg-teal/10 text-teal hover:bg-teal/20 border-teal/20" onClick={() => generateZoomMeeting(a.id)}>
-                            <Video className="h-3 w-3 mr-1" /> Meeting
-                          </Button>
-                        )}
+                        <Badge variant="outline" className="text-[10px] bg-teal/10 text-teal border-teal/20">
+                          <Video className="h-3 w-3 mr-1" /> Video call
+                        </Badge>
                       </div>
                     )}
                   </div>
