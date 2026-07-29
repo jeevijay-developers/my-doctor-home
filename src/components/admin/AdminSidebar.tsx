@@ -58,7 +58,7 @@ const AdminSidebar = () => {
                 style={{ imageRendering: "-webkit-optimize-contrast" }}
               />
               <img
-                src="/doctylia-logo-dark.jpg"
+                src="/doctylia-logo-dark.png"
                 alt="Doctylia"
                 className="h-12 w-auto object-contain select-none hidden dark:block"
                 draggable={false}
