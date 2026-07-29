@@ -106,18 +106,6 @@ const MyWebsite = () => {
     setServices(updated);
   };
 
-  const addPackage = () => setPackages([...packages, { name: "", tagline: "", price: 1000, original_price: 0, duration: "1 Month", features: [], is_popular: false, active: true }]);
-  const removePackage = async (idx: number) => {
-    const p = packages[idx];
-    if (p.id) await supabase.from("packages").delete().eq("id", p.id);
-    setPackages(packages.filter((_, i) => i !== idx));
-  };
-  const updatePackage = (idx: number, key: string, value: any) => {
-    const updated = [...packages];
-    (updated[idx] as any)[key] = value;
-    setPackages(updated);
-  };
-
   const updateWorkingHour = (dayIdx: number, key: string, value: any) => {
     const updated = [...workingHours];
     const idx = updated.findIndex((h) => h.day_of_week === dayIdx);
