@@ -20,13 +20,13 @@ const ServicesSection = ({ showPackagesOnly }: { showPackagesOnly?: boolean }) =
             <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary text-center mb-4">Services & Fees</h2>
             <p className="text-text-gray text-center mb-12 max-w-lg mx-auto">Transparent pricing. Book instantly. No hidden charges.</p>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-20">
+            <div className="flex flex-wrap justify-center gap-5 mb-20">
               {services.map((s) => (
-                <div key={s.id} className="bg-card border border-border rounded-xl p-6 hover:shadow-lg transition-shadow">
+                <div key={s.id} className="w-full sm:w-[320px] bg-card border border-border rounded-xl p-6 hover:shadow-lg transition-shadow flex flex-col">
                   <div className="w-12 h-12 rounded-xl gradient-hero flex items-center justify-center mb-4">
                     <Heart size={22} className="text-primary-foreground" />
                   </div>
-                  <h3 className="font-heading font-semibold text-foreground text-lg">{s.name}</h3>
+                  <h3 className="font-heading font-semibold text-foreground text-lg">{s.name?.trim() || "Consultation"}</h3>
                   {s.description && <p className="text-sm text-text-gray mt-1">{s.description}</p>}
                   <div className="flex items-center gap-2 mt-2 mb-3">
                     <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${typeColor[s.type] || ""}`}>{s.type}</span>
