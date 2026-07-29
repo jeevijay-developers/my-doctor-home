@@ -494,21 +494,6 @@ const MyWebsite = () => {
                   <div><Label>LinkedIn</Label><Input value={settings.social_linkedin || ""} onChange={(e) => updateSetting("social_linkedin", e.target.value)} placeholder="URL" /></div>
                 </div>
                 <div><Label>Google Analytics ID</Label><Input value={settings.google_analytics_id || ""} onChange={(e) => updateSetting("google_analytics_id", e.target.value)} placeholder="G-XXXXXXXXXX" /></div>
-                <div>
-                  <Label>Color Theme</Label>
-                  <div className="flex gap-2 mt-1">
-                    {[
-                      { name: "blue", color: "bg-royal" },
-                      { name: "green", color: "bg-success" },
-                      { name: "red", color: "bg-destructive" },
-                      { name: "pink", color: "bg-[hsl(330,67%,52%)]" },
-                      { name: "dark", color: "bg-primary" },
-                    ].map((t) => (
-                      <button key={t.name} onClick={() => updateSetting("theme", t.name)}
-                        className={`w-8 h-8 rounded-full ${t.color} ${settings.theme === t.name ? "ring-2 ring-offset-2 ring-royal" : ""}`} />
-                    ))}
-                  </div>
-                </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
