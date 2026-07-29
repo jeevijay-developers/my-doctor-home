@@ -183,7 +183,7 @@ const DashboardHome = () => {
       </div>
 
       {/* Growth Tip Banner */}
-      <Card className="border-spark/30 bg-spark/5 shadow-none xl:flex-shrink-0">
+      <Card className="border-spark/30 bg-spark/5 shadow-none">
         <CardContent className="p-3 flex flex-row items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-spark/20 flex items-center justify-center flex-shrink-0">
             <Lightbulb className="h-4 w-4 text-spark" />
