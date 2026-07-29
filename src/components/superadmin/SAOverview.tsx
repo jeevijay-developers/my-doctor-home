@@ -84,17 +84,17 @@ const SAOverview = () => {
       </Card>
 
 
-      <Card className="rounded-2xl border-transparent bg-white shadow-sm">
-        <CardHeader><CardTitle className="text-lg font-heading font-semibold text-primary">Trials ending in next 7 days ({trialsEnding.length})</CardTitle></CardHeader>
+      <Card className="rounded-2xl border-transparent bg-card shadow-sm">
+        <CardHeader><CardTitle className="text-lg font-heading font-semibold text-foreground">Trials ending in next 7 days ({trialsEnding.length})</CardTitle></CardHeader>
         <CardContent>
           {trialsEnding.length === 0 ? (
             <p className="text-sm text-muted-foreground">No trials ending soon.</p>
           ) : (
-            <ul className="divide-y">
+            <ul className="divide-y divide-border">
               {trialsEnding.map((t) => (
                 <li key={t.id} className="py-2 flex items-center justify-between text-sm">
                   <div>
-                    <Link to={`/superadmin/doctors/${t.id}`} className="font-medium text-primary hover:underline">
+                    <Link to={`/superadmin/doctors/${t.id}`} className="font-medium text-foreground hover:underline">
                       {t.full_name || "Unnamed"}
                     </Link>
                     <span className="text-muted-foreground"> · {t.clinic_name || "—"}</span>
