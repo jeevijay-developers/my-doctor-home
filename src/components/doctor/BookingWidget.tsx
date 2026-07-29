@@ -290,6 +290,7 @@ const BookingWidget = () => {
           patientName={name}
           patientPhone={phone}
           paymentStatus="pay_at_clinic"
+          zoomJoinUrl={zoomJoinUrl}
           onDownload={downloadSlip}
         />
       </section>
