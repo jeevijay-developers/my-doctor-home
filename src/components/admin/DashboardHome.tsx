@@ -265,7 +265,7 @@ const DashboardHome = () => {
 
         {/* Getting Started — only shown after data loads, and only if tasks remain */}
         {dashboardReady && completedSteps < checklist.length && (
-        <Card className="border-0 rounded-2xl shadow-sm bg-card">
+        <Card className="border-0 rounded-2xl shadow-sm bg-card flex flex-col lg:min-h-0 lg:overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Getting Started</CardTitle>
@@ -273,7 +273,7 @@ const DashboardHome = () => {
             </div>
             <Progress value={(completedSteps / checklist.length) * 100} className="h-2 mt-2 bg-secondary [&>div]:bg-royal" />
           </CardHeader>
-          <CardContent className="space-y-1">
+          <CardContent className="space-y-1 flex-1 lg:min-h-0 lg:overflow-y-auto">
             {checklist.map((item) => (
               <Link key={item.label} to={item.href} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/60 transition-colors group">
                 {item.done ? (
