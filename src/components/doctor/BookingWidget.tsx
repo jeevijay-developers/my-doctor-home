@@ -150,6 +150,10 @@ const BookingWidget = () => {
       setPatientsAhead(typeof qp === "number" ? qp : 0);
       setConfirmedApptId(inserted.id);
     }
+    if (type === "online") {
+      setConfirmedApptId(inserted?.id ?? null);
+      setZoomJoinUrl((inserted as any)?.zoom_join_url ?? null);
+    }
 
     setToken(tkn);
     setConfirmed(true);
@@ -159,7 +163,7 @@ const BookingWidget = () => {
   const reset = () => {
     setStep(1); setType("clinic"); setSelectedService(null); setSelectedDate(null);
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
-    setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
+    setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null); setZoomJoinUrl(null);
   };
 
   const downloadSlip = async () => {
