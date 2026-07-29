@@ -7,11 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Mail, Phone, MapPin, Send, CheckCircle } from "lucide-react";
 import { z } from "zod";
+import { isValidIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
 const enquirySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
   email: z.string().trim().email("Invalid email address").max(255),
-  phone: z.string().trim().max(15).optional(),
+  phone: z.string().trim().min(1, "Phone number is required").refine(isValidIndianPhone, phoneErrorMessage),
   clinic_name: z.string().trim().max(100).optional(),
   city: z.string().trim().max(50).optional(),
   message: z.string().trim().max(1000).optional(),
