@@ -144,6 +144,41 @@
     color: hsl(220 15% 45%);
     opacity: 1;
   }
+
+  /* Scrollbar — light by default, dark in dark mode */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(220 20% 80%) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(220 20% 80%);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(220 20% 70%);
+  }
+
+  .dark * {
+    scrollbar-color: hsl(222 20% 28%) transparent;
+  }
+  .dark ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: hsl(222 20% 26%);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(222 20% 34%);
+  }
 }
 
 @layer utilities {
