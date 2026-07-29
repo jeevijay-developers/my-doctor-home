@@ -6,7 +6,14 @@ import { useDoctorData } from "@/contexts/DoctorContext";
 
 const HeroBanner = () => {
   const { profile, reviews } = useDoctorData();
+  const reduce = useReducedMotion();
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const fadeUp = (delay = 0) => ({
+    initial: reduce ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: reduce ? 0 : 0.5, delay: reduce ? 0 : delay, ease: "easeOut" },
+  });
+
 
   const avgRating = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
