@@ -54,7 +54,7 @@ const MyWebsite = () => {
 
   const saveAllRef = useCallback(() => {
     if (profile && settings.id) saveAll(true);
-  }, [profile, settings, services, packages, workingHours]);
+  }, [profile, settings, services, workingHours]);
 
   useEffect(() => {
     const interval = setInterval(saveAllRef, 30000);
