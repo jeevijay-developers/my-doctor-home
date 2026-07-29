@@ -46,7 +46,6 @@ const SADoctors = () => {
             </SelectGroup>
             <SelectGroup>
               <SelectLabel>Tier</SelectLabel>
-              <SelectItem value="tier:free">Free</SelectItem>
               <SelectItem value="tier:pro">Pro</SelectItem>
               <SelectItem value="tier:premium">Premium</SelectItem>
             </SelectGroup>
