@@ -52,6 +52,7 @@ const BookingWidget = () => {
   const [token, setToken] = useState("");
   const [patientsAhead, setPatientsAhead] = useState<number | null>(null);
   const [confirmedApptId, setConfirmedApptId] = useState<string | null>(null);
+  const [zoomJoinUrl, setZoomJoinUrl] = useState<string | null>(null);
   const [slipOpen, setSlipOpen] = useState(false);
 
   useEffect(() => { if (confirmed) setSlipOpen(true); }, [confirmed]);
@@ -119,7 +120,7 @@ const BookingWidget = () => {
         status: "pending" as any,
         payment_status: "pay_at_clinic" as any,
       })
-      .select("id")
+      .select("id, zoom_join_url")
       .single();
 
     if (error) {
@@ -149,6 +150,10 @@ const BookingWidget = () => {
       setPatientsAhead(typeof qp === "number" ? qp : 0);
       setConfirmedApptId(inserted.id);
     }
+    if (type === "online") {
+      setConfirmedApptId(inserted?.id ?? null);
+      setZoomJoinUrl((inserted as any)?.zoom_join_url ?? null);
+    }
 
     setToken(tkn);
     setConfirmed(true);
@@ -158,7 +163,7 @@ const BookingWidget = () => {
   const reset = () => {
     setStep(1); setType("clinic"); setSelectedService(null); setSelectedDate(null);
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
-    setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
+    setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null); setZoomJoinUrl(null);
   };
 
   const downloadSlip = async () => {
@@ -285,6 +290,7 @@ const BookingWidget = () => {
           patientName={name}
           patientPhone={phone}
           paymentStatus="pay_at_clinic"
+          zoomJoinUrl={zoomJoinUrl}
           onDownload={downloadSlip}
         />
       </section>
