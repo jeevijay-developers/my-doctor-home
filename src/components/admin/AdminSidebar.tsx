@@ -49,13 +49,22 @@ const AdminSidebar = () => {
         {/* Logo */}
         <div className="px-4 py-6 flex items-center gap-2">
           {!collapsed && (
-            <img
-              src="/doctylia-logo.png"
-              alt="Doctylia"
-              className="h-12 w-auto object-contain select-none"
-              draggable={false}
-              style={{ imageRendering: "-webkit-optimize-contrast" }}
-            />
+            <>
+              <img
+                src="/doctylia-logo.png"
+                alt="Doctylia"
+                className="h-12 w-auto object-contain select-none block dark:hidden"
+                draggable={false}
+                style={{ imageRendering: "-webkit-optimize-contrast" }}
+              />
+              <img
+                src="/doctylia-logo-dark.jpg"
+                alt="Doctylia"
+                className="h-12 w-auto object-contain select-none hidden dark:block"
+                draggable={false}
+                style={{ imageRendering: "-webkit-optimize-contrast" }}
+              />
+            </>
           )}
           {collapsed && (
             <span className="text-primary font-heading font-bold text-xl">D</span>
