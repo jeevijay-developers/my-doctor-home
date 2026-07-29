@@ -38,19 +38,14 @@ const MyWebsite = () => {
 
   const load = useCallback(async () => {
     if (!profile) return;
-    const [settingsRes, servicesRes, packagesRes, hoursRes, reviewsRes] = await Promise.all([
+    const [settingsRes, servicesRes, hoursRes, reviewsRes] = await Promise.all([
       supabase.from("website_settings").select("*").eq("doctor_id", profile.id).single(),
       supabase.from("services").select("*").eq("doctor_id", profile.id).order("sort_order"),
-      supabase.from("packages").select("*").eq("doctor_id", profile.id).order("sort_order"),
       supabase.from("working_hours").select("*").eq("doctor_id", profile.id).order("day_of_week"),
       supabase.from("reviews").select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }),
     ]);
     if (settingsRes.data) setSettings(settingsRes.data);
     setServices((servicesRes.data || []).map((s: any) => ({ ...s, description: s.description || "" })));
-    setPackages((packagesRes.data || []).map((p: any) => ({
-      ...p, tagline: p.tagline || "", original_price: p.original_price || 0,
-      features: Array.isArray(p.features) ? p.features : [],
-    })));
     setWorkingHours((hoursRes.data || []) as WorkingHour[]);
     setReviews((reviewsRes.data || []) as Review[]);
   }, [profile]);
