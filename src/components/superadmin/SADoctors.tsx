@@ -57,7 +57,6 @@ const SADoctors = () => {
                 <th className="text-left p-3">Doctor</th>
                 <th className="text-left p-3">Clinic</th>
                 <th className="text-left p-3">City</th>
-                <th className="text-left p-3">Status</th>
                 <th className="text-left p-3">Tier</th>
                 <th className="text-left p-3">Joined</th>
                 <th className="p-3"></th>
@@ -74,7 +73,6 @@ const SADoctors = () => {
                   </td>
                   <td className="p-3">{r.clinic_name || "—"}</td>
                   <td className="p-3">{r.city || "—"}</td>
-                  <td className="p-3"><Badge variant="outline">{r.plan_status}</Badge></td>
                   <td className="p-3"><Badge>{r.plan_tier || "free"}</Badge></td>
                   <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                   <td className="p-3">
@@ -87,7 +85,7 @@ const SADoctors = () => {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No doctors found.</td></tr>
+                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No doctors found.</td></tr>
               )}
             </tbody>
           </table>
