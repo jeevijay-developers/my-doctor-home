@@ -552,7 +552,6 @@ export type Database = {
           plan_tier: string
           profile_photo_url: string | null
           qualifications: string | null
-          revenue_goal: number | null
           slug: string | null
           specialization: string | null
           trial_end: string
@@ -577,7 +576,6 @@ export type Database = {
           plan_tier?: string
           profile_photo_url?: string | null
           qualifications?: string | null
-          revenue_goal?: number | null
           slug?: string | null
           specialization?: string | null
           trial_end?: string
@@ -602,7 +600,6 @@ export type Database = {
           plan_tier?: string
           profile_photo_url?: string | null
           qualifications?: string | null
-          revenue_goal?: number | null
           slug?: string | null
           specialization?: string | null
           trial_end?: string
