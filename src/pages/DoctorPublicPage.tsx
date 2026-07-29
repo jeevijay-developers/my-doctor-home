@@ -11,8 +11,6 @@ import BookingWidget from "@/components/doctor/BookingWidget";
 import ReviewsSection from "@/components/doctor/ReviewsSection";
 import BlogPreview from "@/components/doctor/BlogPreview";
 import ClinicDetails from "@/components/doctor/ClinicDetails";
-import FinalCTA from "@/components/doctor/FinalCTA";
-import MobileActionBar from "@/components/doctor/MobileActionBar";
 import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 
@@ -106,9 +104,7 @@ const DoctorPageContent = () => {
       {settings.show_clinic_details !== false && (
         <AnimatedSection><ClinicDetails /></AnimatedSection>
       )}
-      <AnimatedSection><FinalCTA /></AnimatedSection>
       <Footer />
-      <MobileActionBar />
     </div>
   );
 };
