@@ -218,7 +218,7 @@ const DashboardHome = () => {
               </Link>
             </div>
           </CardHeader>
-          <CardContent className="xl:flex-1 xl:min-h-0 xl:overflow-auto">
+          <CardContent>
 
             {todayAppointments.length === 0 ? (
               <div className="text-center py-10">
