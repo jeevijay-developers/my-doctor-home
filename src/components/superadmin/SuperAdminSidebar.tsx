@@ -35,8 +35,8 @@ const SuperAdminSidebar = () => {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0">
-      <SidebarContent className="bg-primary dark:bg-sidebar">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarContent className="bg-sidebar">
         <div className="px-4 py-6 flex items-center gap-2">
           {!collapsed ? (
             <>
@@ -50,20 +50,20 @@ const SuperAdminSidebar = () => {
               <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-spark text-primary px-2 py-0.5 rounded">Super</span>
             </>
           ) : (
-            <Shield className="h-6 w-6 text-spark" />
+            <Shield className="h-6 w-6 text-primary" />
           )}
         </div>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-primary-foreground/70 dark:text-sidebar-foreground/70 text-xs font-semibold uppercase tracking-wider">Platform</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/70 text-xs font-semibold uppercase tracking-wider">Platform</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="rounded-xl h-11">
                     <NavLink
                       to={item.url}
-                      className="text-primary-foreground/90 dark:text-sidebar-foreground/90 font-medium hover:bg-white/10 dark:hover:bg-sidebar-accent hover:text-white dark:hover:text-sidebar-accent-foreground transition-colors"
-                      activeClassName="!bg-white/15 dark:!bg-sidebar-accent !text-white dark:!text-sidebar-accent-foreground !font-semibold shadow-md"
+                      className="text-sidebar-foreground/90 font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                      activeClassName="!bg-primary !text-primary-foreground !font-semibold shadow-lg shadow-primary/30"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -76,7 +76,8 @@ const SuperAdminSidebar = () => {
         </SidebarGroup>
 
       </SidebarContent>
-      <SidebarFooter className="bg-primary dark:bg-sidebar p-3">
+      <SidebarFooter className="bg-sidebar p-3 border-t border-sidebar-border">
+
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
