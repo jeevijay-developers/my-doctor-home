@@ -28,29 +28,33 @@ const BlogPreview = () => {
             View All <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {posts.map((post) => (
-            <Link key={post.id} to={`/dr/${slug}/blog/${post.id}`}
-              className="hover-lift group bg-card rounded-xl border border-border overflow-hidden">
-
-              {post.featured_image_url && (
-                <img src={post.featured_image_url} alt={post.title} className="w-full h-44 object-cover" />
-              )}
-              <div className="p-5 space-y-3">
-                {post.category && (
-                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-pill bg-ai-purple/10 text-ai-purple font-medium">
-                    <Tag className="h-3 w-3" /> {post.category}
-                  </span>
+        <div className="flex flex-wrap justify-center gap-6">
+          {posts.map((post) => {
+            const dateVal = post.published_at || post.created_at;
+            return (
+              <Link key={post.id} to={`/dr/${slug}/blog/${post.id}`}
+                className="hover-lift group bg-card rounded-xl border border-border overflow-hidden w-full sm:w-[340px] flex flex-col">
+                {post.featured_image_url && (
+                  <img src={post.featured_image_url} alt={post.title} className="w-full h-44 object-cover" />
                 )}
-                <h3 className="font-heading font-semibold text-primary group-hover:text-royal transition-colors line-clamp-2">{post.title}</h3>
-                {post.excerpt && <p className="text-sm text-muted-foreground line-clamp-2">{post.excerpt}</p>}
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Calendar className="h-3 w-3" />
-                  {post.published_at ? format(new Date(post.published_at), "MMM d, yyyy") : ""}
+                <div className="p-5 space-y-3">
+                  {post.category && (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-pill bg-ai-purple/10 text-ai-purple font-medium">
+                      <Tag className="h-3 w-3" /> {post.category}
+                    </span>
+                  )}
+                  <h3 className="font-heading font-semibold text-primary group-hover:text-royal transition-colors line-clamp-2">{post.title}</h3>
+                  {post.excerpt && <p className="text-sm text-muted-foreground line-clamp-2">{post.excerpt}</p>}
+                  {dateVal && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(dateVal), "MMM d, yyyy")}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>
