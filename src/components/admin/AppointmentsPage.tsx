@@ -683,6 +683,18 @@ const AppointmentsPage = () => {
                     ))}
                   </div>
 
+                  {viewing.appointment_type === "online" && (
+                    <VideoConsultationCard
+                      appointmentId={viewing.id}
+                      date={viewing.date}
+                      timeSlot={viewing.time_slot}
+                      role="doctor"
+                      status={viewing.status}
+                      hasMeeting={!!viewing.zoom_join_url}
+                      onCreated={load}
+                    />
+                  )}
+
                   {(viewing.chief_complaint || viewing.notes) && (
                     <div className="space-y-2">
                       {viewing.chief_complaint && (
