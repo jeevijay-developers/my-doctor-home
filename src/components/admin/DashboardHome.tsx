@@ -5,15 +5,16 @@ import {
   CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
   TrendingUp, Sparkles, ExternalLink, Copy, Eye, FileText,
   CheckCircle2, Circle, Stethoscope,
-  Lightbulb, Send, Share2
+  Lightbulb, Send, Share2, IndianRupee
 } from "lucide-react";
-import { differenceInDays, format } from "date-fns";
+import { differenceInDays, format, subDays } from "date-fns";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 
 const growthTips = [
