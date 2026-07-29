@@ -16,7 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { Star } from "lucide-react";
 
 type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
-type Package = { id?: string; name: string; tagline: string; price: number; original_price: number; duration: string; features: string[]; is_popular: boolean; active: boolean };
+
 type WorkingHour = { id?: string; day_of_week: number; is_open: boolean; start_time: string | null; end_time: string | null; start_time_2: string | null; end_time_2: string | null };
 type Review = { id: string; patient_name: string; rating: number; review_text: string | null; is_visible: boolean; is_pinned: boolean; created_at: string };
 type WebSettings = Record<string, any>;
