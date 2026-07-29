@@ -22,7 +22,10 @@ const SADoctors = () => {
     const t = q.toLowerCase();
     if (t && !`${r.full_name} ${r.clinic_name} ${r.city}`.toLowerCase().includes(t)) return false;
     if (filter.startsWith("status:") && r.plan_status !== filter.slice(7)) return false;
-    if (filter.startsWith("tier:") && (r.plan_tier || "free") !== filter.slice(5)) return false;
+    if (filter.startsWith("tier:")) {
+      if (r.plan_status !== "active") return false;
+      if ((r.plan_tier || "free") !== filter.slice(5)) return false;
+    }
     return true;
   });
 
@@ -43,7 +46,6 @@ const SADoctors = () => {
             </SelectGroup>
             <SelectGroup>
               <SelectLabel>Tier</SelectLabel>
-              <SelectItem value="tier:free">Free</SelectItem>
               <SelectItem value="tier:pro">Pro</SelectItem>
               <SelectItem value="tier:premium">Premium</SelectItem>
             </SelectGroup>
@@ -77,7 +79,7 @@ const SADoctors = () => {
                   <td className="p-3">{r.clinic_name || "—"}</td>
                   <td className="p-3">{r.city || "—"}</td>
                   <td className="p-3"><Badge variant="outline">{r.plan_status}</Badge></td>
-                  <td className="p-3"><Badge>{r.plan_tier || "free"}</Badge></td>
+                  <td className="p-3">{r.plan_status === "active" && (r.plan_tier === "pro" || r.plan_tier === "premium") ? <Badge>{r.plan_tier}</Badge> : <span className="text-muted-foreground">—</span>}</td>
                   <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                   <td className="p-3">
                     {r.slug && (
