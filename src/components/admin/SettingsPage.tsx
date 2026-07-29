@@ -59,23 +59,9 @@ const SettingsPage = () => {
       <Tabs defaultValue="subscription" className="space-y-6">
         <TabsList className="bg-card border border-border h-11">
           <TabsTrigger value="subscription" className="gap-1.5"><Crown className="h-3.5 w-3.5" /> Subscription</TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-1.5"><Palette className="h-3.5 w-3.5" /> Appearance</TabsTrigger>
           <TabsTrigger value="account" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Account</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="appearance">
-          <Card className="border-border/60 shadow-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Palette className="h-5 w-5 text-royal" /> Appearance</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Choose how the admin panel looks. "System" follows your device setting. Your preference is saved and applies across every page of the admin panel.
-              </p>
-              <AppearanceSelector mode={mode} onChange={setTheme} />
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="subscription">
           <Card className="border-border/60 shadow-none">
