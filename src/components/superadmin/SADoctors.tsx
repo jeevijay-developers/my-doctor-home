@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
@@ -10,9 +10,8 @@ import { ExternalLink } from "lucide-react";
 const SADoctors = () => {
   const [rows, setRows] = useState<any[]>([]);
   const [q, setQ] = useState("");
-  // Combined filter value. Uses prefixes to distinguish status vs tier.
-  // "all" | "status:trial" | "tier:pro" etc.
-  const [filter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [tierFilter, setTierFilter] = useState("all");
 
   useEffect(() => {
     supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
@@ -21,11 +20,8 @@ const SADoctors = () => {
   const filtered = rows.filter((r) => {
     const t = q.toLowerCase();
     if (t && !`${r.full_name} ${r.clinic_name} ${r.city}`.toLowerCase().includes(t)) return false;
-    if (filter.startsWith("status:") && r.plan_status !== filter.slice(7)) return false;
-    if (filter.startsWith("tier:")) {
-      if (r.plan_status !== "active") return false;
-      if ((r.plan_tier || "free") !== filter.slice(5)) return false;
-    }
+    if (statusFilter !== "all" && r.plan_status !== statusFilter) return false;
+    if (tierFilter !== "all" && (r.plan_tier || "free") !== tierFilter) return false;
     return true;
   });
 
@@ -33,22 +29,22 @@ const SADoctors = () => {
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row gap-3">
         <Input placeholder="Search name, clinic, city…" value={q} onChange={(e) => setQ(e.target.value)} className="md:max-w-sm" />
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="md:w-56"><SelectValue /></SelectTrigger>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="md:w-48"><SelectValue placeholder="All Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectGroup>
-              <SelectLabel>Status</SelectLabel>
-              <SelectItem value="status:trial">Trial</SelectItem>
-              <SelectItem value="status:active">Active</SelectItem>
-              <SelectItem value="status:expired">Expired</SelectItem>
-              <SelectItem value="status:cancelled">Cancelled/Suspended</SelectItem>
-            </SelectGroup>
-            <SelectGroup>
-              <SelectLabel>Tier</SelectLabel>
-              <SelectItem value="tier:pro">Pro</SelectItem>
-              <SelectItem value="tier:premium">Premium</SelectItem>
-            </SelectGroup>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+            <SelectItem value="cancelled">Cancelled/Suspended</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={tierFilter} onValueChange={setTierFilter}>
+          <SelectTrigger className="md:w-48"><SelectValue placeholder="All Tiers" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Tiers</SelectItem>
+            <SelectItem value="free">Free</SelectItem>
+            <SelectItem value="pro">Pro</SelectItem>
+            <SelectItem value="premium">Premium</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -79,7 +75,7 @@ const SADoctors = () => {
                   <td className="p-3">{r.clinic_name || "—"}</td>
                   <td className="p-3">{r.city || "—"}</td>
                   <td className="p-3"><Badge variant="outline">{r.plan_status}</Badge></td>
-                  <td className="p-3">{r.plan_status === "active" && (r.plan_tier === "pro" || r.plan_tier === "premium") ? <Badge>{r.plan_tier}</Badge> : <span className="text-muted-foreground">—</span>}</td>
+                  <td className="p-3"><Badge>{r.plan_tier || "free"}</Badge></td>
                   <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                   <td className="p-3">
                     {r.slug && (
