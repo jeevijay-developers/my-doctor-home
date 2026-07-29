@@ -22,7 +22,10 @@ const SADoctors = () => {
     const t = q.toLowerCase();
     if (t && !`${r.full_name} ${r.clinic_name} ${r.city}`.toLowerCase().includes(t)) return false;
     if (filter.startsWith("status:") && r.plan_status !== filter.slice(7)) return false;
-    if (filter.startsWith("tier:") && (r.plan_tier || "free") !== filter.slice(5)) return false;
+    if (filter.startsWith("tier:")) {
+      if (r.plan_status !== "active") return false;
+      if ((r.plan_tier || "free") !== filter.slice(5)) return false;
+    }
     return true;
   });
 
