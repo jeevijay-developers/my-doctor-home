@@ -29,7 +29,6 @@ const MyWebsite = () => {
   const [settings, setSettings] = useState<WebSettings>({});
   const [aboutOpen, setAboutOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
-  const [packages, setPackages] = useState<Package[]>([]);
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
