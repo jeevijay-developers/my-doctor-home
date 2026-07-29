@@ -58,7 +58,7 @@ const SASubscriptions = () => {
             <thead className="bg-secondary text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="text-left p-3">Doctor</th>
-                <th className="text-left p-3">Status &amp; Tier</th>
+                <th className="text-left p-3">Tier</th>
                 <th className="text-left p-3">Change Tier</th>
                 <th className="text-left p-3">Trial end</th>
                 <th className="text-left p-3">Extend</th>
