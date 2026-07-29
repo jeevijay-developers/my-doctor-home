@@ -421,14 +421,14 @@ const MyWebsite = () => {
                   <p className="text-xs text-muted-foreground">No reviews yet. Reviews will appear here once patients submit them.</p>
                 ) : reviews.map((r) => (
                   <div key={r.id} className={`p-3 rounded-lg space-y-2 ${r.is_visible ? "bg-secondary" : "bg-destructive/5 border border-destructive/20"}`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-medium text-primary">{r.patient_name}</span>
+                    <div className="flex items-start justify-between gap-2 flex-wrap sm:flex-nowrap">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm font-medium text-primary block break-words">{r.patient_name}</span>
                         <div className="flex items-center gap-0.5 mt-0.5">
                           {[...Array(r.rating)].map((_, i) => <Star key={i} size={12} className="text-warning fill-warning" />)}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         <Button size="sm" variant="ghost" className={`h-7 px-2 ${r.is_pinned ? "text-royal" : "text-muted-foreground"}`}
                           onClick={() => toggleReviewPin(r.id, !r.is_pinned)} title={r.is_pinned ? "Unpin" : "Pin to top"}>
                           <Pin className="h-3 w-3" />
@@ -439,14 +439,15 @@ const MyWebsite = () => {
                         </Button>
                       </div>
                     </div>
-                    {r.review_text && <p className="text-xs text-muted-foreground line-clamp-2">{r.review_text}</p>}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {r.review_text && <p className="text-xs text-muted-foreground line-clamp-3 break-words">{r.review_text}</p>}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                       <span>{new Date(r.created_at).toLocaleDateString()}</span>
                       {r.is_pinned && <span className="text-royal font-medium">📌 Pinned</span>}
                       {!r.is_visible && <span className="text-destructive font-medium">Hidden</span>}
                     </div>
                   </div>
                 ))}
+
               </AccordionContent>
             </AccordionItem>
 
