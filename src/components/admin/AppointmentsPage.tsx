@@ -26,6 +26,8 @@ type Appointment = {
   date: string; time_slot: string; status: string; payment_status: string;
   amount: number; token_number: string | null; chief_complaint: string | null; notes: string | null;
   reschedule_count?: number | null;
+  zoom_meeting_id?: string | null;
+  zoom_join_url?: string | null;
 };
 
 const statusConfig: Record<string, { bg: string; dot: string; label: string }> = {
