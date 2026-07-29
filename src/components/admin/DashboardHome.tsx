@@ -5,15 +5,16 @@ import {
   CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
   TrendingUp, Sparkles, ExternalLink, Copy, Eye, FileText,
   CheckCircle2, Circle, Stethoscope,
-  Lightbulb, Send, Share2
+  Lightbulb, Send, Share2, IndianRupee
 } from "lucide-react";
-import { differenceInDays, format } from "date-fns";
+import { differenceInDays, format, subDays } from "date-fns";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 
 const growthTips = [
@@ -32,6 +33,8 @@ const DashboardHome = () => {
   const [blogCount, setBlogCount] = useState(0);
   const [tipIndex, setTipIndex] = useState(0);
   const [dashboardReady, setDashboardReady] = useState(false);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [revenueSeries, setRevenueSeries] = useState<{ day: string; value: number }[]>([]);
 
   const loadDashboard = () => {
     if (!profile) return;
@@ -39,6 +42,8 @@ const DashboardHome = () => {
     const today = format(new Date(), "yyyy-MM-dd");
     const weekAgo = format(new Date(Date.now() - 7 * 86400000), "yyyy-MM-dd");
     const twoWeeksAgo = format(new Date(Date.now() - 14 * 86400000), "yyyy-MM-dd");
+    const thirtyDaysAgoDate = subDays(new Date(), 29);
+    const thirtyDaysAgo = format(thirtyDaysAgoDate, "yyyy-MM-dd");
 
     Promise.all([
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id),
@@ -51,7 +56,8 @@ const DashboardHome = () => {
       supabase.from("blog_posts").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("is_published", true),
       (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id).gte("created_at", `${weekAgo}T00:00:00`),
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo),
-    ]).then(([apptRes, patRes, revRes, todayRes, svcRes, blogRes, weekRevRes, lastWeekRes]) => {
+      (supabase.from("invoices" as any) as any).select("amount, created_at").eq("doctor_id", id).gte("created_at", `${thirtyDaysAgo}T00:00:00`),
+    ]).then(([apptRes, patRes, revRes, todayRes, svcRes, blogRes, weekRevRes, lastWeekRes, monthRevRes]) => {
       const revenue = (revRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const weekRevenue = (weekRevRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const todayData = todayRes.data || [];
@@ -66,6 +72,22 @@ const DashboardHome = () => {
       setTodayAppointments(todayData.slice(0, 6));
       setServicesCount(svcRes.count || 0);
       setBlogCount(blogRes.count || 0);
+
+      // Build a 30-day daily revenue series for the Monthly Revenue chart
+      const buckets = new Map<string, number>();
+      for (let i = 29; i >= 0; i--) {
+        buckets.set(format(subDays(new Date(), i), "yyyy-MM-dd"), 0);
+      }
+      let monthTotal = 0;
+      (monthRevRes.data || []).forEach((r: any) => {
+        const key = format(new Date(r.created_at), "yyyy-MM-dd");
+        const amt = Number(r.amount) || 0;
+        if (buckets.has(key)) buckets.set(key, (buckets.get(key) || 0) + amt);
+        monthTotal += amt;
+      });
+      setMonthlyRevenue(monthTotal);
+      setRevenueSeries(Array.from(buckets.entries()).map(([day, value]) => ({ day: format(new Date(day), "MMM d"), value })));
+
       setDashboardReady(true);
     });
   };
@@ -202,9 +224,12 @@ const DashboardHome = () => {
         </CardContent>
       </Card>
 
-      <div className={`grid gap-2 lg:gap-2.5 xl:gap-3 lg:flex-1 lg:min-h-0 ${(!dashboardReady || completedSteps === checklist.length) ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
-        {/* Today's Schedule Timeline */}
-        <Card className={`border-0 rounded-2xl shadow-sm bg-card flex flex-col lg:min-h-0 lg:overflow-hidden ${(!dashboardReady || completedSteps === checklist.length) ? "" : "lg:col-span-2"}`}>
+      {/* Main two-column layout:
+          LEFT  = Today's Schedule (spans full height of right column)
+          RIGHT = Monthly Revenue (top) + Share Your Website (bottom), equally split */}
+      <div className="grid gap-3 lg:grid-cols-2 lg:flex-1 lg:min-h-0">
+        {/* LEFT — Today's Schedule */}
+        <Card className="border-0 rounded-2xl shadow-sm bg-card flex flex-col lg:min-h-0 lg:overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -219,7 +244,6 @@ const DashboardHome = () => {
             </div>
           </CardHeader>
           <CardContent className="flex-1 lg:min-h-0 lg:overflow-y-auto">
-
             {todayAppointments.length === 0 ? (
               <div className="text-center py-10">
                 <div className="w-16 h-16 rounded-2xl bg-royal/5 flex items-center justify-center mx-auto mb-3">
@@ -232,7 +256,6 @@ const DashboardHome = () => {
               <div className="space-y-1">
                 {todayAppointments.map((a, i) => (
                   <div key={a.id} className="flex gap-4 group">
-                    {/* Timeline line */}
                     <div className="flex flex-col items-center">
                       <div className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${
                         a.status === "completed" ? "border-success bg-success" :
@@ -263,9 +286,88 @@ const DashboardHome = () => {
           </CardContent>
         </Card>
 
-        {/* Getting Started — only shown after data loads, and only if tasks remain */}
-        {dashboardReady && completedSteps < checklist.length && (
-        <Card className="border-0 rounded-2xl shadow-sm bg-card flex flex-col lg:min-h-0 lg:overflow-hidden">
+        {/* RIGHT — Monthly Revenue + Share Your Website, stacked and equally sized
+            so their combined height matches Today's Schedule on the left */}
+        <div className="flex flex-col gap-3 lg:min-h-0">
+          {/* Monthly Revenue */}
+          <Card className="border-0 rounded-2xl shadow-sm bg-card flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <IndianRupee className="h-4 w-4 text-teal" /> Monthly Revenue
+                </CardTitle>
+                <span className="text-sm font-heading font-bold text-foreground">
+                  ₹{monthlyRevenue.toLocaleString("en-IN")}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Last 30 days</p>
+            </CardHeader>
+            <CardContent className="flex-1 lg:min-h-0 pt-0 pb-3">
+              <div className="w-full h-full min-h-[120px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={revenueSeries} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.25} vertical={false} />
+                    <XAxis dataKey="day" fontSize={10} interval="preserveStartEnd" tickLine={false} axisLine={false} />
+                    <YAxis fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(v: any) => [`₹${Number(v).toLocaleString("en-IN")}`, "Revenue"]}
+                      contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                    />
+                    <Line
+                      type="linear"
+                      dataKey="value"
+                      stroke="hsl(var(--teal))"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Share Your Website */}
+          <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-success flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Share2 className="h-4 w-4 text-success" /> Share Your Website
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 lg:min-h-0 lg:overflow-y-auto">
+              {liveUrl ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">Share your website with patients via WhatsApp to get more bookings!</p>
+                  <div className="bg-secondary/60 rounded-lg p-3 text-xs text-foreground break-all">
+                    🏥 Book your appointment online with {profile?.full_name || "Dr."} — {liveUrl}
+                  </div>
+                  <div className="flex gap-2">
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(`🏥 Book your appointment online with ${profile?.full_name || "Dr."}\n\n${liveUrl}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1"
+                    >
+                      <Button size="sm" className="w-full bg-success hover:bg-success/90 text-xs h-9">
+                        <Send className="h-3 w-3 mr-1" /> Share on WhatsApp
+                      </Button>
+                    </a>
+                    <Button variant="outline" size="sm" className="text-xs h-9" onClick={() => { navigator.clipboard.writeText(liveUrl); toast.success("Link copied!"); }}>
+                      <Copy className="h-3 w-3 mr-1" /> Copy
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4 text-center">Complete onboarding to share your website</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Getting Started — kept below the main two-column section, only until all tasks are done */}
+      {dashboardReady && completedSteps < checklist.length && (
+        <Card className="border-0 rounded-2xl shadow-sm bg-card">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Getting Started</CardTitle>
@@ -273,7 +375,7 @@ const DashboardHome = () => {
             </div>
             <Progress value={(completedSteps / checklist.length) * 100} className="h-2 mt-2 bg-secondary [&>div]:bg-royal" />
           </CardHeader>
-          <CardContent className="space-y-1 flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <CardContent className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
             {checklist.map((item) => (
               <Link key={item.label} to={item.href} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/60 transition-colors group">
                 {item.done ? (
@@ -287,46 +389,7 @@ const DashboardHome = () => {
             ))}
           </CardContent>
         </Card>
-        )}
-      </div>
-
-      {/* WhatsApp Share */}
-      <div>
-        <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-success">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Share2 className="h-4 w-4 text-success" /> Share Your Website
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {liveUrl ? (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">Share your website with patients via WhatsApp to get more bookings!</p>
-                <div className="bg-secondary/60 rounded-lg p-3 text-xs text-foreground break-all">
-                  🏥 Book your appointment online with {profile?.full_name || "Dr."} — {liveUrl}
-                </div>
-                <div className="flex gap-2">
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(`🏥 Book your appointment online with ${profile?.full_name || "Dr."}\n\n${liveUrl}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1"
-                  >
-                    <Button size="sm" className="w-full bg-success hover:bg-success/90 text-xs h-9">
-                      <Send className="h-3 w-3 mr-1" /> Share on WhatsApp
-                    </Button>
-                  </a>
-                  <Button variant="outline" size="sm" className="text-xs h-9" onClick={() => { navigator.clipboard.writeText(liveUrl); toast.success("Link copied!"); }}>
-                    <Copy className="h-3 w-3 mr-1" /> Copy
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">Complete onboarding to share your website</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
 
     </div>
