@@ -89,7 +89,7 @@ const ReviewsSection = () => {
           <div className="lg:col-span-2 space-y-4">
             {showForm && <ReviewForm name={name} setName={setName} rating={rating} setRating={setRating} text={text} setText={setText} submitting={submitting} onSubmit={submitReview} onCancel={() => setShowForm(false)} />}
             {reviews.slice(0, 5).map((r) => (
-              <div key={r.id} className="bg-card border border-border rounded-xl p-5">
+              <div key={r.id} className="hover-lift bg-card border border-border rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p className="font-heading font-semibold text-foreground">{r.patient_name}</p>

@@ -31,7 +31,8 @@ const BlogPreview = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.map((post) => (
             <Link key={post.id} to={`/dr/${slug}/blog/${post.id}`}
-              className="group bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow">
+              className="hover-lift group bg-card rounded-xl border border-border overflow-hidden">
+
               {post.featured_image_url && (
                 <img src={post.featured_image_url} alt={post.title} className="w-full h-44 object-cover" />
               )}

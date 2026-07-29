@@ -194,3 +194,34 @@
     -webkit-text-fill-color: transparent;
   }
 }
+
+@layer utilities {
+  .hover-lift {
+    transition: transform 250ms ease-out, box-shadow 250ms ease-out;
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px -12px hsl(var(--foreground) / 0.18);
+  }
+  .btn-pop {
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out;
+  }
+  .btn-pop:hover {
+    transform: translateY(-1px) scale(1.02);
+  }
+  .btn-pop:active {
+    transform: translateY(0) scale(0.99);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hover-lift,
+  .btn-pop {
+    transition: none !important;
+  }
+  .hover-lift:hover,
+  .btn-pop:hover,
+  .btn-pop:active {
+    transform: none !important;
+  }
+}
