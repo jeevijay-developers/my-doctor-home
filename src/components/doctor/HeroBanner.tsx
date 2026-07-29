@@ -30,18 +30,18 @@ const HeroBanner = () => {
         <div className="grid lg:grid-cols-2 gap-10 items-center">
           <div className="space-y-6">
             {profile?.specialization && (
-              <span className="inline-block px-4 py-1.5 rounded-pill bg-teal text-primary-foreground text-sm font-heading font-semibold">
+              <motion.span {...fadeUp(0)} className="inline-block px-4 py-1.5 rounded-pill bg-teal text-primary-foreground text-sm font-heading font-semibold">
                 {profile.specialization}
-              </span>
+              </motion.span>
             )}
-            <h1 className="font-heading font-extrabold text-4xl md:text-5xl lg:text-[52px] leading-tight text-primary">
+            <motion.h1 {...fadeUp(0.08)} className="font-heading font-extrabold text-4xl md:text-5xl lg:text-[52px] leading-tight text-primary">
               Dr. {profile?.full_name || "Doctor"}
-            </h1>
+            </motion.h1>
             {profile?.qualifications && (
-              <p className="text-text-gray text-lg">{profile.qualifications}</p>
+              <motion.p {...fadeUp(0.16)} className="text-text-gray text-lg">{profile.qualifications}</motion.p>
             )}
 
-            <div className="flex flex-wrap gap-3 text-sm">
+            <motion.div {...fadeUp(0.22)} className="flex flex-wrap gap-3 text-sm">
               {profile?.experience_years && (
                 <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card shadow-sm text-foreground">
                   <Clock size={14} className="text-royal" /> {profile.experience_years}+ Years Experience
@@ -52,27 +52,28 @@ const HeroBanner = () => {
                   <MapPin size={14} className="text-royal" /> {profile.clinic_name}{profile.city ? `, ${profile.city}` : ""}
                 </span>
               )}
-            </div>
+            </motion.div>
 
-            <div className="flex items-center gap-2">
+            <motion.div {...fadeUp(0.28)} className="flex items-center gap-2">
               <div className="flex text-warning">
                 {[...Array(5)].map((_, i) => <Star key={i} size={18} fill="currentColor" />)}
               </div>
               <span className="font-heading font-bold text-foreground">{avgRating}</span>
               <span className="text-text-gray text-sm">· {reviews.length} review{reviews.length !== 1 ? "s" : ""}</span>
-            </div>
+            </motion.div>
 
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Button size="lg" className="bg-primary text-primary-foreground font-heading font-semibold shadow-md hover:opacity-90" onClick={() => scrollTo("booking")}>
+            <motion.div {...fadeUp(0.34)} className="flex flex-wrap gap-3 pt-2">
+              <Button size="lg" className="btn-pop bg-primary text-primary-foreground font-heading font-semibold shadow-md hover:opacity-90" onClick={() => scrollTo("booking")}>
                 <Calendar size={18} className="mr-2" /> Book Clinic Visit
               </Button>
-              <Button size="lg" variant="outline" className="border-teal text-teal hover:bg-teal hover:text-primary-foreground font-heading font-semibold" onClick={() => scrollTo("online-consultation")}>
+              <Button size="lg" variant="outline" className="btn-pop border-teal text-teal hover:bg-teal hover:text-primary-foreground font-heading font-semibold" onClick={() => scrollTo("online-consultation")}>
                 <Video size={18} className="mr-2" /> Online Consultation
               </Button>
-            </div>
+            </motion.div>
           </div>
 
-          <div className="relative flex justify-center lg:justify-end">
+          <motion.div {...fadeUp(0.15)} className="relative flex justify-center lg:justify-end">
+
             <div className="relative">
               <div className="w-72 h-80 md:w-80 md:h-96 rounded-2xl overflow-hidden shadow-xl border-t-4 border-royal bg-secondary">
                 {profile?.profile_photo_url ? (
