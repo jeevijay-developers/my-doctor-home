@@ -165,7 +165,7 @@ const DashboardHome = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:flex-shrink-0">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((s) => (
           <Card key={s.label} className="border-0 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 bg-card">
             <CardContent className="p-3 xl:p-4">
