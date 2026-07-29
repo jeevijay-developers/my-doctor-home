@@ -43,7 +43,7 @@ const SuperAdminSidebar = () => {
               <img
                 src="/doctylia-logo.png"
                 alt="Doctylia"
-                className="h-12 w-auto object-contain select-none brightness-0 invert"
+                className="h-12 w-auto object-contain select-none"
                 draggable={false}
                 style={{ imageRendering: "-webkit-optimize-contrast" }}
               />
