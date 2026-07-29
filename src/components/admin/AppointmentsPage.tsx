@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { format, isSameDay, parseISO } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { ensureInvoiceForAppointment } from "@/lib/invoiceGeneration";
+import VideoConsultationCard from "@/components/VideoConsultationCard";
 
 type Appointment = {
   id: string; patient_name: string; patient_phone: string; patient_age: number | null;
