@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { format, addDays, differenceInHours, parseISO, isSameDay } from "date-fns";
 import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight } from "lucide-react";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
+import VideoConsultationCard from "@/components/VideoConsultationCard";
 
 type Appt = {
   id: string; doctor_id: string; patient_name: string; patient_phone: string;
