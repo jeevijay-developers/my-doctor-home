@@ -66,8 +66,8 @@ const SAOverview = () => {
         ))}
       </div>
 
-      <Card className="rounded-2xl border-transparent bg-white shadow-sm">
-        <CardHeader><CardTitle className="text-lg font-heading font-semibold text-primary">Signups over time</CardTitle></CardHeader>
+      <Card className="rounded-2xl border-transparent bg-card shadow-sm">
+        <CardHeader><CardTitle className="text-lg font-heading font-semibold text-foreground">Signups over time</CardTitle></CardHeader>
         <CardContent>
           <div className="h-64">
             <ResponsiveContainer>
