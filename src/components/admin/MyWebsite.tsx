@@ -16,7 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { Star } from "lucide-react";
 
 type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
-type Package = { id?: string; name: string; tagline: string; price: number; original_price: number; duration: string; features: string[]; is_popular: boolean; active: boolean };
+
 type WorkingHour = { id?: string; day_of_week: number; is_open: boolean; start_time: string | null; end_time: string | null; start_time_2: string | null; end_time_2: string | null };
 type Review = { id: string; patient_name: string; rating: number; review_text: string | null; is_visible: boolean; is_pinned: boolean; created_at: string };
 type WebSettings = Record<string, any>;
@@ -29,7 +29,6 @@ const MyWebsite = () => {
   const [settings, setSettings] = useState<WebSettings>({});
   const [aboutOpen, setAboutOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
-  const [packages, setPackages] = useState<Package[]>([]);
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
@@ -39,19 +38,14 @@ const MyWebsite = () => {
 
   const load = useCallback(async () => {
     if (!profile) return;
-    const [settingsRes, servicesRes, packagesRes, hoursRes, reviewsRes] = await Promise.all([
+    const [settingsRes, servicesRes, hoursRes, reviewsRes] = await Promise.all([
       supabase.from("website_settings").select("*").eq("doctor_id", profile.id).single(),
       supabase.from("services").select("*").eq("doctor_id", profile.id).order("sort_order"),
-      supabase.from("packages").select("*").eq("doctor_id", profile.id).order("sort_order"),
       supabase.from("working_hours").select("*").eq("doctor_id", profile.id).order("day_of_week"),
       supabase.from("reviews").select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }),
     ]);
     if (settingsRes.data) setSettings(settingsRes.data);
     setServices((servicesRes.data || []).map((s: any) => ({ ...s, description: s.description || "" })));
-    setPackages((packagesRes.data || []).map((p: any) => ({
-      ...p, tagline: p.tagline || "", original_price: p.original_price || 0,
-      features: Array.isArray(p.features) ? p.features : [],
-    })));
     setWorkingHours((hoursRes.data || []) as WorkingHour[]);
     setReviews((reviewsRes.data || []) as Review[]);
   }, [profile]);
@@ -60,7 +54,7 @@ const MyWebsite = () => {
 
   const saveAllRef = useCallback(() => {
     if (profile && settings.id) saveAll(true);
-  }, [profile, settings, services, packages, workingHours]);
+  }, [profile, settings, services, workingHours]);
 
   useEffect(() => {
     const interval = setInterval(saveAllRef, 30000);
@@ -79,14 +73,6 @@ const MyWebsite = () => {
         await supabase.from("services").update({ name: s.name, description: s.description, price: s.price, type: s.type, duration: s.duration, active: s.active, sort_order: s.sort_order }).eq("id", s.id);
       } else {
         await supabase.from("services").insert({ doctor_id: profile.id, name: s.name, description: s.description, price: s.price, type: s.type, duration: s.duration, active: s.active, sort_order: s.sort_order });
-      }
-    }
-
-    for (const p of packages) {
-      if (p.id) {
-        await supabase.from("packages").update({ name: p.name, tagline: p.tagline, price: p.price, original_price: p.original_price || null, duration: p.duration, features: p.features as any, is_popular: p.is_popular, active: p.active }).eq("id", p.id);
-      } else {
-        await supabase.from("packages").insert({ doctor_id: profile.id, name: p.name, tagline: p.tagline, price: p.price, original_price: p.original_price || null, duration: p.duration, features: p.features as any, is_popular: p.is_popular, active: p.active });
       }
     }
 
@@ -118,18 +104,6 @@ const MyWebsite = () => {
     const updated = [...services];
     (updated[idx] as any)[key] = value;
     setServices(updated);
-  };
-
-  const addPackage = () => setPackages([...packages, { name: "", tagline: "", price: 1000, original_price: 0, duration: "1 Month", features: [], is_popular: false, active: true }]);
-  const removePackage = async (idx: number) => {
-    const p = packages[idx];
-    if (p.id) await supabase.from("packages").delete().eq("id", p.id);
-    setPackages(packages.filter((_, i) => i !== idx));
-  };
-  const updatePackage = (idx: number, key: string, value: any) => {
-    const updated = [...packages];
-    (updated[idx] as any)[key] = value;
-    setPackages(updated);
   };
 
   const updateWorkingHour = (dayIdx: number, key: string, value: any) => {
@@ -266,46 +240,6 @@ const MyWebsite = () => {
                   </div>
                 ))}
                 <Button size="sm" variant="outline" onClick={addService}><Plus className="h-3 w-3 mr-1" /> Add Service</Button>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Packages */}
-            <AccordionItem value="packages" className="border rounded-xl px-4">
-              <AccordionTrigger className="text-sm font-semibold text-primary">
-                <div className="flex items-center justify-between w-full pr-2">
-                  Packages
-                  <Switch checked={settings.show_packages ?? false} onCheckedChange={(v) => updateSetting("show_packages", v)} onClick={(e) => e.stopPropagation()} />
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="space-y-4 pb-4">
-                {packages.map((p, i) => (
-                  <div key={i} className="p-3 rounded-lg bg-secondary space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Switch checked={p.is_popular} onCheckedChange={(v) => updatePackage(i, "is_popular", v)} />
-                      <span className="text-xs text-muted-foreground">{p.is_popular ? "Most Popular" : "Mark Popular"}</span>
-                      <button onClick={() => removePackage(i)}><Trash2 className="h-4 w-4 text-destructive" /></button>
-                    </div>
-                    <Input placeholder="Package name" value={p.name} onChange={(e) => updatePackage(i, "name", e.target.value)} />
-                    <Input placeholder="Tagline" value={p.tagline} onChange={(e) => updatePackage(i, "tagline", e.target.value)} />
-                    <div className="grid grid-cols-3 gap-2">
-                      <div><Label className="text-xs">Price ₹</Label><Input type="number" placeholder="0" value={p.price || ""} onChange={(e) => updatePackage(i, "price", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
-                      <div><Label className="text-xs">Original ₹</Label><Input type="number" placeholder="0" value={p.original_price || ""} onChange={(e) => updatePackage(i, "original_price", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
-                      <div>
-                        <Label className="text-xs">Duration</Label>
-                        <Select value={p.duration} onValueChange={(v) => updatePackage(i, "duration", v)}>
-                          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1 Month">1 Month</SelectItem>
-                            <SelectItem value="3 Months">3 Months</SelectItem>
-                            <SelectItem value="6 Months">6 Months</SelectItem>
-                            <SelectItem value="1 Year">1 Year</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <Button size="sm" variant="outline" onClick={addPackage}><Plus className="h-3 w-3 mr-1" /> Add Package</Button>
               </AccordionContent>
             </AccordionItem>
 
