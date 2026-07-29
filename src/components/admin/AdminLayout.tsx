@@ -7,6 +7,7 @@ import AdminSidebar from "./AdminSidebar";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
@@ -25,7 +26,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   const pageTitle = pageTitles[location.pathname] || "Dashboard";
   const { settings } = usePlatformSettings();
   const banner = typeof settings.announcement_banner === "string" ? settings.announcement_banner : "";
-  usePanelTheme("doctylia-admin-theme");
+  const { mode, setTheme } = usePanelTheme("doctylia-admin-theme");
 
   return (
     <SidebarProvider>
@@ -45,6 +46,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <ThemeToggle mode={mode} onChange={setTheme} />
               <Popover>
                 <PopoverTrigger asChild>
                   <button
