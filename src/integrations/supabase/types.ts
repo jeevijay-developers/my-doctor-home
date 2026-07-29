@@ -540,6 +540,7 @@ export type Database = {
           clinic_name: string | null
           consultation_fee: number
           created_at: string
+          custom_plan_price: number | null
           experience_years: number | null
           full_name: string | null
           gst_registered: boolean
@@ -564,6 +565,7 @@ export type Database = {
           clinic_name?: string | null
           consultation_fee?: number
           created_at?: string
+          custom_plan_price?: number | null
           experience_years?: number | null
           full_name?: string | null
           gst_registered?: boolean
@@ -588,6 +590,7 @@ export type Database = {
           clinic_name?: string | null
           consultation_fee?: number
           created_at?: string
+          custom_plan_price?: number | null
           experience_years?: number | null
           full_name?: string | null
           gst_registered?: boolean
