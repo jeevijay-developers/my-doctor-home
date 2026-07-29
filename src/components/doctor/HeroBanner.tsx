@@ -1,6 +1,8 @@
 import { Clock, MapPin, Star, Calendar, Video } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
+
 
 const HeroBanner = () => {
   const { profile, reviews } = useDoctorData();
