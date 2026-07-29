@@ -88,9 +88,6 @@ const DoctorPageContent = () => {
       {settings.show_services !== false && services.length > 0 && (
         <AnimatedSection><ServicesSection /></AnimatedSection>
       )}
-      {settings.show_packages && packages.length > 0 && (
-        <AnimatedSection><ServicesSection showPackagesOnly /></AnimatedSection>
-      )}
       {settings.show_gallery && gallery.length > 0 && (
         <AnimatedSection><GallerySection /></AnimatedSection>
       )}
