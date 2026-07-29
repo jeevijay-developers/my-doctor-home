@@ -33,6 +33,8 @@ const DashboardHome = () => {
   const [blogCount, setBlogCount] = useState(0);
   const [tipIndex, setTipIndex] = useState(0);
   const [dashboardReady, setDashboardReady] = useState(false);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [revenueSeries, setRevenueSeries] = useState<{ day: string; value: number }[]>([]);
 
   const loadDashboard = () => {
     if (!profile) return;
