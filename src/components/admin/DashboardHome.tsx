@@ -291,7 +291,7 @@ const DashboardHome = () => {
       </div>
 
       {/* WhatsApp Share + Revenue Goal */}
-      <div className="grid lg:grid-cols-2 gap-3 xl:gap-4">
+      <div className="grid lg:grid-cols-2 gap-2 lg:gap-2.5 xl:gap-3">
         {/* WhatsApp Share Widget */}
         <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-success">
           <CardHeader className="pb-3">
