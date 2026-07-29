@@ -69,10 +69,7 @@ const SASubscriptions = () => {
                 <tr key={r.id} className="border-t">
                   <td className="p-3"><div className="font-medium">{r.full_name}</div><div className="text-xs text-muted-foreground">{r.clinic_name}</div></td>
                   <td className="p-3">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge className="bg-royal/10 text-royal hover:bg-royal/10 border-royal/20 capitalize">{r.plan_tier || "free"}</Badge>
-                      <Badge variant="outline" className="capitalize">{r.plan_status}</Badge>
-                    </div>
+                    <Badge className="bg-royal/10 text-royal hover:bg-royal/10 border-royal/20 capitalize">{r.plan_tier || "free"}</Badge>
                   </td>
                   <td className="p-3">
                     <Select value={r.plan_tier || "free"} onValueChange={(v) => changeTier(r.id, v, r.plan_tier || "free")}>
