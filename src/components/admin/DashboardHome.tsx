@@ -131,7 +131,7 @@ const DashboardHome = () => {
   const currentTip = growthTips[tipIndex];
 
   return (
-    <div className="max-w-7xl mx-auto w-full flex flex-col gap-3 xl:gap-4">
+    <div className="max-w-7xl mx-auto w-full flex flex-col gap-2 lg:gap-2.5 xl:gap-3 lg:h-[calc(100dvh-3.5rem-2rem)] xl:h-[calc(100dvh-3.5rem-3rem)] lg:overflow-hidden">
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-2xl gradient-navy-teal p-4 md:p-5">
         <div className="absolute inset-0 opacity-10">
