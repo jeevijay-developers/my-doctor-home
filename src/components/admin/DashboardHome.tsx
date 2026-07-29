@@ -56,7 +56,8 @@ const DashboardHome = () => {
       supabase.from("blog_posts").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("is_published", true),
       (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id).gte("created_at", `${weekAgo}T00:00:00`),
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo),
-    ]).then(([apptRes, patRes, revRes, todayRes, svcRes, blogRes, weekRevRes, lastWeekRes]) => {
+      (supabase.from("invoices" as any) as any).select("amount, created_at").eq("doctor_id", id).gte("created_at", `${thirtyDaysAgo}T00:00:00`),
+    ]).then(([apptRes, patRes, revRes, todayRes, svcRes, blogRes, weekRevRes, lastWeekRes, monthRevRes]) => {
       const revenue = (revRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const weekRevenue = (weekRevRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const todayData = todayRes.data || [];
@@ -71,6 +72,22 @@ const DashboardHome = () => {
       setTodayAppointments(todayData.slice(0, 6));
       setServicesCount(svcRes.count || 0);
       setBlogCount(blogRes.count || 0);
+
+      // Build a 30-day daily revenue series for the Monthly Revenue chart
+      const buckets = new Map<string, number>();
+      for (let i = 29; i >= 0; i--) {
+        buckets.set(format(subDays(new Date(), i), "yyyy-MM-dd"), 0);
+      }
+      let monthTotal = 0;
+      (monthRevRes.data || []).forEach((r: any) => {
+        const key = format(new Date(r.created_at), "yyyy-MM-dd");
+        const amt = Number(r.amount) || 0;
+        if (buckets.has(key)) buckets.set(key, (buckets.get(key) || 0) + amt);
+        monthTotal += amt;
+      });
+      setMonthlyRevenue(monthTotal);
+      setRevenueSeries(Array.from(buckets.entries()).map(([day, value]) => ({ day: format(new Date(day), "MMM d"), value })));
+
       setDashboardReady(true);
     });
   };
