@@ -32,7 +32,7 @@ const TEAL_LIGHT = "#1c8a99";
 
 const AppointmentSlip = ({
   open, onClose, profile, settings, token, service, type, date, time,
-  patientName, patientPhone, paymentStatus, onDownload,
+  patientName, patientPhone, paymentStatus, zoomJoinUrl, onDownload,
 }: Props) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
