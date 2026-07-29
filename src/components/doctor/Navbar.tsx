@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const allNavLinks = [
   { label: "About", target: "about", settingKey: "show_about" },
-  { label: "Services", target: "booking", settingKey: "show_services" },
+  { label: "Services", target: "services", settingKey: "show_services" },
   { label: "Gallery", target: "gallery", settingKey: "show_gallery" },
   { label: "Reviews", target: "reviews", settingKey: "show_reviews" },
   { label: "Contact", target: "contact", settingKey: null },
