@@ -177,6 +177,16 @@ const AppointmentsPage = () => {
 
   // BUG-014: status can be changed at any time. On transition INTO "completed",
   // the patient is added / their visit count incremented.
+  const syncZoom = async (appointmentId: string, action: "update" | "delete") => {
+    try {
+      await supabase.functions.invoke("create-zoom-meeting", {
+        body: { appointment_id: appointmentId, action },
+      });
+    } catch (e) {
+      console.warn(`Zoom ${action} sync failed`, e);
+    }
+  };
+
   const updateStatus = async (id: string, status: string) => {
     const current = appointments.find((a) => a.id === id);
     await supabase.from("appointments").update({ status: status as any }).eq("id", id);
@@ -196,11 +206,19 @@ const AppointmentsPage = () => {
         console.warn("Invoice generation failed", e);
       }
     }
+    // Delete Zoom meeting if the appointment is cancelled or a no-show.
+    if ((status === "cancelled" || status === "no_show") && current?.zoom_meeting_id) {
+      await syncZoom(id, "delete");
+    }
     load();
     toast.success(`Marked ${status.replace("_", " ")}`);
   };
 
   const deleteAppointment = async (id: string) => {
+    const current = appointments.find((a) => a.id === id);
+    if (current?.zoom_meeting_id) {
+      await syncZoom(id, "delete");
+    }
     const { error } = await supabase.from("appointments").delete().eq("id", id);
     if (error) { toast.error("Could not delete appointment"); return; }
     toast.success("Appointment deleted");
@@ -219,16 +237,15 @@ const AppointmentsPage = () => {
       reschedule_count: (rescheduling.reschedule_count ?? 0) + 1,
     } as any).eq("id", rescheduling.id);
     if (error) { toast.error(error.message.includes("SLOT_FULL") ? "That slot is full." : "Could not reschedule."); return; }
+    // Keep Zoom in sync when the underlying appointment moves.
+    if (rescheduling.zoom_meeting_id) {
+      await syncZoom(rescheduling.id, "update");
+    }
     setRescheduling(null);
     load();
     toast.success("Appointment rescheduled");
   };
 
-  const generateZoomMeeting = async (_appointmentId: string) => {
-    toast.info("Zoom integration coming soon", {
-      description: "Meeting links will generate automatically once connected.",
-    });
-  };
 
   const addAppointment = async (bypassSlotCheck = false) => {
     if (!profile) return;
