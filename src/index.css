@@ -225,3 +225,7 @@
     transform: none !important;
   }
 }
+
+/* Hide scrollbar utility for horizontal scroll rails */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
