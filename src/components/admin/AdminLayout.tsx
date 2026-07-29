@@ -6,6 +6,7 @@ import { Bell, BellOff, ChevronRight, Home, Megaphone } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { usePanelTheme } from "@/hooks/usePanelTheme";
 
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
@@ -24,6 +25,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   const pageTitle = pageTitles[location.pathname] || "Dashboard";
   const { settings } = usePlatformSettings();
   const banner = typeof settings.announcement_banner === "string" ? settings.announcement_banner : "";
+  usePanelTheme("doctylia-admin-theme");
 
   return (
     <SidebarProvider>

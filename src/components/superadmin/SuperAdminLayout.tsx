@@ -2,6 +2,8 @@ import { Outlet, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Shield } from "lucide-react";
 import SuperAdminSidebar from "./SuperAdminSidebar";
+import { usePanelTheme } from "@/hooks/usePanelTheme";
+import AppearanceSelector from "@/components/AppearanceSelector";
 
 const titles: Record<string, string> = {
   "/superadmin/overview": "Overview",
@@ -19,6 +21,7 @@ const titles: Record<string, string> = {
 const SuperAdminLayout = () => {
   const location = useLocation();
   const title = Object.entries(titles).find(([k]) => location.pathname.startsWith(k))?.[1] || "Super Admin";
+  const { mode, setTheme } = usePanelTheme("doctylia-superadmin-theme");
 
   return (
     <SidebarProvider>
@@ -33,9 +36,12 @@ const SuperAdminLayout = () => {
                 <span className="font-semibold text-foreground">{title}</span>
               </div>
             </div>
-            <span className="text-[10px] uppercase tracking-wider bg-primary text-primary-foreground px-2 py-1 rounded font-bold">
-              Super Admin
-            </span>
+            <div className="flex items-center gap-3">
+              <AppearanceSelector mode={mode} onChange={setTheme} className="hidden sm:inline-flex" />
+              <span className="text-[10px] uppercase tracking-wider bg-primary text-primary-foreground px-2 py-1 rounded font-bold">
+                Super Admin
+              </span>
+            </div>
           </header>
           <main className="flex-1 bg-secondary p-4 md:p-6 overflow-auto">
             <Outlet />
