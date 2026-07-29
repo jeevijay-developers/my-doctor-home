@@ -15,7 +15,7 @@ import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 
 const DoctorPageContent = () => {
-  const { profile, settings, loading, services, packages, reviews, gallery } = useDoctorData();
+  const { profile, settings, loading, services, reviews, gallery } = useDoctorData();
 
   useEffect(() => {
     if (!profile?.display_name) return;
