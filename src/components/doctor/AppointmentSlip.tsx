@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { format } from "date-fns";
 import {
   Stethoscope, Building2, ClipboardList, Calendar, Clock, User, Phone,
-  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Download, Printer, X,
+  IndianRupee, BadgeCheck, MapPin, Mail, Globe, Bell, Download, Printer, X, Video,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
