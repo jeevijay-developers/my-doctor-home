@@ -79,7 +79,7 @@ const SADoctors = () => {
                   <td className="p-3">{r.clinic_name || "—"}</td>
                   <td className="p-3">{r.city || "—"}</td>
                   <td className="p-3"><Badge variant="outline">{r.plan_status}</Badge></td>
-                  <td className="p-3"><Badge>{r.plan_tier || "free"}</Badge></td>
+                  <td className="p-3">{r.plan_status === "active" && (r.plan_tier === "pro" || r.plan_tier === "premium") ? <Badge>{r.plan_tier}</Badge> : <span className="text-muted-foreground">—</span>}</td>
                   <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                   <td className="p-3">
                     {r.slug && (
