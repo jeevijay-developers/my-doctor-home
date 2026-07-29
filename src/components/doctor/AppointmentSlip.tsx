@@ -22,6 +22,7 @@ type Props = {
   patientName: string;
   patientPhone: string;
   paymentStatus?: string;
+  zoomJoinUrl?: string | null;
   onDownload: () => void;
 };
 
