@@ -76,14 +76,6 @@ const MyWebsite = () => {
       }
     }
 
-    for (const p of packages) {
-      if (p.id) {
-        await supabase.from("packages").update({ name: p.name, tagline: p.tagline, price: p.price, original_price: p.original_price || null, duration: p.duration, features: p.features as any, is_popular: p.is_popular, active: p.active }).eq("id", p.id);
-      } else {
-        await supabase.from("packages").insert({ doctor_id: profile.id, name: p.name, tagline: p.tagline, price: p.price, original_price: p.original_price || null, duration: p.duration, features: p.features as any, is_popular: p.is_popular, active: p.active });
-      }
-    }
-
     for (const wh of workingHours) {
       if (wh.id) {
         await supabase.from("working_hours").update({
