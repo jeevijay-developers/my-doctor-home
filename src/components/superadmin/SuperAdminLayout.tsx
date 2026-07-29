@@ -28,11 +28,12 @@ const SuperAdminLayout = () => {
       <div className="min-h-screen flex w-full">
         <SuperAdminSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center justify-between border-b border-border bg-card px-4 md:px-6">
+          <header className="h-14 flex items-center justify-between bg-background px-4 md:px-6">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+              <div className="hidden md:block h-5 w-px bg-border" />
               <div className="hidden md:flex items-center gap-2 text-sm">
-                <Shield className="h-4 w-4 text-royal" />
+                <Shield className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-foreground">{title}</span>
               </div>
             </div>
@@ -43,7 +44,8 @@ const SuperAdminLayout = () => {
               </span>
             </div>
           </header>
-          <main className="flex-1 bg-secondary p-4 md:p-6 overflow-auto">
+          <main className="flex-1 bg-background p-4 md:p-6 overflow-auto">
+
             <Outlet />
           </main>
         </div>
