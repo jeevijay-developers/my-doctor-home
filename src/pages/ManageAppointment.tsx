@@ -241,6 +241,19 @@ const ManageAppointment = () => {
                   </div>
                 )}
 
+                {appt.appointment_type === "online" && (appt.status === "pending" || appt.status === "confirmed") && (
+                  <VideoConsultationCard
+                    appointmentId={appt.id}
+                    date={appt.date}
+                    timeSlot={appt.time_slot}
+                    role="patient"
+                    status={appt.status}
+                    hasMeeting={!!appt.meeting_link}
+                    patientToken={appt.token_number}
+                    patientPhone={appt.patient_phone}
+                  />
+                )}
+
                 {tooClose && (appt.status === "pending" || appt.status === "confirmed") && (
                   <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 text-xs text-warning-foreground/80">
                     This appointment is too close to be changed online — please call the clinic.
