@@ -120,7 +120,7 @@ const BookingWidget = () => {
         status: "pending" as any,
         payment_status: "pay_at_clinic" as any,
       })
-      .select("id")
+      .select("id, zoom_join_url")
       .single();
 
     if (error) {
