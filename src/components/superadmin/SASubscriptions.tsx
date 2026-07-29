@@ -58,8 +58,8 @@ const SASubscriptions = () => {
             <thead className="bg-secondary text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="text-left p-3">Doctor</th>
-                <th className="text-left p-3">Status</th>
-                <th className="text-left p-3">Tier</th>
+                <th className="text-left p-3">Status &amp; Tier</th>
+                <th className="text-left p-3">Change Tier</th>
                 <th className="text-left p-3">Trial end</th>
                 <th className="text-left p-3">Extend</th>
               </tr>
@@ -68,7 +68,12 @@ const SASubscriptions = () => {
               {rows.map((r) => (
                 <tr key={r.id} className="border-t">
                   <td className="p-3"><div className="font-medium">{r.full_name}</div><div className="text-xs text-muted-foreground">{r.clinic_name}</div></td>
-                  <td className="p-3"><Badge variant="outline">{r.plan_status}</Badge></td>
+                  <td className="p-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge className="bg-royal/10 text-royal hover:bg-royal/10 border-royal/20 capitalize">{r.plan_tier || "free"}</Badge>
+                      <Badge variant="outline" className="capitalize">{r.plan_status}</Badge>
+                    </div>
+                  </td>
                   <td className="p-3">
                     <Select value={r.plan_tier || "free"} onValueChange={(v) => changeTier(r.id, v, r.plan_tier || "free")}>
                       <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
@@ -88,6 +93,7 @@ const SASubscriptions = () => {
           </table>
         </CardContent>
       </Card>
+
     </div>
   );
 };

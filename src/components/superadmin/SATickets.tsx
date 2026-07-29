@@ -102,8 +102,34 @@ const SATickets = () => {
               <div>
                 <label className="text-xs font-medium">Internal notes</label>
                 <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} />
-                <Button size="sm" className="mt-2" onClick={() => update(open.id, { notes }, "update_ticket_notes")}>Save notes</Button>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <Button size="sm" variant="outline" onClick={() => update(open.id, { notes }, "update_ticket_notes")}>Save notes</Button>
+                  {open.status !== "resolved" && open.status !== "closed" && (
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        await update(open.id, { notes, status: "resolved" }, "resolve_ticket");
+                        setOpen(null);
+                      }}
+                    >
+                      Save &amp; Mark Resolved
+                    </Button>
+                  )}
+                  {open.status !== "closed" && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={async () => {
+                        await update(open.id, { notes, status: "closed" }, "close_ticket");
+                        setOpen(null);
+                      }}
+                    >
+                      Save &amp; Close Ticket
+                    </Button>
+                  )}
+                </div>
               </div>
+
             </>
           )}
         </DialogContent>
