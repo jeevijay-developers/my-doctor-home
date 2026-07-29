@@ -106,7 +106,9 @@ const DoctorPageContent = () => {
       {settings.show_clinic_details !== false && (
         <AnimatedSection><ClinicDetails /></AnimatedSection>
       )}
+      <AnimatedSection><FinalCTA /></AnimatedSection>
       <Footer />
+      <MobileActionBar />
     </div>
   );
 };
