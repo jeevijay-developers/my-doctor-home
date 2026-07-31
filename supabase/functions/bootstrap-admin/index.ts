@@ -6,13 +6,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ADMIN_EMAIL = "jeevijayit@gmail.com";
-const ADMIN_PASSWORD = "doctylia@Jeevijay123";
+const ADMIN_EMAIL = Deno.env.get("BOOTSTRAP_ADMIN_EMAIL") ?? "jeevijayit@gmail.com";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const ADMIN_PASSWORD = Deno.env.get("BOOTSTRAP_ADMIN_PASSWORD");
+    if (!ADMIN_PASSWORD) throw new Error("BOOTSTRAP_ADMIN_PASSWORD is not configured");
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
