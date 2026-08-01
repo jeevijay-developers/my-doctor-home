@@ -1,7 +1,10 @@
-// supabase function: mcp
-// Deno-safe entry point for the Doctylia MCP server. Mirrors src/lib/mcp/index.ts,
-// but with npm: specifiers (required for Deno's remote bundler) instead of bare imports,
-// since the Vite-side file isn't directly deployable to the edge runtime.
+// Manually maintained — do NOT let @lovable.dev/mcp-js regenerate this file.
+// On Windows, the plugin's Vite sync (node_modules/@lovable.dev/mcp-js/dist/stacks/supabase/vite.js)
+// passes the absolute mcpEntry path through esbuild's bare-specifier externalizer, which only
+// recognizes POSIX-style leading "/" as a local path. A Windows path like "E:\...\index.ts" gets
+// treated as a bare specifier and rewritten to "npm:E:\...\index.ts", which is not a valid Deno
+// import and breaks the deployed function. This file mirrors src/lib/mcp/index.ts by hand with
+// Deno-safe npm: specifiers until that upstream bug is fixed.
 import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.24.0";
 import getMyProfile from "./tools/get_my_profile.ts";
 import listAppointments from "./tools/list_appointments.ts";

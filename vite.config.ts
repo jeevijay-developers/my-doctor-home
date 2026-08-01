@@ -13,7 +13,10 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), mode === "development" && componentTagger(), mcpPlugin()].filter(Boolean),
+  // mcpPlugin only runs in dev: on Windows its Supabase sync mishandles absolute paths
+  // (see supabase/functions/mcp/index.ts), so supabase/functions/mcp is hand-maintained
+  // and must not be regenerated during `vite build`.
+  plugins: [react(), mode === "development" && componentTagger(), mode === "development" && mcpPlugin()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
