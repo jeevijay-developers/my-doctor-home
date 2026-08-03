@@ -18,7 +18,18 @@ const Footer = () => {
 
   return (
     <>
-      <footer className="bg-primary text-primary-foreground py-12">
+      <footer className="relative bg-primary text-primary-foreground py-12">
+        <svg
+          className="absolute -top-px left-0 w-full h-10 md:h-14"
+          viewBox="0 0 1440 60"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M0,32 C240,64 480,0 720,20 C960,40 1200,8 1440,28 L1440,0 L0,0 Z"
+            className="fill-background"
+          />
+        </svg>
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-8">
             <div>

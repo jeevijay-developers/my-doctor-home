@@ -5,8 +5,15 @@ const GallerySection = () => {
   if (gallery.length === 0) return null;
 
   return (
-    <section id="gallery" className="py-16 md:py-24 bg-secondary">
-      <div className="container mx-auto px-4">
+    <section id="gallery" className="relative py-16 md:py-24 bg-secondary overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-[0.05] pointer-events-none"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--navy)) 1px, transparent 0)`,
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div className="container mx-auto px-4 relative z-10">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary text-center mb-12">Our Clinic</h2>
         <div
           className={

@@ -2,6 +2,7 @@ import { Clock, MapPin, Star, Calendar, Video } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
+import HeroParticles from "./HeroParticles";
 
 
 const HeroBanner = () => {
@@ -25,6 +26,7 @@ const HeroBanner = () => {
         backgroundImage: `radial-gradient(circle at 2px 2px, hsl(var(--navy)) 1px, transparent 0)`,
         backgroundSize: "40px 40px"
       }} />
+      <HeroParticles />
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid lg:grid-cols-2 gap-10 items-center">
@@ -63,10 +65,10 @@ const HeroBanner = () => {
             </motion.div>
 
             <motion.div {...fadeUp(0.34)} className="flex flex-wrap gap-3 pt-2">
-              <Button size="lg" className="btn-pop bg-primary text-primary-foreground font-heading font-semibold shadow-md hover:opacity-90" onClick={() => scrollTo("booking")}>
+              <Button size="lg" variant="cta" className="font-heading font-semibold" onClick={() => scrollTo("booking")}>
                 <Calendar size={18} className="mr-2" /> Book Clinic Visit
               </Button>
-              <Button size="lg" variant="outline" className="btn-pop border-teal text-teal hover:bg-teal hover:text-primary-foreground font-heading font-semibold" onClick={() => scrollTo("online-consultation")}>
+              <Button size="lg" variant="cta-outline" className="font-heading font-semibold" onClick={() => scrollTo("online-consultation")}>
                 <Video size={18} className="mr-2" /> Online Consultation
               </Button>
             </motion.div>

@@ -27,7 +27,7 @@ const OnlineConsultation = () => {
                 </div>
               ))}
             </div>
-            <Button size="lg" variant="secondary" className="font-heading font-semibold" onClick={() => scrollTo("booking")}>Book Online Consultation</Button>
+            <Button size="lg" variant="secondary" className="rounded-full font-heading font-semibold transition-all duration-200 ease-out hover:scale-[1.04] hover:shadow-lg" onClick={() => scrollTo("booking")}>Book Online Consultation</Button>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, ShieldCheck, Send } from "lucide-react";
+import { Star, ShieldCheck, Send, Quote } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -47,11 +47,16 @@ const ReviewsSection = () => {
 
   if (reviews.length === 0) {
     return (
-      <section id="reviews" className="py-16 md:py-24 bg-card">
-        <div className="container mx-auto px-4 text-center">
+      <section id="reviews" className="relative py-16 md:py-24 bg-card overflow-hidden">
+        <Quote
+          size={220}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-royal/[0.05] pointer-events-none"
+          fill="currentColor"
+        />
+        <div className="container mx-auto px-4 text-center relative z-10">
           <h2 className="font-heading font-bold text-3xl text-primary mb-4">Patient Reviews</h2>
           <p className="text-text-gray mb-6">No reviews yet. Be the first to share your experience!</p>
-          <Button onClick={() => setShowForm(true)} variant="outline" className="text-royal border-royal">
+          <Button onClick={() => setShowForm(true)} variant="cta-outline">
             <Send className="h-4 w-4 mr-1" /> Write a Review
           </Button>
           {showForm && <ReviewForm name={name} setName={setName} rating={rating} setRating={setRating} text={text} setText={setText} submitting={submitting} onSubmit={submitReview} onCancel={() => setShowForm(false)} />}
@@ -82,15 +87,16 @@ const ReviewsSection = () => {
                 </div>
               ))}
             </div>
-            <Button onClick={() => setShowForm(!showForm)} variant="outline" className="mt-6 text-royal border-royal w-full">
+            <Button onClick={() => setShowForm(!showForm)} variant="cta-outline" className="mt-6 w-full">
               <Send className="h-4 w-4 mr-1" /> Write a Review
             </Button>
           </div>
           <div className="lg:col-span-2 space-y-4">
             {showForm && <ReviewForm name={name} setName={setName} rating={rating} setRating={setRating} text={text} setText={setText} submitting={submitting} onSubmit={submitReview} onCancel={() => setShowForm(false)} />}
             {reviews.slice(0, 5).map((r) => (
-              <div key={r.id} className="hover-lift bg-card border border-border rounded-xl p-5">
-                <div className="flex items-center justify-between mb-3">
+              <div key={r.id} className="hover-lift relative bg-card border border-border rounded-xl p-5 overflow-hidden">
+                <Quote size={56} className="absolute -top-2 -right-2 text-royal/[0.08] pointer-events-none" fill="currentColor" />
+                <div className="flex items-center justify-between mb-3 relative z-10">
                   <div>
                     <p className="font-heading font-semibold text-foreground">{r.patient_name}</p>
                     <p className="text-xs text-text-gray">{new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
@@ -99,7 +105,7 @@ const ReviewsSection = () => {
                     {[...Array(r.rating)].map((_, j) => <Star key={j} size={14} className="text-warning" fill="currentColor" />)}
                   </div>
                 </div>
-                {r.review_text && <p className="text-sm text-foreground leading-relaxed">{r.review_text}</p>}
+                {r.review_text && <p className="text-sm text-foreground leading-relaxed relative z-10">{r.review_text}</p>}
                 {r.is_verified && (
                   <span className="inline-flex items-center gap-1 mt-3 px-2 py-0.5 rounded-pill bg-teal/10 text-teal text-xs font-medium">
                     <ShieldCheck size={12} /> Verified Patient

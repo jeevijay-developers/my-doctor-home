@@ -88,7 +88,7 @@ const Navbar = () => {
               <MessageCircle size={18} />
             </a>
           )}
-          <Button size="sm" className="hidden sm:flex gradient-hero text-primary-foreground font-heading font-semibold" onClick={() => scrollTo("booking")}>
+          <Button size="sm" variant="cta" className="hidden sm:flex font-heading font-semibold" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>
           <button className="lg:hidden p-2" onClick={() => setMobileOpen(!mobileOpen)}>
@@ -114,7 +114,7 @@ const Navbar = () => {
               My Appointment
             </Link>
           )}
-          <Button className="w-full mt-3 gradient-hero text-primary-foreground font-heading" onClick={() => scrollTo("booking")}>
+          <Button variant="cta" className="w-full mt-3 font-heading" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>
         </div>

@@ -450,12 +450,12 @@ const BookingWidget = () => {
               )}
 
               {wantsOnlinePayment && gatewayConnected ? (
-                <Button className="w-full gradient-hero text-primary-foreground font-heading font-semibold text-lg py-6"
+                <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
                   disabled={!name || !phone || submitting} onClick={initiateRazorpayPayment}>
                   {submitting ? "Processing..." : `Pay ₹${selectedService?.price} Online`}
                 </Button>
               ) : (
-                <Button className="w-full gradient-hero text-primary-foreground font-heading font-semibold text-lg py-6"
+                <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
                   disabled={!name || !phone || submitting} onClick={submitBooking}>
                   {submitting ? "Booking..." : `Book Appointment — ₹${selectedService?.price}`}
                 </Button>

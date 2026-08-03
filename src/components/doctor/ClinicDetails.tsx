@@ -8,8 +8,22 @@ const ClinicDetails = () => {
   const { profile, workingHours, settings } = useDoctorData();
 
   return (
-    <section id="contact" className="py-16 md:py-24 bg-card">
-      <div className="container mx-auto px-4">
+    <section id="contact" className="relative py-16 md:py-24 bg-card overflow-hidden">
+      <svg
+        className="absolute inset-0 w-full h-full opacity-[0.05] pointer-events-none"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <pattern id="clinic-geo-lines" width="80" height="80" patternUnits="userSpaceOnUse">
+            <path d="M0 80 L80 0" stroke="hsl(var(--navy))" strokeWidth="1" />
+            <path d="M-20 20 L20 -20" stroke="hsl(var(--navy))" strokeWidth="1" />
+            <path d="M60 100 L100 60" stroke="hsl(var(--navy))" strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#clinic-geo-lines)" />
+      </svg>
+      <div className="container mx-auto px-4 relative z-10">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary text-center mb-12">Clinic Details & Contact</h2>
         <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
           <div className="space-y-6">

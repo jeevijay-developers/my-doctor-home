@@ -1,5 +1,6 @@
 import { Users, Clock, TrendingUp, Award } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
+import AnimatedItem from "@/components/landing/AnimatedItem";
 
 const QuickStats = () => {
   const { profile } = useDoctorData();
@@ -16,11 +17,11 @@ const QuickStats = () => {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {stats.map((s, i) => (
-            <div key={i} className="text-center space-y-2">
+            <AnimatedItem key={i} index={i} className="text-center space-y-2">
               <s.icon size={28} className="mx-auto text-royal" />
               <p className="font-heading font-extrabold text-3xl text-primary">{s.value}</p>
               <p className="text-sm text-text-gray">{s.label}</p>
-            </div>
+            </AnimatedItem>
           ))}
         </div>
       </div>

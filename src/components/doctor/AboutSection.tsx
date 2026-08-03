@@ -4,8 +4,10 @@ const AboutSection = () => {
   const { profile } = useDoctorData();
 
   return (
-    <section id="about" className="py-16 md:py-24 bg-secondary">
-      <div className="container mx-auto px-4">
+    <section id="about" className="relative py-16 md:py-24 bg-secondary overflow-hidden">
+      <div className="absolute -top-16 -left-24 w-72 h-72 rounded-full bg-royal/10 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 -right-16 w-80 h-80 rounded-full bg-teal/10 blur-3xl pointer-events-none" />
+      <div className="container mx-auto px-4 relative z-10">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary text-center mb-12">About the Doctor</h2>
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="bg-card rounded-2xl p-6 border border-border">
