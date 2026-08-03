@@ -150,9 +150,14 @@ const PatientsPage = () => {
     toast.success(`Exported ${patients.length} patients to CSV`);
   };
 
+  // NOTE: previously filtered out patients with total_visits === 0, intended to hide
+  // "booked but not completed" patients. Removed 2026-08: no code path actually creates
+  // a patients row before a real visit/manual-add happens, so that case never occurred —
+  // the check only ever hid legitimately-added patients. If a "pending/pre-registered
+  // patient" concept is added later, give it its own explicit status field — don't
+  // reuse total_visits as a proxy for it.
   const filtered = patients.filter((p) =>
-    (p.total_visits ?? 0) > 0 &&
-    (p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search))
+    p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)
   );
 
   return (
@@ -162,7 +167,7 @@ const PatientsPage = () => {
           <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
             <Users className="h-6 w-6 text-teal" /> Patients
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} of {patients.length} patients with completed visits</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{search ? `${filtered.length} of ${patients.length} patients match your search` : `${patients.length} patient${patients.length === 1 ? "" : "s"}`}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportPatients} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>

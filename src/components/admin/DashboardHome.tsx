@@ -47,7 +47,7 @@ const DashboardHome = () => {
 
     Promise.all([
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id),
-      supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id).gt("total_visits", 0),
+      supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id),
       // Revenue is now sourced from the persisted invoices table so it survives
       // appointment / patient deletions.
       (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id),
