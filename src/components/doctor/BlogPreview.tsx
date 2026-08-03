@@ -39,7 +39,7 @@ const BlogPreview = () => {
   return (
     <section id="blog" className="py-16 md:py-24 bg-secondary">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center justify-center gap-6 mb-10">
           <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary">Health Articles</h2>
           <Link to={`/dr/${slug}/blog`} className="text-sm text-royal font-medium flex items-center gap-1 hover:underline">
             View All <ArrowRight className="h-4 w-4" />
