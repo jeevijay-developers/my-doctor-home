@@ -4,7 +4,7 @@ import { useProfile } from "@/hooks/useProfile";
 import {
   CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
   TrendingUp, Sparkles, ExternalLink, Copy, Eye, FileText,
-  CheckCircle2, Circle, Stethoscope,
+  Stethoscope,
   Lightbulb, Send, Share2, IndianRupee
 } from "lucide-react";
 import { differenceInDays, format, subDays } from "date-fns";
@@ -29,10 +29,7 @@ const DashboardHome = () => {
   const { profile } = useProfile();
   const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, weekRevenue: 0, lastWeekAppts: 0 });
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
-  const [servicesCount, setServicesCount] = useState(0);
-  const [blogCount, setBlogCount] = useState(0);
   const [tipIndex, setTipIndex] = useState(0);
-  const [dashboardReady, setDashboardReady] = useState(false);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [revenueSeries, setRevenueSeries] = useState<{ day: string; value: number }[]>([]);
 
@@ -52,12 +49,10 @@ const DashboardHome = () => {
       // appointment / patient deletions.
       (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id),
       supabase.from("appointments").select("*").eq("doctor_id", id).eq("date", today).order("time_slot"),
-      supabase.from("services").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("active", true),
-      supabase.from("blog_posts").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("is_published", true),
       (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id).gte("created_at", `${weekAgo}T00:00:00`),
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo),
       (supabase.from("invoices" as any) as any).select("amount, created_at").eq("doctor_id", id).gte("created_at", `${thirtyDaysAgo}T00:00:00`),
-    ]).then(([apptRes, patRes, revRes, todayRes, svcRes, blogRes, weekRevRes, lastWeekRes, monthRevRes]) => {
+    ]).then(([apptRes, patRes, revRes, todayRes, weekRevRes, lastWeekRes, monthRevRes]) => {
       const revenue = (revRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const weekRevenue = (weekRevRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const todayData = todayRes.data || [];
@@ -70,8 +65,6 @@ const DashboardHome = () => {
         lastWeekAppts: lastWeekRes.count || 0,
       });
       setTodayAppointments(todayData.slice(0, 6));
-      setServicesCount(svcRes.count || 0);
-      setBlogCount(blogRes.count || 0);
 
       // Build a 30-day daily revenue series for the Monthly Revenue chart
       const buckets = new Map<string, number>();
@@ -87,8 +80,6 @@ const DashboardHome = () => {
       });
       setMonthlyRevenue(monthTotal);
       setRevenueSeries(Array.from(buckets.entries()).map(([day, value]) => ({ day: format(new Date(day), "MMM d"), value })));
-
-      setDashboardReady(true);
     });
   };
 
@@ -119,15 +110,6 @@ const DashboardHome = () => {
     ? Math.max(0, differenceInDays(new Date(profile.trial_end), new Date()))
     : 7;
   const trialProgress = ((7 - daysLeft) / 7) * 100;
-
-  const checklist = [
-    { label: "Complete your profile", done: !!profile?.full_name && !!profile?.specialization, href: "/admin/settings" },
-    { label: "Add your services", done: servicesCount > 0, href: "/admin/my-website" },
-    { label: "Set working hours", done: true, href: "/admin/my-website" },
-    { label: "Publish your website", done: !!profile?.onboarding_completed, href: "/admin/my-website" },
-    { label: "Write your first blog", done: blogCount > 0, href: "/admin/blog" },
-  ];
-  const completedSteps = checklist.filter((c) => c.done).length;
 
   const statCards = [
     { icon: CalendarCheck, label: "APPOINTMENTS", value: String(stats.appointments), bgClass: "bg-royal/15", iconClass: "text-royal", sub: `${stats.todayCount} today` },
@@ -364,34 +346,6 @@ const DashboardHome = () => {
           </Card>
         </div>
       </div>
-
-      {/* Getting Started — kept below the main two-column section, only until all tasks are done */}
-      {dashboardReady && completedSteps < checklist.length && (
-        <Card className="border-0 rounded-2xl shadow-sm bg-card">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Getting Started</CardTitle>
-              <span className="text-xs font-semibold text-royal">{completedSteps}/{checklist.length}</span>
-            </div>
-            <Progress value={(completedSteps / checklist.length) * 100} className="h-2 mt-2 bg-secondary [&>div]:bg-royal" />
-          </CardHeader>
-          <CardContent className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
-            {checklist.map((item) => (
-              <Link key={item.label} to={item.href} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/60 transition-colors group">
-                {item.done ? (
-                  <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
-                ) : (
-                  <Circle className="h-5 w-5 text-muted-foreground/30 flex-shrink-0 group-hover:text-royal" />
-                )}
-                <span className={`text-sm ${item.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}>{item.label}</span>
-                {!item.done && <ArrowRight className="h-3 w-3 text-muted-foreground/40 ml-auto" />}
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-
     </div>
   );
 };

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { User, MapPin, Upload, UserCircle } from "lucide-react";
+import { User, MapPin, Upload, UserCircle, ArrowRight, CheckCircle2, Circle } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 
@@ -27,6 +29,9 @@ const ProfilePage = () => {
     phone: "", clinic_name: "", city: "", address: "",
     consultation_fee: 0, gstin: "", gst_registered: false,
   });
+  const [servicesCount, setServicesCount] = useState(0);
+  const [blogCount, setBlogCount] = useState(0);
+  const [dashboardReady, setDashboardReady] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -45,6 +50,28 @@ const ProfilePage = () => {
       });
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!profile) return;
+    const id = profile.id;
+    Promise.all([
+      supabase.from("services").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("active", true),
+      supabase.from("blog_posts").select("id", { count: "exact", head: true }).eq("doctor_id", id).eq("is_published", true),
+    ]).then(([svcRes, blogRes]) => {
+      setServicesCount(svcRes.count || 0);
+      setBlogCount(blogRes.count || 0);
+      setDashboardReady(true);
+    });
+  }, [profile]);
+
+  const checklist = [
+    { label: "Complete your profile", done: !!profile?.full_name && !!profile?.specialization, href: "/admin/settings" },
+    { label: "Add your services", done: servicesCount > 0, href: "/admin/my-website" },
+    { label: "Set working hours", done: true, href: "/admin/my-website" },
+    { label: "Publish your website", done: !!profile?.onboarding_completed, href: "/admin/my-website" },
+    { label: "Write your first blog", done: blogCount > 0, href: "/admin/blog" },
+  ];
+  const completedSteps = checklist.filter((c) => c.done).length;
 
   const generateSlug = (name: string) =>
     name.toLowerCase().trim().replace(/^dr\.?\s*/i, "dr-").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -202,6 +229,32 @@ const ProfilePage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Getting Started — moved here from the dashboard, only until all tasks are done */}
+      {dashboardReady && completedSteps < checklist.length && (
+        <Card className="border-0 rounded-2xl shadow-sm bg-card">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Getting Started</CardTitle>
+              <span className="text-xs font-semibold text-royal">{completedSteps}/{checklist.length}</span>
+            </div>
+            <Progress value={(completedSteps / checklist.length) * 100} className="h-2 mt-2 bg-secondary [&>div]:bg-royal" />
+          </CardHeader>
+          <CardContent className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+            {checklist.map((item) => (
+              <Link key={item.label} to={item.href} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/60 transition-colors group">
+                {item.done ? (
+                  <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
+                ) : (
+                  <Circle className="h-5 w-5 text-muted-foreground/30 flex-shrink-0 group-hover:text-royal" />
+                )}
+                <span className={`text-sm ${item.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}>{item.label}</span>
+                {!item.done && <ArrowRight className="h-3 w-3 text-muted-foreground/40 ml-auto" />}
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex justify-end">
         <Button onClick={save} disabled={saving} className="bg-royal hover:bg-royal/90 h-10 min-w-[160px]">

@@ -4,6 +4,8 @@ import { Menu, X, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
+import { usePanelTheme } from "@/hooks/usePanelTheme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const allNavLinks = [
   { label: "About", target: "about", settingKey: "show_about" },
@@ -19,6 +21,7 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hasPublishedBlog, setHasPublishedBlog] = useState(false);
+  const { mode, setTheme } = usePanelTheme("doctylia-patient-theme");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -88,6 +91,7 @@ const Navbar = () => {
               <MessageCircle size={18} />
             </a>
           )}
+          <ThemeToggle mode={mode} onChange={setTheme} className="hidden sm:flex" />
           <Button size="sm" className="hidden sm:flex gradient-hero text-primary-foreground font-heading font-semibold" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>
