@@ -50,7 +50,7 @@ const ReviewsSection = () => {
       <section id="reviews" className="relative py-16 md:py-24 bg-card overflow-hidden">
         <Quote
           size={220}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-royal/[0.05] pointer-events-none"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-royal/[0.05] dark:text-royal/[0.15] pointer-events-none"
           fill="currentColor"
         />
         <div className="container mx-auto px-4 text-center relative z-10">
@@ -95,7 +95,7 @@ const ReviewsSection = () => {
             {showForm && <ReviewForm name={name} setName={setName} rating={rating} setRating={setRating} text={text} setText={setText} submitting={submitting} onSubmit={submitReview} onCancel={() => setShowForm(false)} />}
             {reviews.slice(0, 5).map((r) => (
               <div key={r.id} className="hover-lift relative bg-card border border-border rounded-xl p-5 overflow-hidden">
-                <Quote size={56} className="absolute -top-2 -right-2 text-royal/[0.08] pointer-events-none" fill="currentColor" />
+                <Quote size={56} className="absolute -top-2 -right-2 text-royal/[0.08] dark:text-royal/[0.2] pointer-events-none" fill="currentColor" />
                 <div className="flex items-center justify-between mb-3 relative z-10">
                   <div>
                     <p className="font-heading font-semibold text-foreground">{r.patient_name}</p>

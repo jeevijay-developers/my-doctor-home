@@ -2,12 +2,16 @@ import { Clock, MapPin, Star, Calendar, Video } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import HeroParticles from "./HeroParticles";
+import { SparklesCore } from "@/components/ui/sparkles";
+import { useIsDarkMode } from "@/hooks/useIsDarkMode";
 
+const LIGHT_SPARKLE_COLOR = "hsl(217 91% 60%)";
+const DARK_SPARKLE_COLOR = "#ffffff";
 
 const HeroBanner = () => {
   const { profile, reviews } = useDoctorData();
   const reduce = useReducedMotion();
+  const dark = useIsDarkMode();
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   const fadeUp = (delay = 0) => ({
     initial: reduce ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 },
@@ -26,7 +30,15 @@ const HeroBanner = () => {
         backgroundImage: `radial-gradient(circle at 2px 2px, hsl(var(--navy)) 1px, transparent 0)`,
         backgroundSize: "40px 40px"
       }} />
-      <HeroParticles />
+      <SparklesCore
+        background="transparent"
+        minSize={0.6}
+        maxSize={1.6}
+        particleDensity={70}
+        speed={1}
+        particleColor={dark ? DARK_SPARKLE_COLOR : LIGHT_SPARKLE_COLOR}
+        className="absolute inset-0 pointer-events-none"
+      />
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid lg:grid-cols-2 gap-10 items-center">

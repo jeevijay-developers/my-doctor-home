@@ -37,6 +37,9 @@
 
     --radius: 1rem;
 
+    /* Ink color for subtle static background patterns (dot-grid, line hatching) — adapts per theme so patterns stay visible against both light and dark section backgrounds */
+    --pattern-line: 234 82% 24%;
+
     /* Doctylia Brand Colors (unchanged for status pills & badges) */
     --navy: 234 82% 24%;
     --royal: 217 91% 60%;
@@ -71,6 +74,8 @@
   }
 
   .dark {
+    --pattern-line: 210 20% 85%;
+
     --background: 222 30% 8%;
     --foreground: 210 20% 96%;
 

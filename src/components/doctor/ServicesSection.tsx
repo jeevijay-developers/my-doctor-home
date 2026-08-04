@@ -16,9 +16,9 @@ const ServicesSection = () => {
   return (
     <section id="services" className="relative py-16 md:py-24 bg-card overflow-hidden">
       <div
-        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        className="absolute inset-0 opacity-[0.04] dark:opacity-[0.08] pointer-events-none"
         style={{
-          backgroundImage: `repeating-linear-gradient(45deg, hsl(var(--navy)) 0, hsl(var(--navy)) 1px, transparent 1px, transparent 14px)`,
+          backgroundImage: `repeating-linear-gradient(45deg, hsl(var(--pattern-line)) 0, hsl(var(--pattern-line)) 1px, transparent 1px, transparent 14px)`,
         }}
       />
       <div className="container mx-auto px-4 relative z-10">
