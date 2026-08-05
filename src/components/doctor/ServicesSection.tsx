@@ -16,9 +16,12 @@ const ServicesSection = () => {
   return (
     <section id="services" className="relative py-16 md:py-24 bg-card overflow-hidden">
       <div
-        className="absolute inset-0 opacity-[0.04] dark:opacity-[0.08] pointer-events-none"
+        className="absolute inset-0 opacity-[0.16] dark:opacity-[0.12] pointer-events-none"
         style={{
-          backgroundImage: `repeating-linear-gradient(45deg, hsl(var(--pattern-line)) 0, hsl(var(--pattern-line)) 1px, transparent 1px, transparent 14px)`,
+          backgroundImage: `radial-gradient(hsl(var(--pattern-line)) 1px, transparent 1px)`,
+          backgroundSize: "20px 20px",
+          maskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
+          WebkitMaskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
         }}
       />
       <div className="container mx-auto px-4 relative z-10">
