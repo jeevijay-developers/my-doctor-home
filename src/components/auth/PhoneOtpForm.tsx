@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -32,6 +32,9 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
   const [loading, setLoading] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showSignupLink, setShowSignupLink] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const turnstile = useTurnstile();
 
   const sendOtp = async () => {
@@ -77,6 +80,7 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
       }
 
       setStep("enter-otp");
+      setCooldownSeconds(DEFAULT_COOLDOWN_SECONDS);
     } catch (err) {
       toast.error((err as Error).message || "Something went wrong");
     } finally {
@@ -84,9 +88,84 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
     }
   };
 
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const id = setInterval(() => setCooldownSeconds((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [cooldownSeconds]);
+
+  const verifyOtp = async () => {
+    setOtpError(null);
+    if (!/^\d{6}$/.test(otp)) {
+      setOtpError("Enter the 6-digit code.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: phone.replace(/[\s-]/g, ""),
+        token: otp,
+        type: "sms",
+      });
+      if (error || !data.session) {
+        setOtpError("Incorrect or expired code. Try again.");
+        setOtp("");
+        return;
+      }
+      onAuthenticated(data.session);
+    } catch (err) {
+      toast.error((err as Error).message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resend = () => {
+    if (cooldownSeconds > 0) return;
+    setOtp("");
+    setOtpError(null);
+    sendOtp();
+  };
+
   if (step === "enter-otp") {
-    // Implemented in Task 3.
-    return <div data-testid="otp-step-placeholder"><Label htmlFor="otp">6-digit code</Label><Input id="otp" /></div>;
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          We sent a 6-digit code to <strong className="text-foreground">{phone}</strong>.
+        </p>
+        <div>
+          <Label htmlFor="otp">6-digit code</Label>
+          <Input
+            id="otp"
+            inputMode="numeric"
+            maxLength={6}
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+            placeholder="123456"
+            required
+            className="h-11 tracking-widest text-center"
+          />
+          {otpError && <p className="text-xs text-destructive mt-1">{otpError}</p>}
+        </div>
+        <Button
+          type="button"
+          onClick={verifyOtp}
+          disabled={loading}
+          className="w-full h-11 bg-royal hover:bg-royal/90 text-white font-semibold"
+        >
+          {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+          Verify
+        </Button>
+        <button
+          type="button"
+          onClick={resend}
+          disabled={cooldownSeconds > 0 || loading}
+          className="text-xs text-muted-foreground hover:text-royal disabled:opacity-50 disabled:hover:text-muted-foreground w-full text-center"
+        >
+          {cooldownSeconds > 0 ? `Resend OTP in ${cooldownSeconds}s` : "Resend OTP"}
+        </button>
+      </div>
+    );
   }
 
   return (
