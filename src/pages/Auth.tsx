@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2, CheckCircle, Shield, Zap, Users, Eye, EyeOff } from
 import { motion } from "framer-motion";
 import type { Session } from "@supabase/supabase-js";
 import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
+import { useTurnstile } from "@/components/auth/useTurnstile";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -24,6 +25,7 @@ const Auth = () => {
   const [checkingSession, setCheckingSession] = useState(true);
   const [authMethod, setAuthMethod] = useState<"email" | "phone">("email");
   const navigate = useNavigate();
+  const turnstile = useTurnstile();
 
   // Preserve a same-origin relative `next` (e.g. /.lovable/oauth/consent?authorization_id=...)
   const rawNext = searchParams.get("next");
@@ -74,10 +76,20 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      if (!turnstile.token) {
+        throw new Error(
+          turnstile.siteKeyMissing
+            ? "CAPTCHA verification is not configured yet."
+            : "Please complete the verification challenge."
+        );
+      }
+
       if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/reset-password`,
+          captchaToken: turnstile.token,
         });
+        turnstile.reset();
         if (error) throw error;
         toast.success("Password reset link sent! Check your email.");
         setMode("login");
@@ -90,8 +102,10 @@ const Auth = () => {
             emailRedirectTo: safeNext
               ? `${window.location.origin}${safeNext}`
               : window.location.origin,
+            captchaToken: turnstile.token,
           },
         });
+        turnstile.reset();
         if (error) throw error;
         if (data.session) {
           if (safeNext) {
@@ -104,7 +118,12 @@ const Auth = () => {
           setSignupSuccess(email);
         }
       } else {
-        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: { captchaToken: turnstile.token },
+        });
+        turnstile.reset();
         if (error) throw error;
         if (!signInData.session) throw new Error("Login succeeded but no session was returned.");
         await handleAuthenticated(signInData.session);
@@ -376,6 +395,8 @@ const Auth = () => {
                   )}
                 </div>
               )}
+
+              <div ref={turnstile.containerRef} />
 
               <Button
                 type="submit"
