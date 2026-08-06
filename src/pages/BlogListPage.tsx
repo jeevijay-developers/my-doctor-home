@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Calendar, Tag } from "lucide-react";
 import { format } from "date-fns";
 import AnimatedSection from "@/components/landing/AnimatedSection";
+import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
 
 const BlogListPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -105,8 +106,10 @@ const BlogListPage = () => {
             return (
               <AnimatedSection key={post.id} delay={i * 0.1} className="w-full sm:w-[340px]">
                 <Link to={`/dr/${slug}/blog/${post.id}`} className="group block bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow h-full">
-                  {post.featured_image_url && (
-                    <img src={post.featured_image_url} alt={post.title} className="w-full h-48 object-cover" />
+                  {post.featured_image_url ? (
+                    <img src={post.featured_image_url} alt={post.title} className="w-full h-48 object-cover" loading="lazy" decoding="async" />
+                  ) : (
+                    <BlogImagePlaceholder className="h-48" />
                   )}
                   <div className="p-5 space-y-3">
                     <div className="flex items-center gap-2">

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Calendar, Tag, User } from "lucide-react";
 import { format } from "date-fns";
 import DOMPurify from "dompurify";
+import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
 
 const BlogPostPage = () => {
   const { slug, postId } = useParams<{ slug: string; postId: string }>();
@@ -88,8 +89,10 @@ const BlogPostPage = () => {
           <p className="text-lg text-muted-foreground mb-8 leading-relaxed border-l-4 border-royal pl-4">{post.excerpt}</p>
         )}
 
-        {post.featured_image_url && (
-          <img src={post.featured_image_url} alt={post.title} className="w-full rounded-xl mb-8 object-cover max-h-96" />
+        {post.featured_image_url ? (
+          <img src={post.featured_image_url} alt={post.title} className="w-full rounded-xl mb-8 object-cover max-h-96" decoding="async" />
+        ) : (
+          <BlogImagePlaceholder className="w-full rounded-xl mb-8 h-64 md:h-80" />
         )}
 
         {/* Author Bar */}
