@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-const TURNSTILE_SCRIPT_SRC = "https://challenge.cloudflare.com/turnstile/v0/api.js";
+const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
 let scriptLoadPromise: Promise<void> | null = null;
 
 function loadTurnstileScript(): Promise<void> {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import type { Session } from "@supabase/supabase-js";
 import PhoneOtpForm from "./PhoneOtpForm";
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -103,7 +104,7 @@ describe("PhoneOtpForm - OTP entry step", () => {
   }
 
   it("verifies the code and calls onAuthenticated with the returned session on success", async () => {
-    const fakeSession = { user: { id: "user-1" } } as any;
+    const fakeSession = { user: { id: "user-1" } } as unknown as Session;
     (supabase.auth.verifyOtp as ReturnType<typeof vi.fn>).mockResolvedValue({
       data: { session: fakeSession },
       error: null,

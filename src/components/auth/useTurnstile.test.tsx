@@ -45,7 +45,10 @@ describe("useTurnstile", () => {
   });
 
   it("reports siteKeyMissing when VITE_TURNSTILE_SITE_KEY is unset", () => {
-    vi.unstubAllEnvs();
+    // Explicitly stub to empty rather than relying on vi.unstubAllEnvs() to "revert to
+    // unset" - unstubAllEnvs() restores whatever real .env value Vite loaded at test-runner
+    // startup, which is non-empty on this machine now that the site key is configured.
+    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "");
     render(<TestHarness />);
     expect(screen.getByTestId("missing").textContent).toBe("true");
     expect(window.turnstile!.render).not.toHaveBeenCalled();
@@ -61,5 +64,32 @@ describe("useTurnstile", () => {
     screen.getByText("reset").click();
     expect(window.turnstile!.reset).toHaveBeenCalledWith("widget-1");
     await waitFor(() => expect(screen.getByTestId("token").textContent).toBe("none"));
+  });
+});
+
+describe("useTurnstile - script loading (regression: exact Cloudflare hostname)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    delete window.turnstile;
+    document.head.querySelectorAll("script[src*='cloudflare']").forEach((el) => el.remove());
+  });
+
+  // The other describe block always pre-stubs window.turnstile, which short-circuits
+  // loadTurnstileScript() before it ever injects a <script> tag - so a typo'd hostname
+  // there would never be caught. This test forces the real injection path.
+  it("injects a <script> tag pointed at the real Turnstile API URL and renders once it loads", async () => {
+    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "test-site-key");
+    render(<TestHarness />);
+
+    await waitFor(() => {
+      expect(document.head.querySelector("script[src*='cloudflare']")).not.toBeNull();
+    });
+    const script = document.head.querySelector("script[src*='cloudflare']") as HTMLScriptElement;
+    expect(script.src).toBe("https://challenges.cloudflare.com/turnstile/v0/api.js");
+
+    window.turnstile = { render: vi.fn(() => "widget-1"), reset: vi.fn(), remove: vi.fn() };
+    script.onload?.(new Event("load"));
+
+    await waitFor(() => expect(window.turnstile!.render).toHaveBeenCalledTimes(1));
   });
 });
