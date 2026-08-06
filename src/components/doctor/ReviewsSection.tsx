@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Star, ShieldCheck, Send, Quote } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import {
+  Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
+} from "@/components/ui/carousel";
 
 const ReviewsSection = () => {
   const { reviews, profile } = useDoctorData();
@@ -14,15 +17,21 @@ const ReviewsSection = () => {
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [api, setApi] = useState<CarouselApi>();
+  const [selected, setSelected] = useState(0);
+
+  useEffect(() => {
+    if (!api) return;
+    const onSelect = () => setSelected(api.selectedScrollSnap());
+    onSelect();
+    api.on("select", onSelect);
+    api.on("reInit", onSelect);
+    return () => { api.off("select", onSelect); };
+  }, [api]);
 
   const avgRating = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : "0";
-
-  const ratingDist = [5, 4, 3, 2, 1].map((stars) => ({
-    stars,
-    pct: reviews.length > 0 ? Math.round((reviews.filter((r) => r.rating === stars).length / reviews.length) * 100) : 0,
-  }));
 
   const submitReview = async () => {
     if (!name.trim() || !profile) return;
@@ -54,7 +63,7 @@ const ReviewsSection = () => {
           fill="currentColor"
         />
         <div className="container mx-auto px-4 text-center relative z-10">
-          <h2 className="font-heading font-bold text-3xl text-primary mb-4">Patient Reviews</h2>
+          <h2 className="font-heading font-bold text-3xl text-foreground mb-4">Patient Reviews</h2>
           <p className="text-text-gray mb-6">No reviews yet. Be the first to share your experience!</p>
           <Button onClick={() => setShowForm(true)} variant="cta-outline">
             <Send className="h-4 w-4 mr-1" /> Write a Review
@@ -65,60 +74,86 @@ const ReviewsSection = () => {
     );
   }
 
+  const shownReviews = reviews.slice(0, 5);
+
   return (
     <section id="reviews" className="py-16 md:py-24 bg-card">
-      <div className="container mx-auto px-4">
-        <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary text-center mb-12">Patient Reviews</h2>
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1 bg-secondary rounded-2xl p-6 text-center self-start">
-            <p className="font-heading font-extrabold text-6xl text-primary">{avgRating}</p>
-            <div className="flex justify-center text-warning my-2">
-              {[...Array(5)].map((_, i) => <Star key={i} size={20} fill="currentColor" />)}
-            </div>
-            <p className="text-sm text-text-gray mb-6">Based on {reviews.length} reviews</p>
-            <div className="space-y-2">
-              {ratingDist.map((r) => (
-                <div key={r.stars} className="flex items-center gap-2 text-sm">
-                  <span className="w-4 text-text-gray">{r.stars}</span>
-                  <div className="flex-1 h-2 rounded-pill bg-muted overflow-hidden">
-                    <div className="h-full bg-warning rounded-pill" style={{ width: `${r.pct}%` }} />
-                  </div>
-                  <span className="w-8 text-text-gray text-right">{r.pct}%</span>
-                </div>
-              ))}
-            </div>
-            <Button onClick={() => setShowForm(!showForm)} variant="cta-outline" className="mt-6 w-full">
-              <Send className="h-4 w-4 mr-1" /> Write a Review
-            </Button>
+      <div className="container mx-auto px-4 text-center">
+        <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground mb-2">Patient Reviews</h2>
+        <p className="text-text-gray mb-2">What our patients say about Dr. {profile?.full_name || "Doctor"}</p>
+        <div className="inline-flex items-center gap-1.5 mb-10 text-sm">
+          <div className="flex text-warning">
+            {[...Array(5)].map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
           </div>
-          <div className="lg:col-span-2 space-y-4">
-            {showForm && <ReviewForm name={name} setName={setName} rating={rating} setRating={setRating} text={text} setText={setText} submitting={submitting} onSubmit={submitReview} onCancel={() => setShowForm(false)} />}
-            {reviews.slice(0, 5).map((r) => (
-              <div key={r.id} className="hover-lift relative bg-card border border-border rounded-xl p-5 overflow-hidden">
-                <Quote size={56} className="absolute -top-2 -right-2 text-royal/[0.08] dark:text-royal/[0.2] pointer-events-none" fill="currentColor" />
-                <div className="flex items-center justify-between mb-3 relative z-10">
-                  <div>
-                    <p className="font-heading font-semibold text-foreground">{r.patient_name}</p>
-                    <p className="text-xs text-text-gray">{new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {[...Array(r.rating)].map((_, j) => <Star key={j} size={14} className="text-warning" fill="currentColor" />)}
-                  </div>
-                </div>
-                {r.review_text && <p className="text-sm text-foreground leading-relaxed relative z-10">{r.review_text}</p>}
-                {r.is_verified && (
-                  <span className="inline-flex items-center gap-1 mt-3 px-2 py-0.5 rounded-pill bg-teal/10 text-teal text-xs font-medium">
-                    <ShieldCheck size={12} /> Verified Patient
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
+          <span className="font-heading font-bold text-foreground">{avgRating}</span>
+          <span className="text-text-gray">· {reviews.length} review{reviews.length !== 1 ? "s" : ""}</span>
         </div>
+
+        <div className="max-w-xl mx-auto text-left">
+          {shownReviews.length === 1 ? (
+            <ReviewCard r={shownReviews[0]} />
+          ) : (
+            <>
+              <Carousel setApi={setApi} opts={{ align: "center", loop: true }} className="px-1">
+                <CarouselContent>
+                  {shownReviews.map((r) => (
+                    <CarouselItem key={r.id}>
+                      <ReviewCard r={r} />
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="-left-3 sm:-left-12 border-border bg-card" />
+                <CarouselNext className="-right-3 sm:-right-12 border-border bg-card" />
+              </Carousel>
+              <div className="flex justify-center gap-2 mt-5">
+                {shownReviews.map((r, i) => (
+                  <button
+                    key={r.id}
+                    aria-label={`Go to review ${i + 1}`}
+                    onClick={() => api?.scrollTo(i)}
+                    className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="mt-8">
+          <Button onClick={() => setShowForm(!showForm)} variant="cta-outline">
+            <Send className="h-4 w-4 mr-1" /> Write a Review
+          </Button>
+        </div>
+        {showForm && (
+          <div className="max-w-xl mx-auto">
+            <ReviewForm name={name} setName={setName} rating={rating} setRating={setRating} text={text} setText={setText} submitting={submitting} onSubmit={submitReview} onCancel={() => setShowForm(false)} />
+          </div>
+        )}
       </div>
     </section>
   );
 };
+
+const ReviewCard = ({ r }: { r: any }) => (
+  <div className="hover-lift relative bg-card border border-border shadow-sm rounded-2xl p-6 overflow-hidden h-full">
+    <Quote size={56} className="absolute -top-2 -right-2 text-royal/[0.08] dark:text-royal/[0.2] pointer-events-none" fill="currentColor" />
+    <div className="flex items-center justify-between mb-3 relative z-10">
+      <div>
+        <p className="font-heading font-semibold text-foreground">{r.patient_name}</p>
+        <p className="text-xs text-text-gray">{new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+      </div>
+      <div className="flex items-center gap-1">
+        {[...Array(r.rating)].map((_, j) => <Star key={j} size={14} className="text-warning" fill="currentColor" />)}
+      </div>
+    </div>
+    {r.review_text && <p className="text-sm text-foreground leading-relaxed relative z-10">{r.review_text}</p>}
+    {r.is_verified && (
+      <span className="inline-flex items-center gap-1 mt-3 px-2 py-0.5 rounded-pill bg-teal/10 text-teal text-xs font-medium">
+        <ShieldCheck size={12} /> Verified Patient
+      </span>
+    )}
+  </div>
+);
 
 const ReviewForm = ({ name, setName, rating, setRating, text, setText, submitting, onSubmit, onCancel }: {
   name: string; setName: (v: string) => void; rating: number; setRating: (v: number) => void;

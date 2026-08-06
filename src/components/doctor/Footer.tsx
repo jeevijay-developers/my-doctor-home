@@ -1,8 +1,8 @@
-import { Facebook, Instagram, Youtube, Linkedin, MessageCircle } from "lucide-react";
+import { Facebook, Instagram, Youtube, Linkedin, MessageCircle, Phone, MapPin } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
 
 const Footer = () => {
-  const { profile, settings } = useDoctorData();
+  const { profile, settings, services } = useDoctorData();
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
   const whatsappUrl = settings?.whatsapp_number
@@ -31,33 +31,57 @@ const Footer = () => {
           />
         </svg>
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8">
             <div>
               <h3 className="font-heading font-bold text-xl mb-2">Dr. {profile?.full_name || "Doctor"}</h3>
               <p className="text-sm opacity-80">{profile?.specialization} · {profile?.qualifications}</p>
               {profile?.clinic_name && <p className="text-sm opacity-80 mt-1">{profile.clinic_name}{profile.city ? `, ${profile.city}` : ""}</p>}
+              {socialLinks.length > 0 && (
+                <div className="flex gap-3 mt-4">
+                  {socialLinks.map(({ icon: Icon, url }, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" className="w-9 h-9 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors">
+                      <Icon size={16} />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <h4 className="font-heading font-semibold mb-3">Quick Links</h4>
               <div className="space-y-2 text-sm opacity-80">
+                <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="block hover:opacity-100 transition-opacity">Home</button>
                 {["About", "Services", "Gallery", "Reviews", "Contact"].map((l) => (
                   <button key={l} onClick={() => scrollTo(l.toLowerCase())} className="block hover:opacity-100 transition-opacity">{l}</button>
                 ))}
               </div>
             </div>
+            {services.length > 0 && (
+              <div>
+                <h4 className="font-heading font-semibold mb-3">Services</h4>
+                <div className="space-y-2 text-sm opacity-80">
+                  {services.slice(0, 5).map((s: any) => (
+                    <button key={s.id} onClick={() => scrollTo("services")} className="block text-left hover:opacity-100 transition-opacity truncate max-w-full">
+                      {s.name?.trim() || "Consultation"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
-              {socialLinks.length > 0 && (
-                <>
-                  <h4 className="font-heading font-semibold mb-3">Follow Us</h4>
-                  <div className="flex gap-3">
-                    {socialLinks.map(({ icon: Icon, url }, i) => (
-                      <a key={i} href={url} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-lg bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors">
-                        <Icon size={18} />
-                      </a>
-                    ))}
-                  </div>
-                </>
-              )}
+              <h4 className="font-heading font-semibold mb-3">Contact Info</h4>
+              <div className="space-y-2.5 text-sm opacity-80">
+                {profile?.phone && (
+                  <a href={`tel:${profile.phone}`} className="flex items-center gap-2 hover:opacity-100 transition-opacity">
+                    <Phone size={14} className="shrink-0" /> {profile.phone}
+                  </a>
+                )}
+                {profile?.address && (
+                  <p className="flex items-start gap-2">
+                    <MapPin size={14} className="shrink-0 mt-0.5" />
+                    <span>{profile.address}{profile.city ? `, ${profile.city}` : ""}</span>
+                  </p>
+                )}
+              </div>
             </div>
           </div>
           <div className="border-t border-primary-foreground/10 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">

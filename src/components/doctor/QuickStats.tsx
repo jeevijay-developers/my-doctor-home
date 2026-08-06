@@ -1,4 +1,4 @@
-import { Users, Clock, TrendingUp, Award } from "lucide-react";
+import { Users, Award, ThumbsUp, Headset } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import AnimatedItem from "@/components/landing/AnimatedItem";
 
@@ -7,20 +7,20 @@ const QuickStats = () => {
 
   const stats = [
     { icon: Users, value: "5,000+", label: "Patients Treated" },
-    { icon: Clock, value: `${profile?.experience_years || 0}+`, label: "Years Experience" },
-    { icon: TrendingUp, value: "98%", label: "Success Rate" },
-    { icon: Award, value: "—", label: "Awards" },
+    { icon: Award, value: `${profile?.experience_years || 0}+`, label: "Years Experience" },
+    { icon: ThumbsUp, value: "98%", label: "Success Rate" },
+    { icon: Headset, value: "24/7", label: "Online Booking" },
   ];
 
   return (
-    <section className="bg-card border-t-2 border-royal/10 py-10">
+    <section className="bg-card border-t border-border py-10 md:py-12">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:divide-x md:divide-border">
           {stats.map((s, i) => (
             <AnimatedItem key={i} index={i} className="text-center space-y-2">
-              <s.icon size={28} className="mx-auto text-royal" />
-              <p className="font-heading font-extrabold text-3xl text-primary">{s.value}</p>
-              <p className="text-sm text-text-gray">{s.label}</p>
+              <s.icon size={26} className="mx-auto text-royal" strokeWidth={2} />
+              <p className="font-heading font-extrabold text-3xl md:text-4xl text-foreground">{s.value}</p>
+              <p className="text-sm text-text-gray font-medium">{s.label}</p>
             </AnimatedItem>
           ))}
         </div>

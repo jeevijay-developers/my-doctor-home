@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock, Download, FileText } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock, Download, FileText, Building2 } from "lucide-react";
 import jsPDF from "jspdf";
 
 import { Button } from "@/components/ui/button";
@@ -218,7 +218,7 @@ const BookingWidget = () => {
         <div className="container mx-auto px-4 max-w-lg">
           <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
             <CheckCircle2 size={64} className="text-success mx-auto mb-4" />
-            <h3 className="font-heading font-bold text-2xl text-primary mb-2">
+            <h3 className="font-heading font-bold text-2xl text-foreground mb-2">
               Appointment {settings?.auto_confirm ? "Confirmed" : "Requested"}!
             </h3>
             <p className="text-text-gray mb-4">Token #{token}</p>
@@ -294,7 +294,7 @@ const BookingWidget = () => {
   return (
     <section id="booking" className="py-16 md:py-24 bg-cloud-blue">
       <div className="container mx-auto px-4 max-w-2xl">
-        <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary text-center mb-2">Book an Appointment</h2>
+        <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-2">Book an Appointment</h2>
         <p className="text-text-gray text-center mb-4">Select your preference and book in under 2 minutes</p>
         {profile?.slug && (
           <p className="text-center text-sm mb-6">
@@ -321,9 +321,10 @@ const BookingWidget = () => {
             <div className="space-y-4">
               <h3 className="font-heading font-semibold text-lg text-foreground">Select Consultation Type</h3>
               <div className="grid grid-cols-2 gap-4">
-                {[{ k: "clinic" as const, label: "🏥 Clinic Visit" }, { k: "online" as const, label: "💻 Online" }].map((t) => (
+                {[{ k: "clinic" as const, label: "Clinic Visit", Icon: Building2 }, { k: "online" as const, label: "Online", Icon: Video }].map((t) => (
                   <button key={t.k} onClick={() => { setType(t.k); setStep(2); }}
-                    className={`p-6 rounded-xl border-2 font-heading font-semibold text-lg transition-all ${type === t.k ? "border-royal bg-royal/5 text-royal" : "border-border text-foreground hover:border-royal/50"}`}>
+                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-2xl border-2 font-heading font-semibold text-lg transition-all ${type === t.k ? "border-royal bg-royal/5 text-royal" : "border-border text-foreground hover:border-royal/50"}`}>
+                    <t.Icon size={24} />
                     {t.label}
                   </button>
                 ))}
@@ -342,7 +343,7 @@ const BookingWidget = () => {
                       <span className="font-medium text-foreground">{s.name}</span>
                       {s.duration && <span className="text-xs text-text-gray ml-2">{s.duration} min</span>}
                     </div>
-                    <span className="font-heading font-bold text-primary">₹{s.price}</span>
+                    <span className="font-heading font-bold text-royal">₹{s.price}</span>
                   </button>
                 ))}
                 {availableServices.length === 0 && <p className="text-muted-foreground text-sm">No services available for this type.</p>}
@@ -439,7 +440,7 @@ const BookingWidget = () => {
                 <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="text-foreground font-medium">{selectedDate && format(selectedDate, "d MMM")}</span></div>
                 <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="text-foreground font-medium">{selectedTime}</span></div>
                 <hr className="border-border" />
-                <div className="flex justify-between font-heading font-bold text-lg"><span>Total</span><span className="text-primary">₹{selectedService?.price}</span></div>
+                <div className="flex justify-between font-heading font-bold text-lg"><span>Total</span><span className="text-royal">₹{selectedService?.price}</span></div>
               </div>
 
               {wantsOnlinePayment && !gatewayConnected && (

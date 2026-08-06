@@ -13,6 +13,7 @@ import BlogPreview from "@/components/doctor/BlogPreview";
 import ClinicDetails from "@/components/doctor/ClinicDetails";
 import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
+import SectionCard from "@/components/doctor/SectionCard";
 
 const DoctorPageContent = () => {
   const { profile, settings, loading, services, reviews, gallery } = useDoctorData();
@@ -83,26 +84,26 @@ const DoctorPageContent = () => {
         <AnimatedSection><QuickStats /></AnimatedSection>
       )}
       {settings.show_about !== false && (
-        <AnimatedSection><AboutSection /></AnimatedSection>
+        <AnimatedSection><SectionCard><AboutSection /></SectionCard></AnimatedSection>
       )}
       {settings.show_services !== false && services.length > 0 && (
-        <AnimatedSection><ServicesSection /></AnimatedSection>
+        <AnimatedSection><SectionCard><ServicesSection /></SectionCard></AnimatedSection>
       )}
       {settings.show_gallery && gallery.length > 0 && (
-        <AnimatedSection><GallerySection /></AnimatedSection>
+        <AnimatedSection><SectionCard><GallerySection /></SectionCard></AnimatedSection>
       )}
       {settings.show_online_consultation && (
         <AnimatedSection><OnlineConsultation /></AnimatedSection>
       )}
-      <AnimatedSection><BookingWidget /></AnimatedSection>
+      <AnimatedSection><SectionCard><BookingWidget /></SectionCard></AnimatedSection>
       {settings.show_reviews !== false && (
-        <AnimatedSection><ReviewsSection /></AnimatedSection>
+        <AnimatedSection><SectionCard><ReviewsSection /></SectionCard></AnimatedSection>
       )}
       {settings.show_blog && (
-        <AnimatedSection><BlogPreview /></AnimatedSection>
+        <AnimatedSection><SectionCard><BlogPreview /></SectionCard></AnimatedSection>
       )}
       {settings.show_clinic_details !== false && (
-        <AnimatedSection><ClinicDetails /></AnimatedSection>
+        <AnimatedSection><SectionCard><ClinicDetails /></SectionCard></AnimatedSection>
       )}
       <Footer />
     </div>

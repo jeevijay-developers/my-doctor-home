@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { FileText, Plus, Search, Pencil, Trash2, Eye, EyeOff, Sparkles, Loader2 } from "lucide-react";
+import { FileText, Plus, Search, Pencil, Trash2, Eye, EyeOff, Sparkles, Loader2, Image as ImageIcon, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,9 @@ const categories = [
   "Nutrition", "Fitness", "Women's Health", "Children's Health", "Prevention",
 ];
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const MAX_IMAGE_MB = 5;
+
 const BlogPage = () => {
   const { profile } = useProfile();
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -38,8 +41,10 @@ const BlogPage = () => {
   const [showEditor, setShowEditor] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
   const [form, setForm] = useState({
     title: "", excerpt: "", content: "", category: "", is_published: false,
+    featured_image_url: "" as string | null,
   });
 
   const load = async () => {
@@ -56,7 +61,7 @@ const BlogPage = () => {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ title: "", excerpt: "", content: "", category: "", is_published: false });
+    setForm({ title: "", excerpt: "", content: "", category: "", is_published: false, featured_image_url: "" });
     setShowEditor(true);
   };
 
@@ -68,9 +73,40 @@ const BlogPage = () => {
       content: post.content || "",
       category: post.category || "",
       is_published: post.is_published,
+      featured_image_url: post.featured_image_url || "",
     });
     setShowEditor(true);
   };
+
+  const uploadFeaturedImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file || !profile) return;
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast({ title: "Unsupported file type", description: "Please upload a JPG, PNG, or WebP image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+      toast({ title: "Image too large", description: `Please upload an image under ${MAX_IMAGE_MB}MB.`, variant: "destructive" });
+      return;
+    }
+
+    setImageUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `${profile.id}/blog/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("doctor-uploads").upload(path, file);
+    setImageUploading(false);
+    if (error) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    const { data: { publicUrl } } = supabase.storage.from("doctor-uploads").getPublicUrl(path);
+    setForm((f) => ({ ...f, featured_image_url: publicUrl }));
+    toast({ title: "Image uploaded" });
+  };
+
+  const removeFeaturedImage = () => setForm((f) => ({ ...f, featured_image_url: "" }));
 
   // Auto-enable show_blog once, the very first time a post gets published for this doctor.
   const maybeAutoEnableBlogVisibility = async () => {
@@ -106,6 +142,7 @@ const BlogPage = () => {
       excerpt: form.excerpt || null,
       content: form.content || null,
       category: form.category || null,
+      featured_image_url: form.featured_image_url || null,
       is_published: form.is_published,
       published_at: form.is_published ? new Date().toISOString() : null,
     };
@@ -222,6 +259,13 @@ const BlogPage = () => {
           </div>
         ) : filtered.map((post) => (
           <div key={post.id} className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow">
+            {post.featured_image_url ? (
+              <img src={post.featured_image_url} alt={post.title} className="w-full h-32 object-cover" loading="lazy" />
+            ) : (
+              <div className="w-full h-32 bg-secondary flex items-center justify-center">
+                <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+              </div>
+            )}
             <div className="p-5 space-y-3">
               <div className="flex items-start justify-between">
                 <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${
@@ -292,6 +336,34 @@ const BlogPage = () => {
               <Label>Title *</Label>
               <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Your article title" className="h-10" />
             </div>
+
+            <div className="space-y-1.5">
+              <Label>Featured Image</Label>
+              {form.featured_image_url ? (
+                <div className="relative w-full max-w-xs rounded-xl overflow-hidden border border-border group">
+                  <img src={form.featured_image_url} alt="Featured" className="w-full aspect-video object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <label className="cursor-pointer">
+                      <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="hidden" onChange={uploadFeaturedImage} disabled={imageUploading} />
+                      <span className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-pill bg-white text-foreground font-medium hover:bg-white/90">
+                        <Upload className="h-3 w-3" /> Replace
+                      </span>
+                    </label>
+                    <button type="button" onClick={removeFeaturedImage} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-pill bg-destructive text-destructive-foreground font-medium hover:bg-destructive/90">
+                      <X className="h-3 w-3" /> Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className={`flex flex-col items-center justify-center gap-2 w-full max-w-xs aspect-video rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-royal/50 hover:text-royal transition-colors ${imageUploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
+                  <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="hidden" onChange={uploadFeaturedImage} disabled={imageUploading} />
+                  {imageUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <ImageIcon className="h-6 w-6" />}
+                  <span className="text-xs font-medium">{imageUploading ? "Uploading..." : "Click to upload cover image"}</span>
+                </label>
+              )}
+              <p className="text-[11px] text-muted-foreground">JPG, PNG or WebP · up to {MAX_IMAGE_MB}MB · shown on your Health Articles section</p>
+            </div>
+
             <div className="space-y-1.5">
               <Label>Excerpt</Label>
               <Input value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} placeholder="Brief summary (1-2 sentences)" className="h-10" />

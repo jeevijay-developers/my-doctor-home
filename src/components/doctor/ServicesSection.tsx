@@ -1,7 +1,14 @@
+import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import AnimatedItem from "@/components/landing/AnimatedItem";
+import {
+  Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
+} from "@/components/ui/carousel";
+
+// Switch from a static row to a carousel once there are enough services to page through.
+const CAROUSEL_THRESHOLD = 3;
 
 const typeColor: Record<string, string> = {
   clinic: "bg-royal/10 text-royal",
@@ -9,9 +16,41 @@ const typeColor: Record<string, string> = {
   both: "bg-primary/10 text-primary",
 };
 
+const ServiceCard = ({ s, onBook }: { s: any; onBook: () => void }) => (
+  <div className="hover-lift w-full h-full bg-card border border-border shadow-sm rounded-2xl p-6 flex flex-col">
+    <div className="w-14 h-14 rounded-2xl bg-royal/10 flex items-center justify-center mb-4">
+      <Heart size={24} className="text-royal" />
+    </div>
+    <h3 className="font-heading font-semibold text-foreground text-lg">{s.name?.trim() || "Consultation"}</h3>
+    {s.description && <p className="text-sm text-text-gray mt-1">{s.description}</p>}
+    <div className="flex items-center gap-2 mt-2 mb-3">
+      <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${typeColor[s.type] || ""}`}>{s.type}</span>
+      <span className="text-xs text-text-gray">{s.duration} mins</span>
+    </div>
+    <p className="font-heading font-extrabold text-2xl text-royal mb-4">₹{s.price.toLocaleString()}</p>
+    <Button variant="cta" className="w-full font-heading font-semibold mt-auto" onClick={onBook}>
+      Book Now
+    </Button>
+  </div>
+);
+
 const ServicesSection = () => {
   const { services } = useDoctorData();
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+
+  const [api, setApi] = useState<CarouselApi>();
+  const [selected, setSelected] = useState(0);
+
+  const useCarouselLayout = services.length > CAROUSEL_THRESHOLD;
+
+  useEffect(() => {
+    if (!api) return;
+    const onSelect = () => setSelected(api.selectedScrollSnap());
+    onSelect();
+    api.on("select", onSelect);
+    api.on("reInit", onSelect);
+    return () => { api.off("select", onSelect); };
+  }, [api]);
 
   return (
     <section id="services" className="relative py-16 md:py-24 bg-card overflow-hidden">
@@ -25,30 +64,48 @@ const ServicesSection = () => {
         }}
       />
       <div className="container mx-auto px-4 relative z-10">
-        <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary text-center mb-4">Services & Fees</h2>
+        <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-4">Medical Services</h2>
         <p className="text-text-gray text-center mb-12 max-w-lg mx-auto">Transparent pricing. Book instantly. No hidden charges.</p>
 
-        <div className="flex flex-wrap justify-center gap-5">
-          {services.map((s, i) => (
-            <AnimatedItem key={s.id} index={i} className="w-full sm:w-[320px]">
-              <div className="hover-lift w-full h-full bg-card border border-border rounded-xl p-6 flex flex-col">
-                <div className="w-12 h-12 rounded-xl gradient-hero flex items-center justify-center mb-4">
-                  <Heart size={22} className="text-primary-foreground" />
-                </div>
-                <h3 className="font-heading font-semibold text-foreground text-lg">{s.name?.trim() || "Consultation"}</h3>
-                {s.description && <p className="text-sm text-text-gray mt-1">{s.description}</p>}
-                <div className="flex items-center gap-2 mt-2 mb-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${typeColor[s.type] || ""}`}>{s.type}</span>
-                  <span className="text-xs text-text-gray">{s.duration} mins</span>
-                </div>
-                <p className="font-heading font-extrabold text-2xl text-primary mb-4">₹{s.price.toLocaleString()}</p>
-                <Button variant="cta" className="w-full font-heading font-semibold" onClick={() => scrollTo("booking")}>
-                  Book Now
-                </Button>
-              </div>
-            </AnimatedItem>
-          ))}
-        </div>
+        {services.length === 0 ? null : !useCarouselLayout ? (
+          <div
+            className={
+              services.length === 1
+                ? "flex justify-center"
+                : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto"
+            }
+          >
+            {services.map((s, i) => (
+              <AnimatedItem key={s.id} index={i} className={services.length === 1 ? "w-full max-w-[340px]" : ""}>
+                <ServiceCard s={s} onBook={() => scrollTo("booking")} />
+              </AnimatedItem>
+            ))}
+          </div>
+        ) : (
+          <div className="max-w-5xl mx-auto">
+            <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="px-2">
+              <CarouselContent className="-ml-4 sm:-ml-6">
+                {services.map((s) => (
+                  <CarouselItem key={s.id} className="pl-4 sm:pl-6 basis-full md:basis-1/2 lg:basis-1/3">
+                    <ServiceCard s={s} onBook={() => scrollTo("booking")} />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="left-1 md:left-2 lg:-left-12 border-border bg-card" />
+              <CarouselNext className="right-1 md:right-2 lg:-right-12 border-border bg-card" />
+            </Carousel>
+            <div className="flex justify-center gap-2 mt-6">
+              {services.map((s, i) => (
+                <button
+                  key={s.id}
+                  aria-label={`Go to service ${i + 1}`}
+                  onClick={() => api?.scrollTo(i)}
+                  className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
