@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, CheckCircle, Shield, Zap, Users, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
+import type { Session } from "@supabase/supabase-js";
+import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -20,6 +22,7 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [authMethod, setAuthMethod] = useState<"email" | "phone">("email");
   const navigate = useNavigate();
 
   // Preserve a same-origin relative `next` (e.g. /.lovable/oauth/consent?authorization_id=...)
@@ -103,32 +106,37 @@ const Auth = () => {
       } else {
         const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        if (safeNext) {
-          window.location.href = safeNext;
-          return;
-        }
-        const { data: isAdmin } = await supabase.rpc("has_role", {
-          _user_id: signInData.user.id,
-          _role: "admin",
-        });
-        if (isAdmin) {
-          navigate("/superadmin");
-          return;
-        }
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("onboarding_completed")
-          .single();
-        if (profile?.onboarding_completed) {
-          navigate("/admin/dashboard");
-        } else {
-          navigate("/onboarding");
-        }
+        if (!signInData.session) throw new Error("Login succeeded but no session was returned.");
+        await handleAuthenticated(signInData.session);
       }
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAuthenticated = async (session: Session) => {
+    if (safeNext) {
+      window.location.href = safeNext;
+      return;
+    }
+    const { data: isAdmin } = await supabase.rpc("has_role", {
+      _user_id: session.user.id,
+      _role: "admin",
+    });
+    if (isAdmin) {
+      navigate("/superadmin");
+      return;
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarding_completed")
+      .single();
+    if (profile?.onboarding_completed) {
+      navigate("/admin/dashboard");
+    } else {
+      navigate("/onboarding");
     }
   };
 
@@ -273,6 +281,36 @@ const Auth = () => {
               </>
             )}
 
+            {mode !== "forgot" && (
+              <div className="mb-4 flex rounded-lg bg-muted p-1">
+                <button
+                  type="button"
+                  onClick={() => setAuthMethod("email")}
+                  className={`flex-1 h-9 rounded-md text-sm font-medium transition-colors ${
+                    authMethod === "email" ? "bg-card shadow text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMethod("phone")}
+                  className={`flex-1 h-9 rounded-md text-sm font-medium transition-colors ${
+                    authMethod === "phone" ? "bg-card shadow text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  Phone
+                </button>
+              </div>
+            )}
+
+            {authMethod === "phone" && mode !== "forgot" ? (
+              <PhoneOtpForm
+                mode={mode}
+                onAuthenticated={handleAuthenticated}
+                onRequestSignup={() => setMode("signup")}
+              />
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === "signup" && (
                 <div>
@@ -348,6 +386,7 @@ const Auth = () => {
                 {mode === "signup" ? "Create Free Account" : mode === "forgot" ? "Send Reset Link" : "Log In"}
               </Button>
             </form>
+            )}
 
             <div className="text-center mt-5 text-sm text-muted-foreground space-y-2">
               {mode === "signup" ? (

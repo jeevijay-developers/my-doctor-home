@@ -26,7 +26,6 @@ describe("useTurnstile", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    // @ts-expect-error - test cleanup of a global we defined for the test
     delete window.turnstile;
   });
 
