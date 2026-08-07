@@ -14,6 +14,13 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
+import {
+  isValidIfsc, ifscErrorMessage, isValidAccountNumber, accountNumberErrorMessage,
+  isValidUpi, upiErrorMessage,
+} from "@/lib/bankDetails";
+import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { usePaymentMode } from "@/hooks/usePaymentMode";
+import TestModeBadge from "@/components/shared/TestModeBadge";
 import type { Tables } from "@/integrations/supabase/types";
 
 type BankAccount = Tables<"doctor_bank_accounts">;
@@ -27,6 +34,7 @@ const specializations = [
 
 const ProfilePage = () => {
   const { profile, refetch } = useProfile();
+  const { isMock: paymentModeIsMock } = usePaymentMode();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     full_name: "", specialization: "", qualifications: "", experience_years: 0,
@@ -96,13 +104,29 @@ const ProfilePage = () => {
 
   const saveBankDetails = async () => {
     if (!profile) return;
-    if (payMethod === "bank" && (!accountNumber.trim() || !ifsc.trim())) {
-      toast.error("Enter both account number and IFSC code.");
-      return;
+    if (payMethod === "bank") {
+      if (!accountNumber.trim() || !ifsc.trim()) {
+        toast.error("Enter both account number and IFSC code.");
+        return;
+      }
+      if (!isValidAccountNumber(accountNumber)) {
+        toast.error(accountNumberErrorMessage);
+        return;
+      }
+      if (!isValidIfsc(ifsc)) {
+        toast.error(ifscErrorMessage);
+        return;
+      }
     }
-    if (payMethod === "upi" && !upiId.trim()) {
-      toast.error("Enter a valid UPI ID.");
-      return;
+    if (payMethod === "upi") {
+      if (!upiId.trim()) {
+        toast.error("Enter a valid UPI ID.");
+        return;
+      }
+      if (!isValidUpi(upiId)) {
+        toast.error(upiErrorMessage);
+        return;
+      }
     }
     setSavingBank(true);
     const { data, error } = await supabase.functions.invoke("add-doctor-bank-account", {
@@ -112,7 +136,8 @@ const ProfilePage = () => {
     });
     setSavingBank(false);
     if (error || !data?.ok) {
-      toast.error("Couldn't save payout details. Please try again.");
+      const message = await edgeFunctionErrorMessage(error, "Couldn't save payout details. Please try again.");
+      toast.error(message);
       return;
     }
     toast.success(data.note ? "Payout details saved" : "Payout details saved & linked to Razorpay", {
@@ -289,13 +314,14 @@ const ProfilePage = () => {
               Used to pay out the doctor's share of online consultation payments. */}
           <div className="rounded-xl border border-border p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Landmark className="h-4 w-4 text-royal" />
                 <Label className="text-sm font-semibold">Bank / UPI Setup</Label>
+                {paymentModeIsMock && <TestModeBadge />}
               </div>
               {bank && (
-                <Badge variant="outline" className={`text-[10px] ${bank.verified ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
-                  {bank.verified ? "Linked to Razorpay" : "Saved — linking pending"}
+                <Badge variant="outline" className={`text-[10px] ${bank.is_mock ? "bg-warning/10 text-warning" : bank.verified ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+                  {bank.is_mock ? "Linked (Mock)" : bank.verified ? "Linked to Razorpay" : "Saved — linking pending"}
                 </Badge>
               )}
             </div>
@@ -328,16 +354,25 @@ const ProfilePage = () => {
                   <div className="space-y-1.5">
                     <Label>Account Number</Label>
                     <Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="e.g. 000123456789" className="h-10" />
+                    {accountNumber && !isValidAccountNumber(accountNumber) && (
+                      <p className="text-[11px] text-destructive">{accountNumberErrorMessage}</p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>IFSC Code</Label>
                     <Input value={ifsc} onChange={(e) => setIfsc(e.target.value.toUpperCase())} placeholder="e.g. HDFC0001234" className="h-10 font-mono uppercase" />
+                    {ifsc && !isValidIfsc(ifsc) && (
+                      <p className="text-[11px] text-destructive">{ifscErrorMessage}</p>
+                    )}
                   </div>
                 </>
               ) : (
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>UPI ID</Label>
                   <Input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="yourname@bank" className="h-10" />
+                  {upiId && !isValidUpi(upiId) && (
+                    <p className="text-[11px] text-destructive">{upiErrorMessage}</p>
+                  )}
                 </div>
               )}
             </div>

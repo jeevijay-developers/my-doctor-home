@@ -1,18 +1,14 @@
 // Step 1 of the pay-first patient booking flow: Review Summary -> Pay Now ->
-// create-order -> Razorpay Checkout -> verify-razorpay-payment. Per the
+// create-order -> Razorpay Checkout (or the mock checkout — see
+// mock-payment-mode-testing-prompt.md) -> verify-razorpay-payment. Per the
 // explicit "do not create the appointment before successful payment" rule,
 // this function does NOT touch the appointments table — it validates the
-// booking + slot availability, opens a Razorpay order against the PLATFORM's
-// own account, and stashes the booking payload on the `payments` row so
-// verify-razorpay-payment can turn it into a real appointment once (and only
-// once) the signature is verified.
+// booking + slot availability, opens an order (real or mock — same response
+// shape either way), and stashes the booking payload on the `payments` row
+// so verify-razorpay-payment can turn it into a real appointment once (and
+// only once) the payment is verified.
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { resolvePaymentMode, mockId, corsHeaders, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
@@ -20,10 +16,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-
-function json(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-}
 
 type BookingPayload = {
   doctor_id: string;
@@ -71,7 +63,7 @@ Deno.serve(async (req) => {
     return json(400, { error: "SLOT_IN_PAST" });
   }
 
-  // Reject an already-full slot up front so we don't waste a Razorpay order on it.
+  // Reject an already-full slot up front so we don't waste an order on it.
   // (The DB trigger re-checks this atomically at insert time in verify-razorpay-payment.)
   const { data: ws } = await admin
     .from("website_settings").select("max_per_slot").eq("doctor_id", booking.doctor_id).maybeSingle();
@@ -82,11 +74,42 @@ Deno.serve(async (req) => {
     .neq("status", "cancelled");
   if ((taken ?? 0) >= cap) return json(409, { error: "SLOT_FULL" });
 
-  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-    return json(501, { error: "Online payment isn't active yet for this clinic. Please contact the clinic to book." });
+  const hasLiveKeys = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
+  const mode = resolvePaymentMode(hasLiveKeys);
+  const amountPaise = Math.round(booking.amount * 100);
+
+  // ---- MOCK MODE: no Razorpay call at all, fake order id, same response shape ----
+  if (mode === "mock") {
+    const orderId = mockId("order");
+    const { data: paymentRow, error: insErr } = await admin.from("payments").insert({
+      doctor_id: booking.doctor_id,
+      appointment_id: null,
+      razorpay_order_id: orderId,
+      amount: booking.amount,
+      currency: "INR",
+      status: "created",
+      raw_response: { mock: true, order_id: orderId, amount: amountPaise },
+      pending_booking: booking,
+      is_mock: true,
+    }).select("id").single();
+    if (insErr) return json(500, { error: insErr.message });
+
+    return json(200, {
+      order_id: orderId,
+      key_id: "mock_key",
+      amount: amountPaise,
+      currency: "INR",
+      payment_id: paymentRow.id,
+      mode: "mock",
+    });
   }
 
-  const amountPaise = Math.round(booking.amount * 100);
+  // ---- LIVE MODE ----
+  if (!hasLiveKeys) {
+    // PAYMENT_MODE=live was explicitly requested (or defaulted there) but the
+    // platform keys aren't configured yet — same fallback message as before.
+    return json(501, { error: "Online payment isn't active yet for this clinic. Please contact the clinic to book." });
+  }
 
   try {
     const basicAuth = btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`);
@@ -111,6 +134,7 @@ Deno.serve(async (req) => {
       status: "created",
       raw_response: order,
       pending_booking: booking,
+      is_mock: false,
     }).select("id").single();
     if (insErr) return json(500, { error: insErr.message });
 
@@ -120,6 +144,7 @@ Deno.serve(async (req) => {
       amount: order.amount,
       currency: order.currency,
       payment_id: paymentRow.id,
+      mode: "live",
     });
   } catch (e) {
     console.error("create-razorpay-order error:", e);

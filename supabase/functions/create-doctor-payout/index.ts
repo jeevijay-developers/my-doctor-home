@@ -2,14 +2,12 @@
 // pending payout; this triggers the actual RazorpayX transfer to the doctor's
 // linked fund account (bank or UPI). RazorpayX requires separate account
 // activation/KYC beyond regular Razorpay — until RAZORPAYX_* secrets are set
-// this returns 501 and the payout stays "pending" for the admin to retry later.
+// this resolves to mock mode automatically (see mock-payment-mode-testing-
+// prompt.md, Part 6) so payout history / settlement UI can be tested without
+// waiting on real RazorpayX activation; PAYMENT_MODE=live still 501s if the
+// keys genuinely aren't configured yet.
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { resolvePaymentMode, mockId, corsHeaders, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAYX_KEY_ID = Deno.env.get("RAZORPAYX_KEY_ID");
 const RAZORPAYX_KEY_SECRET = Deno.env.get("RAZORPAYX_KEY_SECRET");
@@ -19,10 +17,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-
-function json(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -58,7 +52,27 @@ Deno.serve(async (req) => {
     return json(400, { error: "Doctor has not completed bank/UPI setup (or it isn't linked to Razorpay yet)" });
   }
 
-  if (!RAZORPAYX_KEY_ID || !RAZORPAYX_KEY_SECRET || !RAZORPAYX_ACCOUNT_NUMBER) {
+  const hasLiveKeys = Boolean(RAZORPAYX_KEY_ID && RAZORPAYX_KEY_SECRET && RAZORPAYX_ACCOUNT_NUMBER);
+  const mode = resolvePaymentMode(hasLiveKeys);
+
+  if (mode === "mock") {
+    // Simulated payout — settles immediately (no async webhook needed to
+    // confirm) so doctor-side payout history / settlement UI is populated
+    // right away for testing.
+    const razorpayPayoutId = mockId("payout");
+    await admin.from("payouts").update({
+      status: "processed",
+      razorpay_payout_id: razorpayPayoutId,
+      razorpay_fund_account_id: bank.razorpay_fund_account_id,
+      initiated_by: uid,
+      is_mock: true,
+    }).eq("id", payout_id);
+    await admin.from("doctor_ledger").update({ paid: true }).eq("payout_id", payout_id);
+
+    return json(200, { ok: true, payout_id, razorpay_payout_id: razorpayPayoutId, status: "processed", is_mock: true });
+  }
+
+  if (!hasLiveKeys) {
     return json(501, { error: "RazorpayX payouts pending — platform payout account not configured yet", payout_id });
   }
 
@@ -90,6 +104,7 @@ Deno.serve(async (req) => {
       razorpay_payout_id: result.id,
       razorpay_fund_account_id: bank.razorpay_fund_account_id,
       initiated_by: uid,
+      is_mock: false,
     }).eq("id", payout_id);
 
     return json(200, { ok: true, payout_id, razorpay_payout_id: result.id, status: "processing" });

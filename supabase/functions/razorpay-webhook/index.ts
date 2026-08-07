@@ -5,7 +5,16 @@
 // etc.) or the payout webhook fires long after create-doctor-payout returned.
 // Configure this URL + a webhook secret in the Razorpay dashboard once the
 // platform account is live.
+//
+// Mock mode (mock-payment-mode-testing-prompt.md, Part 4): this also accepts
+// a simulated webhook call signed with the local mock secret, so the
+// webhook-confirms path can be exercised without a real Razorpay webhook
+// secret. Which secret applies is decided from OUR OWN `is_mock` flag on the
+// referenced payments/payouts row (set at order-creation time), never from
+// anything in the incoming payload — a caller can't just claim "mock" to
+// bypass real signature verification for a real transaction.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hmacHex, MOCK_SIGNING_SECRET } from "../_shared/paymentMode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,22 +32,12 @@ function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function hmacHex(secret: string, message: string) {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
-  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
-  if (!RAZORPAY_WEBHOOK_SECRET) return json(501, { error: "Webhook secret not configured" });
 
   const rawBody = await req.text();
   const signature = req.headers.get("x-razorpay-signature") || "";
-  const expected = await hmacHex(RAZORPAY_WEBHOOK_SECRET, rawBody);
-  if (expected !== signature) return json(400, { error: "Invalid webhook signature" });
 
   let payload: any;
   try {
@@ -48,11 +47,30 @@ Deno.serve(async (req) => {
   }
 
   const event = payload?.event as string;
+  const paymentEntity = payload.payload?.payment?.entity;
+  const payoutEntity = payload.payload?.payout?.entity;
+
+  // Figure out which secret this specific event should be checked against,
+  // based on OUR record of whether the referenced order/payout is mock.
+  let isMock = false;
+  if (paymentEntity?.order_id) {
+    const { data } = await admin.from("payments").select("is_mock").eq("razorpay_order_id", paymentEntity.order_id).maybeSingle();
+    isMock = Boolean(data?.is_mock);
+  } else if (payoutEntity?.id) {
+    const { data } = await admin.from("payouts").select("is_mock").eq("razorpay_payout_id", payoutEntity.id).maybeSingle();
+    isMock = Boolean(data?.is_mock);
+  }
+
+  const secret = isMock ? MOCK_SIGNING_SECRET : RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) return json(501, { error: "Webhook secret not configured" });
+
+  const expected = await hmacHex(secret, rawBody);
+  if (expected !== signature) return json(400, { error: "Invalid webhook signature" });
+
   try {
     if (event === "payment.captured" || event === "payment.failed") {
-      const entity = payload.payload?.payment?.entity;
-      const orderId = entity?.order_id;
-      const paymentId = entity?.id;
+      const orderId = paymentEntity?.order_id;
+      const paymentId = paymentEntity?.id;
       if (orderId) {
         const status = event === "payment.captured" ? "captured" : "failed";
         await admin
@@ -62,13 +80,12 @@ Deno.serve(async (req) => {
           .neq("status", "captured"); // don't clobber an already-verified capture
       }
     } else if (event === "payout.processed" || event === "payout.failed") {
-      const entity = payload.payload?.payout?.entity;
-      const payoutId = entity?.id;
+      const payoutId = payoutEntity?.id;
       if (payoutId) {
         const status = event === "payout.processed" ? "processed" : "failed";
         const { data: payout } = await admin
           .from("payouts")
-          .update({ status, failure_reason: event === "payout.failed" ? entity?.failure_reason || "Payout failed" : null })
+          .update({ status, failure_reason: event === "payout.failed" ? payoutEntity?.failure_reason || "Payout failed" : null })
           .eq("razorpay_payout_id", payoutId)
           .select("id")
           .maybeSingle();

@@ -206,6 +206,7 @@ export type Database = {
           doctor_id: string
           id: string
           ifsc: string | null
+          is_mock: boolean
           razorpay_contact_id: string | null
           razorpay_fund_account_id: string | null
           updated_at: string
@@ -219,6 +220,7 @@ export type Database = {
           doctor_id: string
           id?: string
           ifsc?: string | null
+          is_mock?: boolean
           razorpay_contact_id?: string | null
           razorpay_fund_account_id?: string | null
           updated_at?: string
@@ -232,6 +234,7 @@ export type Database = {
           doctor_id?: string
           id?: string
           ifsc?: string | null
+          is_mock?: boolean
           razorpay_contact_id?: string | null
           razorpay_fund_account_id?: string | null
           updated_at?: string
@@ -603,6 +606,7 @@ export type Database = {
           currency: string
           doctor_id: string
           id: string
+          is_mock: boolean
           method: string | null
           needs_refund: boolean
           pending_booking: Json | null
@@ -620,6 +624,7 @@ export type Database = {
           currency?: string
           doctor_id: string
           id?: string
+          is_mock?: boolean
           method?: string | null
           needs_refund?: boolean
           pending_booking?: Json | null
@@ -637,6 +642,7 @@ export type Database = {
           currency?: string
           doctor_id?: string
           id?: string
+          is_mock?: boolean
           method?: string | null
           needs_refund?: boolean
           pending_booking?: Json | null
@@ -671,6 +677,7 @@ export type Database = {
           failure_reason: string | null
           id: string
           initiated_by: string | null
+          is_mock: boolean
           month: string
           notes: string | null
           razorpay_fund_account_id: string | null
@@ -685,6 +692,7 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           initiated_by?: string | null
+          is_mock?: boolean
           month: string
           notes?: string | null
           razorpay_fund_account_id?: string | null
@@ -699,6 +707,7 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           initiated_by?: string | null
+          is_mock?: boolean
           month?: string
           notes?: string | null
           razorpay_fund_account_id?: string | null
