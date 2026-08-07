@@ -396,7 +396,7 @@ const Auth = () => {
                 </div>
               )}
 
-              <div ref={turnstile.containerRef} />
+              <div ref={turnstile.containerRef} className="my-2 flex justify-center" />
 
               <Button
                 type="submit"
