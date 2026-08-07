@@ -29,7 +29,7 @@ function loadTurnstileScript(): Promise<void> {
 }
 
 export interface UseTurnstileResult {
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: (node: HTMLDivElement | null) => void;
   token: string | null;
   reset: () => void;
   siteKeyMissing: boolean;
@@ -37,17 +37,21 @@ export interface UseTurnstileResult {
 
 export function useTurnstile(): UseTurnstileResult {
   const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerNode, setContainerNode] = useState<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainerNode(node);
+  }, []);
+
   useEffect(() => {
-    if (!siteKey || !containerRef.current) return;
+    if (!siteKey || !containerNode) return;
     let cancelled = false;
 
     loadTurnstileScript().then(() => {
-      if (cancelled || !containerRef.current || !window.turnstile) return;
-      widgetIdRef.current = window.turnstile.render(containerRef.current, {
+      if (cancelled || !containerNode || !window.turnstile) return;
+      widgetIdRef.current = window.turnstile.render(containerNode, {
         sitekey: siteKey,
         callback: (t: string) => setToken(t),
         "expired-callback": () => setToken(null),
@@ -62,7 +66,7 @@ export function useTurnstile(): UseTurnstileResult {
         widgetIdRef.current = null;
       }
     };
-  }, [siteKey]);
+  }, [siteKey, containerNode]);
 
   const reset = useCallback(() => {
     setToken(null);
@@ -73,3 +77,4 @@ export function useTurnstile(): UseTurnstileResult {
 
   return { containerRef, token, reset, siteKeyMissing: !siteKey };
 }
+

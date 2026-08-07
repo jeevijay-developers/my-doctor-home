@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { useTurnstile } from "./useTurnstile";
@@ -64,6 +65,30 @@ describe("useTurnstile", () => {
     screen.getByText("reset").click();
     expect(window.turnstile!.reset).toHaveBeenCalledWith("widget-1");
     await waitFor(() => expect(screen.getByTestId("token").textContent).toBe("none"));
+  });
+
+  it("renders the widget successfully when containerRef is attached AFTER initial async loading (regression test)", async () => {
+    function DelayedHarness() {
+      const [loading, setLoading] = useState(true);
+      const { containerRef } = useTurnstile();
+
+      useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 20);
+        return () => clearTimeout(timer);
+      }, []);
+
+      if (loading) return <div>Loading...</div>;
+      return <div data-testid="delayed-container" ref={containerRef} />;
+    }
+
+    render(<DelayedHarness />);
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(window.turnstile!.render).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(screen.getByTestId("delayed-container")).toBeInTheDocument());
+    await waitFor(() => expect(window.turnstile!.render).toHaveBeenCalledTimes(1));
+    const [containerArg] = (window.turnstile!.render as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(containerArg).toBe(screen.getByTestId("delayed-container"));
   });
 });
 

@@ -35,7 +35,7 @@ import { toast } from "sonner";
 function mockTurnstile(overrides: Partial<ReturnType<typeof useTurnstile>> = {}) {
   const reset = vi.fn();
   vi.mocked(useTurnstile).mockReturnValue({
-    containerRef: { current: null },
+    containerRef: vi.fn(),
     token: "mock-turnstile-token",
     reset,
     siteKeyMissing: false,
