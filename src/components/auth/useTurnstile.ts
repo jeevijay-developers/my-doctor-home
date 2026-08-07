@@ -53,6 +53,8 @@ export function useTurnstile(): UseTurnstileResult {
       if (cancelled || !containerNode || !window.turnstile) return;
       widgetIdRef.current = window.turnstile.render(containerNode, {
         sitekey: siteKey,
+        theme: "light",
+        size: "normal",
         callback: (t: string) => setToken(t),
         "expired-callback": () => setToken(null),
         "error-callback": () => setToken(null),

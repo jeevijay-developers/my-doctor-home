@@ -205,7 +205,7 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
           </button>
         )}
       </div>
-      <div ref={turnstile.containerRef} />
+      <div ref={turnstile.containerRef} className="my-2 flex justify-center" />
       <Button
         type="button"
         onClick={sendOtp}
