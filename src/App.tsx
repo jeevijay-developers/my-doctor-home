@@ -24,6 +24,7 @@ import SASubscriptions from "./components/superadmin/SASubscriptions";
 import SATickets from "./components/superadmin/SATickets";
 import SAModeration from "./components/superadmin/SAModeration";
 import SABilling from "./components/superadmin/SABilling";
+import SAPayments from "./components/superadmin/SAPayments";
 import SAFlags from "./components/superadmin/SAFlags";
 import SAAuditLog from "./components/superadmin/SAAuditLog";
 import SATeam from "./components/superadmin/SATeam";
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="tickets" element={<SATickets />} />
               <Route path="moderation" element={<SAModeration />} />
               <Route path="billing" element={<SABilling />} />
+              <Route path="payments" element={<SAPayments />} />
               <Route path="flags" element={<SAFlags />} />
               <Route path="audit-log" element={<SAAuditLog />} />
               <Route path="team" element={<SATeam />} />

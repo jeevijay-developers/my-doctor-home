@@ -198,6 +198,130 @@ export type Database = {
           },
         ]
       }
+      doctor_bank_accounts: {
+        Row: {
+          account_holder_name: string | null
+          account_number: string | null
+          created_at: string
+          doctor_id: string
+          id: string
+          ifsc: string | null
+          razorpay_contact_id: string | null
+          razorpay_fund_account_id: string | null
+          updated_at: string
+          upi_id: string | null
+          verified: boolean
+        }
+        Insert: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          created_at?: string
+          doctor_id: string
+          id?: string
+          ifsc?: string | null
+          razorpay_contact_id?: string | null
+          razorpay_fund_account_id?: string | null
+          updated_at?: string
+          upi_id?: string | null
+          verified?: boolean
+        }
+        Update: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          ifsc?: string | null
+          razorpay_contact_id?: string | null
+          razorpay_fund_account_id?: string | null
+          updated_at?: string
+          upi_id?: string | null
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_bank_accounts_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_ledger: {
+        Row: {
+          appointment_id: string
+          commission_amount: number
+          commission_percent: number
+          created_at: string
+          doctor_id: string
+          doctor_share: number
+          gross_amount: number
+          id: string
+          month: string
+          paid: boolean
+          payment_id: string
+          payout_id: string | null
+        }
+        Insert: {
+          appointment_id: string
+          commission_amount: number
+          commission_percent: number
+          created_at?: string
+          doctor_id: string
+          doctor_share: number
+          gross_amount: number
+          id?: string
+          month: string
+          paid?: boolean
+          payment_id: string
+          payout_id?: string | null
+        }
+        Update: {
+          appointment_id?: string
+          commission_amount?: number
+          commission_percent?: number
+          created_at?: string
+          doctor_id?: string
+          doctor_share?: number
+          gross_amount?: number
+          id?: string
+          month?: string
+          paid?: boolean
+          payment_id?: string
+          payout_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_ledger_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_ledger_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_ledger_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: true
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_ledger_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doctor_notes: {
         Row: {
           content: string
@@ -471,6 +595,128 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          amount: number
+          appointment_id: string | null
+          created_at: string
+          currency: string
+          doctor_id: string
+          id: string
+          method: string | null
+          needs_refund: boolean
+          pending_booking: Json | null
+          raw_response: Json | null
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
+          status: Database["public"]["Enums"]["payment_txn_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          appointment_id?: string | null
+          created_at?: string
+          currency?: string
+          doctor_id: string
+          id?: string
+          method?: string | null
+          needs_refund?: boolean
+          pending_booking?: Json | null
+          raw_response?: Json | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: Database["public"]["Enums"]["payment_txn_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          appointment_id?: string | null
+          created_at?: string
+          currency?: string
+          doctor_id?: string
+          id?: string
+          method?: string | null
+          needs_refund?: boolean
+          pending_booking?: Json | null
+          raw_response?: Json | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: Database["public"]["Enums"]["payment_txn_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payouts: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          failure_reason: string | null
+          id: string
+          initiated_by: string | null
+          month: string
+          notes: string | null
+          razorpay_fund_account_id: string | null
+          razorpay_payout_id: string | null
+          status: Database["public"]["Enums"]["payout_status"]
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          failure_reason?: string | null
+          id?: string
+          initiated_by?: string | null
+          month: string
+          notes?: string | null
+          razorpay_fund_account_id?: string | null
+          razorpay_payout_id?: string | null
+          status?: Database["public"]["Enums"]["payout_status"]
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          failure_reason?: string | null
+          id?: string
+          initiated_by?: string | null
+          month?: string
+          notes?: string | null
+          razorpay_fund_account_id?: string | null
+          razorpay_payout_id?: string | null
+          status?: Database["public"]["Enums"]["payout_status"]
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payouts_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_settings: {
         Row: {
           key: string
@@ -538,6 +784,7 @@ export type Database = {
           address: string | null
           city: string | null
           clinic_name: string | null
+          commission_percent: number | null
           consultation_fee: number
           created_at: string
           custom_plan_price: number | null
@@ -562,6 +809,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name?: string | null
+          commission_percent?: number | null
           consultation_fee?: number
           created_at?: string
           custom_plan_price?: number | null
@@ -586,6 +834,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name?: string | null
+          commission_percent?: number | null
           consultation_fee?: number
           created_at?: string
           custom_plan_price?: number | null
@@ -1026,6 +1275,18 @@ export type Database = {
         | "cancelled"
         | "no_show"
       payment_status: "pending" | "paid" | "refunded" | "pay_at_clinic"
+      payment_txn_status:
+        | "created"
+        | "authorized"
+        | "captured"
+        | "failed"
+        | "refunded"
+      payout_status:
+        | "pending"
+        | "processing"
+        | "processed"
+        | "failed"
+        | "cancelled"
       plan_status: "trial" | "active" | "expired" | "cancelled"
     }
     CompositeTypes: {
@@ -1163,6 +1424,20 @@ export const Constants = {
         "no_show",
       ],
       payment_status: ["pending", "paid", "refunded", "pay_at_clinic"],
+      payment_txn_status: [
+        "created",
+        "authorized",
+        "captured",
+        "failed",
+        "refunded",
+      ],
+      payout_status: [
+        "pending",
+        "processing",
+        "processed",
+        "failed",
+        "cancelled",
+      ],
       plan_status: ["trial", "active", "expired", "cancelled"],
     },
   },

@@ -3,6 +3,12 @@ project_id = "atmelijhxsjzjixhdfcu"
 [functions.create-razorpay-order]
 verify_jwt = false
 
+[functions.verify-razorpay-payment]
+verify_jwt = false
+
+[functions.razorpay-webhook]
+verify_jwt = false
+
 [functions.create-zoom-meeting]
 verify_jwt = false
 

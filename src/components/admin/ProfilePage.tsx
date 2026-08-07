@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { User, MapPin, Upload, UserCircle, ArrowRight, CheckCircle2, Circle } from "lucide-react";
+import { User, MapPin, Upload, UserCircle, ArrowRight, CheckCircle2, Circle, Landmark, Smartphone, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
+import type { Tables } from "@/integrations/supabase/types";
+
+type BankAccount = Tables<"doctor_bank_accounts">;
 
 const specializations = [
   "General Physician", "Cardiologist", "Dermatologist", "Orthopedic", "Pediatrician",
@@ -32,6 +36,17 @@ const ProfilePage = () => {
   const [servicesCount, setServicesCount] = useState(0);
   const [blogCount, setBlogCount] = useState(0);
   const [dashboardReady, setDashboardReady] = useState(false);
+
+  // Bank / UPI Setup — used to pay out the doctor's share of online consultation
+  // payments (moved here from the removed Earnings section; same edge function,
+  // same validation/backend logic, only the location changed).
+  const [bank, setBank] = useState<BankAccount | null>(null);
+  const [payMethod, setPayMethod] = useState<"bank" | "upi">("bank");
+  const [accountHolderName, setAccountHolderName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [ifsc, setIfsc] = useState("");
+  const [upiId, setUpiId] = useState("");
+  const [savingBank, setSavingBank] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -63,6 +78,48 @@ const ProfilePage = () => {
       setDashboardReady(true);
     });
   }, [profile]);
+
+  const loadBankDetails = async () => {
+    if (!profile) return;
+    const { data } = await supabase.from("doctor_bank_accounts").select("*").eq("doctor_id", profile.id).maybeSingle();
+    setBank(data || null);
+    if (data) {
+      setAccountHolderName(data.account_holder_name || "");
+      setAccountNumber(data.account_number || "");
+      setIfsc(data.ifsc || "");
+      setUpiId(data.upi_id || "");
+      setPayMethod(data.upi_id ? "upi" : "bank");
+    }
+  };
+
+  useEffect(() => { loadBankDetails(); }, [profile]);
+
+  const saveBankDetails = async () => {
+    if (!profile) return;
+    if (payMethod === "bank" && (!accountNumber.trim() || !ifsc.trim())) {
+      toast.error("Enter both account number and IFSC code.");
+      return;
+    }
+    if (payMethod === "upi" && !upiId.trim()) {
+      toast.error("Enter a valid UPI ID.");
+      return;
+    }
+    setSavingBank(true);
+    const { data, error } = await supabase.functions.invoke("add-doctor-bank-account", {
+      body: payMethod === "bank"
+        ? { account_holder_name: accountHolderName || undefined, account_number: accountNumber.trim(), ifsc: ifsc.trim() }
+        : { account_holder_name: accountHolderName || undefined, upi_id: upiId.trim() },
+    });
+    setSavingBank(false);
+    if (error || !data?.ok) {
+      toast.error("Couldn't save payout details. Please try again.");
+      return;
+    }
+    toast.success(data.note ? "Payout details saved" : "Payout details saved & linked to Razorpay", {
+      description: data.note,
+    });
+    loadBankDetails();
+  };
 
   const checklist = [
     { label: "Complete your profile", done: !!profile?.full_name && !!profile?.specialization, href: "/admin/settings" },
@@ -226,6 +283,75 @@ const ProfilePage = () => {
                   placeholder="22ABCDE1234F1Z5" className="h-10 font-mono uppercase" />
               </div>
             )}
+          </div>
+
+          {/* Bank / UPI Setup — moved here from the removed Earnings section.
+              Used to pay out the doctor's share of online consultation payments. */}
+          <div className="rounded-xl border border-border p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Landmark className="h-4 w-4 text-royal" />
+                <Label className="text-sm font-semibold">Bank / UPI Setup</Label>
+              </div>
+              {bank && (
+                <Badge variant="outline" className={`text-[10px] ${bank.verified ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+                  {bank.verified ? "Linked to Razorpay" : "Saved — linking pending"}
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Used to pay out your share of online consultation payments collected via Doctylia.
+            </p>
+
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant={payMethod === "bank" ? "default" : "outline"}
+                className={payMethod === "bank" ? "bg-royal hover:bg-royal/90" : ""}
+                onClick={() => setPayMethod("bank")}>
+                <Landmark className="h-3.5 w-3.5 mr-1.5" /> Bank Account
+              </Button>
+              <Button type="button" size="sm" variant={payMethod === "upi" ? "default" : "outline"}
+                className={payMethod === "upi" ? "bg-royal hover:bg-royal/90" : ""}
+                onClick={() => setPayMethod("upi")}>
+                <Smartphone className="h-3.5 w-3.5 mr-1.5" /> UPI
+              </Button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Account Holder Name</Label>
+                <Input value={accountHolderName} onChange={(e) => setAccountHolderName(e.target.value)}
+                  placeholder="As per bank/UPI records" className="h-10" />
+              </div>
+
+              {payMethod === "bank" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Account Number</Label>
+                    <Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="e.g. 000123456789" className="h-10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>IFSC Code</Label>
+                    <Input value={ifsc} onChange={(e) => setIfsc(e.target.value.toUpperCase())} placeholder="e.g. HDFC0001234" className="h-10 font-mono uppercase" />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>UPI ID</Label>
+                  <Input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="yourname@bank" className="h-10" />
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 text-xs text-warning-foreground/80 flex items-start gap-2">
+              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-warning" />
+              <span>Payouts will only start flowing once the Doctylia team activates the platform's RazorpayX account. Your details are saved securely either way.</span>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={saveBankDetails} disabled={savingBank} className="bg-royal hover:bg-royal/90 text-white h-10">
+                {savingBank ? "Saving..." : "Save Payout Details"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

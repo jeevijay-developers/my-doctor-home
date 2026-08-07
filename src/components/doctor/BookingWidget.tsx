@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { CheckCircle2, ChevronLeft, Video, CreditCard, Users, Clock, Download, FileText, Building2 } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, Video, Users, Clock, FileText, Building2, Receipt } from "lucide-react";
 import jsPDF from "jspdf";
 
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,48 @@ import { toast } from "sonner";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import AppointmentSlip from "./AppointmentSlip";
+import PaymentSlip from "./PaymentSlip";
 
 const getNextDays = (count: number) => {
   const days = [];
   const today = new Date();
   for (let i = 0; i < count; i++) days.push(addDays(today, i));
   return days;
+};
+
+// Lazily loads Razorpay's Checkout script once (shared across repeat opens).
+let razorpayCheckoutPromise: Promise<void> | null = null;
+const loadRazorpayCheckout = (): Promise<void> => {
+  if ((window as any).Razorpay) return Promise.resolve();
+  if (razorpayCheckoutPromise) return razorpayCheckoutPromise;
+  razorpayCheckoutPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      razorpayCheckoutPromise = null;
+      reject(new Error("Failed to load the payment gateway"));
+    };
+    document.body.appendChild(script);
+  });
+  return razorpayCheckoutPromise;
+};
+
+// supabase.functions.invoke() only gives us an Error on non-2xx responses —
+// the JSON body (where our edge functions put { error: "..." }) has to be
+// read off the underlying Response via FunctionsHttpError.context.
+const edgeFunctionErrorMessage = async (error: any, fallback: string): Promise<string> => {
+  try {
+    if (error?.context && typeof error.context.json === "function") {
+      const body = await error.context.json();
+      if (body?.message) return String(body.message);
+      if (body?.error) return String(body.error);
+    }
+  } catch {
+    // fall through to fallback
+  }
+  return fallback;
 };
 
 const generateTimeSlots = (start: string | null, end: string | null) => {
@@ -34,6 +70,34 @@ const generateTimeSlots = (start: string | null, end: string | null) => {
   return slots;
 };
 
+const SummaryRow = ({ label, value }: { label: string; value: string }) => (
+  <div className="flex justify-between gap-3">
+    <span className="text-text-gray">{label}</span>
+    <span className="text-foreground font-medium text-right break-words">{value || "—"}</span>
+  </div>
+);
+
+type PaymentMeta = {
+  razorpayPaymentId: string;
+  razorpayOrderId: string;
+  amount: number;
+  paidAt: string | null;
+};
+
+// A Razorpay order + our internal payments row id, cached across a failed/
+// cancelled Checkout attempt so "Retry Payment" reopens the SAME order
+// instead of minting a new one each time — one payments row per booking
+// attempt, never a duplicate appointment.
+type CachedOrder = {
+  payment_id: string;
+  order_id: string;
+  key_id: string;
+  amount: number;
+  currency: string;
+};
+
+const STEP_LABELS = ["Consultation Type", "Select Service", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
+
 const BookingWidget = () => {
   const { profile, services, settings, workingHours } = useDoctorData();
   const [step, setStep] = useState(1);
@@ -49,12 +113,24 @@ const BookingWidget = () => {
   const [complaint, setComplaint] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [confirmedPaymentStatus, setConfirmedPaymentStatus] = useState<"paid" | "pay_at_clinic">("pay_at_clinic");
+  const [paymentMeta, setPaymentMeta] = useState<PaymentMeta | null>(null);
+  const [cachedOrder, setCachedOrder] = useState<CachedOrder | null>(null);
+  const [paymentFailed, setPaymentFailed] = useState(false);
+  const [paymentFailureMessage, setPaymentFailureMessage] = useState("");
   const [token, setToken] = useState("");
   const [patientsAhead, setPatientsAhead] = useState<number | null>(null);
   const [confirmedApptId, setConfirmedApptId] = useState<string | null>(null);
   const [slipOpen, setSlipOpen] = useState(false);
+  const [paymentSlipOpen, setPaymentSlipOpen] = useState(false);
 
   useEffect(() => { if (confirmed) setSlipOpen(true); }, [confirmed]);
+
+  // Any time the patient steps back before Review (to change service, date,
+  // time, or their own details), the previously cached Razorpay order no
+  // longer matches what would be booked — drop it so the next "Pay Now"
+  // creates a fresh order instead of silently booking stale details.
+  useEffect(() => { if (step < 6) setCachedOrder(null); }, [step]);
 
   const advanceDays = settings?.booking_advance_days || 7;
   const days = useMemo(() => getNextDays(advanceDays), [advanceDays]);
@@ -92,11 +168,22 @@ const BookingWidget = () => {
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
   const { isFull, bookedIn, refresh } = useSlotAvailability(profile?.id, dateStr, maxPerSlot);
 
-  const submitBooking = async () => {
-    if (!profile || !selectedService || !selectedDate || !selectedTime || !name || !phone) return;
-    if (!isValidIndianPhone(phone)) { toast.error(phoneErrorMessage); return; }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("Enter a valid email or leave it blank."); return; }
-    setSubmitting(true);
+  const wantsOnlinePayment = Boolean(settings?.require_payment);
+  const totalSteps = wantsOnlinePayment ? 6 : 5;
+
+  const validatePatientDetails = () => {
+    if (!name || !phone || !age || !gender) return false;
+    if (!isValidIndianPhone(phone)) { toast.error(phoneErrorMessage); return false; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("Enter a valid email or leave it blank."); return false; }
+    return true;
+  };
+
+  // Pay at Clinic booking — appointment is created immediately (unchanged
+  // behaviour). Only used when the doctor has NOT turned on Require Online
+  // Payment; the online-payment path below never calls this.
+  const createAppointmentRow = async (): Promise<{ id: string; token: string } | null> => {
+    if (!profile || !selectedService || !selectedDate || !selectedTime) return null;
+    if (!validatePatientDetails()) return null;
     const normalizedPhone = normalizeIndianPhone(phone);
     const tkn = `T${Math.floor(Math.random() * 900) + 100}`;
     const dStr = format(selectedDate, "yyyy-MM-dd");
@@ -123,63 +210,67 @@ const BookingWidget = () => {
       .single();
 
     if (error) {
-      setSubmitting(false);
       if (error.message?.includes("SLOT_FULL")) {
         toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
         setStep(4);
         setSelectedTime("");
         refresh();
-        return;
+        return null;
       }
       if (error.message?.includes("SLOT_IN_PAST")) {
         toast.error("That time has already passed — please pick a later slot.");
         setStep(4); setSelectedTime(""); refresh();
-        return;
+        return null;
       }
       toast.error("Booking failed. Please try again.");
-      return;
+      return null;
     }
 
+    return { id: inserted.id, token: tkn };
+  };
+
+  const finalizeConfirmed = (id: string, tkn: string, paymentStatus: "paid" | "pay_at_clinic") => {
+    setConfirmedApptId(id);
+    setToken(tkn);
+    setConfirmedPaymentStatus(paymentStatus);
+    setConfirmed(true);
+  };
+
+  // Queue position is fetched separately (not part of finalizeConfirmed) so it
+  // can run for both the pay-at-clinic and pay-online paths without forcing
+  // every caller to await it before showing the confirmation screen.
+  useEffect(() => {
+    if (!confirmed || type !== "clinic" || !confirmedApptId) return;
+    (supabase as any).rpc("get_queue_position", { _appointment_id: confirmedApptId })
+      .then(({ data: qp }: { data: unknown }) => setPatientsAhead(typeof qp === "number" ? qp : 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmed, confirmedApptId]);
+
+  const submitBooking = async () => {
+    if (submitting) return;
+    setSubmitting(true);
     // BUG-04: Do NOT create the patient record on booking. Patient rows are
     // created/updated only when the doctor marks an appointment "completed".
-
-    // Queue count (for clinic bookings)
-    if (type === "clinic" && inserted?.id) {
-      const { data: qp } = await (supabase as any).rpc("get_queue_position", { _appointment_id: inserted.id });
-      setPatientsAhead(typeof qp === "number" ? qp : 0);
-      setConfirmedApptId(inserted.id);
-    }
-
-    setToken(tkn);
-    setConfirmed(true);
+    const created = await createAppointmentRow();
+    if (created) finalizeConfirmed(created.id, created.token, "pay_at_clinic");
     setSubmitting(false);
   };
 
   const reset = () => {
     setStep(1); setType("clinic"); setSelectedService(null); setSelectedDate(null);
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
-    setConfirmed(false); setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
+    setConfirmed(false); setConfirmedPaymentStatus("pay_at_clinic"); setPaymentMeta(null);
+    setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage("");
+    setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
 
-  const downloadSlip = async () => {
-    if (!selectedDate || !selectedService) return;
-    // Capture the on-screen slip so the PDF is a pixel-perfect match of the preview.
+  const downloadPdfFromNode = async (selector: string, filename: string) => {
     const html2canvas = (await import("html2canvas")).default;
-    // Wait a frame in case the slip dialog just opened.
     await new Promise((r) => requestAnimationFrame(() => r(null)));
-    const el = document.querySelector(
-      '[data-slip-print-root] .slip-card'
-    ) as HTMLElement | null;
+    const el = document.querySelector(selector) as HTMLElement | null;
     if (!el) return;
-
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      logging: false,
-    });
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
     const imgData = canvas.toDataURL("image/png");
-
     const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -189,26 +280,175 @@ const BookingWidget = () => {
     const ratio = canvas.width / canvas.height;
     let w = maxW;
     let h = w / ratio;
-    if (h > maxH) {
-      h = maxH;
-      w = h * ratio;
-    }
+    if (h > maxH) { h = maxH; w = h * ratio; }
     const x = (pageW - w) / 2;
     const y = (pageH - h) / 2;
     doc.addImage(imgData, "PNG", x, y, w, h);
-    doc.save(`appointment-${token}.pdf`);
+    doc.save(filename);
   };
 
+  const downloadSlip = () => downloadPdfFromNode('[data-slip-print-root] .slip-card', `appointment-${token}.pdf`);
+  const downloadPaymentSlip = () => downloadPdfFromNode('[data-payment-slip-print-root] .slip-card', `payment-receipt-${token}.pdf`);
 
-  const initiateRazorpayPayment = () => {
-    toast.info("Payment gateway integration coming soon", {
-      description: "Your booking will be created as Pay at Clinic for now.",
+  // "Download Appointment/Payment Slip" on the confirmation screen open the
+  // (printable) slip dialog and immediately trigger the PDF download once its
+  // content has mounted — one click, automatically generated, no second step.
+  const handleDownloadAppointmentSlip = () => {
+    setSlipOpen(true);
+    setTimeout(downloadSlip, 350);
+  };
+  const handleDownloadPaymentSlip = () => {
+    setPaymentSlipOpen(true);
+    setTimeout(downloadPaymentSlip, 350);
+  };
+
+  // Step 5 "Continue" for online-payment doctors — just moves to the Review
+  // Booking Summary step. Nothing is written to the database here.
+  const proceedToReview = () => {
+    if (!validatePatientDetails()) return;
+    setStep(6);
+  };
+
+  // Opens a Razorpay order for the current booking details (or reuses one
+  // already cached for this Review session) — no appointment or DB row for
+  // the appointment itself is created here, only a `payments` row holding
+  // the pending booking payload.
+  const ensureOrder = async (): Promise<CachedOrder | null> => {
+    if (cachedOrder) return cachedOrder;
+    if (!profile || !selectedService || !selectedDate || !selectedTime) return null;
+    if (isFull(selectedTime)) {
+      toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+      setStep(4); setSelectedTime(""); refresh();
+      return null;
+    }
+
+    const dStr = format(selectedDate, "yyyy-MM-dd");
+    const bookingPayload = {
+      doctor_id: profile.id,
+      patient_name: name,
+      patient_phone: normalizeIndianPhone(phone),
+      patient_age: age ? Number(age) : null,
+      patient_gender: gender || null,
+      service_name: selectedService.name,
+      appointment_type: type,
+      date: dStr,
+      time_slot: selectedTime,
+      amount: selectedService.price,
+      chief_complaint: complaint || null,
+    };
+
+    const { data: orderData, error: orderErr } = await supabase.functions.invoke("create-razorpay-order", {
+      body: bookingPayload,
     });
-    submitBooking();
+
+    if (orderErr || !orderData?.order_id) {
+      const message = await edgeFunctionErrorMessage(orderErr, "Online payment isn't available right now.");
+      if (message.includes("SLOT_FULL")) {
+        toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+        setStep(4); setSelectedTime(""); refresh();
+      } else if (message.includes("SLOT_IN_PAST")) {
+        toast.error("That time has already passed — please pick a later slot.");
+        setStep(4); setSelectedTime(""); refresh();
+      } else {
+        toast.error("Online payment isn't active yet for this clinic.", { description: "Please contact the clinic to book, or try again shortly." });
+      }
+      return null;
+    }
+
+    const order: CachedOrder = {
+      payment_id: orderData.payment_id,
+      order_id: orderData.order_id,
+      key_id: orderData.key_id,
+      amount: orderData.amount,
+      currency: orderData.currency,
+    };
+    setCachedOrder(order);
+    return order;
   };
 
-  const gatewayConnected = Boolean((settings as any)?.razorpay_key_id);
-  const wantsOnlinePayment = Boolean(settings?.require_payment);
+  // Opens Razorpay Checkout for an already-created order and verifies the
+  // result. The appointment is created ONLY inside verify-razorpay-payment,
+  // and only after the payment signature is verified — so a failed/cancelled
+  // payment never books anything, and a successful one can never be applied
+  // twice (idempotent on payment_id).
+  const openCheckout = async (order: CachedOrder) => {
+    try {
+      await loadRazorpayCheckout();
+    } catch {
+      toast.error("Couldn't load the payment gateway. Please try again.");
+      setSubmitting(false);
+      return;
+    }
+
+    const rzp = new (window as any).Razorpay({
+      key: order.key_id,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.order_id,
+      name: profile?.clinic_name || (profile?.full_name ? `Dr. ${profile.full_name}` : "Doctylia"),
+      description: selectedService?.name,
+      prefill: { name, contact: normalizeIndianPhone(phone), email: email || undefined },
+      theme: { color: "#1e3a8a" },
+      handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+        const { data: verifyData, error: verifyErr } = await supabase.functions.invoke("verify-razorpay-payment", {
+          body: {
+            payment_id: order.payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          },
+        });
+
+        if (verifyErr || !verifyData?.ok || !verifyData?.appointment) {
+          const message = await edgeFunctionErrorMessage(
+            verifyErr,
+            "Payment verification failed. Please contact the clinic with your payment ID.",
+          );
+          setPaymentFailureMessage(message);
+          setPaymentFailed(true);
+          setSubmitting(false);
+          return; // No appointment was created.
+        }
+
+        setPaymentMeta({
+          razorpayPaymentId: response.razorpay_payment_id,
+          razorpayOrderId: response.razorpay_order_id,
+          amount: Number(verifyData.payment?.amount ?? selectedService?.price ?? order.amount / 100),
+          paidAt: verifyData.appointment.created_at ?? null,
+        });
+        setCachedOrder(null);
+        toast.success("Payment successful! Your appointment is confirmed.");
+        finalizeConfirmed(verifyData.appointment.id, verifyData.appointment.token_number, "paid");
+        setSubmitting(false);
+      },
+      modal: {
+        // Cancelled, not failed — keep the cached order so a follow-up "Pay
+        // Now" click on the Review step reuses it instead of minting a new one.
+        ondismiss: () => {
+          setSubmitting(false);
+          toast.info("Payment cancelled.", { description: "No appointment was created. You can try again anytime." });
+        },
+      },
+    });
+    rzp.on("payment.failed", (resp: { error?: { description?: string } }) => {
+      setPaymentFailureMessage(resp?.error?.description || "Your payment could not be completed. Please try again.");
+      setPaymentFailed(true);
+      setSubmitting(false);
+    });
+    rzp.open();
+  };
+
+  // Review Summary "Pay Now" AND the Payment Failed screen's "Retry Payment"
+  // both call this — retry reuses the cached order (same payments row) so a
+  // second attempt never creates a second appointment record.
+  const payNow = async () => {
+    if (submitting) return;
+    if (!validatePatientDetails()) return;
+    setSubmitting(true);
+    const order = await ensureOrder();
+    if (!order) { setSubmitting(false); return; }
+    await openCheckout(order);
+  };
 
   const estWaitMinutes = (patientsAhead ?? 0) * (selectedService?.duration || 15);
 
@@ -219,17 +459,29 @@ const BookingWidget = () => {
           <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
             <CheckCircle2 size={64} className="text-success mx-auto mb-4" />
             <h3 className="font-heading font-bold text-2xl text-foreground mb-2">
-              Appointment {settings?.auto_confirm ? "Confirmed" : "Requested"}!
+              {confirmedPaymentStatus === "paid" ? "Booking Successful!" : `Appointment ${settings?.auto_confirm ? "Confirmed" : "Requested"}!`}
             </h3>
             <p className="text-text-gray mb-4">Token #{token}</p>
             <div className="bg-secondary rounded-xl p-4 text-left space-y-2 text-sm mb-4">
+              <p><strong>Appointment ID:</strong> {token}</p>
               <p><strong>Doctor:</strong> Dr. {profile?.full_name}</p>
+              <p><strong>Consultation Type:</strong> {type === "clinic" ? "Clinic Visit" : "Online"}</p>
               <p><strong>Service:</strong> {selectedService?.name}</p>
-              <p><strong>Type:</strong> {type === "clinic" ? "Clinic Visit" : "Online"}</p>
               <p><strong>Date:</strong> {selectedDate && format(selectedDate, "EEEE, d MMMM")}</p>
               <p><strong>Time:</strong> {selectedTime}</p>
               <p><strong>Patient:</strong> {name}</p>
+              <p>
+                <strong>{confirmedPaymentStatus === "paid" ? "Amount Paid" : "Amount"}:</strong>{" "}
+                ₹{confirmedPaymentStatus === "paid" ? (paymentMeta?.amount ?? selectedService?.price ?? 0) : (selectedService?.price ?? 0)}
+              </p>
             </div>
+
+            {confirmedPaymentStatus === "paid" && (
+              <div className="mb-4 p-3 rounded-xl bg-success/10 border border-success/20 text-left text-sm text-success flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>Payment received — you're all paid up for this appointment.</span>
+              </div>
+            )}
 
             {type === "clinic" && patientsAhead !== null && (
               <div className="mb-4 p-3 rounded-xl bg-royal/5 border border-royal/20 text-left text-sm text-royal">
@@ -263,10 +515,14 @@ const BookingWidget = () => {
               </a>
             )}
             <div className="flex flex-wrap gap-2 justify-center">
-              <Button onClick={() => setSlipOpen(true)} className="gap-1.5 bg-royal hover:bg-royal/90 text-white">
-                <FileText className="h-4 w-4" /> View Appointment Slip
+              <Button onClick={handleDownloadAppointmentSlip} className="gap-1.5 bg-royal hover:bg-royal/90 text-white">
+                <FileText className="h-4 w-4" /> Download Appointment Slip
               </Button>
-              <Button variant="outline" onClick={downloadSlip} className="gap-1.5"><Download className="h-4 w-4" /> Download PDF</Button>
+              {confirmedPaymentStatus === "paid" && (
+                <Button onClick={handleDownloadPaymentSlip} variant="outline" className="gap-1.5">
+                  <Receipt className="h-4 w-4" /> Download Payment Slip
+                </Button>
+              )}
               <Button variant="outline" onClick={reset}>Book Another</Button>
             </div>
           </div>
@@ -284,9 +540,74 @@ const BookingWidget = () => {
           time={selectedTime}
           patientName={name}
           patientPhone={phone}
-          paymentStatus="pay_at_clinic"
+          paymentStatus={confirmedPaymentStatus}
+          forceConfirmed={confirmedPaymentStatus === "paid" ? true : undefined}
           onDownload={downloadSlip}
         />
+
+        {confirmedPaymentStatus === "paid" && paymentMeta && (
+          <PaymentSlip
+            open={paymentSlipOpen}
+            onClose={() => setPaymentSlipOpen(false)}
+            profile={profile}
+            token={token}
+            service={selectedService}
+            type={type}
+            date={selectedDate}
+            time={selectedTime}
+            patientName={name}
+            patientPhone={phone}
+            amount={paymentMeta.amount}
+            razorpayPaymentId={paymentMeta.razorpayPaymentId}
+            razorpayOrderId={paymentMeta.razorpayOrderId}
+            paidAt={paymentMeta.paidAt}
+            onDownload={downloadPaymentSlip}
+          />
+        )}
+      </section>
+    );
+  }
+
+  // Payment genuinely failed (Razorpay's payment.failed event) or our own
+  // verification rejected it — as opposed to the patient simply closing the
+  // Checkout modal, which just returns them to Review Summary with a toast.
+  // No appointment exists yet either way; Retry Payment reuses the same
+  // cached order so retrying never creates a duplicate.
+  if (paymentFailed) {
+    return (
+      <section id="booking" className="py-16 md:py-24 bg-cloud-blue">
+        <div className="container mx-auto px-4 max-w-lg">
+          <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
+            <XCircle size={64} className="text-destructive mx-auto mb-4" />
+            <h3 className="font-heading font-bold text-2xl text-foreground mb-2">Payment Failed</h3>
+            <p className="text-text-gray mb-4">{paymentFailureMessage || "Your payment could not be completed."}</p>
+            <div className="bg-secondary rounded-xl p-4 text-left space-y-2 text-sm mb-4">
+              <p><strong>Doctor:</strong> Dr. {profile?.full_name}</p>
+              <p><strong>Consultation Type:</strong> {type === "clinic" ? "Clinic Visit" : "Online"}</p>
+              <p><strong>Service:</strong> {selectedService?.name}</p>
+              <p><strong>Date:</strong> {selectedDate && format(selectedDate, "EEEE, d MMMM")}</p>
+              <p><strong>Time:</strong> {selectedTime}</p>
+              <p><strong>Amount:</strong> ₹{selectedService?.price ?? 0}</p>
+            </div>
+            <p className="text-xs text-muted-foreground mb-5">No appointment was created and you were not charged. You can safely retry.</p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <Button
+                variant="cta"
+                className="gap-1.5 font-heading font-semibold"
+                disabled={submitting}
+                onClick={() => { setPaymentFailed(false); payNow(); }}
+              >
+                {submitting ? "Retrying..." : "Retry Payment"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { setPaymentFailed(false); setCachedOrder(null); setStep(5); }}
+              >
+                Edit Booking Details
+              </Button>
+            </div>
+          </div>
+        </div>
       </section>
     );
   }
@@ -305,8 +626,11 @@ const BookingWidget = () => {
         )}
 
         <div className="bg-card rounded-2xl shadow-xl p-6 md:p-8">
+          <p className="text-xs font-semibold text-royal mb-2 tracking-wide">
+            Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
+          </p>
           <div className="flex gap-1 mb-6">
-            {[1, 2, 3, 4, 5].map((s) => (
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
               <div key={s} className={`h-1 flex-1 rounded-pill transition-colors ${s <= step ? "gradient-hero" : "bg-muted"}`} />
             ))}
           </div>
@@ -424,14 +748,14 @@ const BookingWidget = () => {
                 <input type="email" placeholder="Email (optional — for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="number" placeholder="Age" value={age} onChange={(e) => setAge(e.target.value)}
+                  <input type="number" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
                     className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                   <select value={gender} onChange={(e) => setGender(e.target.value)}
                     className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal">
-                    <option value="">Gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
+                    <option value="">Gender *</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
                   </select>
                 </div>
-                <textarea placeholder="Chief complaint / Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}
+                <textarea placeholder="Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal resize-none" />
               </div>
 
@@ -443,24 +767,72 @@ const BookingWidget = () => {
                 <div className="flex justify-between font-heading font-bold text-lg"><span>Total</span><span className="text-royal">₹{selectedService?.price}</span></div>
               </div>
 
-              {wantsOnlinePayment && !gatewayConnected && (
-                <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 text-sm text-warning-foreground/80 flex items-start gap-2">
-                  <CreditCard className="h-4 w-4 mt-0.5 shrink-0 text-warning" />
-                  <span>Online payment is not active yet for this clinic — you'll pay at the clinic instead.</span>
-                </div>
-              )}
-
-              {wantsOnlinePayment && gatewayConnected ? (
+              {wantsOnlinePayment ? (
                 <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
-                  disabled={!name || !phone || submitting} onClick={initiateRazorpayPayment}>
-                  {submitting ? "Processing..." : `Pay ₹${selectedService?.price} Online`}
+                  disabled={!name || !phone || !age || !gender} onClick={proceedToReview}>
+                  Continue
                 </Button>
               ) : (
                 <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
-                  disabled={!name || !phone || submitting} onClick={submitBooking}>
+                  disabled={!name || !phone || !age || !gender || submitting} onClick={submitBooking}>
                   {submitting ? "Booking..." : `Book Appointment — ₹${selectedService?.price}`}
                 </Button>
               )}
+            </div>
+          )}
+
+          {step === 6 && wantsOnlinePayment && (
+            <div className="space-y-4">
+              <h3 className="font-heading font-semibold text-lg text-foreground">Review Booking Summary</h3>
+              <p className="text-xs text-muted-foreground">Please review your details before payment.</p>
+
+              <div className="bg-secondary rounded-xl p-4 space-y-4 text-sm">
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Appointment Details</p>
+                  <div className="space-y-1.5">
+                    <SummaryRow label="Doctor Name" value={`Dr. ${profile?.full_name || ""}`} />
+                    <SummaryRow label="Consultation Type" value={type === "clinic" ? "Clinic Visit" : "Online Consultation"} />
+                    <SummaryRow label="Appointment Date" value={selectedDate ? format(selectedDate, "EEEE, d MMMM yyyy") : ""} />
+                    <SummaryRow label="Appointment Time" value={selectedTime} />
+                  </div>
+                </div>
+
+                <hr className="border-border" />
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Patient Details</p>
+                  <div className="space-y-1.5">
+                    <SummaryRow label="Patient Name" value={name} />
+                    <SummaryRow label="Mobile Number" value={phone ? `+91 ${phone}` : ""} />
+                    <SummaryRow label="Email" value={email} />
+                    <SummaryRow label="Age" value={age} />
+                    <SummaryRow label="Gender" value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : ""} />
+                  </div>
+                </div>
+
+                <hr className="border-border" />
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Payment Details</p>
+                  <div className="space-y-1.5">
+                    <SummaryRow label="Consultation Fee" value={`₹${selectedService?.price ?? 0}`} />
+                    <div className="flex justify-between font-heading font-bold text-lg pt-1">
+                      <span className="text-foreground">Total Amount</span>
+                      <span className="text-royal">₹{selectedService?.price ?? 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(5)}>
+                  Back
+                </Button>
+                <Button variant="cta" className="flex-[2] h-12 font-heading font-semibold text-lg"
+                  disabled={submitting} onClick={payNow}>
+                  {submitting ? "Processing..." : "Pay Now"}
+                </Button>
+              </div>
             </div>
           )}
         </div>

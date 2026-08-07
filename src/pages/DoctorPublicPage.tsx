@@ -6,7 +6,6 @@ import QuickStats from "@/components/doctor/QuickStats";
 import AboutSection from "@/components/doctor/AboutSection";
 import ServicesSection from "@/components/doctor/ServicesSection";
 import GallerySection from "@/components/doctor/GallerySection";
-import OnlineConsultation from "@/components/doctor/OnlineConsultation";
 import BookingWidget from "@/components/doctor/BookingWidget";
 import ReviewsSection from "@/components/doctor/ReviewsSection";
 import BlogPreview from "@/components/doctor/BlogPreview";
@@ -91,9 +90,6 @@ const DoctorPageContent = () => {
       )}
       {settings.show_gallery && gallery.length > 0 && (
         <AnimatedSection><SectionCard><GallerySection /></SectionCard></AnimatedSection>
-      )}
-      {settings.show_online_consultation && (
-        <AnimatedSection><OnlineConsultation /></AnimatedSection>
       )}
       <AnimatedSection><SectionCard><BookingWidget /></SectionCard></AnimatedSection>
       {settings.show_reviews !== false && (
