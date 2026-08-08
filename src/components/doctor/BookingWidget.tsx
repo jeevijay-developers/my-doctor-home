@@ -90,7 +90,7 @@ type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string
 const STEP_LABELS = ["Consultation Type", "Select Service", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
 
 const BookingWidget = () => {
-  const { profile, services, settings, workingHours } = useDoctorData();
+  const { profile, services, settings, workingHours, isPremium } = useDoctorData();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [step, setStep] = useState(1);
   const [type, setType] = useState<"clinic" | "online">("clinic");
@@ -142,6 +142,11 @@ const BookingWidget = () => {
         return slot.getTime() > Date.now();
       })
     : rawTimeSlots;
+
+  const consultationTypes = [
+    { k: "clinic" as const, label: "Clinic Visit", Icon: Building2 },
+    ...(isPremium ? [{ k: "online" as const, label: "Online", Icon: Video }] : []),
+  ];
 
   const filteredServices = services.filter((s) =>
     type === "online" ? s.type === "online" || s.type === "both" : s.type === "clinic" || s.type === "both"
@@ -682,8 +687,8 @@ const BookingWidget = () => {
           {step === 1 && (
             <div className="space-y-4">
               <h3 className="font-heading font-semibold text-lg text-foreground">Select Consultation Type</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {[{ k: "clinic" as const, label: "Clinic Visit", Icon: Building2 }, { k: "online" as const, label: "Online", Icon: Video }].map((t) => (
+              <div className={`grid gap-4 ${consultationTypes.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+                {consultationTypes.map((t) => (
                   <button key={t.k} onClick={() => { setType(t.k); setStep(2); }}
                     className={`flex flex-col items-center justify-center gap-2 p-6 rounded-2xl border-2 font-heading font-semibold text-lg transition-all ${type === t.k ? "border-royal bg-royal/5 text-royal" : "border-border text-foreground hover:border-royal/50"}`}>
                     <t.Icon size={24} />

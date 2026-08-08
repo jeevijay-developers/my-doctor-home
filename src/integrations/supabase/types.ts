@@ -1355,7 +1355,7 @@ export type Database = {
           qualifications: string | null
           slug: string | null
           specialization: string | null
-          trial_end: string
+          trial_end: string | null
           trial_start: string
           updated_at: string
         }
@@ -1379,7 +1379,7 @@ export type Database = {
           qualifications?: string | null
           slug?: string | null
           specialization?: string | null
-          trial_end?: string
+          trial_end?: string | null
           trial_start?: string
           updated_at?: string
         }
@@ -1403,7 +1403,7 @@ export type Database = {
           qualifications?: string | null
           slug?: string | null
           specialization?: string | null
-          trial_end?: string
+          trial_end?: string | null
           trial_start?: string
           updated_at?: string
         }

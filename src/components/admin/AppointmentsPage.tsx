@@ -349,11 +349,11 @@ const AppointmentsPage = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label>
-                  <Input value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" />
+                  <Input placeholder="Full name" value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone *</Label>
-                  <Input value={newAppt.patient_phone} inputMode="numeric" maxLength={13} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+                  <Input value={newAppt.patient_phone} inputMode="numeric" maxLength={13} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="Phone number" className="h-10" />
                   {newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone) && (
                     <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
                   )}

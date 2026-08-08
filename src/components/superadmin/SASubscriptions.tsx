@@ -5,6 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
 import { Search, RotateCcw, Save } from "lucide-react";
@@ -26,6 +30,9 @@ const SASubscriptions = () => {
   const [dates, setDates] = useState<Record<string, string>>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const [pendingTierChange, setPendingTierChange] = useState<{
+    id: string; tier: string; prev: string; wasTrial: boolean; hasCustom: boolean; customPrice: number | null;
+  } | null>(null);
 
   const load = () =>
     supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
@@ -45,24 +52,36 @@ const SASubscriptions = () => {
     );
   }, [rows, search]);
 
-  const changeTier = async (id: string, tier: string, prev: string) => {
+  const requestTierChange = (id: string, tier: string, prev: string) => {
     const row = rows.find((r) => r.id === id);
-    const hasCustom = row?.custom_plan_price != null;
-    if (hasCustom) {
-      const keep = window.confirm(
-        `This doctor has a custom price of ₹${row.custom_plan_price}. Keep the custom price on the new "${tier}" plan?\n\nOK = Keep custom price\nCancel = Reset to "${tier}" default price`
-      );
-      const update: any = { plan_tier: tier };
-      if (!keep) update.custom_plan_price = null;
-      const { error } = await supabase.from("profiles").update(update).eq("id", id);
-      if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
-      await logAdminAction("change_plan_tier", "profiles", id, { from: prev, to: tier, kept_custom_price: keep });
-    } else {
-      const { error } = await supabase.from("profiles").update({ plan_tier: tier }).eq("id", id);
-      if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
-      await logAdminAction("change_plan_tier", "profiles", id, { from: prev, to: tier });
+    setPendingTierChange({
+      id,
+      tier,
+      prev,
+      wasTrial: row?.plan_status === "trial",
+      hasCustom: row?.custom_plan_price != null,
+      customPrice: row?.custom_plan_price ?? null,
+    });
+  };
+
+  const applyTierChange = async (keepCustomPrice: boolean) => {
+    if (!pendingTierChange) return;
+    const { id, tier, prev, wasTrial, hasCustom } = pendingTierChange;
+
+    const update: any = { plan_tier: tier, plan_status: "active", trial_end: null };
+    if (hasCustom && !keepCustomPrice) update.custom_plan_price = null;
+
+    const { error } = await supabase.from("profiles").update(update).eq("id", id);
+    if (error) {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+      setPendingTierChange(null);
+      return;
     }
-    toast({ title: "Tier updated" });
+    await logAdminAction("change_plan_tier", "profiles", id, {
+      from: prev, to: tier, ended_trial: wasTrial, ...(hasCustom ? { kept_custom_price: keepCustomPrice } : {}),
+    });
+    toast({ title: "Tier updated", description: wasTrial ? "Trial ended — new tier applied immediately." : undefined });
+    setPendingTierChange(null);
     load();
   };
 
@@ -179,7 +198,7 @@ const SASubscriptions = () => {
                       )}
                     </td>
                     <td className="p-3">
-                      <Select value={tier} onValueChange={(v) => changeTier(r.id, v, tier)}>
+                      <Select value={tier} onValueChange={(v) => requestTierChange(r.id, v, tier)}>
                         <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
                         <SelectContent>{tiers.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                       </Select>
@@ -233,6 +252,42 @@ const SASubscriptions = () => {
           </table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!pendingTierChange} onOpenChange={(o) => !o && setPendingTierChange(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change plan tier to "{pendingTierChange?.tier}"?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              {pendingTierChange?.wasTrial && (
+                <p>
+                  This doctor is currently on a trial. Changing their plan tier will end the trial
+                  immediately and apply "{pendingTierChange.tier}" plan features right away.
+                </p>
+              )}
+              {pendingTierChange?.hasCustom && (
+                <p>
+                  This doctor has a custom price of ₹{pendingTierChange.customPrice}. Choose whether to
+                  keep that custom price on the new "{pendingTierChange.tier}" plan, or reset to the default price.
+                </p>
+              )}
+              {!pendingTierChange?.wasTrial && !pendingTierChange?.hasCustom && (
+                <p>This applies immediately.</p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            {pendingTierChange?.hasCustom ? (
+              <>
+                <Button variant="outline" onClick={() => applyTierChange(false)}>Reset to default price</Button>
+                <Button onClick={() => applyTierChange(true)}>Keep custom price</Button>
+              </>
+            ) : (
+              <AlertDialogAction onClick={() => applyTierChange(false)}>Confirm</AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

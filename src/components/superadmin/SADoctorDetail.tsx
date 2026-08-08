@@ -6,15 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
 import { ArrowLeft, Ban, RotateCcw, CalendarPlus } from "lucide-react";
+
+const TIER_LABELS: Record<string, string> = { free: "Free", pro: "Pro", premium: "Premium" };
 
 const SADoctorDetail = () => {
   const { id } = useParams();
   const [p, setP] = useState<any>(null);
   const [stats, setStats] = useState({ appts: 0, patients: 0, revenue: 0, last: null as string | null });
   const [newTrialEnd, setNewTrialEnd] = useState("");
+  const [pendingTier, setPendingTier] = useState<string | null>(null);
 
   const load = async () => {
     if (!id) return;
@@ -46,10 +53,14 @@ const SADoctorDetail = () => {
   };
 
   const changeTier = async (tier: string) => {
-    const { error } = await supabase.from("profiles").update({ plan_tier: tier }).eq("id", id);
+    const wasTrial = p.plan_status === "trial";
+    const { error } = await supabase
+      .from("profiles")
+      .update({ plan_tier: tier, plan_status: "active", trial_end: null })
+      .eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
-    await logAdminAction("change_plan_tier", "profiles", id, { from: p.plan_tier, to: tier });
-    toast({ title: "Plan tier updated" });
+    await logAdminAction("change_plan_tier", "profiles", id, { from: p.plan_tier, to: tier, ended_trial: wasTrial });
+    toast({ title: "Plan tier updated", description: wasTrial ? "Trial ended — new tier applied immediately." : undefined });
     load();
   };
 
@@ -111,7 +122,7 @@ const SADoctorDetail = () => {
           </div>
           <div>
             <div className="text-xs font-medium mb-2">Plan tier</div>
-            <Select value={p.plan_tier || "free"} onValueChange={changeTier}>
+            <Select value={p.plan_tier || "free"} onValueChange={setPendingTier}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="free">Free</SelectItem>
@@ -129,6 +140,25 @@ const SADoctorDetail = () => {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={pendingTier !== null} onOpenChange={(open) => !open && setPendingTier(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change plan tier to {pendingTier ? TIER_LABELS[pendingTier] : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {p.plan_status === "trial"
+                ? `This doctor is currently on a trial. Changing their plan tier will end the trial immediately and apply ${pendingTier ? TIER_LABELS[pendingTier] : "the new"} tier's features right away.`
+                : `This will apply the ${pendingTier ? TIER_LABELS[pendingTier] : "new"} tier's features immediately.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (pendingTier) changeTier(pendingTier); setPendingTier(null); }}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

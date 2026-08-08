@@ -10,12 +10,13 @@ type DoctorData = {
   gallery: any[];
   settings: any;
   workingHours: any[];
+  isPremium: boolean;
   loading: boolean;
 };
 
 const DoctorContext = createContext<DoctorData>({
   profile: null, services: [], packages: [], reviews: [], gallery: [],
-  settings: {}, workingHours: [], loading: true,
+  settings: {}, workingHours: [], isPremium: false, loading: true,
 });
 
 export const useDoctorData = () => useContext(DoctorContext);
@@ -26,7 +27,7 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const [data, setData] = useState<DoctorData>({
     profile: null, services: [], packages: [], reviews: [], gallery: [],
-    settings: {}, workingHours: [], loading: true,
+    settings: {}, workingHours: [], isPremium: false, loading: true,
   });
 
   useEffect(() => {
@@ -62,13 +63,14 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const id = profile.id;
-      const [servRes, pkgRes, revRes, galRes, setRes, whRes] = await Promise.all([
+      const [servRes, pkgRes, revRes, galRes, setRes, whRes, premiumRes] = await Promise.all([
         supabase.from("services").select("*").eq("doctor_id", id).eq("active", true).order("sort_order"),
         supabase.from("packages").select("*").eq("doctor_id", id).eq("active", true).order("sort_order"),
         supabase.from("reviews").select("*").eq("doctor_id", id).eq("is_visible", true).order("is_pinned", { ascending: false }).order("created_at", { ascending: false }),
         supabase.from("gallery_photos").select("*").eq("doctor_id", id).order("sort_order"),
         supabase.from("website_settings").select("*").eq("doctor_id", id).single(),
         supabase.from("working_hours").select("*").eq("doctor_id", id).order("day_of_week"),
+        supabase.rpc("doctor_has_premium_access", { _doctor_id: id }),
       ]);
 
       if (cancelled) return;
@@ -80,6 +82,7 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
         gallery: galRes.data || [],
         settings: setRes.data || {},
         workingHours: whRes.data || [],
+        isPremium: premiumRes.data === true,
         loading: false,
       });
     };
