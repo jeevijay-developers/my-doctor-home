@@ -9,9 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { LifeBuoy } from "lucide-react";
 
-const ContactSupportDialog = ({ trigger }: { trigger?: React.ReactNode }) => {
+const ContactSupportDialog = ({ trigger, defaultSubject }: { trigger?: React.ReactNode; defaultSubject?: string }) => {
   const [open, setOpen] = useState(false);
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState(defaultSubject ?? "");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("normal");
   const [busy, setBusy] = useState(false);
@@ -27,7 +27,7 @@ const ContactSupportDialog = ({ trigger }: { trigger?: React.ReactNode }) => {
     setBusy(false);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     toast({ title: "Support ticket raised", description: "Our team will get back to you soon." });
-    setSubject(""); setDescription(""); setPriority("normal"); setOpen(false);
+    setSubject(defaultSubject ?? ""); setDescription(""); setPriority("normal"); setOpen(false);
   };
 
   return (
