@@ -172,9 +172,12 @@ day it expires.
   `auto_disable_online_consultation_on_downgrade` (true→false disables; other transitions no-op),
   and the pg_cron expiry UPDATE's WHERE-clause logic. The branch is left for the user's review
   rather than auto-merged to production.
-- **Edge functions**: `create-zoom-meeting` gets a new test case asserting 403 for a Basic
-  doctor's `action:"create"`; `ai-blog-writer` gets equivalent new coverage for its newly-added
-  auth path (it currently has none).
+- **Edge functions**: **correction found during planning** — there are no Deno test files or
+  `deno.json` anywhere in this repo; no automated-testing convention exists for edge functions at
+  all (same situation as the pgTAP finding above). Standing up a new Deno test framework for this
+  one feature would be disproportionate scope creep. `create-zoom-meeting`'s new 403 case and
+  `ai-blog-writer`'s newly-added auth path are verified manually instead — real calls against a
+  test doctor with each `plan_tier`, checked once both are deployed.
 - **Frontend (Vitest + Testing Library, matching this session's established pattern)**:
   `usePlanAccess()` hook tests (mocked RPC responses → correct `isPremium`/`nearCap` derivation),
   `LockedFeatureCard` renders and its CTA opens `ContactSupportDialog`, `BillingPage`/`BlogPage`/
