@@ -14,7 +14,7 @@ const plans = [
     features: [
       "Your branded website",
       "Online appointment booking",
-      "Up to 100 appointments/month",
+      "Up to 500 appointments/month",
       "WhatsApp reminders",
       "Basic analytics",
     ],
@@ -59,7 +59,7 @@ const plans = [
 const compareFeatures = [
   { name: "Branded website", starter: true, professional: true, premium: true },
   { name: "Online booking", starter: true, professional: true, premium: true },
-  { name: "Appointments/month", starter: "100", professional: "Unlimited", premium: "Unlimited" },
+  { name: "Appointments/month", starter: "500", professional: "Unlimited", premium: "Unlimited" },
   { name: "WhatsApp reminders", starter: true, professional: true, premium: true },
   { name: "Online consultation", starter: false, professional: true, premium: true },
   { name: "AI blog writer", starter: false, professional: true, premium: true },

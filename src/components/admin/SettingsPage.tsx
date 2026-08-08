@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
+import ContactSupportDialog from "./ContactSupportDialog";
 
 const SettingsPage = () => {
   const { profile } = useProfile();
@@ -79,7 +80,10 @@ const SettingsPage = () => {
                       <p className="text-sm text-muted-foreground mt-1">{daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining in free trial</p>
                     )}
                   </div>
-                  <Button className="bg-royal hover:bg-royal/90">Upgrade Plan</Button>
+                  <ContactSupportDialog
+                    defaultSubject="Upgrade to Premium"
+                    trigger={<Button className="bg-royal hover:bg-royal/90">Upgrade Plan</Button>}
+                  />
                 </div>
                 {profile?.plan_status === "trial" && (
                   <div>
