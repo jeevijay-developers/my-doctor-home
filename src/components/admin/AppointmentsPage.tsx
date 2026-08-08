@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Trash2, X, Calendar as CalendarIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -40,6 +41,7 @@ const statusConfig: Record<string, { bg: string; dot: string; label: string }> =
 
 const AppointmentsPage = () => {
   const { profile } = useProfile();
+  const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -280,7 +282,14 @@ const AppointmentsPage = () => {
       patient_phone: normalizedPhone,
       token_number: token, status: status as any, payment_status: "pending" as any,
     });
-    if (error) { toast.error("Could not add appointment"); return; }
+    if (error) {
+      if (error.message.includes("MONTHLY_APPOINTMENT_CAP_REACHED")) {
+        toast.error("You've reached your plan's monthly appointment limit. Upgrade to Premium for unlimited appointments.");
+      } else {
+        toast.error("Could not add appointment");
+      }
+      return;
+    }
 
     // BUG-04: patient row created only when appointment is completed.
 
@@ -385,6 +394,14 @@ const AppointmentsPage = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      {nearCap && (
+        <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-sm text-foreground">
+            You've used <strong>{appointmentsUsed}/{appointmentsCap}</strong> appointments this month — upgrade to Premium for unlimited.
+          </p>
+        </div>
+      )}
 
       {/* Date filter */}
       <Card className="border-border/60 shadow-none">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
 import {
   CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
   TrendingUp, Sparkles, ExternalLink, Copy, Eye, FileText,
@@ -27,6 +28,7 @@ const growthTips = [
 
 const DashboardHome = () => {
   const { profile } = useProfile();
+  const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
   const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, weekRevenue: 0, lastWeekAppts: 0 });
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
   const [tipIndex, setTipIndex] = useState(0);
@@ -167,6 +169,14 @@ const DashboardHome = () => {
           )}
         </div>
       </div>
+
+      {nearCap && (
+        <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-sm text-foreground">
+            You've used <strong>{appointmentsUsed}/{appointmentsCap}</strong> appointments this month — upgrade to Premium for unlimited.
+          </p>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
