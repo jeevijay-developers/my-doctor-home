@@ -13,30 +13,33 @@
 - "Basic" = `plan_tier` values `free` and `pro` (both get identical limits) — displayed as "Basic" in the UI, but the DB column keeps its existing `free`/`pro`/`premium` values and check constraint unchanged. No schema rename.
 - `plan_status = 'trial'` always grants full Premium access, regardless of `plan_tier`, for the trial's duration.
 - Appointment cap = 500/month, read from `platform_settings` (key `basic_appointment_cap`), counted by the appointment's scheduled `date` (calendar month), not `created_at`. Falls back to 500 if the settings row is ever missing.
-- All DB objects (functions/triggers/RLS/cron) are built and verified on an isolated Supabase development branch first, then merged to production — never applied directly to production untested, since `appointments`/`profiles`/`website_settings` hold real doctor data.
+- **Revised during execution (Task 1 blocked):** Supabase development branching requires a
+  Pro-plan-or-above org; `jeevijay-developers's Org` is on the Free plan. The user explicitly
+  chose to waive the isolated-branch requirement rather than upgrade. Tasks 2–6 apply their
+  migrations **directly to production** (`atmelijhxsjzjixhdfcu`). Task 1 and Task 7
+  (branch create/merge) are skipped. Compensating safety: every verification step that would
+  otherwise INSERT/UPDATE real rows is wrapped in `BEGIN ... ROLLBACK` so nothing persists
+  regardless of outcome — this is strictly safer than the original plan's "insert test rows, then
+  manually clean up" approach, since a rollback undoes trigger side effects too and can't be
+  skipped by a forgotten cleanup step.
 - No new npm dependencies.
 - Every new/modified DB write path must call `doctor_has_premium_access()` — never re-implement the boolean logic in a second place (SQL or TypeScript).
 
 ---
 
-### Task 1: Create an isolated Supabase development branch
+### Task 1: Create an isolated Supabase development branch — SKIPPED
 
-**Files:** None (infrastructure step only).
+**Attempted and blocked:** `mcp__supabase__create_branch` failed with `PaymentRequiredException:
+Branching is supported only on the Pro plan or above` — `jeevijay-developers's Org`
+(`clkkmzxdrptlwpiqvoxq`) is on the Free plan. `mcp__supabase__confirm_cost` succeeded first
+(cost: $0.01344/hour), so this is a real plan-tier gate, not a transient error.
 
-**Interfaces:**
-- Produces: a branch `project_id` (a fresh UUID-like ref string returned by `create_branch`) that Tasks 2–6 use in place of `atmelijhxsjzjixhdfcu` for every `apply_migration`/`execute_sql` call.
+**User decision:** waive the isolated-branch requirement rather than upgrade the org. Tasks 2–6
+apply directly to production `atmelijhxsjzjixhdfcu` instead of a branch project_id, with
+`BEGIN...ROLLBACK`-wrapped verification (see the revised Global Constraints entry above). Task 7
+(merge branch to production) is likewise skipped — there is nothing to merge.
 
-- [ ] **Step 1: Confirm the cost of branching**
-
-Call `mcp__supabase__confirm_cost` with the production `project_id` (`atmelijhxsjzjixhdfcu`) and `type: "branch"`. This returns a `confirm_cost_id` string — record it for the next step.
-
-- [ ] **Step 2: Create the branch**
-
-Call `mcp__supabase__create_branch` with `project_id: "atmelijhxsjzjixhdfcu"`, `name: "plan-gating"`, and the `confirm_cost_id` from Step 1. The response includes the new branch's own `project_id` — this is what every subsequent DB task in this plan calls "the branch project_id."
-
-- [ ] **Step 3: Verify the branch is usable**
-
-Call `mcp__supabase__list_tables` with the branch's `project_id` and confirm `profiles`, `appointments`, `website_settings`, `invoices`, and `platform_settings` are present (branch creation copies the schema from `atmelijhxsjzjixhdfcu`, with empty/seed data, not production rows).
+No further action for this task.
 
 No commit for this task — it's a remote infrastructure action, not a code change.
 
@@ -50,9 +53,9 @@ No commit for this task — it's a remote infrastructure action, not a code chan
 **Interfaces:**
 - Produces: `public.doctor_has_premium_access(_doctor_id uuid) returns boolean` — `true` if `plan_status = 'trial'` OR `plan_tier = 'premium'` for that doctor. `public.get_appointment_cap_usage(_doctor_id uuid) returns table(is_premium boolean, appointments_used int, appointments_cap int)`. `platform_settings` row `key='basic_appointment_cap'`. Tasks 3–9 and the frontend hook (Task 11) all consume `doctor_has_premium_access`; Task 11 also consumes `get_appointment_cap_usage`.
 
-- [ ] **Step 1: Write and apply the migration on the branch**
+- [ ] **Step 1: Write and apply the migration on production**
 
-Call `mcp__supabase__apply_migration` with the branch `project_id`, `name: "plan_gating_core"`, and this SQL:
+Call `mcp__supabase__apply_migration` with `project_id: "atmelijhxsjzjixhdfcu"`, `name: "plan_gating_core"`, and this SQL:
 
 ```sql
 -- Single source of truth for "does this doctor have Premium-level access."
@@ -117,9 +120,9 @@ GRANT EXECUTE ON FUNCTION public.doctor_has_premium_access(uuid) TO authenticate
 GRANT EXECUTE ON FUNCTION public.get_appointment_cap_usage(uuid) TO authenticated;
 ```
 
-- [ ] **Step 2: Verify on the branch**
+- [ ] **Step 2: Verify on production**
 
-Call `mcp__supabase__execute_sql` on the branch `project_id`:
+All read-only (no ROLLBACK needed). Call `mcp__supabase__execute_sql` on `atmelijhxsjzjixhdfcu`:
 
 ```sql
 select key, value from platform_settings where key = 'basic_appointment_cap';
@@ -132,7 +135,7 @@ select proname from pg_proc where proname in ('doctor_has_premium_access', 'get_
 Expected: both function names returned.
 
 ```sql
--- Sanity check against a real profile row on the branch (any existing doctor id).
+-- Sanity check against a real profile row (any existing doctor id) - read-only.
 select id, plan_status, plan_tier from profiles limit 1;
 -- then, using that id:
 select * from get_appointment_cap_usage('<id-from-above>');
@@ -161,7 +164,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Consumes: `public.doctor_has_premium_access(uuid)` (Task 2).
 - Produces: trigger `enforce_appointment_cap` on `public.appointments`, function `public.enforce_monthly_appointment_cap()`. No other task depends on this function's name directly, but Task 12 (AppointmentsPage warning banner) and the manual QA checklist rely on its raised-exception message text below.
 
-- [ ] **Step 1: Write and apply the migration on the branch**
+- [ ] **Step 1: Write and apply the migration on production**
 
 ```sql
 CREATE OR REPLACE FUNCTION public.enforce_monthly_appointment_cap()
@@ -207,48 +210,70 @@ CREATE TRIGGER enforce_appointment_cap
   EXECUTE FUNCTION public.enforce_monthly_appointment_cap();
 ```
 
-Apply via `mcp__supabase__apply_migration` on the branch `project_id`, `name: "appointment_cap_trigger"`.
+Apply via `mcp__supabase__apply_migration` on `atmelijhxsjzjixhdfcu`, `name: "appointment_cap_trigger"`.
 
-- [ ] **Step 2: Verify on the branch — Basic doctor blocked at cap**
+- [ ] **Step 2: Verify on production, wrapped in BEGIN...ROLLBACK so nothing persists**
 
-```sql
--- Pick (or create) a Basic-tier profile on the branch for this test.
-update profiles set plan_tier = 'pro', plan_status = 'active'
-where id = '<a-test-doctor-id-on-the-branch>';
-
--- Temporarily lower the cap to make this fast to verify.
-update platform_settings set value = '2'::jsonb where key = 'basic_appointment_cap';
-
-insert into appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
-values ('<test-doctor-id>', 'Test A', '9999999901', 'Consultation', '2026-09-10', '10:00', 500);
-insert into appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
-values ('<test-doctor-id>', 'Test B', '9999999902', 'Consultation', '2026-09-10', '10:30', 500);
--- Third insert in the same month should fail:
-insert into appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
-values ('<test-doctor-id>', 'Test C', '9999999903', 'Consultation', '2026-09-10', '11:00', 500);
-```
-Expected: the third insert raises `MONTHLY_APPOINTMENT_CAP_REACHED: Basic plan is limited to 2 appointments per month`.
-
-- [ ] **Step 3: Verify — Premium/trial doctor unaffected**
+Single `mcp__supabase__execute_sql` call on `atmelijhxsjzjixhdfcu` — uses a real existing profile
+row (picked dynamically, no hardcoded id needed), covers all three scenarios (cap blocks Basic,
+Premium is unaffected, scheduled-month window), and rolls back every mutation at the end
+regardless of outcome:
 
 ```sql
-update profiles set plan_tier = 'premium' where id = '<test-doctor-id>';
-insert into appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
-values ('<test-doctor-id>', 'Test D', '9999999904', 'Consultation', '2026-09-10', '11:30', 500);
+BEGIN;
+
+DO $$
+DECLARE
+  test_doctor_id uuid;
+BEGIN
+  SELECT id INTO test_doctor_id FROM profiles LIMIT 1;
+
+  -- Scenario 1: Basic doctor blocked once the (temporarily lowered) cap is reached.
+  UPDATE profiles SET plan_tier = 'pro', plan_status = 'active' WHERE id = test_doctor_id;
+  UPDATE platform_settings SET value = '2'::jsonb WHERE key = 'basic_appointment_cap';
+
+  INSERT INTO appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
+  VALUES (test_doctor_id, 'Test A', '9999999901', 'Consultation', '2026-09-10', '10:00', 500);
+  INSERT INTO appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
+  VALUES (test_doctor_id, 'Test B', '9999999902', 'Consultation', '2026-09-10', '10:30', 500);
+
+  BEGIN
+    INSERT INTO appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
+    VALUES (test_doctor_id, 'Test C', '9999999903', 'Consultation', '2026-09-10', '11:00', 500);
+    RAISE EXCEPTION 'TEST FAILED: third insert should have been blocked by the cap but succeeded';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'MONTHLY_APPOINTMENT_CAP_REACHED%' THEN
+      RAISE NOTICE 'PASS: third insert correctly blocked - %', SQLERRM;
+    ELSE
+      RAISE EXCEPTION 'TEST FAILED: unexpected error - %', SQLERRM;
+    END IF;
+  END;
+
+  -- Scenario 2: Premium doctor unaffected by the same lowered cap.
+  UPDATE profiles SET plan_tier = 'premium' WHERE id = test_doctor_id;
+  INSERT INTO appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
+  VALUES (test_doctor_id, 'Test D', '9999999904', 'Consultation', '2026-09-10', '11:30', 500);
+  RAISE NOTICE 'PASS: premium doctor 3rd appointment succeeded past the cap';
+
+  -- Scenario 3: scheduled-month window, not creation-month - a future-dated appointment
+  -- isn't counted against the current month's usage.
+  UPDATE profiles SET plan_tier = 'pro' WHERE id = test_doctor_id;
+  INSERT INTO appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
+  VALUES (test_doctor_id, 'Future Booking', '9999999905', 'Consultation', '2027-01-15', '09:00', 500);
+  RAISE NOTICE 'PASS: future-month booking succeeded independent of current-month count';
+END $$;
+
+ROLLBACK;
 ```
-Expected: succeeds (no exception), even though it's a 3rd appointment that month past the cap of 2.
 
-- [ ] **Step 4: Verify — scheduled-month window, not creation-month**
+Expected: three `PASS:` notices in the output, no `TEST FAILED` exception. Because the whole
+thing is one transaction ending in `ROLLBACK`, the real profile's `plan_tier`/`plan_status`, the
+`platform_settings` cap value, and all five fake appointment rows are gone the instant this call
+returns — confirm with a fresh read-only `select count(*) from appointments where patient_phone
+like '99999999%'` (expect `0`) and `select value from platform_settings where key =
+'basic_appointment_cap'` (expect `500`, untouched).
 
-```sql
-update profiles set plan_tier = 'pro' where id = '<test-doctor-id>';
-update platform_settings set value = '500'::jsonb where key = 'basic_appointment_cap'; -- restore real value
-insert into appointments (doctor_id, patient_name, patient_phone, service_name, date, time_slot, amount)
-values ('<test-doctor-id>', 'Future Booking', '9999999905', 'Consultation', '2027-01-15', '09:00', 500);
-```
-Expected: succeeds regardless of today's date — counted against January 2027's total, not the current month's, since the cap trigger keys off `NEW.date`.
-
-- [ ] **Step 5: Save the migration file to the repo and commit**
+- [ ] **Step 3: Save the migration file to the repo and commit**
 
 ```bash
 git add supabase/migrations/<timestamp>_appointment_cap_trigger.sql
@@ -268,7 +293,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Consumes: `public.doctor_has_premium_access(uuid)` (Task 2).
 - Produces: trigger `gate_online_consultation` on `public.website_settings` (function `public.enforce_online_consultation_gate()`), trigger `disable_online_consultation_on_downgrade` on `public.profiles` (function `public.auto_disable_online_consultation_on_downgrade()`).
 
-- [ ] **Step 1: Write and apply the migration on the branch**
+- [ ] **Step 1: Write and apply the migration on production**
 
 ```sql
 CREATE OR REPLACE FUNCTION public.enforce_online_consultation_gate()
@@ -324,39 +349,65 @@ CREATE TRIGGER disable_online_consultation_on_downgrade
   EXECUTE FUNCTION public.auto_disable_online_consultation_on_downgrade();
 ```
 
-Apply via `mcp__supabase__apply_migration` on the branch, `name: "online_consultation_gating"`.
+Apply via `mcp__supabase__apply_migration` on `atmelijhxsjzjixhdfcu`, `name: "online_consultation_gating"`.
 
-- [ ] **Step 2: Verify — Basic doctor blocked from enabling**
+- [ ] **Step 2: Verify on production, wrapped in BEGIN...ROLLBACK so nothing persists**
 
-```sql
-update profiles set plan_tier = 'pro', plan_status = 'active' where id = '<test-doctor-id>';
-update website_settings set show_online_consultation = false where doctor_id = '<test-doctor-id>';
-update website_settings set show_online_consultation = true where doctor_id = '<test-doctor-id>';
-```
-Expected: the second UPDATE raises `ONLINE_CONSULTATION_REQUIRES_PREMIUM: ...`.
-
-- [ ] **Step 3: Verify — turning it off is always allowed**
+Single `mcp__supabase__execute_sql` call on `atmelijhxsjzjixhdfcu`, using a real doctor row that
+already has a `website_settings` record (guaranteed 1:1 via `doctor_id`):
 
 ```sql
--- (still Basic-tier from Step 2)
-update website_settings set show_online_consultation = false where doctor_id = '<test-doctor-id>';
+BEGIN;
+
+DO $$
+DECLARE
+  test_doctor_id uuid;
+BEGIN
+  SELECT doctor_id INTO test_doctor_id FROM website_settings LIMIT 1;
+
+  -- Scenario 1: Basic doctor blocked from enabling.
+  UPDATE profiles SET plan_tier = 'pro', plan_status = 'active' WHERE id = test_doctor_id;
+  UPDATE website_settings SET show_online_consultation = false WHERE doctor_id = test_doctor_id;
+
+  BEGIN
+    UPDATE website_settings SET show_online_consultation = true WHERE doctor_id = test_doctor_id;
+    RAISE EXCEPTION 'TEST FAILED: enabling should have been blocked for a Basic doctor but succeeded';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'ONLINE_CONSULTATION_REQUIRES_PREMIUM%' THEN
+      RAISE NOTICE 'PASS: Basic doctor blocked from enabling - %', SQLERRM;
+    ELSE
+      RAISE EXCEPTION 'TEST FAILED: unexpected error - %', SQLERRM;
+    END IF;
+  END;
+
+  -- Scenario 2: turning it off is always allowed (no-op, already false here).
+  UPDATE website_settings SET show_online_consultation = false WHERE doctor_id = test_doctor_id;
+  RAISE NOTICE 'PASS: disabling never raises';
+
+  -- Scenario 3: Premium doctor can enable, then auto-disables on downgrade.
+  UPDATE profiles SET plan_tier = 'premium' WHERE id = test_doctor_id;
+  UPDATE website_settings SET show_online_consultation = true WHERE doctor_id = test_doctor_id;
+  IF NOT (SELECT show_online_consultation FROM website_settings WHERE doctor_id = test_doctor_id) THEN
+    RAISE EXCEPTION 'TEST FAILED: premium doctor could not enable online consultation';
+  END IF;
+  RAISE NOTICE 'PASS: premium doctor enabled online consultation';
+
+  UPDATE profiles SET plan_tier = 'pro' WHERE id = test_doctor_id;
+  IF (SELECT show_online_consultation FROM website_settings WHERE doctor_id = test_doctor_id) THEN
+    RAISE EXCEPTION 'TEST FAILED: downgrade did not auto-disable online consultation';
+  END IF;
+  RAISE NOTICE 'PASS: downgrade auto-disabled online consultation';
+END $$;
+
+ROLLBACK;
 ```
-Expected: succeeds (no-op, already false, but confirms false→false never raises).
 
-- [ ] **Step 4: Verify — Premium doctor can enable, then auto-disables on downgrade**
+Expected: four `PASS:` notices, no `TEST FAILED` exception. The `ROLLBACK` undoes every
+`profiles`/`website_settings` mutation — confirm with a fresh read-only re-check of that same
+doctor's `plan_tier` and `show_online_consultation` values matching whatever they were before
+this step ran.
 
-```sql
-update profiles set plan_tier = 'premium' where id = '<test-doctor-id>';
-update website_settings set show_online_consultation = true where doctor_id = '<test-doctor-id>';
-select show_online_consultation from website_settings where doctor_id = '<test-doctor-id>';
--- Expect: true
-
-update profiles set plan_tier = 'pro' where id = '<test-doctor-id>';
-select show_online_consultation from website_settings where doctor_id = '<test-doctor-id>';
--- Expect: false (auto-disabled by the downgrade trigger)
-```
-
-- [ ] **Step 5: Save the migration file to the repo and commit**
+- [ ] **Step 3: Save the migration file to the repo and commit**
 
 ```bash
 git add supabase/migrations/<timestamp>_online_consultation_gating.sql
@@ -378,10 +429,10 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Check the existing INSERT policy on `invoices` before adding a new one**
 
-Run on the branch: `select policyname, cmd, qual, with_check from pg_policies where tablename = 'invoices';`
+Run (read-only) on `atmelijhxsjzjixhdfcu`: `select policyname, cmd, qual, with_check from pg_policies where tablename = 'invoices';`
 Note the existing INSERT policy's `with_check` expression (record it — Step 2 must AND onto it, not replace it, so doctor-ownership checks aren't lost).
 
-- [ ] **Step 2: Write and apply the migration on the branch**
+- [ ] **Step 2: Write and apply the migration on production**
 
 Using whatever the existing INSERT policy's `with_check` condition was found to be in Step 1 (referred to below as `<existing_with_check>` — substitute the real expression), replace that single policy so it also requires premium access:
 
@@ -395,20 +446,23 @@ CREATE POLICY "<existing_policy_name_from_step_1>"
   );
 ```
 
-Apply via `mcp__supabase__apply_migration` on the branch, `name: "invoices_premium_rls"`.
+Apply via `mcp__supabase__apply_migration` on `atmelijhxsjzjixhdfcu`, `name: "invoices_premium_rls"`.
 
-- [ ] **Step 3: Verify — Basic doctor's invoice insert is rejected**
+- [ ] **Step 3: Verify the policy's condition — read-only, no mutation needed**
 
-Using the Supabase branch's REST endpoint with a Basic-tier test doctor's own JWT (not the service-role key, so RLS actually applies):
+`execute_sql` runs as the service role, which bypasses RLS entirely, so a real end-to-end "this
+insert gets rejected" test isn't possible from this connection — and isn't needed to confirm the
+policy logic is correct, since `doctor_has_premium_access()` is already fully verified in Task 2.
+Just confirm the policy references it correctly, read-only:
+
 ```sql
--- As service role, first confirm doctor is Basic:
-update profiles set plan_tier = 'pro', plan_status = 'active' where id = '<test-doctor-id>';
+select policyname, with_check from pg_policies where tablename = 'invoices' and cmd = 'INSERT';
 ```
-Then, via `execute_sql` impersonating that role is not directly possible with the service-role connection used by `execute_sql` (it bypasses RLS) — instead verify by temporarily calling the policy's condition directly:
-```sql
-select doctor_has_premium_access('<test-doctor-id>'); -- expect: false
-```
-Combined with Task 2's Step 2 verification pattern, this confirms the policy's `WITH CHECK` clause would evaluate false for this doctor. Full end-to-end RLS verification (real anon-key client attempting the insert) happens in the Manual QA checklist at the end of this plan, once merged to production and testable through the actual app.
+Expected: the `with_check` text includes `doctor_has_premium_access(doctor_id)`.
+
+Full end-to-end RLS verification (a real Basic-tier doctor's own session attempting an insert
+through the actual app, expected to be rejected) happens in Task 15's Manual QA checklist, using
+the app itself rather than a raw SQL connection.
 
 - [ ] **Step 4: Save the migration file to the repo and commit**
 
@@ -430,7 +484,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Consumes: nothing from earlier tasks directly, but its UPDATE fires Task 4's `disable_online_consultation_on_downgrade` trigger.
 - Produces: a scheduled `pg_cron` job named `expire-trials`.
 
-- [ ] **Step 1: Write and apply the migration on the branch**
+- [ ] **Step 1: Write and apply the migration on production**
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_cron;
@@ -442,23 +496,51 @@ SELECT cron.schedule(
 );
 ```
 
-Apply via `mcp__supabase__apply_migration` on the branch, `name: "trial_auto_expiry_cron"`.
+Apply via `mcp__supabase__apply_migration` on `atmelijhxsjzjixhdfcu`, `name: "trial_auto_expiry_cron"`.
 
-- [ ] **Step 2: Verify the job is registered**
+- [ ] **Step 2: Verify the job is registered (read-only)**
 
 ```sql
 select jobname, schedule, command from cron.job where jobname = 'expire-trials';
 ```
 Expected: one row with the schedule `0 2 * * *` and the UPDATE command above.
 
-- [ ] **Step 3: Verify the UPDATE's logic directly (don't wait for the schedule)**
+- [ ] **Step 3: Verify the UPDATE's logic directly, wrapped in BEGIN...ROLLBACK so no real doctor's status actually changes**
 
 ```sql
-update profiles set plan_status = 'trial', trial_end = now() - interval '1 day' where id = '<test-doctor-id>';
-UPDATE public.profiles SET plan_status = 'expired' WHERE plan_status = 'trial' AND trial_end < now();
-select plan_status from profiles where id = '<test-doctor-id>';
+BEGIN;
+
+DO $$
+DECLARE
+  test_doctor_id uuid;
+  resulting_status public.plan_status;
+BEGIN
+  SELECT id INTO test_doctor_id FROM profiles LIMIT 1;
+
+  UPDATE profiles SET plan_status = 'trial', trial_end = now() - interval '1 day' WHERE id = test_doctor_id;
+  UPDATE public.profiles SET plan_status = 'expired' WHERE plan_status = 'trial' AND trial_end < now();
+
+  SELECT plan_status INTO resulting_status FROM profiles WHERE id = test_doctor_id;
+  IF resulting_status <> 'expired' THEN
+    RAISE EXCEPTION 'TEST FAILED: expected plan_status=expired, got %', resulting_status;
+  END IF;
+  RAISE NOTICE 'PASS: lapsed trial correctly flipped to expired';
+
+  -- Cascading effect: if this doctor had show_online_consultation on (and isn't premium),
+  -- Task 4's downgrade trigger should have just disabled it via this same UPDATE.
+  IF EXISTS (
+    SELECT 1 FROM website_settings
+    WHERE doctor_id = test_doctor_id AND show_online_consultation = true
+  ) THEN
+    RAISE EXCEPTION 'TEST FAILED: show_online_consultation should have been auto-disabled';
+  END IF;
+  RAISE NOTICE 'PASS: cascading auto-disable confirmed (or was already off)';
+END $$;
+
+ROLLBACK;
 ```
-Expected: `expired`. Also confirm the cascading effect: if that doctor had `show_online_consultation = true` and `plan_tier != 'premium'`, it's now `false` (Task 4's downgrade trigger fired from this UPDATE).
+Expected: two `PASS:` notices, no `TEST FAILED` exception, and the real doctor's `plan_status`
+unchanged after the `ROLLBACK` (confirm with a read-only re-select if you want extra certainty).
 
 - [ ] **Step 4: Save the migration file to the repo and commit**
 
@@ -471,32 +553,29 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 7: Merge the branch to production
+### Task 7: Final DB verification — SKIPPED (merge/delete branch), reduced to a consolidated check
 
 **Files:** None.
 
 **Interfaces:** None — checkpoint task.
 
-- [ ] **Step 1: Final review**
+Steps 2 (merge) and 4 (delete branch) from the original plan no longer apply — there is no branch
+(Task 1 was skipped; Tasks 2–6 already applied directly to production). Kept as a consolidated
+post-Tasks-2–6 sanity check:
 
-Run `mcp__supabase__get_advisors` (type: `security`) on the branch `project_id` and confirm no new advisories were introduced by Tasks 2–6 beyond what already existed on production (compare against a baseline `get_advisors` call on `atmelijhxsjzjixhdfcu` if unsure).
+- [ ] **Step 1: Security advisory check**
 
-- [ ] **Step 2: Merge**
+Run `mcp__supabase__get_advisors` (type: `security`) on `atmelijhxsjzjixhdfcu` and confirm no new
+advisories were introduced by Tasks 2–6 beyond whatever already existed before this plan started
+(the pre-existing `SECURITY DEFINER`/leaked-password-protection advisories from earlier in this
+project are expected and unrelated).
 
-Call `mcp__supabase__merge_branch` with the branch's `project_id`. This applies all 5 migrations from Tasks 2–6 to production (`atmelijhxsjzjixhdfcu`).
-
-**This is a production-affecting action — confirm with the user before running this step if executing this plan unattended.**
-
-- [ ] **Step 3: Verify on production**
+- [ ] **Step 2: Confirm all 5 functions/objects exist on production**
 
 ```sql
 select proname from pg_proc where proname in ('doctor_has_premium_access', 'get_appointment_cap_usage', 'enforce_monthly_appointment_cap', 'enforce_online_consultation_gate', 'auto_disable_online_consultation_on_downgrade');
 ```
-Run via `mcp__supabase__execute_sql` on `atmelijhxsjzjixhdfcu` (production). Expected: all 5 function names present.
-
-- [ ] **Step 4: Delete the branch**
-
-Call `mcp__supabase__delete_branch` with the branch's `project_id` — its migrations now live in production and in git, so the branch itself is no longer needed.
+Run via `mcp__supabase__execute_sql` on `atmelijhxsjzjixhdfcu`. Expected: all 5 function names present.
 
 No git commit — this task doesn't change the working tree (Tasks 2–6 already committed their migration files).
 
