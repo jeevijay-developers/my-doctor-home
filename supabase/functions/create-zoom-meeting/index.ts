@@ -117,6 +117,13 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create") {
+      const { data: isPremium } = await admin.rpc("doctor_has_premium_access", { _doctor_id: appt.doctor_id });
+      if (!isPremium) {
+        return json(403, { error: "Online Consultation is a Premium-only feature" });
+      }
+    }
+
+    if (action === "create") {
       if (appt.zoom_join_url && appt.zoom_meeting_id) {
         return json(200, {
           meeting_id: appt.zoom_meeting_id,
