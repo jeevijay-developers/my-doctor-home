@@ -51,7 +51,7 @@ UI reflecting them. Touches `appointments`, `website_settings`, `profiles`, `inv
 | Enforcement depth for Billing/Blog | Same real server-side backstop as Appointments/Zoom — not UI-only. Kept consistent rather than half-real. |
 | Dashboard distinction | Same `AdminLayout`/`AdminSidebar` for everyone (all nav items always visible) — gated pages show a locked/upsell state (`LockedFeatureCard`) in place of real content, rather than hiding nav items or using separate layouts. |
 | Trial auto-expiry | In scope: enable `pg_cron`, add a daily job flipping lapsed trials to `expired`. |
-| Dead "Upgrade Plan" buttons | In scope: wire both (`SettingsPage.tsx`, `DashboardHome.tsx`) to open `ContactSupportDialog`, since it's the same broken pattern this feature already fixes fresh in `LockedFeatureCard`. |
+| Dead "Upgrade Plan" button | In scope: wire it (`SettingsPage.tsx:82` — the only one; re-checked during planning, `DashboardHome.tsx` has no such button despite earlier assumption) to open `ContactSupportDialog`, since it's the same broken pattern this feature already fixes fresh in `LockedFeatureCard`. |
 
 ## Data model & enforcement layer
 
@@ -99,6 +99,14 @@ No new tables — everything hangs off existing schema.
    gateway directly. Adds JWT extraction + the same `doctor_has_premium_access` RPC check.
    (`verify_jwt` is already `true` in `config.toml`, so unauthenticated calls are already rejected
    by the platform; this closes the gap of an *authenticated Basic doctor* calling it directly.)
+   **Prerequisite bug found during planning**: `BlogPage.tsx`'s `generateWithAI` currently calls
+   this function via a raw `fetch()` authenticated with `VITE_SUPABASE_PUBLISHABLE_KEY` (the anon
+   key) as the bearer token, not the doctor's own session token — so there is currently no
+   resolvable user identity on this call at all. Without fixing this, the new server-side gate
+   would reject every doctor, not just Basic ones. Fix: switch `BlogPage.tsx` to
+   `supabase.functions.invoke("ai-blog-writer", { body: {...} })`, matching the pattern already
+   used elsewhere in this codebase (`PhoneOtpForm.tsx`, `VideoConsultationCard.tsx`) — it
+   automatically attaches the current session's JWT.
 10. **Marketing copy fix**: `PricingSection.tsx` Starter tier, "Up to 100 appointments/month" → 500.
 
 ## Trial auto-expiry
@@ -132,8 +140,8 @@ day it expires.
 - **Error surfacing**: DB trigger rejections (cap hit, forced Zoom toggle) are caught client-side
   and shown via `toast.error` with a friendly message, matching the existing error pattern used
   throughout the app rather than surfacing the raw Postgres exception text.
-- **Dead button fix**: both existing non-functional "Upgrade Plan" buttons
-  (`SettingsPage.tsx`, `DashboardHome.tsx`) get wired to open `ContactSupportDialog`.
+- **Dead button fix**: the existing non-functional "Upgrade Plan" button (`SettingsPage.tsx:82`)
+  gets wired to open `ContactSupportDialog`.
 
 ## Edge cases & error handling
 
@@ -150,11 +158,20 @@ day it expires.
 
 ## Testing
 
-- **DB-level (pgTAP, available on this project)**: `enforce_monthly_appointment_cap` (blocks the
-  501st Basic appointment; allows Premium/trial unconditionally; respects scheduled-month window,
-  not creation-month), `enforce_online_consultation_gate` (blocks Basic true-flip; allows
-  false-flip), `auto_disable_online_consultation_on_downgrade` (true→false disables; other
-  transitions no-op), and the pg_cron expiry UPDATE's WHERE-clause logic.
+- **DB-level**: **correction found during planning** — `pgTAP` the extension exists on this
+  project, but there is no existing pgTAP test harness/runner in this repo (`supabase/tests/` is
+  empty), and the Supabase CLI needed to run `supabase test db` isn't installed in this dev
+  environment. Rather than standing up a new test framework from scratch for this one feature,
+  verification is done the same way all DB work has been verified in this project so far: apply
+  migrations and run direct SQL assertions via the Supabase MCP tools
+  (`apply_migration`/`execute_sql`), against an isolated **development branch**
+  (`mcp__supabase__create_branch`), not production — this touches trigger logic on tables holding
+  real doctor data. Covers: `enforce_monthly_appointment_cap` (blocks the 501st Basic appointment;
+  allows Premium/trial unconditionally; respects scheduled-month window, not creation-month),
+  `enforce_online_consultation_gate` (blocks Basic true-flip; allows false-flip),
+  `auto_disable_online_consultation_on_downgrade` (true→false disables; other transitions no-op),
+  and the pg_cron expiry UPDATE's WHERE-clause logic. The branch is left for the user's review
+  rather than auto-merged to production.
 - **Edge functions**: `create-zoom-meeting` gets a new test case asserting 403 for a Basic
   doctor's `action:"create"`; `ai-blog-writer` gets equivalent new coverage for its newly-added
   auth path (it currently has none).
