@@ -25,7 +25,27 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             .select("plan_status")
             .eq("id", s.user.id)
             .maybeSingle();
-          if (mounted) setSuspended(prof?.plan_status === "cancelled");
+          if (prof) {
+            if (mounted) setSuspended(prof.plan_status === "cancelled");
+            return;
+          }
+          // No profiles row under this session's own id — check whether
+          // it's a staff session, and if so gate on their ASSIGNED
+          // doctor's plan_status, so a suspended doctor's staff can't use
+          // account suspension as a workaround.
+          const { data: staffRow } = await supabase
+            .from("staff_members")
+            .select("doctor_id, status")
+            .eq("id", s.user.id)
+            .maybeSingle();
+          if (staffRow?.status !== "active") {
+            if (mounted) setSuspended(false);
+            return;
+          }
+          // Plain profiles SELECT is gated by "View Profile", which
+          // suspension shouldn't depend on — use the narrow RPC instead.
+          const { data: planStatus } = await supabase.rpc("get_doctor_plan_status", { _doctor_id: staffRow.doctor_id });
+          if (mounted) setSuspended(planStatus === "cancelled");
         }, 0);
       } else {
         setSuspended(false);

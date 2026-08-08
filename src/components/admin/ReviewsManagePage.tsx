@@ -13,7 +13,7 @@ type Review = {
 };
 
 const ReviewsManagePage = () => {
-  const { profile } = useProfile();
+  const { profile, can } = useProfile();
   const [reviews, setReviews] = useState<Review[]>([]);
 
   const load = async () => {
@@ -125,9 +125,11 @@ const ReviewsManagePage = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => togglePin(r.id, r.is_pinned)} title={r.is_pinned ? "Unpin" : "Pin"}>
-                          <Pin className={`h-4 w-4 ${r.is_pinned ? "text-warning" : "text-muted-foreground/40"}`} />
-                        </Button>
+                        {can("reviews.manage") && (
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => togglePin(r.id, r.is_pinned)} title={r.is_pinned ? "Unpin" : "Pin"}>
+                            <Pin className={`h-4 w-4 ${r.is_pinned ? "text-warning" : "text-muted-foreground/40"}`} />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

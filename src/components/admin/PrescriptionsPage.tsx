@@ -32,7 +32,7 @@ const emptyForm = {
 };
 
 const PrescriptionsPage = () => {
-  const { profile } = useProfile();
+  const { profile, isStaff, can } = useProfile();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
@@ -185,6 +185,7 @@ const PrescriptionsPage = () => {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{prescriptions.length} total records</p>
         </div>
+        {can("prescriptions.create") && (
         <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); }}>
           <DialogTrigger asChild>
             <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> New Prescription</Button>
@@ -229,6 +230,7 @@ const PrescriptionsPage = () => {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <div className={`transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
@@ -262,6 +264,7 @@ const PrescriptionsPage = () => {
                 {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
               </Button>
             )}
+            {!isStaff && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -279,6 +282,7 @@ const PrescriptionsPage = () => {
                 <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            )}
           </div>
         </div>
       )}
@@ -393,11 +397,13 @@ const PrescriptionsPage = () => {
                     <Label className="text-xs text-muted-foreground">Notes</Label>
                     <p className="text-sm text-foreground mt-1 whitespace-pre-line">{viewing.notes || <span className="text-muted-foreground italic">No notes</span>}</p>
                   </div>
+                  {can("prescriptions.edit") && (
                   <div className="pt-2">
                     <Button onClick={startEdit} className="w-full h-10 bg-royal hover:bg-royal/90">
                       <Pencil className="h-4 w-4 mr-2" /> Edit
                     </Button>
                   </div>
+                  )}
                 </div>
               ) : (
                 <div className="mt-6 space-y-4">

@@ -108,6 +108,11 @@ const Navbar = () => {
           <Button size="sm" variant="cta" className="hidden sm:flex font-heading font-semibold" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>
+          <Link to="/staff-login" className="hidden sm:block">
+            <Button size="sm" variant="outline" className="font-heading font-semibold">
+              Staff Login
+            </Button>
+          </Link>
           <button className="lg:hidden p-2 rounded-lg hover:bg-secondary transition-colors" onClick={() => setMobileOpen(!mobileOpen)}>
             {mobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -142,6 +147,11 @@ const Navbar = () => {
           <Button variant="cta" className="w-full mt-3 font-heading" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>
+          <Link to="/staff-login" onClick={() => setMobileOpen(false)}>
+            <Button variant="outline" className="w-full mt-2 font-heading">
+              Staff Login
+            </Button>
+          </Link>
         </div>
       )}
     </nav>

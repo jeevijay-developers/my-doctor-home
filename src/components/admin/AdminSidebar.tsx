@@ -1,7 +1,9 @@
-import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCircle } from "lucide-react";
+import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCircle, UserCog } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useProfile } from "@/hooks/useProfile";
+import type { PermissionKey } from "@/lib/staffPermissions";
 import ContactSupportDialog from "./ContactSupportDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -20,23 +22,33 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainItems = [
-  { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
-  { title: "My Website", url: "/admin/my-website", icon: Globe },
-  { title: "Appointments", url: "/admin/appointments", icon: CalendarCheck },
-  { title: "Patients", url: "/admin/patients", icon: Users },
-  { title: "Prescriptions", url: "/admin/prescriptions", icon: ClipboardList },
-  { title: "Reviews", url: "/admin/reviews", icon: MessageSquare },
-  { title: "Blog", url: "/admin/blog", icon: FileText },
-  { title: "Billing", url: "/admin/billing", icon: CreditCard },
-  { title: "Profile", url: "/admin/profile", icon: UserCircle },
-  { title: "Settings", url: "/admin/settings", icon: Settings },
+const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; permission: PermissionKey | null }[] = [
+  { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard, permission: "dashboard.view" },
+  { title: "My Website", url: "/admin/my-website", icon: Globe, permission: "website.view" },
+  { title: "Appointments", url: "/admin/appointments", icon: CalendarCheck, permission: "appointments.view" },
+  { title: "Patients", url: "/admin/patients", icon: Users, permission: "patients.view" },
+  { title: "Prescriptions", url: "/admin/prescriptions", icon: ClipboardList, permission: "prescriptions.view" },
+  { title: "Reviews", url: "/admin/reviews", icon: MessageSquare, permission: "reviews.view" },
+  { title: "Blog", url: "/admin/blog", icon: FileText, permission: "blog.view" },
+  { title: "Billing", url: "/admin/billing", icon: CreditCard, permission: "billing.view" },
+  { title: "Profile", url: "/admin/profile", icon: UserCircle, permission: "profile.view" },
+  { title: "Staff Management", url: "/admin/staff", icon: UserCog, permission: "staff.view" },
+  // No permission entry: Settings has no checkbox anywhere in the staff
+  // permission system, so it stays doctor-only regardless of what's granted.
+  { title: "Settings", url: "/admin/settings", icon: Settings, permission: null },
 ];
 
 const AdminSidebar = () => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
+  const { isStaff, can } = useProfile();
+
+  const visibleItems = mainItems.filter((item) => {
+    if (!isStaff) return true;
+    if (item.permission === null) return false;
+    return can(item.permission);
+  });
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -75,7 +87,7 @@ const AdminSidebar = () => {
           <SidebarGroupLabel className="text-sidebar-foreground/70 text-xs font-semibold uppercase tracking-wider">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className="rounded-xl h-11">
                     <NavLink
