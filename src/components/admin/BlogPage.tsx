@@ -180,11 +180,12 @@ const BlogPage = () => {
     if (!aiTopic.trim()) return;
     setAiLoading(true);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-blog-writer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
         },
         body: JSON.stringify({ topic: aiTopic, doctorName: profile?.full_name, specialization: profile?.specialization }),
       });
@@ -195,6 +196,8 @@ const BlogPage = () => {
           toast({ title: "Rate limit exceeded", description: "Please try again in a moment.", variant: "destructive" });
         } else if (res.status === 402) {
           toast({ title: "AI credits exhausted", description: "Please add credits to continue.", variant: "destructive" });
+        } else if (res.status === 403) {
+          toast({ title: "Premium feature", description: errData.error || "Upgrade to Premium to use AI Blog Writer.", variant: "destructive" });
         } else {
           toast({ title: "AI generation failed", description: errData.error || "Try again later.", variant: "destructive" });
         }
