@@ -9,8 +9,12 @@ import { format, addDays, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
+import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { usePaymentMode } from "@/hooks/usePaymentMode";
+import TestModeBadge from "@/components/shared/TestModeBadge";
 import AppointmentSlip from "./AppointmentSlip";
 import PaymentSlip from "./PaymentSlip";
+import MockCheckoutModal from "./MockCheckoutModal";
 
 const getNextDays = (count: number) => {
   const days = [];
@@ -36,22 +40,6 @@ const loadRazorpayCheckout = (): Promise<void> => {
     document.body.appendChild(script);
   });
   return razorpayCheckoutPromise;
-};
-
-// supabase.functions.invoke() only gives us an Error on non-2xx responses —
-// the JSON body (where our edge functions put { error: "..." }) has to be
-// read off the underlying Response via FunctionsHttpError.context.
-const edgeFunctionErrorMessage = async (error: any, fallback: string): Promise<string> => {
-  try {
-    if (error?.context && typeof error.context.json === "function") {
-      const body = await error.context.json();
-      if (body?.message) return String(body.message);
-      if (body?.error) return String(body.error);
-    }
-  } catch {
-    // fall through to fallback
-  }
-  return fallback;
 };
 
 const generateTimeSlots = (start: string | null, end: string | null) => {
@@ -94,12 +82,16 @@ type CachedOrder = {
   key_id: string;
   amount: number;
   currency: string;
+  mode: "mock" | "live";
 };
+
+type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 
 const STEP_LABELS = ["Consultation Type", "Select Service", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
 
 const BookingWidget = () => {
   const { profile, services, settings, workingHours } = useDoctorData();
+  const { isMock: paymentModeIsMock } = usePaymentMode();
   const [step, setStep] = useState(1);
   const [type, setType] = useState<"clinic" | "online">("clinic");
   const [selectedService, setSelectedService] = useState<any>(null);
@@ -123,6 +115,7 @@ const BookingWidget = () => {
   const [confirmedApptId, setConfirmedApptId] = useState<string | null>(null);
   const [slipOpen, setSlipOpen] = useState(false);
   const [paymentSlipOpen, setPaymentSlipOpen] = useState(false);
+  const [mockCheckoutOpen, setMockCheckoutOpen] = useState(false);
 
   useEffect(() => { if (confirmed) setSlipOpen(true); }, [confirmed]);
 
@@ -260,7 +253,7 @@ const BookingWidget = () => {
     setStep(1); setType("clinic"); setSelectedService(null); setSelectedDate(null);
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setConfirmedPaymentStatus("pay_at_clinic"); setPaymentMeta(null);
-    setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage("");
+    setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setMockCheckoutOpen(false);
     setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
 
@@ -361,17 +354,85 @@ const BookingWidget = () => {
       key_id: orderData.key_id,
       amount: orderData.amount,
       currency: orderData.currency,
+      mode: orderData.mode === "mock" ? "mock" : "live",
     };
     setCachedOrder(order);
     return order;
   };
 
-  // Opens Razorpay Checkout for an already-created order and verifies the
-  // result. The appointment is created ONLY inside verify-razorpay-payment,
-  // and only after the payment signature is verified — so a failed/cancelled
-  // payment never books anything, and a successful one can never be applied
-  // twice (idempotent on payment_id).
+  // Shared by the real Razorpay `handler` callback AND MockCheckoutModal's
+  // "Simulate Successful Payment" / "Simulate Signature Mismatch" — every
+  // outcome from either gateway is verified through this exact same call,
+  // so verify-razorpay-payment, appointment creation, and commission split
+  // run identically in mock and live mode. Only the caller (real Checkout vs
+  // the mock modal) differs.
+  const handleCheckoutResult = async (order: CachedOrder, response: CheckoutResponse) => {
+    const { data: verifyData, error: verifyErr } = await supabase.functions.invoke("verify-razorpay-payment", {
+      body: {
+        payment_id: order.payment_id,
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_signature: response.razorpay_signature,
+      },
+    });
+
+    if (verifyErr || !verifyData?.ok || !verifyData?.appointment) {
+      const message = await edgeFunctionErrorMessage(
+        verifyErr,
+        "Payment verification failed. Please contact the clinic with your payment ID.",
+      );
+      setMockCheckoutOpen(false);
+      setPaymentFailureMessage(message);
+      setPaymentFailed(true);
+      setSubmitting(false);
+      return; // No appointment was created.
+    }
+
+    setPaymentMeta({
+      razorpayPaymentId: response.razorpay_payment_id,
+      razorpayOrderId: response.razorpay_order_id,
+      amount: Number(verifyData.payment?.amount ?? selectedService?.price ?? order.amount / 100),
+      paidAt: verifyData.appointment.created_at ?? null,
+    });
+    setCachedOrder(null);
+    setMockCheckoutOpen(false);
+    toast.success(order.mode === "mock" ? "Test payment successful! Your appointment is confirmed." : "Payment successful! Your appointment is confirmed.");
+    finalizeConfirmed(verifyData.appointment.id, verifyData.appointment.token_number, "paid");
+    setSubmitting(false);
+  };
+
+  // Shared by real Razorpay's `payment.failed` event and MockCheckoutModal's
+  // "Simulate Failed Payment" / "Payment Timeout" — a genuine failure (as
+  // opposed to the patient just closing the modal) sends them to the
+  // dedicated Payment Failed screen.
+  const handleCheckoutFailure = (message: string) => {
+    setMockCheckoutOpen(false);
+    setPaymentFailureMessage(message);
+    setPaymentFailed(true);
+    setSubmitting(false);
+  };
+
+  // Cancelled, not failed — keep the cached order so a follow-up "Pay Now"
+  // click on the Review step reuses it instead of minting a new one.
+  const handleCheckoutDismiss = () => {
+    setSubmitting(false);
+    setMockCheckoutOpen(false);
+    toast.info("Payment cancelled.", { description: "No appointment was created. You can try again anytime." });
+  };
+
+  // Opens Checkout for an already-created order and verifies the result. The
+  // appointment is created ONLY inside verify-razorpay-payment, and only
+  // after the payment signature is verified — so a failed/cancelled payment
+  // never books anything, and a successful one can never be applied twice
+  // (idempotent on payment_id). In mock mode this opens MockCheckoutModal
+  // instead of loading the real Razorpay script — everything past this point
+  // (verification, appointment creation, ledger) is identical either way.
   const openCheckout = async (order: CachedOrder) => {
+    if (order.mode === "mock") {
+      setMockCheckoutOpen(true);
+      return;
+    }
+
     try {
       await loadRazorpayCheckout();
     } catch {
@@ -389,51 +450,11 @@ const BookingWidget = () => {
       description: selectedService?.name,
       prefill: { name, contact: normalizeIndianPhone(phone), email: email || undefined },
       theme: { color: "#1e3a8a" },
-      handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-        const { data: verifyData, error: verifyErr } = await supabase.functions.invoke("verify-razorpay-payment", {
-          body: {
-            payment_id: order.payment_id,
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          },
-        });
-
-        if (verifyErr || !verifyData?.ok || !verifyData?.appointment) {
-          const message = await edgeFunctionErrorMessage(
-            verifyErr,
-            "Payment verification failed. Please contact the clinic with your payment ID.",
-          );
-          setPaymentFailureMessage(message);
-          setPaymentFailed(true);
-          setSubmitting(false);
-          return; // No appointment was created.
-        }
-
-        setPaymentMeta({
-          razorpayPaymentId: response.razorpay_payment_id,
-          razorpayOrderId: response.razorpay_order_id,
-          amount: Number(verifyData.payment?.amount ?? selectedService?.price ?? order.amount / 100),
-          paidAt: verifyData.appointment.created_at ?? null,
-        });
-        setCachedOrder(null);
-        toast.success("Payment successful! Your appointment is confirmed.");
-        finalizeConfirmed(verifyData.appointment.id, verifyData.appointment.token_number, "paid");
-        setSubmitting(false);
-      },
-      modal: {
-        // Cancelled, not failed — keep the cached order so a follow-up "Pay
-        // Now" click on the Review step reuses it instead of minting a new one.
-        ondismiss: () => {
-          setSubmitting(false);
-          toast.info("Payment cancelled.", { description: "No appointment was created. You can try again anytime." });
-        },
-      },
+      handler: (response: CheckoutResponse) => handleCheckoutResult(order, response),
+      modal: { ondismiss: handleCheckoutDismiss },
     });
     rzp.on("payment.failed", (resp: { error?: { description?: string } }) => {
-      setPaymentFailureMessage(resp?.error?.description || "Your payment could not be completed. Please try again.");
-      setPaymentFailed(true);
-      setSubmitting(false);
+      handleCheckoutFailure(resp?.error?.description || "Your payment could not be completed. Please try again.");
     });
     rzp.open();
   };
@@ -579,7 +600,9 @@ const BookingWidget = () => {
         <div className="container mx-auto px-4 max-w-lg">
           <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
             <XCircle size={64} className="text-destructive mx-auto mb-4" />
-            <h3 className="font-heading font-bold text-2xl text-foreground mb-2">Payment Failed</h3>
+            <h3 className="font-heading font-bold text-2xl text-foreground mb-2 flex items-center justify-center gap-2 flex-wrap">
+              Payment Failed {paymentModeIsMock && <TestModeBadge />}
+            </h3>
             <p className="text-text-gray mb-4">{paymentFailureMessage || "Your payment could not be completed."}</p>
             <div className="bg-secondary rounded-xl p-4 text-left space-y-2 text-sm mb-4">
               <p><strong>Doctor:</strong> Dr. {profile?.full_name}</p>
@@ -608,6 +631,21 @@ const BookingWidget = () => {
             </div>
           </div>
         </div>
+
+        {cachedOrder?.mode === "mock" && (
+          <MockCheckoutModal
+            open={mockCheckoutOpen}
+            paymentId={cachedOrder.payment_id}
+            amount={selectedService?.price ?? 0}
+            doctorName={`Dr. ${profile?.full_name || ""}`}
+            serviceName={selectedService?.name}
+            dateLabel={selectedDate ? format(selectedDate, "d MMM yyyy") : undefined}
+            timeLabel={selectedTime}
+            onResult={(response) => handleCheckoutResult(cachedOrder, response)}
+            onFailed={handleCheckoutFailure}
+            onDismiss={handleCheckoutDismiss}
+          />
+        )}
       </section>
     );
   }
@@ -783,7 +821,9 @@ const BookingWidget = () => {
 
           {step === 6 && wantsOnlinePayment && (
             <div className="space-y-4">
-              <h3 className="font-heading font-semibold text-lg text-foreground">Review Booking Summary</h3>
+              <h3 className="font-heading font-semibold text-lg text-foreground flex items-center gap-2 flex-wrap">
+                Review Booking Summary {paymentModeIsMock && <TestModeBadge />}
+              </h3>
               <p className="text-xs text-muted-foreground">Please review your details before payment.</p>
 
               <div className="bg-secondary rounded-xl p-4 space-y-4 text-sm">
@@ -837,6 +877,21 @@ const BookingWidget = () => {
           )}
         </div>
       </div>
+
+      {cachedOrder?.mode === "mock" && (
+        <MockCheckoutModal
+          open={mockCheckoutOpen}
+          paymentId={cachedOrder.payment_id}
+          amount={selectedService?.price ?? 0}
+          doctorName={`Dr. ${profile?.full_name || ""}`}
+          serviceName={selectedService?.name}
+          dateLabel={selectedDate ? format(selectedDate, "d MMM yyyy") : undefined}
+          timeLabel={selectedTime}
+          onResult={(response) => handleCheckoutResult(cachedOrder, response)}
+          onFailed={handleCheckoutFailure}
+          onDismiss={handleCheckoutDismiss}
+        />
+      )}
     </section>
   );
 };

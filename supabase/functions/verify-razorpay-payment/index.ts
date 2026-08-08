@@ -1,35 +1,22 @@
 // Step 2 of the pay-first patient booking flow: Checkout success handler
-// calls this with the Razorpay payment id + signature. We verify the HMAC
-// ourselves (never trust the client), and ONLY on a verified signature do we
-// create the appointment — from the booking payload stashed on the payments
-// row by create-razorpay-order, never before. If the slot got taken by
-// someone else in the meantime (rare race between order creation and
-// verification), the payment stays captured but is flagged needs_refund
-// instead of ever producing a duplicate/invalid appointment.
+// (real Razorpay, or the mock checkout — see mock-payment-mode-testing-
+// prompt.md) calls this with a payment id + signature. We verify it
+// ourselves (never trust the client) — using Razorpay's real secret for a
+// real order, or the local mock secret for a mock order (payments.is_mock,
+// set once at order-creation time and never re-derived from client input) —
+// and ONLY on a verified signature do we create the appointment, from the
+// booking payload stashed on the payments row by create-razorpay-order,
+// never before. Every step after signature verification (appointment
+// creation, commission split, ledger) is 100% identical for mock and live —
+// only the money-movement / signature material is faked in mock mode.
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { hmacHex, MOCK_SIGNING_SECRET, corsHeaders, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-
-function json(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-}
-
-async function hmacHex(secret: string, message: string) {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
-  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -45,11 +32,10 @@ Deno.serve(async (req) => {
   if (!payment_id || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
     return json(400, { error: "payment_id, razorpay_order_id, razorpay_payment_id and razorpay_signature are required" });
   }
-  if (!RAZORPAY_KEY_SECRET) return json(501, { error: "Razorpay integration pending — platform API keys not configured" });
 
   const { data: payment, error: payErr } = await admin
     .from("payments")
-    .select("id, doctor_id, amount, status, razorpay_order_id, appointment_id, pending_booking")
+    .select("id, doctor_id, amount, status, razorpay_order_id, appointment_id, pending_booking, is_mock")
     .eq("id", payment_id)
     .eq("razorpay_order_id", razorpay_order_id)
     .maybeSingle();
@@ -64,10 +50,25 @@ Deno.serve(async (req) => {
     return json(200, { ok: true, already_verified: true, appointment: appt, payment: { id: payment.id, razorpay_payment_id, amount: payment.amount } });
   }
 
-  const expectedSignature = await hmacHex(RAZORPAY_KEY_SECRET, `${razorpay_order_id}|${razorpay_payment_id}`);
-  if (expectedSignature !== razorpay_signature) {
-    await admin.from("payments").update({ status: "failed", razorpay_payment_id }).eq("id", payment.id);
-    return json(400, { error: "Signature verification failed" });
+  // Real orders are verified against Razorpay's actual secret; mock orders
+  // (payments.is_mock, set at order-creation time — never trusted from this
+  // request) are verified the same way against the local mock secret. This
+  // is a real HMAC comparison either way, not a bypass — a mismatched mock
+  // signature ("Simulate Signature Mismatch") is rejected exactly like a
+  // real one would be.
+  if (payment.is_mock) {
+    const expectedMockSignature = await hmacHex(MOCK_SIGNING_SECRET, `${razorpay_order_id}|${razorpay_payment_id}`);
+    if (expectedMockSignature !== razorpay_signature) {
+      await admin.from("payments").update({ status: "failed", razorpay_payment_id }).eq("id", payment.id);
+      return json(400, { error: "Signature verification failed" });
+    }
+  } else {
+    if (!RAZORPAY_KEY_SECRET) return json(501, { error: "Razorpay integration pending — platform API keys not configured" });
+    const expectedSignature = await hmacHex(RAZORPAY_KEY_SECRET, `${razorpay_order_id}|${razorpay_payment_id}`);
+    if (expectedSignature !== razorpay_signature) {
+      await admin.from("payments").update({ status: "failed", razorpay_payment_id }).eq("id", payment.id);
+      return json(400, { error: "Signature verification failed" });
+    }
   }
 
   const booking = payment.pending_booking as {
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
       chief_complaint: booking.chief_complaint ?? null,
       status: "confirmed",
       payment_status: "paid",
-      payment_gateway: "razorpay",
+      payment_gateway: payment.is_mock ? "razorpay_mock" : "razorpay",
       gateway_order_id: razorpay_order_id,
       gateway_payment_id: razorpay_payment_id,
       gateway_signature: razorpay_signature,
@@ -111,6 +112,8 @@ Deno.serve(async (req) => {
   if (apptErr) {
     // Payment succeeded but the slot is gone (race) or another DB error occurred.
     // The money is real — flag for manual refund rather than losing the trail.
+    // (Mock payments get the same flag for parity, even though there's no real
+    // money to refund — so the mock flow exercises this path identically too.)
     await admin.from("payments").update({ status: "captured", razorpay_payment_id, razorpay_signature, needs_refund: true }).eq("id", payment.id);
     const code = apptErr.message?.includes("SLOT_FULL") ? "SLOT_FULL"
       : apptErr.message?.includes("SLOT_IN_PAST") ? "SLOT_IN_PAST"
@@ -125,6 +128,8 @@ Deno.serve(async (req) => {
     .eq("id", payment.id);
 
   // Commission split — per-doctor override falls back to the platform default.
+  // Identical for mock and live so doctor-side earnings/settlement UI is
+  // exercised exactly the same way in both modes.
   const [{ data: doctorProfile }, { data: platformSetting }] = await Promise.all([
     admin.from("profiles").select("commission_percent").eq("id", booking.doctor_id).maybeSingle(),
     admin.from("platform_settings").select("value").eq("key", "default_commission_percent").maybeSingle(),
@@ -152,6 +157,6 @@ Deno.serve(async (req) => {
   return json(200, {
     ok: true,
     appointment: appt,
-    payment: { id: payment.id, razorpay_payment_id, razorpay_order_id, amount: gross },
+    payment: { id: payment.id, razorpay_payment_id, razorpay_order_id, amount: gross, is_mock: payment.is_mock },
   });
 });

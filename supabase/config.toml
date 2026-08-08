@@ -9,6 +9,12 @@ verify_jwt = false
 [functions.razorpay-webhook]
 verify_jwt = false
 
+[functions.mock-simulate-payment]
+verify_jwt = false
+
+[functions.get-payment-mode]
+verify_jwt = false
+
 [functions.create-zoom-meeting]
 verify_jwt = false
 

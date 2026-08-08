@@ -13,10 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   Wallet, IndianRupee, PieChart, History, Loader2, Info,
-  RefreshCw, Send, Users2, CreditCard,
+  RefreshCw, Send, Users2, CreditCard, Undo2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { usePaymentMode } from "@/hooks/usePaymentMode";
+import TestModeBadge from "@/components/shared/TestModeBadge";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Payment = Tables<"payments">;
@@ -40,6 +42,7 @@ const payoutStatusStyle: Record<string, { bg: string; text: string; label: strin
 };
 
 const SAPayments = () => {
+  const { isMock: paymentModeIsMock } = usePaymentMode();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [ledger, setLedger] = useState<Ledger[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -47,6 +50,7 @@ const SAPayments = () => {
   const [loading, setLoading] = useState(true);
   const [runningCalc, setRunningCalc] = useState(false);
   const [payingOut, setPayingOut] = useState<string | null>(null);
+  const [refunding, setRefunding] = useState<string | null>(null);
 
   const loadData = async () => {
     const [paymentsRes, ledgerRes, payoutsRes, profilesRes] = await Promise.all([
@@ -133,6 +137,20 @@ const SAPayments = () => {
     loadData();
   };
 
+  const refundPayment = async (paymentId: string) => {
+    setRefunding(paymentId);
+    const { data, error } = await supabase.functions.invoke("refund-payment", { body: { payment_id: paymentId } });
+    setRefunding(null);
+    if (error || !data?.ok) {
+      toast.error("Couldn't process refund", {
+        description: "Real Razorpay refunds aren't wired up yet — this only works for test-mode payments right now.",
+      });
+      return;
+    }
+    toast.success("Payment marked as refunded");
+    loadData();
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center py-24"><Loader2 className="h-7 w-7 animate-spin text-royal" /></div>;
   }
@@ -140,8 +158,9 @@ const SAPayments = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
+        <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2 flex-wrap">
           <Wallet className="h-6 w-6 text-royal" /> Payments & Payouts
+          {paymentModeIsMock && <TestModeBadge />}
         </h1>
         <Button size="sm" variant="outline" onClick={runMonthlyCalculation} disabled={runningCalc} className="gap-1.5">
           <RefreshCw className={`h-3.5 w-3.5 ${runningCalc ? "animate-spin" : ""}`} />
@@ -220,11 +239,18 @@ const SAPayments = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
+                      {p.is_mock && <TestModeBadge />}
                       {orphaned && (
                         <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive">Needs Refund Review</Badge>
                       )}
                       <Badge variant="outline" className={`text-[10px] capitalize ${style.bg} ${style.text}`}>{p.status}</Badge>
                       <span className="font-heading font-bold text-foreground">₹{Number(p.amount).toLocaleString("en-IN")}</span>
+                      {p.status === "captured" && (
+                        <Button size="sm" variant="outline" className="h-8 text-xs gap-1" disabled={refunding === p.id}
+                          onClick={() => refundPayment(p.id)}>
+                          <Undo2 className="h-3.5 w-3.5" /> {refunding === p.id ? "Refunding..." : "Refund"}
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -269,6 +295,7 @@ const SAPayments = () => {
                       <div className="text-xs text-muted-foreground">{p.month}</div>
                     </div>
                     <div className="flex items-center gap-3">
+                      {p.is_mock && <TestModeBadge />}
                       <Badge variant="outline" className={`text-[10px] ${style.bg} ${style.text}`}>{style.label}</Badge>
                       <span className="font-heading font-bold text-foreground">₹{Number(p.total_amount).toLocaleString("en-IN")}</span>
                       <Button size="sm" className="bg-royal hover:bg-royal/90 h-8 text-xs" disabled={p.status !== "pending" || payingOut === p.id}
@@ -299,6 +326,7 @@ const SAPayments = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      {p.is_mock && <TestModeBadge />}
                       <Badge variant="outline" className={`text-[10px] ${style.bg} ${style.text}`}>{style.label}</Badge>
                       <span className="font-heading font-bold text-foreground">₹{Number(p.total_amount).toLocaleString("en-IN")}</span>
                     </div>
