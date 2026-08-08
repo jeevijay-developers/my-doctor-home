@@ -99,8 +99,13 @@ const StaffManagementPage = () => {
       body: { staff_name: form.staff_name.trim(), username: form.username.trim(), password: form.password, status: form.status, permissions },
     });
     setSaving(false);
-    if (error) { toast.error(await edgeFunctionErrorMessage(error, "Could not create staff account")); return; }
-    toast.success("Staff account created");
+    if (error) {
+      // Never logs the password — only the error object supabase-js gives back.
+      console.error("create-staff-account failed:", error);
+      toast.error(await edgeFunctionErrorMessage(error, "Could not create staff account. Check the browser console for details."));
+      return;
+    }
+    toast.success("Staff account created successfully.");
     setDialogOpen(false);
     load();
   };

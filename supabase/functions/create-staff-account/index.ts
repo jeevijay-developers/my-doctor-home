@@ -62,6 +62,24 @@ Deno.serve(async (req) => {
   if (!USERNAME_REGEX.test(username)) return json(400, { error: "Username must be 3-32 characters (letters, numbers, dot, underscore, hyphen)" });
   if (password.length < 8) return json(400, { error: "Password must be at least 8 characters" });
 
+  // Fail fast on a duplicate username before touching auth.users at all —
+  // avoids an unnecessary create+rollback round trip in the common case
+  // (the DB unique index on lower(username) is still the authoritative,
+  // race-safe check; this is just an early, cheaper rejection).
+  const { data: dupe, error: dupeErr } = await admin
+    .from("staff_members")
+    .select("id")
+    .ilike("username", username)
+    .maybeSingle();
+  if (dupeErr) {
+    console.error("create-staff-account: username lookup failed", { code: dupeErr.code, message: dupeErr.message });
+    if (dupeErr.code === "42P01") return json(500, { error: "Staff Management hasn't finished setting up on the server yet. Please try again shortly, or contact support." });
+    return json(500, { error: "Could not verify username availability. Please try again." });
+  }
+  if (dupe) return json(409, { error: "This Staff Login ID is already in use. Please choose another one." });
+
+  console.log("create-staff-account: creating auth user", { staff_name, username, status, permissionCount: Object.values(permissions).filter(Boolean).length });
+
   const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
     email: `staff-${crypto.randomUUID()}@staff.doctylia.internal`,
     password,
@@ -69,7 +87,8 @@ Deno.serve(async (req) => {
     user_metadata: { account_type: "staff", full_name: staff_name },
   });
   if (createErr || !newUser?.user) {
-    return json(400, { error: createErr?.message || "Could not create staff account" });
+    console.error("create-staff-account: auth.admin.createUser failed", { code: (createErr as { code?: string })?.code, status: (createErr as { status?: number })?.status, message: createErr?.message });
+    return json(400, { error: createErr?.message || "Could not create the staff login. Please try again." });
   }
 
   const { error: insertErr } = await admin.from("staff_members").insert({
@@ -82,10 +101,15 @@ Deno.serve(async (req) => {
     created_by: callerId,
   });
   if (insertErr) {
+    console.error("create-staff-account: staff_members insert failed", { code: insertErr.code, message: insertErr.message, details: insertErr.details, hint: insertErr.hint, doctorId, staffAuthId: newUser.user.id });
     await admin.auth.admin.deleteUser(newUser.user.id);
-    if (insertErr.code === "23505") return json(409, { error: "That username is already taken" });
-    return json(400, { error: "Could not save staff account" });
+    if (insertErr.code === "23505") return json(409, { error: "This Staff Login ID is already in use. Please choose another one." });
+    if (insertErr.code === "23503") return json(400, { error: "Could not link this staff account to your doctor profile. Please refresh and try again." });
+    if (insertErr.code === "23514" || insertErr.code === "22P02") return json(400, { error: "One of the submitted values isn't valid. Please check the form and try again." });
+    if (insertErr.code === "42P01") return json(500, { error: "Staff Management hasn't finished setting up on the server yet. Please try again shortly, or contact support." });
+    return json(500, { error: `Could not save the staff account (${insertErr.code || "unknown error"}). Please try again or contact support.` });
   }
 
+  console.log("create-staff-account: success", { staffId: newUser.user.id, doctorId });
   return json(200, { ok: true, staff: { id: newUser.user.id, staff_name, username, status, permissions } });
 });
