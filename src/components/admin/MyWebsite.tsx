@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import ProfilePage from "@/components/admin/ProfilePage";
 import { toast } from "@/hooks/use-toast";
 import { Star } from "lucide-react";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
+import LockedFeatureCard from "./LockedFeatureCard";
 
 type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
 
@@ -26,6 +28,7 @@ const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 const MyWebsite = () => {
   const nav = useNavigate();
   const { profile } = useProfile();
+  const { isPremium } = usePlanAccess();
   const [settings, setSettings] = useState<WebSettings>({});
   const [aboutOpen, setAboutOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
@@ -66,7 +69,8 @@ const MyWebsite = () => {
     setSaving(true);
 
     const { id: _id, doctor_id: _did, created_at: _ca, updated_at: _ua, ...settingsData } = settings;
-    await supabase.from("website_settings").update(settingsData as any).eq("doctor_id", profile.id);
+    const { error: settingsError } = await supabase.from("website_settings").update(settingsData as any).eq("doctor_id", profile.id);
+    if (settingsError) toast({ title: "Save failed", description: settingsError.message, variant: "destructive" });
 
     for (const s of services) {
       if (s.id) {
@@ -293,6 +297,7 @@ const MyWebsite = () => {
             </AccordionItem>
 
             {/* Online Consultation */}
+            {isPremium ? (
             <AccordionItem value="online" className="border rounded-xl px-4">
               <AccordionTrigger className="text-sm font-semibold text-primary">
                 <div className="flex items-center justify-between w-full pr-2">
@@ -336,6 +341,14 @@ const MyWebsite = () => {
                 </div>
               </AccordionContent>
             </AccordionItem>
+            ) : (
+              <div className="border rounded-xl px-4 py-3">
+                <LockedFeatureCard
+                  featureName="Online Consultation"
+                  description="Video consultations via Zoom, with fee and duration settings. Available on Premium."
+                />
+              </div>
+            )}
 
             {/* Booking Settings */}
             <AccordionItem value="booking" className="border rounded-xl px-4">

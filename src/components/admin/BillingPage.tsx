@@ -14,6 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { generateInvoicePDF, type InvoicePayload } from "@/lib/invoicePdf";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
+import LockedFeatureCard from "./LockedFeatureCard";
 
 type Invoice = {
   id: string;
@@ -32,6 +34,7 @@ type Invoice = {
 
 const BillingPage = () => {
   const { profile } = useProfile();
+  const { isPremium, loading: planLoading } = usePlanAccess();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filter, setFilter] = useState("all");
@@ -241,6 +244,17 @@ const BillingPage = () => {
   const downloadInvoice = (inv: Invoice) => {
     generateInvoicePDF(buildInvoicePayload(inv));
   };
+
+  if (!planLoading && !isPremium) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <LockedFeatureCard
+          featureName="Billing & Invoices"
+          description="Track revenue, auto-generate GST invoices, and export transactions. Available on Premium."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

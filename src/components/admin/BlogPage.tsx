@@ -11,6 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import RichTextEditor from "./RichTextEditor";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
+import LockedFeatureCard from "./LockedFeatureCard";
 
 type BlogPost = {
   id: string;
@@ -35,6 +37,7 @@ const MAX_IMAGE_MB = 5;
 
 const BlogPage = () => {
   const { profile } = useProfile();
+  const { isPremium } = usePlanAccess();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<BlogPost | null>(null);
@@ -313,27 +316,34 @@ const BlogPage = () => {
           </DialogHeader>
           <div className="space-y-5">
             {/* AI Writer */}
-            <div className="p-4 rounded-xl bg-ai-purple/5 border border-ai-purple/20 space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-ai-purple">
-                <Sparkles className="h-4 w-4" /> AI Blog Writer
+            {isPremium ? (
+              <div className="p-4 rounded-xl bg-ai-purple/5 border border-ai-purple/20 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-ai-purple">
+                  <Sparkles className="h-4 w-4" /> AI Blog Writer
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter topic e.g. 'Top 10 tips for heart health'"
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={generateWithAI}
+                    disabled={aiLoading || !aiTopic.trim()}
+                    className="bg-ai-purple hover:bg-ai-purple/90 text-white"
+                  >
+                    {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
+                    {aiLoading ? "Writing..." : "Generate"}
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter topic e.g. 'Top 10 tips for heart health'"
-                  value={aiTopic}
-                  onChange={(e) => setAiTopic(e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={generateWithAI}
-                  disabled={aiLoading || !aiTopic.trim()}
-                  className="bg-ai-purple hover:bg-ai-purple/90 text-white"
-                >
-                  {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
-                  {aiLoading ? "Writing..." : "Generate"}
-                </Button>
-              </div>
-            </div>
+            ) : (
+              <LockedFeatureCard
+                featureName="AI Blog Writer"
+                description="Generate patient-friendly health articles with AI in seconds. Available on Premium."
+              />
+            )}
 
             <div className="space-y-1.5">
               <Label>Title *</Label>
