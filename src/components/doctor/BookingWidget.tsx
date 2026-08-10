@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
 import { CheckCircle2, XCircle, ChevronLeft, Video, Users, Clock, FileText, Building2, Receipt } from "lucide-react";
-import jsPDF from "jspdf";
 
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
@@ -10,6 +9,7 @@ import { toast } from "sonner";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { usePaymentMode } from "@/hooks/usePaymentMode";
 import TestModeBadge from "@/components/shared/TestModeBadge";
 import AppointmentSlip from "./AppointmentSlip";
@@ -260,29 +260,6 @@ const BookingWidget = () => {
     setConfirmed(false); setConfirmedPaymentStatus("pay_at_clinic"); setPaymentMeta(null);
     setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setMockCheckoutOpen(false);
     setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
-  };
-
-  const downloadPdfFromNode = async (selector: string, filename: string) => {
-    const html2canvas = (await import("html2canvas")).default;
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
-    const el = document.querySelector(selector) as HTMLElement | null;
-    if (!el) return;
-    const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
-    const imgData = canvas.toDataURL("image/png");
-    const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const margin = 24;
-    const maxW = pageW - margin * 2;
-    const maxH = pageH - margin * 2;
-    const ratio = canvas.width / canvas.height;
-    let w = maxW;
-    let h = w / ratio;
-    if (h > maxH) { h = maxH; w = h * ratio; }
-    const x = (pageW - w) / 2;
-    const y = (pageH - h) / 2;
-    doc.addImage(imgData, "PNG", x, y, w, h);
-    doc.save(filename);
   };
 
   const downloadSlip = () => downloadPdfFromNode('[data-slip-print-root] .slip-card', `appointment-${token}.pdf`);
