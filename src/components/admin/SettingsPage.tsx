@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import RequestUpgradeDialog from "./RequestUpgradeDialog";
-import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES } from "@/lib/planFeatures";
+import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP } from "@/lib/planFeatures";
 
 const SettingsPage = () => {
   const { profile } = useProfile();
@@ -54,8 +54,8 @@ const SettingsPage = () => {
   const planTier = profile?.plan_tier || "free";
   const planStatus = profile?.plan_status || "trial";
   const { basic, premium } = getSubscriptionCardStates(planStatus, planTier, isPremium);
-  const basicFeatures = getTierFeatures("pro", appointmentsCap || 500);
-  const premiumFeatures = getTierFeatures("premium", appointmentsCap || 500);
+  const basicFeatures = getTierFeatures("pro", appointmentsCap || DEFAULT_APPOINTMENT_CAP);
+  const premiumFeatures = getTierFeatures("premium", appointmentsCap || DEFAULT_APPOINTMENT_CAP);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -109,6 +109,7 @@ const SettingsPage = () => {
                     </Badge>
                   )}
                   <h3 className="font-heading font-bold text-foreground mb-1">{TIER_LABELS.pro}</h3>
+                  <p className="text-xs text-muted-foreground">{TIER_TAGLINES.pro}</p>
                   <p className="text-sm text-muted-foreground mb-3">₹{TIER_PRICES.pro}/month</p>
                   <ul className="space-y-1.5 text-sm text-muted-foreground">
                     {basicFeatures.map(f => (
@@ -131,6 +132,7 @@ const SettingsPage = () => {
                     </Badge>
                   )}
                   <h3 className="font-heading font-bold text-foreground mb-1">{TIER_LABELS.premium}</h3>
+                  <p className="text-xs text-muted-foreground">{TIER_TAGLINES.premium}</p>
                   <p className="text-sm text-muted-foreground mb-3">₹{TIER_PRICES.premium}/month</p>
                   <ul className="space-y-1.5 text-sm text-muted-foreground">
                     {premiumFeatures.map(f => (

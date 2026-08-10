@@ -6,7 +6,7 @@ vi.mock("@/hooks/useProfile", () => ({
   useProfile: () => ({ profile: { plan_tier: "pro", plan_status: "active" }, loading: false }),
 }));
 vi.mock("@/hooks/usePlanAccess", () => ({
-  usePlanAccess: () => ({ isPremium: false, appointmentsCap: 500, appointmentsUsed: 0, nearCap: false, loading: false }),
+  usePlanAccess: () => ({ isPremium: false, appointmentsCap: 100, appointmentsUsed: 0, nearCap: false, loading: false }),
 }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {

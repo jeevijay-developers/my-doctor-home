@@ -2,15 +2,15 @@ import { describe, it, expect } from "vitest";
 import { TIER_LABELS, TIER_PRICES, hasNoActivePlan, getTierFeatures, getSubscriptionCardStates } from "./planFeatures";
 
 describe("planFeatures", () => {
-  it("labels free and pro identically as Basic, premium as Premium", () => {
-    expect(TIER_LABELS.free).toBe("Basic");
-    expect(TIER_LABELS.pro).toBe("Basic");
+  it("labels free and pro identically as Pro, premium as Premium", () => {
+    expect(TIER_LABELS.free).toBe("Pro");
+    expect(TIER_LABELS.pro).toBe("Pro");
     expect(TIER_LABELS.premium).toBe("Premium");
   });
 
   it("exposes real prices", () => {
-    expect(TIER_PRICES.pro).toBe(999);
-    expect(TIER_PRICES.premium).toBe(2499);
+    expect(TIER_PRICES.pro).toBe(1499);
+    expect(TIER_PRICES.premium).toBe(3999);
   });
 
   it("hasNoActivePlan is true only for expired and cancelled", () => {
@@ -21,15 +21,17 @@ describe("planFeatures", () => {
   });
 
   it("getTierFeatures includes the live cap for pro, omits it for premium", () => {
-    const basic = getTierFeatures("pro", 500);
-    expect(basic.some((f) => f.includes("500"))).toBe(true);
-    expect(basic).not.toContain("Online Consultation (Zoom)");
+    const basic = getTierFeatures("pro", 100);
+    expect(basic.some((f) => f.includes("100"))).toBe(true);
+    expect(basic).not.toContain("Online consultation");
 
-    const premium = getTierFeatures("premium", 500);
-    expect(premium).toContain("All features included in Basic plan");
-    expect(premium).toContain("Online Consultation (Zoom)");
-    expect(premium).toContain("Billing & Invoices");
-    expect(premium).toContain("AI Blog Writer");
+    const premium = getTierFeatures("premium", 100);
+    expect(premium).toContain("All features included in Pro plan");
+    expect(premium).toContain("Online consultation");
+    expect(premium).toContain("Billing & invoices");
+    expect(premium).toContain("AI blog writer");
+    expect(premium.some((f) => f.includes("Regular checkup alert") && f.includes("Coming soon"))).toBe(true);
+    expect(premium.some((f) => f.includes("Staff roles & access") && f.includes("Coming soon"))).toBe(true);
   });
 
   it("trial: premium is current via trial, basic has no CTA", () => {

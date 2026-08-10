@@ -1,12 +1,23 @@
 import { DEFAULT_PLAN_PRICES } from "@/components/superadmin/SASubscriptions";
 
 export const TIER_LABELS: Record<string, string> = {
-  free: "Basic",
-  pro: "Basic",
+  free: "Pro",
+  pro: "Pro",
   premium: "Premium",
 };
 
+export const TIER_TAGLINES: Record<"pro" | "premium", string> = {
+  pro: "Perfect for solo doctors going digital",
+  premium: "For growing practices that need everything",
+};
+
 export const TIER_PRICES: Record<string, number> = DEFAULT_PLAN_PRICES;
+
+// Fallback shown when appointmentsCap is 0 — either usePlanAccess is still loading,
+// or the viewing doctor is Premium (whose real cap is legitimately 0/inapplicable)
+// but the Pro card still needs a real number to describe what Pro actually includes.
+// Matches the live platform_settings.basic_appointment_cap default.
+export const DEFAULT_APPOINTMENT_CAP = 100;
 
 export function hasNoActivePlan(planStatus: string): boolean {
   return planStatus === "expired" || planStatus === "cancelled";
@@ -15,19 +26,21 @@ export function hasNoActivePlan(planStatus: string): boolean {
 export function getTierFeatures(tier: "pro" | "premium", cap: number): string[] {
   if (tier === "premium") {
     return [
-      "All features included in Basic plan",
-      "Unlimited Appointment Booking",
-      "Online Consultation (Zoom)",
-      "Billing & Invoices",
-      "AI Blog Writer",
+      `All features included in ${TIER_LABELS.pro} plan`,
+      "Unlimited appointments",
+      "Online consultation",
+      "AI blog writer",
+      "Billing & invoices",
+      "Patient records",
+      "Regular checkup alert (Coming soon)",
+      "Staff roles & access (Coming soon)",
     ];
   }
   return [
-    "Website Builder",
-    `Appointment Booking (up to ${cap}/month)`,
-    "Patient Records",
-    "Manual Blog Posts",
-    "Basic Analytics",
+    "Your branded website",
+    "Online appointment booking",
+    `Up to ${cap} appointments/month`,
+    "Basic analytics",
   ];
 }
 

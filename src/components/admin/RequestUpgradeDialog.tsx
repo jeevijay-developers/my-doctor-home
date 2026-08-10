@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { toast } from "@/hooks/use-toast";
-import { TIER_LABELS, hasNoActivePlan, getTierFeatures } from "@/lib/planFeatures";
+import { TIER_LABELS, hasNoActivePlan, getTierFeatures, DEFAULT_APPOINTMENT_CAP } from "@/lib/planFeatures";
 
 const RequestUpgradeDialog = ({
   targetTier,
@@ -29,7 +29,7 @@ const RequestUpgradeDialog = ({
   const subject = noActivePlan
     ? `Reactivation request: ${fromStatus} → ${toLabel}`
     : `Upgrade request: ${TIER_LABELS[fromTier]} → ${toLabel}`;
-  const features = getTierFeatures(targetTier, appointmentsCap || 500);
+  const features = getTierFeatures(targetTier, appointmentsCap || DEFAULT_APPOINTMENT_CAP);
 
   const submit = async () => {
     setBusy(true);

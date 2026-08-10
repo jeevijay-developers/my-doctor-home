@@ -16,8 +16,8 @@ import { Search, RotateCcw, Save } from "lucide-react";
 // Default plan prices (INR / month). Single source of truth for default pricing.
 export const DEFAULT_PLAN_PRICES: Record<string, number> = {
   free: 0,
-  pro: 999,
-  premium: 2499,
+  pro: 1499,
+  premium: 3999,
 };
 
 export const getEffectivePlanPrice = (profile: { plan_tier?: string | null; custom_plan_price?: number | null }) => {

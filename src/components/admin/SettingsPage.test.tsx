@@ -16,7 +16,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 const baseProfile = { id: "doctor-1", full_name: "Dr. Test" };
 
 describe("SettingsPage subscription cards", () => {
-  it("trial doctor: Premium marked current via trial, Basic has no CTA", () => {
+  it("trial doctor: Premium marked current via trial, Pro has no CTA", () => {
     vi.mocked(useProfile).mockReturnValue({ profile: { ...baseProfile, plan_status: "trial", plan_tier: "free" }, loading: false, setProfile: vi.fn(), refetch: vi.fn() } as any);
     vi.mocked(usePlanAccess).mockReturnValue({ isPremium: true, appointmentsCap: 0, appointmentsUsed: 0, nearCap: false, loading: false });
     render(<SettingsPage />);
@@ -25,9 +25,9 @@ describe("SettingsPage subscription cards", () => {
     expect(screen.queryAllByRole("button", { name: /request upgrade/i })).toHaveLength(0);
   });
 
-  it("active Basic doctor: Basic marked current, Premium shows a CTA", () => {
+  it("active Pro doctor: Pro marked current, Premium shows a CTA", () => {
     vi.mocked(useProfile).mockReturnValue({ profile: { ...baseProfile, plan_status: "active", plan_tier: "pro" }, loading: false, setProfile: vi.fn(), refetch: vi.fn() } as any);
-    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: false, appointmentsCap: 500, appointmentsUsed: 0, nearCap: false, loading: false });
+    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: false, appointmentsCap: 100, appointmentsUsed: 0, nearCap: false, loading: false });
     render(<SettingsPage />);
     expect(screen.getAllByText(/current plan/i).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /request upgrade/i })).toHaveLength(1);
@@ -35,7 +35,7 @@ describe("SettingsPage subscription cards", () => {
 
   it("expired doctor: neither card says Current Plan, both show a CTA", () => {
     vi.mocked(useProfile).mockReturnValue({ profile: { ...baseProfile, plan_status: "expired", plan_tier: "free" }, loading: false, setProfile: vi.fn(), refetch: vi.fn() } as any);
-    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: false, appointmentsCap: 500, appointmentsUsed: 0, nearCap: false, loading: false });
+    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: false, appointmentsCap: 100, appointmentsUsed: 0, nearCap: false, loading: false });
     render(<SettingsPage />);
     expect(screen.queryByText(/^current plan$/i)).not.toBeInTheDocument();
     expect(screen.getByText(/your access level/i)).toBeInTheDocument();
