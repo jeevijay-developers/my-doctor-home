@@ -1,69 +1,61 @@
-// Combines the two "background" record types (surgeries/hospitalizations and
-// family history) with a read-only summary of the patient's condition list
-// (full CRUD for conditions lives on the Conditions tab — this tab is the
-// broader chronological/background view).
-import { useEffect, useState } from "react";
+// Combines the three "background" record types (conditions, surgeries/
+// hospitalizations, and family history) into one chronological/background
+// view — there is no separate Conditions tab; full add/edit/delete for
+// conditions lives here.
 import { Scissors, Users2, Stethoscope } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import RecordManager, { RecordItem } from "./RecordManager";
 
-const STATUS_LABEL: Record<string, string> = {
+const CONDITION_STATUS_LABEL: Record<string, string> = {
   active: "Active", under_treatment: "Under Treatment", resolved: "Resolved", unknown: "Unknown",
 };
-const STATUS_CLASS: Record<string, string> = {
+const CONDITION_STATUS_CLASS: Record<string, string> = {
   active: "bg-destructive/10 text-destructive",
   under_treatment: "bg-warning/10 text-warning",
   resolved: "bg-success/10 text-success",
   unknown: "bg-secondary text-muted-foreground",
 };
 
-type Condition = { id: string; condition_name: string; status: string; diagnosis_date: string | null };
-
-const MedicalHistoryTab = ({ patientId, doctorId, refreshKey, onChange }: {
-  patientId: string; doctorId: string; refreshKey: number; onChange?: () => void;
+const MedicalHistoryTab = ({ patientId, doctorId, onChange }: {
+  patientId: string; doctorId: string; onChange?: () => void;
 }) => {
-  const [conditions, setConditions] = useState<Condition[]>([]);
-
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from("patient_conditions")
-        .select("id, condition_name, status, diagnosis_date")
-        .eq("patient_id", patientId)
-        .is("deleted_at", null)
-        .order("diagnosis_date", { ascending: false });
-      setConditions((data || []) as Condition[]);
-    };
-    load();
-  }, [patientId, refreshKey]);
-
   return (
     <div className="space-y-8">
-      <div className="space-y-3">
-        <h3 className="font-heading font-semibold text-foreground flex items-center gap-2">
-          <Stethoscope className="h-4.5 w-4.5 text-royal" /> Condition Summary
-          <Badge variant="secondary" className="text-[10px]">{conditions.length}</Badge>
-        </h3>
-        {conditions.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-2">No conditions recorded yet. Add them from the Conditions tab.</p>
-        ) : (
-          <Card className="border-border/60 shadow-none">
-            <CardContent className="p-4 space-y-2">
-              {conditions.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-foreground">{c.condition_name}</span>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {c.diagnosis_date && <span className="text-xs text-muted-foreground">{c.diagnosis_date}</span>}
-                    <Badge variant="secondary" className={`text-[10px] ${STATUS_CLASS[c.status]}`}>{STATUS_LABEL[c.status]}</Badge>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      <RecordManager
+        table="patient_conditions"
+        patientId={patientId}
+        doctorId={doctorId}
+        icon={Stethoscope}
+        iconColorClass="text-royal"
+        title="Medical Conditions"
+        addLabel="Add Medical Condition"
+        successLabel="Medical Condition"
+        orderBy="diagnosis_date"
+        emptyTitle="No conditions recorded"
+        emptyHint="Add the patient's diagnosed conditions to build their problem list"
+        defaultValues={{ condition_name: "", diagnosis_date: "", treatment_history: "", status: "active", notes: "" }}
+        fields={[
+          { key: "condition_name", label: "Condition / Disease", type: "text", required: true, placeholder: "e.g. Type 2 Diabetes", colSpan: 2 },
+          { key: "diagnosis_date", label: "Diagnosis Date / Since", type: "date" },
+          { key: "status", label: "Current Status", type: "select", options: [
+            { value: "active", label: "Active" },
+            { value: "under_treatment", label: "Under Treatment" },
+            { value: "resolved", label: "Resolved" },
+            { value: "unknown", label: "Unknown" },
+          ] },
+          { key: "treatment_history", label: "Treatment History", type: "textarea", colSpan: 2 },
+          { key: "notes", label: "Additional Notes", type: "textarea", colSpan: 2 },
+        ]}
+        renderItem={(row: RecordItem) => ({
+          heading: String(row.condition_name),
+          badges: [{ label: CONDITION_STATUS_LABEL[String(row.status)] || "Unknown", className: CONDITION_STATUS_CLASS[String(row.status)] }],
+          lines: [
+            ...(row.diagnosis_date ? [{ label: "Since", value: String(row.diagnosis_date) }] : []),
+            ...(row.treatment_history ? [{ label: "Treatment", value: String(row.treatment_history) }] : []),
+            ...(row.notes ? [{ label: "Notes", value: String(row.notes) }] : []),
+          ],
+        })}
+        onChange={onChange}
+      />
 
       <RecordManager
         table="patient_surgeries"

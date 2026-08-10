@@ -9,11 +9,9 @@ import { Loader2 } from "lucide-react";
 
 import OverviewTab from "./medical-records/OverviewTab";
 import MedicalHistoryTab from "./medical-records/MedicalHistoryTab";
-import ConditionsTab from "./medical-records/ConditionsTab";
 import MedicationsTab from "./medical-records/MedicationsTab";
 import AllergiesTab from "./medical-records/AllergiesTab";
 import VisitsTab from "./medical-records/VisitsTab";
-import PrescriptionsTab from "./medical-records/PrescriptionsTab";
 import DocumentsTab from "./medical-records/DocumentsTab";
 import TimelineTab from "./medical-records/TimelineTab";
 import CheckupReminderTab from "./medical-records/CheckupReminderTab";
@@ -90,23 +88,19 @@ const PatientMedicalRecord = () => {
         <TabsList className="bg-card border border-border h-auto flex-wrap justify-start p-1 gap-1">
           <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
           <TabsTrigger value="history" className="text-xs sm:text-sm">Medical History</TabsTrigger>
-          <TabsTrigger value="conditions" className="text-xs sm:text-sm">Conditions</TabsTrigger>
           <TabsTrigger value="medications" className="text-xs sm:text-sm">Medications</TabsTrigger>
           <TabsTrigger value="allergies" className="text-xs sm:text-sm">Allergies</TabsTrigger>
           <TabsTrigger value="visits" className="text-xs sm:text-sm">Visits</TabsTrigger>
-          <TabsTrigger value="prescriptions" className="text-xs sm:text-sm">Prescriptions</TabsTrigger>
           <TabsTrigger value="documents" className="text-xs sm:text-sm">Reports/Documents</TabsTrigger>
           <TabsTrigger value="timeline" className="text-xs sm:text-sm">Timeline</TabsTrigger>
           <TabsTrigger value="checkup-reminder" className="text-xs sm:text-sm">Checkup Reminder</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab patientId={patient.id} refreshKey={refreshKey} /></TabsContent>
-        <TabsContent value="history"><MedicalHistoryTab patientId={patient.id} doctorId={profile.id} refreshKey={refreshKey} onChange={bump} /></TabsContent>
-        <TabsContent value="conditions"><ConditionsTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
+        <TabsContent value="history"><MedicalHistoryTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
         <TabsContent value="medications"><MedicationsTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
         <TabsContent value="allergies"><AllergiesTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
         <TabsContent value="visits"><VisitsTab patientId={patient.id} doctorId={profile.id} patientPhone={patient.phone} onChange={bump} /></TabsContent>
-        <TabsContent value="prescriptions"><PrescriptionsTab patientId={patient.id} /></TabsContent>
         <TabsContent value="documents"><DocumentsTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
         <TabsContent value="timeline"><TimelineTab patientId={patient.id} /></TabsContent>
         <TabsContent value="checkup-reminder"><CheckupReminderTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
