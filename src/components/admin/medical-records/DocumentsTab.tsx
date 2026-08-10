@@ -37,6 +37,21 @@ const TYPE_LABEL: Record<string, string> = {
 const ACCEPTED = ".pdf,.jpg,.jpeg,.png,.webp";
 const ACCEPTED_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
+// crypto.randomUUID() only exists in secure contexts (HTTPS, or localhost/127.0.0.1) —
+// it's undefined on a plain-HTTP LAN origin like http://192.168.x.x:8080, which this
+// app is regularly accessed over during dev/testing. Calling it there threw
+// synchronously before the upload ever reached the network, leaving the button stuck
+// on "Uploading..." forever with no request and no error. crypto.getRandomValues has
+// no such restriction, so fall back to building a real v4 UUID from it.
+function randomUUID(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; doctorId: string; onChange?: () => void }) => {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [visits, setVisits] = useState<VisitOpt[]>([]);
@@ -74,33 +89,42 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
     if (!file) { toast.error("Choose a file to upload"); return; }
     if (!form.document_name.trim()) { toast.error("Document name is required"); return; }
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${doctorId}/${patientId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("patient-documents").upload(path, file);
-    if (upErr) {
-      console.error("patient-documents upload failed:", upErr);
+    let path: string | null = null;
+    try {
+      const ext = file.name.split(".").pop();
+      path = `${doctorId}/${patientId}/${Date.now()}-${randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("patient-documents").upload(path, file);
+      if (upErr) {
+        console.error("patient-documents upload failed:", upErr);
+        toast.error(`Could not upload file: ${upErr.message}`);
+        return;
+      }
+      const { error } = await supabase.from("patient_documents").insert({
+        patient_id: patientId, doctor_id: doctorId, created_by: doctorId,
+        document_name: form.document_name, document_type: form.document_type as DocumentType,
+        file_path: path, file_type: file.type, document_date: form.document_date,
+        notes: form.notes || null, visit_id: form.visit_id || null,
+      });
+      if (error) {
+        // Uploaded file is now orphaned in storage since the metadata row
+        // failed — remove it so retrying doesn't leave duplicate blobs behind.
+        await supabase.storage.from("patient-documents").remove([path]);
+        toast.error(dbErrorMessage(error, "patient_documents insert", "Could not save document record"));
+        return;
+      }
+      toast.success("Document uploaded successfully.");
+      setDialogOpen(false);
+      load();
+      onChange?.();
+    } catch (e) {
+      // Guards against any unexpected synchronous/async throw (e.g. an
+      // unavailable browser API) leaving the button stuck on "Uploading…"
+      // forever with no request ever sent and no feedback to the user.
+      console.error("patient-documents upload threw:", e);
+      toast.error("Could not upload file. Please try again.");
+    } finally {
       setUploading(false);
-      toast.error(`Could not upload file: ${upErr.message}`);
-      return;
     }
-    const { error } = await supabase.from("patient_documents").insert({
-      patient_id: patientId, doctor_id: doctorId, created_by: doctorId,
-      document_name: form.document_name, document_type: form.document_type as DocumentType,
-      file_path: path, file_type: file.type, document_date: form.document_date,
-      notes: form.notes || null, visit_id: form.visit_id || null,
-    });
-    setUploading(false);
-    if (error) {
-      // Uploaded file is now orphaned in storage since the metadata row
-      // failed — remove it so retrying doesn't leave duplicate blobs behind.
-      await supabase.storage.from("patient-documents").remove([path]);
-      toast.error(dbErrorMessage(error, "patient_documents insert", "Could not save document record"));
-      return;
-    }
-    toast.success("Document uploaded successfully.");
-    setDialogOpen(false);
-    load();
-    onChange?.();
   };
 
   const signedUrl = async (path: string) => {
