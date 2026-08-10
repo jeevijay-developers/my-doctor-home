@@ -602,6 +602,7 @@ describe("SettingsPage subscription cards", () => {
     vi.mocked(usePlanAccess).mockReturnValue({ isPremium: true, appointmentsCap: 0, appointmentsUsed: 0, nearCap: false, loading: false });
     render(<SettingsPage />);
     expect(screen.getByText(/included via your trial/i)).toBeInTheDocument();
+    expect(screen.getByText(/what you'll have after your trial ends/i)).toBeInTheDocument();
     expect(screen.queryAllByRole("button", { name: /request upgrade/i })).toHaveLength(0);
   });
 
