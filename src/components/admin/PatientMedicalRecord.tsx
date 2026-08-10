@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { ArrowLeft, Mail, Phone, Cake, VenetianMask, CalendarClock, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 
 import OverviewTab from "./medical-records/OverviewTab";
@@ -21,12 +21,23 @@ type Patient = {
   age: number | null; gender: string | null; last_visit: string | null; total_visits: number;
 };
 
+// The visible tab bar was removed — navigation into each section now only
+// happens by clicking its Overview sub-card, so every non-Overview section
+// needs its own explicit way back rather than relying on a persistent
+// tab strip.
+const BackToOverview = ({ onClick }: { onClick: () => void }) => (
+  <Button variant="ghost" size="sm" className="h-8 text-xs -ml-2 mb-3" onClick={onClick}>
+    <ArrowLeft className="h-3.5 w-3.5 mr-1.5" /> Back to Overview
+  </Button>
+);
+
 const PatientMedicalRecord = () => {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const { profile } = useProfile();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("overview");
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -84,26 +95,36 @@ const PatientMedicalRecord = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-5">
-        <TabsList className="bg-card border border-border h-auto flex-wrap justify-start p-1 gap-1">
-          <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
-          <TabsTrigger value="history" className="text-xs sm:text-sm">Medical History</TabsTrigger>
-          <TabsTrigger value="medications" className="text-xs sm:text-sm">Medications</TabsTrigger>
-          <TabsTrigger value="allergies" className="text-xs sm:text-sm">Allergies</TabsTrigger>
-          <TabsTrigger value="visits" className="text-xs sm:text-sm">Visits</TabsTrigger>
-          <TabsTrigger value="documents" className="text-xs sm:text-sm">Reports/Documents</TabsTrigger>
-          <TabsTrigger value="timeline" className="text-xs sm:text-sm">Timeline</TabsTrigger>
-          <TabsTrigger value="checkup-reminder" className="text-xs sm:text-sm">Checkup Reminder</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview"><OverviewTab patientId={patient.id} refreshKey={refreshKey} /></TabsContent>
-        <TabsContent value="history"><MedicalHistoryTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
-        <TabsContent value="medications"><MedicationsTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
-        <TabsContent value="allergies"><AllergiesTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
-        <TabsContent value="visits"><VisitsTab patientId={patient.id} doctorId={profile.id} patientPhone={patient.phone} onChange={bump} /></TabsContent>
-        <TabsContent value="documents"><DocumentsTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
-        <TabsContent value="timeline"><TimelineTab patientId={patient.id} /></TabsContent>
-        <TabsContent value="checkup-reminder"><CheckupReminderTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+        <TabsContent value="overview"><OverviewTab patientId={patient.id} refreshKey={refreshKey} onNavigate={setActiveTab} /></TabsContent>
+        <TabsContent value="history">
+          <BackToOverview onClick={() => setActiveTab("overview")} />
+          <MedicalHistoryTab patientId={patient.id} doctorId={profile.id} onChange={bump} />
+        </TabsContent>
+        <TabsContent value="medications">
+          <BackToOverview onClick={() => setActiveTab("overview")} />
+          <MedicationsTab patientId={patient.id} doctorId={profile.id} onChange={bump} />
+        </TabsContent>
+        <TabsContent value="allergies">
+          <BackToOverview onClick={() => setActiveTab("overview")} />
+          <AllergiesTab patientId={patient.id} doctorId={profile.id} onChange={bump} />
+        </TabsContent>
+        <TabsContent value="visits">
+          <BackToOverview onClick={() => setActiveTab("overview")} />
+          <VisitsTab patientId={patient.id} doctorId={profile.id} patientPhone={patient.phone} onChange={bump} />
+        </TabsContent>
+        <TabsContent value="documents">
+          <BackToOverview onClick={() => setActiveTab("overview")} />
+          <DocumentsTab patientId={patient.id} doctorId={profile.id} onChange={bump} />
+        </TabsContent>
+        <TabsContent value="timeline">
+          <BackToOverview onClick={() => setActiveTab("overview")} />
+          <TimelineTab patientId={patient.id} />
+        </TabsContent>
+        <TabsContent value="checkup-reminder">
+          <BackToOverview onClick={() => setActiveTab("overview")} />
+          <CheckupReminderTab patientId={patient.id} doctorId={profile.id} onChange={bump} />
+        </TabsContent>
       </Tabs>
     </div>
   );
