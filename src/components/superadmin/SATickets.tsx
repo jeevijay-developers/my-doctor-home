@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
+import { TIER_LABELS } from "@/lib/planFeatures";
 
 const STATUSES = ["open", "in_progress", "resolved", "closed"];
 const PRIORITIES = ["low", "normal", "high", "urgent"];
@@ -82,6 +83,13 @@ const SATickets = () => {
           {open && (
             <>
               <DialogHeader><DialogTitle>{open.subject}</DialogTitle></DialogHeader>
+              {open.metadata?.upgrade_request && (
+                <div className="text-sm bg-secondary rounded-lg p-3">
+                  {TIER_LABELS[open.metadata.upgrade_request.from_tier] || open.metadata.upgrade_request.from_tier}
+                  {" "}({open.metadata.upgrade_request.from_status}) →{" "}
+                  {TIER_LABELS[open.metadata.upgrade_request.to_tier] || open.metadata.upgrade_request.to_tier}
+                </div>
+              )}
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{open.description || "No description."}</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
