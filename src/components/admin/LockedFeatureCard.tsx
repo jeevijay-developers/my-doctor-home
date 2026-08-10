@@ -1,7 +1,7 @@
 import { Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import RequestUpgradeDialog from "./RequestUpgradeDialog";
+import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 
 interface Props {
   featureName: string;
@@ -17,9 +17,9 @@ export default function LockedFeatureCard({ featureName, description }: Props) {
         </div>
         <h2 className="font-heading font-bold text-xl text-primary">{featureName}</h2>
         <p className="text-sm text-muted-foreground">{description}</p>
-        <RequestUpgradeDialog
+        <UpgradeCheckoutDialog
           targetTier="premium"
-          trigger={<Button className="bg-royal hover:bg-royal/90 mt-2">Request Upgrade</Button>}
+          trigger={<Button className="bg-royal hover:bg-royal/90 mt-2">Upgrade Now</Button>}
         />
       </CardContent>
     </Card>
