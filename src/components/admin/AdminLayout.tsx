@@ -22,7 +22,7 @@ const pageTitles: Record<string, string> = {
 };
 
 const AdminLayout = ({ children }: { children: ReactNode }) => {
-  const { profile } = useProfile();
+  const { profile, isStaff, staffName } = useProfile();
   const location = useLocation();
   const pageTitle = location.pathname.startsWith("/admin/patients/")
     ? "Medical Record"
@@ -73,19 +73,39 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                 </PopoverContent>
               </Popover>
               <div className="h-5 w-px bg-border" />
-              <Link to="/admin/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                {profile?.profile_photo_url ? (
-                  <img src={profile.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-royal/10 flex items-center justify-center text-xs font-bold text-royal">
-                    {profile?.full_name?.charAt(0)?.toUpperCase() || "D"}
+              {isStaff && (
+                <span className="hidden sm:inline-flex items-center text-[10px] font-bold uppercase tracking-wider bg-warning/15 text-warning px-2 py-1 rounded">
+                  Staff
+                </span>
+              )}
+              {/* isStaff sessions never link to /admin/profile — that page is
+                  the DOCTOR's own account settings, not something staff edit
+                  about themselves regardless of permissions. */}
+              {isStaff ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center text-xs font-bold text-warning">
+                    {staffName?.charAt(0)?.toUpperCase() || "S"}
                   </div>
-                )}
-                <div className="hidden md:block text-left">
-                  <div className="text-xs font-medium text-foreground leading-tight">{profile?.full_name || "Doctor"}</div>
-                  <div className="text-[10px] text-muted-foreground leading-tight">{profile?.specialization || "Doctor"}</div>
+                  <div className="hidden md:block text-left">
+                    <div className="text-xs font-medium text-foreground leading-tight">{staffName || "Staff"}</div>
+                    <div className="text-[10px] text-muted-foreground leading-tight">Staff · Dr. {profile?.full_name || "Doctor"}</div>
+                  </div>
                 </div>
-              </Link>
+              ) : (
+                <Link to="/admin/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                  {profile?.profile_photo_url ? (
+                    <img src={profile.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-royal/10 flex items-center justify-center text-xs font-bold text-royal">
+                      {profile?.full_name?.charAt(0)?.toUpperCase() || "D"}
+                    </div>
+                  )}
+                  <div className="hidden md:block text-left">
+                    <div className="text-xs font-medium text-foreground leading-tight">{profile?.full_name || "Doctor"}</div>
+                    <div className="text-[10px] text-muted-foreground leading-tight">{profile?.specialization || "Doctor"}</div>
+                  </div>
+                </Link>
+              )}
             </div>
           </header>
           {banner && (

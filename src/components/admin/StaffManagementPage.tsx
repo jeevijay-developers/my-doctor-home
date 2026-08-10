@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
@@ -158,11 +159,15 @@ const StaffManagementPage = () => {
             {staff.length} staff account{staff.length === 1 ? "" : "s"} · control exactly what each staff member can access
           </p>
         </div>
-        {can("staff.create") && (
-          <Button className="bg-royal hover:bg-royal/90" onClick={openAdd}>
-            <Plus className="h-4 w-4 mr-1" /> Add Staff
-          </Button>
-        )}
+        {/* Always visible — this page itself is already permission-gated
+            (staff.view) at the route level, and the doctor's own account
+            must never be restricted by the staff permission system. The
+            actual create action is still authorized server-side (RLS +
+            create-staff-account's own checks), so a staff session without
+            staff.create still can't succeed even though the button shows. */}
+        <Button className="bg-royal hover:bg-royal/90" onClick={openAdd}>
+          <Plus className="h-4 w-4 mr-1" /> Add Staff
+        </Button>
       </div>
 
       {loading ? (
@@ -260,11 +265,11 @@ const StaffManagementPage = () => {
                 <>
                   <div className="space-y-1.5">
                     <Label>Password *</Label>
-                    <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="h-10" />
+                    <PasswordInput value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="h-10" />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Confirm Password *</Label>
-                    <Input type="password" value={form.confirm_password} onChange={(e) => setForm({ ...form, confirm_password: e.target.value })} className="h-10" />
+                    <PasswordInput value={form.confirm_password} onChange={(e) => setForm({ ...form, confirm_password: e.target.value })} className="h-10" />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Staff Status</Label>
@@ -316,7 +321,7 @@ const StaffManagementPage = () => {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>New Password</Label>
-              <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="h-10" />
+              <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="h-10" />
             </div>
             <Button onClick={submitReset} className="w-full h-10 bg-royal hover:bg-royal/90">Reset Password</Button>
           </div>
