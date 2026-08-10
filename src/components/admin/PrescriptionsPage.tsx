@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { FileText, Plus, Search, Calendar, Pill, Stethoscope, User, Trash2, CheckSquare, X, Pencil } from "lucide-react";
+import { FileText, Plus, Search, Calendar, Pill, Stethoscope, User, Trash2, CheckSquare, X, Pencil, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,16 +19,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import PrescriptionSlip from "./PrescriptionSlip";
+import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 
 type Prescription = {
   id: string; doctor_id: string; patient_id: string | null; patient_name: string;
   diagnosis: string | null; medications: string | null; notes: string | null;
-  date: string; created_at: string;
+  date: string; created_at: string; patient_age: number | null; patient_weight: number | null;
 };
 
 const emptyForm = {
   patient_name: "", patient_id: "", diagnosis: "", medications: "", notes: "",
-  date: format(new Date(), "yyyy-MM-dd"),
+  date: format(new Date(), "yyyy-MM-dd"), patient_age: "", patient_weight: "",
 };
 
 const PrescriptionsPage = () => {
@@ -47,6 +49,9 @@ const PrescriptionsPage = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
+
+  const [slipOpen, setSlipOpen] = useState(false);
+  const [slipPrescription, setSlipPrescription] = useState<(Prescription & { patient_gender: string | null }) | null>(null);
 
   const load = async () => {
     if (!profile) return;
@@ -73,6 +78,21 @@ const PrescriptionsPage = () => {
 
   useEffect(() => { load(); loadPatients(); }, [profile]);
 
+  const openSlip = async (rx: Prescription) => {
+    let gender: string | null = null;
+    if (rx.patient_id) {
+      const { data } = await supabase.from("patients").select("gender").eq("id", rx.patient_id).maybeSingle();
+      gender = data?.gender ?? null;
+    }
+    setSlipPrescription({ ...rx, patient_gender: gender });
+    setSlipOpen(true);
+  };
+
+  const downloadSlip = () => {
+    if (!slipPrescription) return;
+    downloadPdfFromNode('[data-prescription-slip-print-root] .slip-card', `prescription-${slipPrescription.id}.pdf`);
+  };
+
   // Keep patients list in sync with Patients section (add/delete/update)
   useEffect(() => {
     if (!profile) return;
@@ -96,7 +116,7 @@ const PrescriptionsPage = () => {
 
   const addPrescription = async () => {
     if (!profile || !form.patient_name) { toast.error("Patient name is required"); return; }
-    await supabase.from("prescriptions").insert({
+    const { data, error } = await supabase.from("prescriptions").insert({
       doctor_id: profile.id,
       patient_id: form.patient_id || null,
       patient_name: form.patient_name,
@@ -104,11 +124,15 @@ const PrescriptionsPage = () => {
       medications: form.medications || null,
       notes: form.notes || null,
       date: form.date,
-    });
+      patient_age: form.patient_age ? Number(form.patient_age) : null,
+      patient_weight: form.patient_weight ? Number(form.patient_weight) : null,
+    }).select().single();
+    if (error) { toast.error("Could not add prescription"); return; }
     setShowNew(false);
     setForm(emptyForm);
     load();
     toast.success("Prescription added");
+    if (data) openSlip(data as Prescription);
   };
 
   const saveEdit = async () => {
@@ -121,6 +145,8 @@ const PrescriptionsPage = () => {
       medications: editForm.medications || null,
       notes: editForm.notes || null,
       date: editForm.date,
+      patient_age: editForm.patient_age ? Number(editForm.patient_age) : null,
+      patient_weight: editForm.patient_weight ? Number(editForm.patient_weight) : null,
     }).eq("id", viewing.id);
     if (error) { toast.error("Could not save changes"); return; }
     toast.success("Prescription updated");
@@ -137,6 +163,8 @@ const PrescriptionsPage = () => {
       medications: viewing.medications || "",
       notes: viewing.notes || "",
       date: viewing.date,
+      patient_age: viewing.patient_age != null ? String(viewing.patient_age) : "",
+      patient_weight: viewing.patient_weight != null ? String(viewing.patient_weight) : "",
     });
     setEditing(true);
   };
@@ -212,6 +240,16 @@ const PrescriptionsPage = () => {
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Date</Label>
                   <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="h-10" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Age</Label>
+                  <Input type="number" min={0} value={form.patient_age} onChange={(e) => setForm({ ...form, patient_age: e.target.value })} className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Weight (kg)</Label>
+                  <Input type="number" min={0} step="0.1" value={form.patient_weight} onChange={(e) => setForm({ ...form, patient_weight: e.target.value })} className="h-10" />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -397,13 +435,16 @@ const PrescriptionsPage = () => {
                     <Label className="text-xs text-muted-foreground">Notes</Label>
                     <p className="text-sm text-foreground mt-1 whitespace-pre-line">{viewing.notes || <span className="text-muted-foreground italic">No notes</span>}</p>
                   </div>
-                  {can("prescriptions.edit") && (
-                  <div className="pt-2">
-                    <Button onClick={startEdit} className="w-full h-10 bg-royal hover:bg-royal/90">
-                      <Pencil className="h-4 w-4 mr-2" /> Edit
+                  <div className="pt-2 flex gap-2">
+                    <Button variant="outline" className="flex-1 h-10" onClick={() => openSlip(viewing)}>
+                      <Download className="h-4 w-4 mr-2" /> Download
                     </Button>
+                    {can("prescriptions.edit") && (
+                      <Button onClick={startEdit} className="flex-1 h-10 bg-royal hover:bg-royal/90">
+                        <Pencil className="h-4 w-4 mr-2" /> Edit
+                      </Button>
+                    )}
                   </div>
-                  )}
                 </div>
               ) : (
                 <div className="mt-6 space-y-4">
@@ -426,6 +467,16 @@ const PrescriptionsPage = () => {
                     <div className="space-y-1.5">
                       <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Date</Label>
                       <Input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} className="h-10" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Age</Label>
+                      <Input type="number" min={0} value={editForm.patient_age} onChange={(e) => setEditForm({ ...editForm, patient_age: e.target.value })} className="h-10" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Weight (kg)</Label>
+                      <Input type="number" min={0} step="0.1" value={editForm.patient_weight} onChange={(e) => setEditForm({ ...editForm, patient_weight: e.target.value })} className="h-10" />
                     </div>
                   </div>
                   <div className="space-y-1.5">
@@ -512,6 +563,14 @@ const PrescriptionsPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PrescriptionSlip
+        open={slipOpen}
+        onClose={() => setSlipOpen(false)}
+        profile={profile}
+        prescription={slipPrescription}
+        onDownload={downloadSlip}
+      />
     </div>
   );
 };
