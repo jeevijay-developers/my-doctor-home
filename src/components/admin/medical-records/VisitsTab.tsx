@@ -19,6 +19,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { dbErrorMessage } from "@/lib/dbErrorMessage";
 
 type Visit = {
   id: string; visit_date: string; consultation_type: string | null; reason_for_visit: string | null;
@@ -100,12 +101,12 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
     let visitId = editingId;
     if (editingId) {
       const { error } = await supabase.from("patient_visits").update({ ...visitPayload, updated_by: doctorId }).eq("id", editingId);
-      if (error) { toast.error("Could not save visit"); return; }
+      if (error) { toast.error(dbErrorMessage(error, "patient_visits update", "Could not save visit")); return; }
     } else {
       const { data, error } = await supabase.from("patient_visits").insert({
         ...visitPayload, patient_id: patientId, doctor_id: doctorId, created_by: doctorId, updated_by: doctorId,
       }).select("id").single();
-      if (error || !data) { toast.error("Could not save visit"); return; }
+      if (error || !data) { toast.error(error ? dbErrorMessage(error, "patient_visits insert", "Could not save visit") : "Could not save visit"); return; }
       visitId = data.id;
     }
 
@@ -133,7 +134,7 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
       }
     }
 
-    toast.success(editingId ? "Visit updated" : "Visit logged");
+    toast.success(editingId ? "Visit updated successfully." : "Visit logged successfully.");
     setDialogOpen(false);
     load();
     onChange?.();
@@ -142,7 +143,7 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
   const confirmDelete = async () => {
     if (!deleting) return;
     const { error } = await supabase.from("patient_visits").update({ deleted_at: new Date().toISOString() }).eq("id", deleting.id);
-    if (error) { toast.error("Could not remove visit"); return; }
+    if (error) { toast.error(dbErrorMessage(error, "patient_visits soft-delete", "Could not remove visit")); return; }
     toast.success("Visit removed");
     setDeleting(null);
     load();

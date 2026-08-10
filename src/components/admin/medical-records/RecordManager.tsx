@@ -20,6 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { dbErrorMessage } from "@/lib/dbErrorMessage";
 
 export type FieldDef =
   | { key: string; label: string; type: "text"; required?: boolean; placeholder?: string; colSpan?: 1 | 2 }
@@ -40,6 +41,9 @@ export type RecordManagerProps = {
   iconColorClass: string;
   title: string;
   addLabel: string;
+  // Singular noun used in success toasts, e.g. "Medication" for a title of
+  // "Current Medications" — falls back to `title` if omitted.
+  successLabel?: string;
   fields: FieldDef[];
   defaultValues: Record<string, unknown>;
   emptyTitle: string;
@@ -53,9 +57,10 @@ export type RecordManagerProps = {
 const fieldValue = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 
 const RecordManager = ({
-  table, patientId, doctorId, icon: Icon, iconColorClass, title, addLabel, fields,
+  table, patientId, doctorId, icon: Icon, iconColorClass, title, addLabel, successLabel, fields,
   defaultValues, emptyTitle, emptyHint, orderBy, orderAscending = false, renderItem, onChange,
 }: RecordManagerProps) => {
+  const noun = successLabel || title;
   const [rows, setRows] = useState<RecordItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -100,14 +105,14 @@ const RecordManager = ({
     }
     if (editingId) {
       const { error } = await supabase.from(table).update({ ...payload, updated_by: doctorId } as never).eq("id", editingId);
-      if (error) { toast.error(`Could not save ${title.toLowerCase()}`); return; }
-      toast.success(`${title} updated`);
+      if (error) { toast.error(dbErrorMessage(error, `${table} update`, `Could not save ${noun.toLowerCase()}`)); return; }
+      toast.success(`${noun} updated successfully.`);
     } else {
       const { error } = await supabase.from(table).insert({
         ...payload, patient_id: patientId, doctor_id: doctorId, created_by: doctorId, updated_by: doctorId,
       } as never);
-      if (error) { toast.error(`Could not add ${title.toLowerCase()}`); return; }
-      toast.success(`${title} added`);
+      if (error) { toast.error(dbErrorMessage(error, `${table} insert`, `Could not add ${noun.toLowerCase()}`)); return; }
+      toast.success(`${noun} added successfully.`);
     }
     setDialogOpen(false);
     load();
@@ -117,7 +122,7 @@ const RecordManager = ({
   const confirmDelete = async () => {
     if (!deleting) return;
     const { error } = await supabase.from(table).update({ deleted_at: new Date().toISOString() } as never).eq("id", deleting.id);
-    if (error) { toast.error("Could not remove record"); return; }
+    if (error) { toast.error(dbErrorMessage(error, `${table} soft-delete`, "Could not remove record")); return; }
     toast.success("Removed from record");
     setDeleting(null);
     load();

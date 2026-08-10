@@ -483,6 +483,85 @@ export type Database = {
           },
         ]
       }
+      notification_logs: {
+        Row: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          created_at: string
+          doctor_id: string
+          error_message: string | null
+          id: string
+          is_test: boolean
+          message: string
+          notification_type: string
+          patient_id: string
+          provider: string | null
+          provider_message_id: string | null
+          recipient: string | null
+          reminder_id: string | null
+          scheduled_at: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["notification_status"]
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          created_at?: string
+          doctor_id: string
+          error_message?: string | null
+          id?: string
+          is_test?: boolean
+          message: string
+          notification_type?: string
+          patient_id: string
+          provider?: string | null
+          provider_message_id?: string | null
+          recipient?: string | null
+          reminder_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["notification_channel"]
+          created_at?: string
+          doctor_id?: string
+          error_message?: string | null
+          id?: string
+          is_test?: boolean
+          message?: string
+          notification_type?: string
+          patient_id?: string
+          provider?: string | null
+          provider_message_id?: string | null
+          recipient?: string | null
+          reminder_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_logs_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_logs_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "patient_checkup_reminders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       packages: {
         Row: {
           active: boolean
@@ -601,6 +680,94 @@ export type Database = {
           },
           {
             foreignKeyName: "patient_allergies_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_checkup_reminders: {
+        Row: {
+          appointment_id: string | null
+          created_at: string
+          created_by: string
+          custom_interval_days: number | null
+          doctor_id: string
+          frequency: Database["public"]["Enums"]["checkup_frequency"]
+          id: string
+          in_app_enabled: boolean
+          last_reminder_sent_at: string | null
+          medical_record_id: string | null
+          next_checkup_date: string
+          next_reminder_at: string
+          patient_id: string
+          reminder_before_days: number
+          sms_enabled: boolean
+          status: Database["public"]["Enums"]["reminder_status"]
+          updated_at: string
+          updated_by: string
+          whatsapp_enabled: boolean
+        }
+        Insert: {
+          appointment_id?: string | null
+          created_at?: string
+          created_by: string
+          custom_interval_days?: number | null
+          doctor_id: string
+          frequency?: Database["public"]["Enums"]["checkup_frequency"]
+          id?: string
+          in_app_enabled?: boolean
+          last_reminder_sent_at?: string | null
+          medical_record_id?: string | null
+          next_checkup_date: string
+          next_reminder_at: string
+          patient_id: string
+          reminder_before_days?: number
+          sms_enabled?: boolean
+          status?: Database["public"]["Enums"]["reminder_status"]
+          updated_at?: string
+          updated_by: string
+          whatsapp_enabled?: boolean
+        }
+        Update: {
+          appointment_id?: string | null
+          created_at?: string
+          created_by?: string
+          custom_interval_days?: number | null
+          doctor_id?: string
+          frequency?: Database["public"]["Enums"]["checkup_frequency"]
+          id?: string
+          in_app_enabled?: boolean
+          last_reminder_sent_at?: string | null
+          medical_record_id?: string | null
+          next_checkup_date?: string
+          next_reminder_at?: string
+          patient_id?: string
+          reminder_before_days?: number
+          sms_enabled?: boolean
+          status?: Database["public"]["Enums"]["reminder_status"]
+          updated_at?: string
+          updated_by?: string
+          whatsapp_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_checkup_reminders_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_checkup_reminders_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_checkup_reminders_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
@@ -1863,6 +2030,15 @@ export type Database = {
           time_slot: string
         }[]
       }
+      get_upcoming_checkup: {
+        Args: { _doctor_id: string; _phone: string }
+        Returns: {
+          doctor_name: string
+          frequency: Database["public"]["Enums"]["checkup_frequency"]
+          next_checkup_date: string
+          reminder_enabled: boolean
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1904,6 +2080,17 @@ export type Database = {
         | "other"
       payment_txn_status: "created" | "authorized" | "captured" | "failed" | "refunded"
       payout_status: "pending" | "processing" | "processed" | "failed" | "cancelled"
+      checkup_frequency:
+        | "weekly"
+        | "every_15_days"
+        | "monthly"
+        | "every_3_months"
+        | "every_6_months"
+        | "yearly"
+        | "custom"
+      reminder_status: "active" | "paused" | "completed" | "cancelled"
+      notification_channel: "whatsapp" | "sms" | "in_app"
+      notification_status: "pending" | "processing" | "sent" | "failed" | "simulated"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2055,6 +2242,18 @@ export const Constants = {
       ],
       payment_txn_status: ["created", "authorized", "captured", "failed", "refunded"],
       payout_status: ["pending", "processing", "processed", "failed", "cancelled"],
+      checkup_frequency: [
+        "weekly",
+        "every_15_days",
+        "monthly",
+        "every_3_months",
+        "every_6_months",
+        "yearly",
+        "custom",
+      ],
+      reminder_status: ["active", "paused", "completed", "cancelled"],
+      notification_channel: ["whatsapp", "sms", "in_app"],
+      notification_status: ["pending", "processing", "sent", "failed", "simulated"],
     },
   },
 } as const

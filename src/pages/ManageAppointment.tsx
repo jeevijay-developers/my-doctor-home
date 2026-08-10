@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format, addDays, differenceInHours, parseISO, isSameDay } from "date-fns";
-import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight } from "lucide-react";
+import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight, BellRing } from "lucide-react";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
 
@@ -45,6 +45,7 @@ const ManageAppointment = () => {
   const [phone, setPhone] = useState(params.get("phone") || "");
   const [loading, setLoading] = useState(false);
   const [appt, setAppt] = useState<Appt | null>(null);
+  const [upcomingCheckup, setUpcomingCheckup] = useState<{ doctor_name: string; next_checkup_date: string; reminder_enabled: boolean } | null>(null);
   const [queuePos, setQueuePos] = useState<number | null>(null);
   const [rescheduling, setRescheduling] = useState(false);
   const [newDate, setNewDate] = useState<Date | null>(null);
@@ -82,6 +83,12 @@ const ManageAppointment = () => {
     }
     setAppt(row as Appt);
     refreshQueue(row.id);
+
+    const { data: checkupData } = await (supabase as any).rpc("get_upcoming_checkup", {
+      _doctor_id: doctor.id, _phone: row.patient_phone,
+    });
+    const checkupRow = Array.isArray(checkupData) ? checkupData[0] : checkupData;
+    setUpcomingCheckup(checkupRow || null);
   };
 
   // Auto-lookup if URL has token+phone
@@ -230,6 +237,29 @@ const ManageAppointment = () => {
                     </div>
                   )}
                 </div>
+
+                {upcomingCheckup && (
+                  <div className="rounded-xl border border-royal/20 bg-royal/5 p-4 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-royal uppercase tracking-wide">
+                      <BellRing className="h-3.5 w-3.5" /> Upcoming Checkup
+                    </div>
+                    <p className="text-sm text-foreground">
+                      Dr. {upcomingCheckup.doctor_name} <br />
+                      Regular Health Checkup <br />
+                      <span className="font-heading font-bold text-primary">
+                        {format(parseISO(upcomingCheckup.next_checkup_date), "d MMMM yyyy")}
+                      </span>
+                    </p>
+                    {upcomingCheckup.reminder_enabled && (
+                      <p className="text-[11px] text-success font-medium">Reminder enabled</p>
+                    )}
+                    {slug && (
+                      <a href={`/dr/${slug}#booking`}>
+                        <Button size="sm" className="h-8 text-xs bg-royal hover:bg-royal/90">Book Appointment</Button>
+                      </a>
+                    )}
+                  </div>
+                )}
 
                 {(appt.status === "pending" || appt.status === "confirmed") && queuePos !== null && appt.appointment_type === "clinic" && (
                   <div className="p-3 rounded-xl bg-royal/5 border border-royal/20 text-sm text-royal flex items-center gap-2">

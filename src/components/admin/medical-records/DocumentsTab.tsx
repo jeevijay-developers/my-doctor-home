@@ -22,6 +22,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { dbErrorMessage } from "@/lib/dbErrorMessage";
 
 type Doc = {
   id: string; document_name: string; document_type: string; file_path: string; file_type: string | null;
@@ -76,7 +77,12 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
     const ext = file.name.split(".").pop();
     const path = `${doctorId}/${patientId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
     const { error: upErr } = await supabase.storage.from("patient-documents").upload(path, file);
-    if (upErr) { setUploading(false); toast.error("Could not upload file"); return; }
+    if (upErr) {
+      console.error("patient-documents upload failed:", upErr);
+      setUploading(false);
+      toast.error(`Could not upload file: ${upErr.message}`);
+      return;
+    }
     const { error } = await supabase.from("patient_documents").insert({
       patient_id: patientId, doctor_id: doctorId, created_by: doctorId,
       document_name: form.document_name, document_type: form.document_type as DocumentType,
@@ -84,8 +90,14 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
       notes: form.notes || null, visit_id: form.visit_id || null,
     });
     setUploading(false);
-    if (error) { toast.error("Could not save document record"); return; }
-    toast.success("Document uploaded");
+    if (error) {
+      // Uploaded file is now orphaned in storage since the metadata row
+      // failed — remove it so retrying doesn't leave duplicate blobs behind.
+      await supabase.storage.from("patient-documents").remove([path]);
+      toast.error(dbErrorMessage(error, "patient_documents insert", "Could not save document record"));
+      return;
+    }
+    toast.success("Document uploaded successfully.");
     setDialogOpen(false);
     load();
     onChange?.();
@@ -93,7 +105,11 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
 
   const signedUrl = async (path: string) => {
     const { data, error } = await supabase.storage.from("patient-documents").createSignedUrl(path, 300);
-    if (error || !data?.signedUrl) { toast.error("Could not open document"); return null; }
+    if (error || !data?.signedUrl) {
+      if (error) console.error("patient-documents signed URL failed:", error);
+      toast.error("Could not open document");
+      return null;
+    }
     return data.signedUrl;
   };
 
@@ -113,7 +129,7 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
   const confirmDelete = async () => {
     if (!deleting) return;
     const { error } = await supabase.from("patient_documents").update({ deleted_at: new Date().toISOString() }).eq("id", deleting.id);
-    if (error) { toast.error("Could not remove document"); return; }
+    if (error) { toast.error(dbErrorMessage(error, "patient_documents soft-delete", "Could not remove document")); return; }
     toast.success("Document removed");
     setDeleting(null);
     load();

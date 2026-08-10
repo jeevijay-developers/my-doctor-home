@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.reset-staff-password]
 verify_jwt = false
+
+[functions.checkup-reminder-worker]
+verify_jwt = false
+
+[functions.get-notification-mode]
+verify_jwt = false

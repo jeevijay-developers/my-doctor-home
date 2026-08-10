@@ -28,6 +28,7 @@ import SABilling from "./components/superadmin/SABilling";
 import SAPayments from "./components/superadmin/SAPayments";
 import SAFlags from "./components/superadmin/SAFlags";
 import SAAuditLog from "./components/superadmin/SAAuditLog";
+import SANotificationTesting from "./components/superadmin/SANotificationTesting";
 import SATeam from "./components/superadmin/SATeam";
 import MaintenanceGate from "./components/MaintenanceGate";
 import NotFound from "./pages/NotFound";
@@ -62,6 +63,7 @@ const App = () => (
               <Route path="payments" element={<SAPayments />} />
               <Route path="flags" element={<SAFlags />} />
               <Route path="audit-log" element={<SAAuditLog />} />
+              <Route path="notifications" element={<SANotificationTesting />} />
               <Route path="team" element={<SATeam />} />
             </Route>
             <Route path="/dr/:slug" element={<DoctorPublicPage />} />
