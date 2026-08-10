@@ -20,9 +20,15 @@ follow-up, see below.
 - `support_tickets` schema today: `subject`, `description`, `priority`, `status`, `notes` — no
   structured/metadata column. `SATickets.tsx`'s ticket-detail view only renders `description` as
   free text.
-- `LockedFeatureCard.tsx` (shown on Billing/Blog/MyWebsite when `!isPremium`) has its own
-  "Request Upgrade" button, also currently wired to `ContactSupportDialog` with the same
-  hardcoded subject — functionally the same action as the Settings page CTA.
+- **Correction found while writing the implementation plan:** `LockedFeatureCard.tsx`'s "Request
+  Upgrade" button does NOT open `ContactSupportDialog` — it just calls `navigate("/admin/settings")`
+  (confirmed by reading the current component and its test). This was true of the *plan* in the
+  original plan-gating spec but not what actually got built — a two-hop flow (doctor clicks
+  "Request Upgrade" on a locked page, lands on Settings, must find the real Upgrade Plan button
+  there themselves), not a shared dialog. The three call sites (`BillingPage.test.tsx`,
+  `BlogPage.test.tsx`, `MyWebsite.test.tsx`) only assert the button's presence/absence by
+  accessible name "Request Upgrade" — none assert click/navigation behavior — so only
+  `LockedFeatureCard.test.tsx` itself (which does assert `mockNavigate` was called) needs rework.
 - Real enforcement (confirmed by reading the actual gating code, per
   `2026-08-08-subscription-plan-gating-design.md`): `doctor_has_premium_access()` = `plan_status
   = 'trial' OR plan_tier = 'premium'`. Only three things are Premium-gated: the appointment cap
@@ -57,7 +63,7 @@ follow-up, see below.
 | PricingSection.tsx | Out of scope for this pass — flagged as a separate follow-up given it needs its own tier-structure decision, not just a copy fix. |
 | Card structure | Two cards only: Basic and Premium. Trial is a temporary status (already shown via the existing badge/progress bar above the cards), not a third purchasable tier — showing it as a peer card beside "Pro Plan" was the original bug. |
 | Current-plan highlighting | Driven by real access (`usePlanAccess().isPremium`) and `plan_status`, not literal `plan_tier` matching — a trial doctor has full Premium access right now regardless of `plan_tier`, and that must be reflected accurately. |
-| LockedFeatureCard reuse | Its existing "Request Upgrade" button switches to the same `RequestUpgradeDialog` (called with a fixed `targetTier="premium"`) for consistency — one place to keep the ticket structure and copy accurate, instead of two slightly different "request upgrade" experiences. |
+| LockedFeatureCard reuse | Its existing "Request Upgrade" button switches from navigating to `/admin/settings` to opening the same `RequestUpgradeDialog` directly (fixed `targetTier="premium"`) — one click instead of two, and one place to keep the ticket structure and copy accurate. |
 | Expired/cancelled handling | Neither "Current Plan" badge is accurate when there's no active subscription at any tier. Basic card shows the doctor's real current *access level* (not "Current Plan") with a reactivate-style CTA; Premium keeps the normal upgrade CTA. Ticket subject reads "Reactivation request: ..." instead of "Upgrade request: ..." in this branch, so superadmins can distinguish a lapsed account resubscribing from an active Basic customer upgrading. `cancelled` gets the same treatment defensively, though `ProtectedRoute` makes it unreachable in practice. |
 
 ## Data model & components
@@ -91,8 +97,11 @@ follow-up, see below.
    - `description`: the doctor's optional message, or empty.
    - `metadata`: `{ upgrade_request: { from_tier: profile.plan_tier, from_status:
      profile.plan_status, to_tier: targetTier } }`.
-   Replaces `ContactSupportDialog` at both call sites: `SettingsPage.tsx`'s cards and
-   `LockedFeatureCard.tsx` (fixed `targetTier="premium"` there).
+   Used at both call sites: replaces `ContactSupportDialog` in `SettingsPage.tsx`'s cards, and
+   replaces `LockedFeatureCard.tsx`'s current `navigate("/admin/settings")` onClick (fixed
+   `targetTier="premium"` there — the button keeps its existing accessible name "Request Upgrade"
+   so the three unrelated tests asserting its presence (`BillingPage`/`BlogPage`/
+   `MyWebsite.test.tsx`) don't need changes).
 
 4. **`SettingsPage.tsx` Subscription tab** — existing status badge + trial progress bar
    unchanged. The two feature cards are replaced with Basic/Premium cards built from
@@ -130,10 +139,10 @@ follow-up, see below.
 ## Testing
 
 - Vitest: `RequestUpgradeDialog` submits the correct `subject`/`priority`/`metadata` for each of
-  the four branches above (trial, active-premium, active-basic, expired/cancelled). Existing
-  tests referencing `ContactSupportDialog` at the two replaced call sites
-  (`SettingsPage`/`LockedFeatureCard.test.tsx`) updated to assert against `RequestUpgradeDialog`
-  instead.
+  the four branches above (trial, active-premium, active-basic, expired/cancelled).
+  `LockedFeatureCard.test.tsx`'s existing click test (currently asserts `mockNavigate` was called)
+  rewritten to assert `RequestUpgradeDialog` opens instead. New `SettingsPage.test.tsx` (none
+  exists today) covers the four card-highlighting branches.
 - Manual QA: verify each of the four branches renders the correct card labels/CTAs for a real
   test doctor moved through trial → active-basic → active-premium → expired states via
   `SADoctorDetail.tsx`.
