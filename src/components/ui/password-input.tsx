@@ -25,7 +25,7 @@ const PasswordInput = React.forwardRef<HTMLInputElement, React.ComponentProps<"i
           aria-label={visible ? "Hide password" : "Show password"}
           tabIndex={-1}
         >
-          {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
         </button>
       </div>
     );
