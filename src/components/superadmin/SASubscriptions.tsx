@@ -34,9 +34,20 @@ const SASubscriptions = () => {
     id: string; tier: string; prev: string; wasTrial: boolean; hasCustom: boolean; customPrice: number | null;
   } | null>(null);
 
+  const [upgradePayments, setUpgradePayments] = useState<any[]>([]);
+
   const load = () =>
     supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
-  useEffect(() => { load(); }, []);
+
+  const loadUpgradePayments = () =>
+    supabase
+      .from("plan_upgrade_payments")
+      .select("id, doctor_id, from_tier, target_tier, amount, status, is_mock, created_at, profiles(full_name, email)")
+      .order("created_at", { ascending: false })
+      .limit(50)
+      .then(({ data }) => setUpgradePayments(data ?? []));
+
+  useEffect(() => { load(); loadUpgradePayments(); }, []);
 
   const tiers = ["free", "pro", "premium"];
   const tierCounts = Object.fromEntries(tiers.map((t) => [t, rows.filter((r) => (r.plan_tier || "free") === t).length]));
@@ -247,6 +258,45 @@ const SASubscriptions = () => {
               })}
               {filtered.length === 0 && (
                 <tr><td colSpan={7} className="p-6 text-center text-muted-foreground text-sm">No doctors match your search.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4">
+          <h3 className="font-semibold text-sm mb-3">Self-Service Upgrade Payments</h3>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-muted-foreground border-b">
+                <th className="p-2 font-medium">Doctor</th>
+                <th className="p-2 font-medium">Upgrade</th>
+                <th className="p-2 font-medium">Amount</th>
+                <th className="p-2 font-medium">Status</th>
+                <th className="p-2 font-medium">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {upgradePayments.map((p) => (
+                <tr key={p.id} className="border-b last:border-0">
+                  <td className="p-2">
+                    <div className="font-medium">{p.profiles?.full_name || "—"}</div>
+                    <div className="text-xs text-muted-foreground">{p.profiles?.email || ""}</div>
+                  </td>
+                  <td className="p-2 text-xs">{p.from_tier} → {p.target_tier}</td>
+                  <td className="p-2">₹{p.amount}</td>
+                  <td className="p-2">
+                    <Badge variant={p.status === "captured" ? "default" : p.status === "failed" ? "destructive" : "secondary"}>
+                      {p.status}
+                    </Badge>
+                    {p.is_mock && <Badge variant="outline" className="ml-1 text-[10px]">mock</Badge>}
+                  </td>
+                  <td className="p-2 text-xs">{new Date(p.created_at).toLocaleString()}</td>
+                </tr>
+              ))}
+              {upgradePayments.length === 0 && (
+                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground text-sm">No self-service upgrade payments yet.</td></tr>
               )}
             </tbody>
           </table>
