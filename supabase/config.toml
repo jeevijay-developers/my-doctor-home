@@ -23,3 +23,12 @@ verify_jwt = false
 
 [functions.staff-login]
 verify_jwt = false
+
+[functions.create-staff-account]
+verify_jwt = false
+
+[functions.delete-staff-account]
+verify_jwt = false
+
+[functions.reset-staff-password]
+verify_jwt = false
