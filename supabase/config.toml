@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.staff-login]
 verify_jwt = false
+
+[functions.checkup-reminder-worker]
+verify_jwt = false
+
+[functions.get-notification-mode]
+verify_jwt = false

@@ -16,6 +16,7 @@ import VisitsTab from "./medical-records/VisitsTab";
 import PrescriptionsTab from "./medical-records/PrescriptionsTab";
 import DocumentsTab from "./medical-records/DocumentsTab";
 import TimelineTab from "./medical-records/TimelineTab";
+import CheckupReminderTab from "./medical-records/CheckupReminderTab";
 
 type Patient = {
   id: string; name: string; phone: string; email: string | null;
@@ -96,6 +97,7 @@ const PatientMedicalRecord = () => {
           <TabsTrigger value="prescriptions" className="text-xs sm:text-sm">Prescriptions</TabsTrigger>
           <TabsTrigger value="documents" className="text-xs sm:text-sm">Reports/Documents</TabsTrigger>
           <TabsTrigger value="timeline" className="text-xs sm:text-sm">Timeline</TabsTrigger>
+          <TabsTrigger value="checkup-reminder" className="text-xs sm:text-sm">Checkup Reminder</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab patientId={patient.id} refreshKey={refreshKey} /></TabsContent>
@@ -107,6 +109,7 @@ const PatientMedicalRecord = () => {
         <TabsContent value="prescriptions"><PrescriptionsTab patientId={patient.id} /></TabsContent>
         <TabsContent value="documents"><DocumentsTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
         <TabsContent value="timeline"><TimelineTab patientId={patient.id} /></TabsContent>
+        <TabsContent value="checkup-reminder"><CheckupReminderTab patientId={patient.id} doctorId={profile.id} onChange={bump} /></TabsContent>
       </Tabs>
     </div>
   );

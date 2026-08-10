@@ -15,6 +15,7 @@ const titles: Record<string, string> = {
   "/superadmin/billing": "Billing",
   "/superadmin/flags": "Feature Flags",
   "/superadmin/audit-log": "Audit Log",
+  "/superadmin/notifications": "Notification Testing",
   "/superadmin/team": "Team",
 };
 

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Inbox, CreditCard, Wallet, LifeBuoy, ShieldAlert, Receipt, Flag, ScrollText, UserCog, LogOut, Shield } from "lucide-react";
+import { LayoutDashboard, Users, Inbox, CreditCard, Wallet, LifeBuoy, ShieldAlert, Receipt, Flag, ScrollText, UserCog, LogOut, Shield, FlaskConical } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,7 @@ const items = [
   { title: "Billing", url: "/superadmin/billing", icon: Receipt },
   { title: "Feature Flags", url: "/superadmin/flags", icon: Flag },
   { title: "Audit Log", url: "/superadmin/audit-log", icon: ScrollText },
+  { title: "Notification Testing", url: "/superadmin/notifications", icon: FlaskConical },
   { title: "Team", url: "/superadmin/team", icon: UserCog },
 ];
 
