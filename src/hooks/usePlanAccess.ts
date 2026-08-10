@@ -40,7 +40,11 @@ export function usePlanAccess(): PlanAccess {
     return () => {
       cancelled = true;
     };
-  }, [profile?.id]);
+    // profile?.plan_tier is included so a tier change (self-service upgrade,
+    // or any other update to the doctor's own profile) re-fetches premium
+    // status immediately — profile?.id alone doesn't change on a tier flip,
+    // so without this, isPremium stayed stale until a full page reload.
+  }, [profile?.id, profile?.plan_tier]);
 
   return { ...state, loading };
 }

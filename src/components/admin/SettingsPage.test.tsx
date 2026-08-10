@@ -13,6 +13,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "doctor-1" } } }) },
     from: vi.fn().mockReturnValue({ insert: vi.fn().mockResolvedValue({ error: null }) }),
+    functions: { invoke: vi.fn().mockResolvedValue({ data: { mode: "mock" }, error: null }) },
   },
 }));
 
@@ -25,7 +26,7 @@ describe("SettingsPage subscription cards", () => {
     renderSettingsPage();
     expect(screen.getByText(/included via your trial/i)).toBeInTheDocument();
     expect(screen.getByText(/what you'll have after your trial ends/i)).toBeInTheDocument();
-    expect(screen.queryAllByRole("button", { name: /request upgrade/i })).toHaveLength(0);
+    expect(screen.queryAllByRole("button", { name: /upgrade now/i })).toHaveLength(0);
   });
 
   it("active Pro doctor: Pro marked current, Premium shows a CTA", () => {
@@ -33,7 +34,7 @@ describe("SettingsPage subscription cards", () => {
     vi.mocked(usePlanAccess).mockReturnValue({ isPremium: false, appointmentsCap: 100, appointmentsUsed: 0, nearCap: false, loading: false });
     renderSettingsPage();
     expect(screen.getAllByText(/current plan/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /request upgrade/i })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /upgrade now/i })).toHaveLength(1);
   });
 
   it("expired doctor: neither card says Current Plan, both show a CTA", () => {
@@ -42,6 +43,6 @@ describe("SettingsPage subscription cards", () => {
     renderSettingsPage();
     expect(screen.queryByText(/^current plan$/i)).not.toBeInTheDocument();
     expect(screen.getByText(/your access level/i)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /request upgrade/i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /upgrade now/i })).toHaveLength(2);
   });
 });

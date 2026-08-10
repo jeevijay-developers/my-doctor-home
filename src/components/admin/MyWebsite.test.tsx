@@ -26,6 +26,7 @@ vi.mock("@/integrations/supabase/client", () => {
         }
         return chain({ data: [] });
       }),
+      functions: { invoke: vi.fn().mockResolvedValue({ data: { mode: "mock" }, error: null }) },
     },
   };
 });
@@ -42,13 +43,13 @@ describe("MyWebsite - Online Consultation gating", () => {
   it("shows LockedFeatureCard instead of the toggle for a Basic-tier doctor", async () => {
     vi.mocked(usePlanAccess).mockReturnValue({ isPremium: false, loading: false, appointmentsUsed: 0, appointmentsCap: 0, nearCap: false });
     renderMyWebsite();
-    expect(await screen.findByRole("button", { name: /request upgrade/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /upgrade now/i })).toBeInTheDocument();
   });
 
   it("shows the real Online Consultation toggle for a Premium doctor", async () => {
     vi.mocked(usePlanAccess).mockReturnValue({ isPremium: true, loading: false, appointmentsUsed: 0, appointmentsCap: 0, nearCap: false });
     renderMyWebsite();
     await screen.findByText(/online consultation/i);
-    expect(screen.queryByRole("button", { name: /request upgrade/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /upgrade now/i })).not.toBeInTheDocument();
   });
 });

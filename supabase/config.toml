@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.mock-simulate-payment]
 verify_jwt = false
 
+[functions.verify-plan-upgrade-payment]
+verify_jwt = false
+
 [functions.get-payment-mode]
 verify_jwt = false
 

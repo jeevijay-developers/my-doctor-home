@@ -30,8 +30,8 @@ describe("planFeatures", () => {
     expect(premium).toContain("Online consultation");
     expect(premium).toContain("Billing & invoices");
     expect(premium).toContain("AI blog writer");
-    expect(premium.some((f) => f.includes("Regular checkup alert") && f.includes("Coming soon"))).toBe(true);
-    expect(premium.some((f) => f.includes("Staff roles & access") && f.includes("Coming soon"))).toBe(true);
+    expect(premium).toContain("Regular checkup alert");
+    expect(premium).toContain("Staff roles & access");
   });
 
   it("trial: premium is current via trial, basic has no CTA", () => {

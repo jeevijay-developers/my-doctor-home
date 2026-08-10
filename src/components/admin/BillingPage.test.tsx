@@ -26,6 +26,7 @@ vi.mock("@/integrations/supabase/client", () => {
         subscribe: vi.fn().mockReturnThis(),
       })),
       removeChannel: vi.fn(),
+      functions: { invoke: vi.fn().mockResolvedValue({ data: { mode: "mock" }, error: null }) },
     },
   };
 });
@@ -38,7 +39,7 @@ describe("BillingPage - plan gating", () => {
         <BillingPage />
       </MemoryRouter>
     );
-    expect(screen.getByRole("button", { name: /request upgrade/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /upgrade now/i })).toBeInTheDocument();
     expect(screen.queryByText(/billing & revenue/i)).not.toBeInTheDocument();
   });
 
@@ -50,6 +51,6 @@ describe("BillingPage - plan gating", () => {
       </MemoryRouter>
     );
     expect(screen.getByText(/billing & revenue/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /request upgrade/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /upgrade now/i })).not.toBeInTheDocument();
   });
 });

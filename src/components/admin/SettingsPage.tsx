@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
-import RequestUpgradeDialog from "./RequestUpgradeDialog";
+import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP } from "@/lib/planFeatures";
 import ProfilePage from "./ProfilePage";
 
@@ -144,9 +144,9 @@ const SettingsPage = () => {
                     ))}
                   </ul>
                   {basic.showCta && (
-                    <RequestUpgradeDialog
+                    <UpgradeCheckoutDialog
                       targetTier="pro"
-                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">Request Upgrade</Button>}
+                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">Upgrade Now</Button>}
                     />
                   )}
                 </div>
@@ -167,9 +167,9 @@ const SettingsPage = () => {
                     ))}
                   </ul>
                   {premium.showCta && (
-                    <RequestUpgradeDialog
+                    <UpgradeCheckoutDialog
                       targetTier="premium"
-                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">Request Upgrade</Button>}
+                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">Upgrade Now</Button>}
                     />
                   )}
                 </div>

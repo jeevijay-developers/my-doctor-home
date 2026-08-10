@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
-  UserCog, Plus, Pencil, KeyRound, Ban, CheckCircle2, Trash2, ShieldCheck,
+  UserCog, Plus, Pencil, KeyRound, Ban, CheckCircle2, Trash2, ShieldCheck, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,8 @@ import {
 import { toast } from "sonner";
 import { PERMISSION_MODULES, type PermissionKey, type Permissions } from "@/lib/staffPermissions";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
+import LockedFeatureCard from "./LockedFeatureCard";
 
 type StaffRow = {
   id: string; staff_name: string; username: string; status: string;
@@ -30,6 +32,7 @@ const emptyForm = { staff_name: "", username: "", password: "", confirm_password
 
 const StaffManagementPage = () => {
   const { profile, isStaff, can } = useProfile();
+  const { isPremium, loading: planLoading } = usePlanAccess();
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -146,6 +149,25 @@ const StaffManagementPage = () => {
   };
 
   const grantedCount = (p: Permissions) => Object.values(p || {}).filter(Boolean).length;
+
+  if (planLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-7 w-7 animate-spin text-royal" />
+      </div>
+    );
+  }
+
+  if (!isPremium) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <LockedFeatureCard
+          featureName="Staff Management"
+          description="Add clinic staff accounts and control exactly what each one can see and do. Available on Premium."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">

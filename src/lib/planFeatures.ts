@@ -32,8 +32,8 @@ export function getTierFeatures(tier: "pro" | "premium", cap: number): string[] 
       "AI blog writer",
       "Billing & invoices",
       "Patient records",
-      "Regular checkup alert (Coming soon)",
-      "Staff roles & access (Coming soon)",
+      "Regular checkup alert",
+      "Staff roles & access",
     ];
   }
   return [
