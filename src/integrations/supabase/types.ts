@@ -483,85 +483,6 @@ export type Database = {
           },
         ]
       }
-      notification_logs: {
-        Row: {
-          channel: Database["public"]["Enums"]["notification_channel"]
-          created_at: string
-          doctor_id: string
-          error_message: string | null
-          id: string
-          is_test: boolean
-          message: string
-          notification_type: string
-          patient_id: string
-          provider: string | null
-          provider_message_id: string | null
-          recipient: string | null
-          reminder_id: string | null
-          scheduled_at: string
-          sent_at: string | null
-          status: Database["public"]["Enums"]["notification_status"]
-        }
-        Insert: {
-          channel: Database["public"]["Enums"]["notification_channel"]
-          created_at?: string
-          doctor_id: string
-          error_message?: string | null
-          id?: string
-          is_test?: boolean
-          message: string
-          notification_type?: string
-          patient_id: string
-          provider?: string | null
-          provider_message_id?: string | null
-          recipient?: string | null
-          reminder_id?: string | null
-          scheduled_at?: string
-          sent_at?: string | null
-          status?: Database["public"]["Enums"]["notification_status"]
-        }
-        Update: {
-          channel?: Database["public"]["Enums"]["notification_channel"]
-          created_at?: string
-          doctor_id?: string
-          error_message?: string | null
-          id?: string
-          is_test?: boolean
-          message?: string
-          notification_type?: string
-          patient_id?: string
-          provider?: string | null
-          provider_message_id?: string | null
-          recipient?: string | null
-          reminder_id?: string | null
-          scheduled_at?: string
-          sent_at?: string | null
-          status?: Database["public"]["Enums"]["notification_status"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notification_logs_doctor_id_fkey"
-            columns: ["doctor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notification_logs_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notification_logs_reminder_id_fkey"
-            columns: ["reminder_id"]
-            isOneToOne: false
-            referencedRelation: "patient_checkup_reminders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       packages: {
         Row: {
           active: boolean
@@ -680,94 +601,6 @@ export type Database = {
           },
           {
             foreignKeyName: "patient_allergies_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      patient_checkup_reminders: {
-        Row: {
-          appointment_id: string | null
-          created_at: string
-          created_by: string
-          custom_interval_days: number | null
-          doctor_id: string
-          frequency: Database["public"]["Enums"]["checkup_frequency"]
-          id: string
-          in_app_enabled: boolean
-          last_reminder_sent_at: string | null
-          medical_record_id: string | null
-          next_checkup_date: string
-          next_reminder_at: string
-          patient_id: string
-          reminder_before_days: number
-          sms_enabled: boolean
-          status: Database["public"]["Enums"]["reminder_status"]
-          updated_at: string
-          updated_by: string
-          whatsapp_enabled: boolean
-        }
-        Insert: {
-          appointment_id?: string | null
-          created_at?: string
-          created_by: string
-          custom_interval_days?: number | null
-          doctor_id: string
-          frequency?: Database["public"]["Enums"]["checkup_frequency"]
-          id?: string
-          in_app_enabled?: boolean
-          last_reminder_sent_at?: string | null
-          medical_record_id?: string | null
-          next_checkup_date: string
-          next_reminder_at: string
-          patient_id: string
-          reminder_before_days?: number
-          sms_enabled?: boolean
-          status?: Database["public"]["Enums"]["reminder_status"]
-          updated_at?: string
-          updated_by: string
-          whatsapp_enabled?: boolean
-        }
-        Update: {
-          appointment_id?: string | null
-          created_at?: string
-          created_by?: string
-          custom_interval_days?: number | null
-          doctor_id?: string
-          frequency?: Database["public"]["Enums"]["checkup_frequency"]
-          id?: string
-          in_app_enabled?: boolean
-          last_reminder_sent_at?: string | null
-          medical_record_id?: string | null
-          next_checkup_date?: string
-          next_reminder_at?: string
-          patient_id?: string
-          reminder_before_days?: number
-          sms_enabled?: boolean
-          status?: Database["public"]["Enums"]["reminder_status"]
-          updated_at?: string
-          updated_by?: string
-          whatsapp_enabled?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "patient_checkup_reminders_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "patient_checkup_reminders_doctor_id_fkey"
-            columns: ["doctor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "patient_checkup_reminders_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
@@ -1187,8 +1020,8 @@ export type Database = {
       }
       patient_vitals: {
         Row: {
-          bmi: number | null
           blood_pressure: string | null
+          bmi: number | null
           created_at: string
           created_by: string
           doctor_id: string
@@ -1204,8 +1037,8 @@ export type Database = {
           weight: number | null
         }
         Insert: {
-          bmi?: number | null
           blood_pressure?: string | null
+          bmi?: number | null
           created_at?: string
           created_by?: string
           doctor_id: string
@@ -1221,8 +1054,8 @@ export type Database = {
           weight?: number | null
         }
         Update: {
-          bmi?: number | null
           blood_pressure?: string | null
+          bmi?: number | null
           created_at?: string
           created_by?: string
           doctor_id?: string
@@ -1320,13 +1153,15 @@ export type Database = {
       payments: {
         Row: {
           amount: number
-          appointment_id: string
+          appointment_id: string | null
           created_at: string
           currency: string
           doctor_id: string
           id: string
           is_mock: boolean
           method: string | null
+          needs_refund: boolean
+          pending_booking: Json | null
           raw_response: Json | null
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
@@ -1336,13 +1171,15 @@ export type Database = {
         }
         Insert: {
           amount: number
-          appointment_id: string
+          appointment_id?: string | null
           created_at?: string
           currency?: string
           doctor_id: string
           id?: string
           is_mock?: boolean
           method?: string | null
+          needs_refund?: boolean
+          pending_booking?: Json | null
           raw_response?: Json | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
@@ -1352,13 +1189,15 @@ export type Database = {
         }
         Update: {
           amount?: number
-          appointment_id?: string
+          appointment_id?: string | null
           created_at?: string
           currency?: string
           doctor_id?: string
           id?: string
           is_mock?: boolean
           method?: string | null
+          needs_refund?: boolean
+          pending_booking?: Json | null
           raw_response?: Json | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
@@ -1439,6 +1278,65 @@ export type Database = {
           },
         ]
       }
+      plan_upgrade_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          doctor_id: string
+          from_tier: string
+          id: string
+          is_mock: boolean
+          raw_response: Json | null
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
+          status: Database["public"]["Enums"]["payment_txn_status"]
+          target_tier: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          doctor_id: string
+          from_tier: string
+          id?: string
+          is_mock?: boolean
+          raw_response?: Json | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: Database["public"]["Enums"]["payment_txn_status"]
+          target_tier: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          doctor_id?: string
+          from_tier?: string
+          id?: string
+          is_mock?: boolean
+          raw_response?: Json | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: Database["public"]["Enums"]["payment_txn_status"]
+          target_tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_upgrade_payments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_settings: {
         Row: {
           key: string
@@ -1512,6 +1410,7 @@ export type Database = {
           address: string | null
           city: string | null
           clinic_name: string | null
+          commission_percent: number | null
           consultation_fee: number
           created_at: string
           custom_plan_price: number | null
@@ -1536,6 +1435,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name?: string | null
+          commission_percent?: number | null
           consultation_fee?: number
           created_at?: string
           custom_plan_price?: number | null
@@ -1560,6 +1460,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name?: string | null
+          commission_percent?: number | null
           consultation_fee?: number
           created_at?: string
           custom_plan_price?: number | null
@@ -2036,15 +1937,6 @@ export type Database = {
           time_slot: string
         }[]
       }
-      get_upcoming_checkup: {
-        Args: { _doctor_id: string; _phone: string }
-        Returns: {
-          doctor_name: string
-          frequency: Database["public"]["Enums"]["checkup_frequency"]
-          next_checkup_date: string
-          reminder_enabled: boolean
-        }[]
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2062,8 +1954,15 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_doctor_id: { Args: { _user_id: string }; Returns: string }
+      staff_has_permission: {
+        Args: { _permission: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
+      allergy_severity: "mild" | "moderate" | "severe"
+      allergy_type: "drug" | "food" | "other"
       app_role: "admin" | "doctor" | "staff"
       appointment_status:
         | "pending"
@@ -2071,12 +1970,7 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "no_show"
-      payment_status: "pending" | "paid" | "refunded" | "pay_at_clinic"
-      plan_status: "trial" | "active" | "expired" | "cancelled"
       condition_status: "active" | "under_treatment" | "resolved" | "unknown"
-      medication_status: "active" | "completed"
-      allergy_type: "drug" | "food" | "other"
-      allergy_severity: "mild" | "moderate" | "severe"
       medical_document_type:
         | "lab_report"
         | "xray"
@@ -2084,19 +1978,21 @@ export type Database = {
         | "ct_scan"
         | "previous_prescription"
         | "other"
-      payment_txn_status: "created" | "authorized" | "captured" | "failed" | "refunded"
-      payout_status: "pending" | "processing" | "processed" | "failed" | "cancelled"
-      checkup_frequency:
-        | "weekly"
-        | "every_15_days"
-        | "monthly"
-        | "every_3_months"
-        | "every_6_months"
-        | "yearly"
-        | "custom"
-      reminder_status: "active" | "paused" | "completed" | "cancelled"
-      notification_channel: "whatsapp" | "sms" | "in_app"
-      notification_status: "pending" | "processing" | "sent" | "failed" | "simulated"
+      medication_status: "active" | "completed"
+      payment_status: "pending" | "paid" | "refunded" | "pay_at_clinic"
+      payment_txn_status:
+        | "created"
+        | "authorized"
+        | "captured"
+        | "failed"
+        | "refunded"
+      payout_status:
+        | "pending"
+        | "processing"
+        | "processed"
+        | "failed"
+        | "cancelled"
+      plan_status: "trial" | "active" | "expired" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2224,6 +2120,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      allergy_severity: ["mild", "moderate", "severe"],
+      allergy_type: ["drug", "food", "other"],
       app_role: ["admin", "doctor", "staff"],
       appointment_status: [
         "pending",
@@ -2232,12 +2130,7 @@ export const Constants = {
         "cancelled",
         "no_show",
       ],
-      payment_status: ["pending", "paid", "refunded", "pay_at_clinic"],
-      plan_status: ["trial", "active", "expired", "cancelled"],
       condition_status: ["active", "under_treatment", "resolved", "unknown"],
-      medication_status: ["active", "completed"],
-      allergy_type: ["drug", "food", "other"],
-      allergy_severity: ["mild", "moderate", "severe"],
       medical_document_type: [
         "lab_report",
         "xray",
@@ -2246,20 +2139,23 @@ export const Constants = {
         "previous_prescription",
         "other",
       ],
-      payment_txn_status: ["created", "authorized", "captured", "failed", "refunded"],
-      payout_status: ["pending", "processing", "processed", "failed", "cancelled"],
-      checkup_frequency: [
-        "weekly",
-        "every_15_days",
-        "monthly",
-        "every_3_months",
-        "every_6_months",
-        "yearly",
-        "custom",
+      medication_status: ["active", "completed"],
+      payment_status: ["pending", "paid", "refunded", "pay_at_clinic"],
+      payment_txn_status: [
+        "created",
+        "authorized",
+        "captured",
+        "failed",
+        "refunded",
       ],
-      reminder_status: ["active", "paused", "completed", "cancelled"],
-      notification_channel: ["whatsapp", "sms", "in_app"],
-      notification_status: ["pending", "processing", "sent", "failed", "simulated"],
+      payout_status: [
+        "pending",
+        "processing",
+        "processed",
+        "failed",
+        "cancelled",
+      ],
+      plan_status: ["trial", "active", "expired", "cancelled"],
     },
   },
 } as const
