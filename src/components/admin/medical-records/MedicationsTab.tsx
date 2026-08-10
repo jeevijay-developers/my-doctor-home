@@ -10,6 +10,7 @@ const MedicationsTab = ({ patientId, doctorId, onChange }: { patientId: string; 
     iconColorClass="text-teal"
     title="Current Medications"
     addLabel="Add Medication"
+    successLabel="Medication"
     orderBy="start_date"
     emptyTitle="No medications recorded"
     emptyHint="Add medicines the patient is currently taking or has taken"

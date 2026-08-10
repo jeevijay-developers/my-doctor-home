@@ -17,6 +17,7 @@ const AllergiesTab = ({ patientId, doctorId, onChange }: { patientId: string; do
     iconColorClass="text-destructive"
     title="Allergies"
     addLabel="Add Allergy"
+    successLabel="Allergy"
     orderBy="created_at"
     emptyTitle="No allergies recorded"
     emptyHint="Add known drug, food or other allergies"

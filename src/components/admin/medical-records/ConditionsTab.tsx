@@ -20,6 +20,7 @@ const ConditionsTab = ({ patientId, doctorId, onChange }: { patientId: string; d
     iconColorClass="text-royal"
     title="Medical Conditions"
     addLabel="Add Medical Condition"
+    successLabel="Medical Condition"
     orderBy="diagnosis_date"
     emptyTitle="No conditions recorded"
     emptyHint="Add the patient's diagnosed conditions to build their problem list"
