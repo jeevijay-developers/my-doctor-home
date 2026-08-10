@@ -26,6 +26,7 @@ describe("planFeatures", () => {
     expect(basic).not.toContain("Online Consultation (Zoom)");
 
     const premium = getTierFeatures("premium", 500);
+    expect(premium).toContain("All features included in Basic plan");
     expect(premium).toContain("Online Consultation (Zoom)");
     expect(premium).toContain("Billing & Invoices");
     expect(premium).toContain("AI Blog Writer");

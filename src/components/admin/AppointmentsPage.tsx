@@ -400,6 +400,9 @@ const AppointmentsPage = () => {
           <p className="text-sm text-foreground">
             You've used <strong>{appointmentsUsed}/{appointmentsCap}</strong> appointments this month — upgrade to Premium for unlimited.
           </p>
+          <Button variant="outline" size="sm" onClick={() => navigate("/admin/settings")} className="border-warning/40 text-foreground hover:bg-warning/20">
+            Upgrade Plan
+          </Button>
         </div>
       )}
 

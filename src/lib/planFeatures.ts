@@ -15,11 +15,8 @@ export function hasNoActivePlan(planStatus: string): boolean {
 export function getTierFeatures(tier: "pro" | "premium", cap: number): string[] {
   if (tier === "premium") {
     return [
-      "Website Builder",
+      "All features included in Basic plan",
       "Unlimited Appointment Booking",
-      "Patient Records",
-      "Manual Blog Posts",
-      "Basic Analytics",
       "Online Consultation (Zoom)",
       "Billing & Invoices",
       "AI Blog Writer",
