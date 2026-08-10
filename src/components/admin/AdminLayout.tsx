@@ -16,7 +16,6 @@ const pageTitles: Record<string, string> = {
   "/admin/patients": "Patients",
   "/admin/blog": "Blog",
   "/admin/billing": "Billing",
-  "/admin/profile": "Profile",
   "/admin/settings": "Settings",
   "/admin/staff": "Staff Management",
 };
@@ -78,9 +77,11 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                   Staff
                 </span>
               )}
-              {/* isStaff sessions never link to /admin/profile — that page is
-                  the DOCTOR's own account settings, not something staff edit
-                  about themselves regardless of permissions. */}
+              {/* isStaff sessions never link anywhere here — clicking a staff
+                  member's own name/avatar isn't a shortcut to editing the
+                  DOCTOR's profile, which is what /admin/settings shows by
+                  default (its Profile tab is a staff member's own profile,
+                  reached from the sidebar instead). */}
               {isStaff ? (
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center text-xs font-bold text-warning">
@@ -92,7 +93,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                   </div>
                 </div>
               ) : (
-                <Link to="/admin/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Link to="/admin/settings?tab=profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                   {profile?.profile_photo_url ? (
                     <img src={profile.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
                   ) : (

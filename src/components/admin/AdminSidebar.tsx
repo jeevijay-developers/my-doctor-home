@@ -1,4 +1,4 @@
-import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCircle, UserCog } from "lucide-react";
+import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCog } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,11 +31,11 @@ const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; per
   { title: "Reviews", url: "/admin/reviews", icon: MessageSquare, permission: "reviews.view" },
   { title: "Blog", url: "/admin/blog", icon: FileText, permission: "blog.view" },
   { title: "Billing", url: "/admin/billing", icon: CreditCard, permission: "billing.view" },
-  { title: "Profile", url: "/admin/profile", icon: UserCircle, permission: "profile.view" },
   { title: "Staff Management", url: "/admin/staff", icon: UserCog, permission: "staff.view" },
-  // No permission entry: Settings has no checkbox anywhere in the staff
-  // permission system, so it stays doctor-only regardless of what's granted.
-  { title: "Settings", url: "/admin/settings", icon: Settings, permission: null },
+  // Profile now lives inside Settings as a tab, so Settings is gated on
+  // profile.view (not doctor-only anymore): staff who can view their own
+  // profile need a way to reach it, and Settings is that page now.
+  { title: "Settings", url: "/admin/settings", icon: Settings, permission: "profile.view" },
 ];
 
 const AdminSidebar = () => {

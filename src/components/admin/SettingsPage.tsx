@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Settings, Crown, Shield, Download, Trash2 } from "lucide-react";
+import { Settings, Crown, Shield, Download, Trash2, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -12,10 +13,13 @@ import { differenceInDays } from "date-fns";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import RequestUpgradeDialog from "./RequestUpgradeDialog";
 import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP } from "@/lib/planFeatures";
+import ProfilePage from "./ProfilePage";
 
 const SettingsPage = () => {
-  const { profile } = useProfile();
+  const { profile, isStaff } = useProfile();
   const [exporting, setExporting] = useState(false);
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
 
   const exportAllData = async () => {
     if (!profile) return;
@@ -57,21 +61,42 @@ const SettingsPage = () => {
   const basicFeatures = getTierFeatures("pro", appointmentsCap || DEFAULT_APPOINTMENT_CAP);
   const premiumFeatures = getTierFeatures("premium", appointmentsCap || DEFAULT_APPOINTMENT_CAP);
 
+  // Staff can only ever land here with "View Profile" granted (the route
+  // itself is gated on profile.view — see AdminDashboard.tsx), and only ever
+  // get the Profile tab — Subscription, Account (data export), and Danger
+  // Zone (account deletion) stay doctor-only, matching their existing
+  // doctor-only status before Profile moved in here.
+  if (isStaff) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
+          <Settings className="h-6 w-6 text-muted-foreground" /> Settings
+        </h1>
+        <ProfilePage />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
         <Settings className="h-6 w-6 text-muted-foreground" /> Settings
       </h1>
       <p className="text-sm text-muted-foreground -mt-4">
-        Manage subscription and account preferences. Edit your profile from the <a href="/admin/profile" className="text-royal hover:underline">Profile</a> section.
+        Manage your profile, subscription and account preferences.
       </p>
 
-      <Tabs defaultValue="subscription" className="space-y-6">
+      <Tabs defaultValue={requestedTab === "profile" ? "profile" : "subscription"} className="space-y-6">
         <TabsList className="bg-card border border-border h-11">
+          <TabsTrigger value="profile" className="gap-1.5"><UserCircle className="h-3.5 w-3.5" /> Profile</TabsTrigger>
           <TabsTrigger value="subscription" className="gap-1.5"><Crown className="h-3.5 w-3.5" /> Subscription</TabsTrigger>
           <TabsTrigger value="account" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Account</TabsTrigger>
         </TabsList>
 
+
+        <TabsContent value="profile">
+          <ProfilePage />
+        </TabsContent>
 
         <TabsContent value="subscription">
           <Card className="border-border/60 shadow-none">

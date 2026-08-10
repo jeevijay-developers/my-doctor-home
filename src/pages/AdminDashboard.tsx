@@ -12,7 +12,6 @@ const PatientMedicalRecord = lazy(() => import("@/components/admin/PatientMedica
 const BlogPage = lazy(() => import("@/components/admin/BlogPage"));
 const BillingPage = lazy(() => import("@/components/admin/BillingPage"));
 const SettingsPage = lazy(() => import("@/components/admin/SettingsPage"));
-const ProfilePage = lazy(() => import("@/components/admin/ProfilePage"));
 const PrescriptionsPage = lazy(() => import("@/components/admin/PrescriptionsPage"));
 const ReviewsManagePage = lazy(() => import("@/components/admin/ReviewsManagePage"));
 const StaffManagementPage = lazy(() => import("@/components/admin/StaffManagementPage"));
@@ -38,8 +37,10 @@ const AdminDashboard = () => (
         <Route path="patients/:patientId" element={<PermissionGate permission="patients.view"><PatientMedicalRecord /></PermissionGate>} />
         <Route path="blog" element={<PermissionGate permission="blog.view"><BlogPage /></PermissionGate>} />
         <Route path="billing" element={<PermissionGate permission="billing.view"><BillingPage /></PermissionGate>} />
-        <Route path="profile" element={<PermissionGate permission="profile.view"><ProfilePage /></PermissionGate>} />
-        <Route path="settings" element={<PermissionGate permission={null}><SettingsPage /></PermissionGate>} />
+        {/* Profile now lives inside Settings as a tab — this old direct URL just
+            redirects there so existing bookmarks/links keep working. */}
+        <Route path="profile" element={<Navigate to="/admin/settings?tab=profile" replace />} />
+        <Route path="settings" element={<PermissionGate permission="profile.view"><SettingsPage /></PermissionGate>} />
         <Route path="prescriptions" element={<PermissionGate permission="prescriptions.view"><PrescriptionsPage /></PermissionGate>} />
         <Route path="reviews" element={<PermissionGate permission="reviews.view"><ReviewsManagePage /></PermissionGate>} />
         <Route path="staff" element={<PermissionGate permission="staff.view"><StaffManagementPage /></PermissionGate>} />

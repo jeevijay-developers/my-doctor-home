@@ -75,8 +75,10 @@ export const PERMISSION_MODULES: PermissionModule[] = [
 
 // Route (pathname prefix) → permission required to enter it. Checked at both
 // the sidebar (hide) and route (block + redirect) level. "/admin/settings"
-// has no entry: there is no checkbox for it anywhere in the permission
-// system, so it stays doctor-only regardless of any permission granted.
+// is gated on profile.view since Profile now lives there as a tab — a staff
+// member who could view their profile at the old /admin/profile route needs
+// the same access at its new home (SettingsPage.tsx renders only the
+// Profile tab, with no Subscription/Account tabs, when isStaff is true).
 export const ROUTE_PERMISSIONS: { prefix: string; permission: PermissionKey }[] = [
   { prefix: "/admin/dashboard", permission: "dashboard.view" },
   { prefix: "/admin/my-website", permission: "website.view" },
@@ -86,7 +88,7 @@ export const ROUTE_PERMISSIONS: { prefix: string; permission: PermissionKey }[] 
   { prefix: "/admin/reviews", permission: "reviews.view" },
   { prefix: "/admin/blog", permission: "blog.view" },
   { prefix: "/admin/billing", permission: "billing.view" },
-  { prefix: "/admin/profile", permission: "profile.view" },
+  { prefix: "/admin/settings", permission: "profile.view" },
   { prefix: "/admin/staff", permission: "staff.view" },
 ];
 
