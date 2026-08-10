@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
-import ContactSupportDialog from "./ContactSupportDialog";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
+import RequestUpgradeDialog from "./RequestUpgradeDialog";
+import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES } from "@/lib/planFeatures";
 
 const SettingsPage = () => {
   const { profile } = useProfile();
@@ -48,6 +50,13 @@ const SettingsPage = () => {
   const daysLeft = profile?.trial_end ? Math.max(0, differenceInDays(new Date(profile.trial_end), new Date())) : 7;
   const trialProgress = ((7 - daysLeft) / 7) * 100;
 
+  const { isPremium, appointmentsCap } = usePlanAccess();
+  const planTier = profile?.plan_tier || "free";
+  const planStatus = profile?.plan_status || "trial";
+  const { basic, premium } = getSubscriptionCardStates(planStatus, planTier, isPremium);
+  const basicFeatures = getTierFeatures("pro", appointmentsCap || 500);
+  const premiumFeatures = getTierFeatures("premium", appointmentsCap || 500);
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
@@ -80,10 +89,6 @@ const SettingsPage = () => {
                       <p className="text-sm text-muted-foreground mt-1">{daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining in free trial</p>
                     )}
                   </div>
-                  <ContactSupportDialog
-                    defaultSubject="Upgrade to Premium"
-                    trigger={<Button className="bg-royal hover:bg-royal/90">Upgrade Plan</Button>}
-                  />
                 </div>
                 {profile?.plan_status === "trial" && (
                   <div>
@@ -97,28 +102,49 @@ const SettingsPage = () => {
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-border p-5">
-                  <h3 className="font-heading font-bold text-foreground mb-1">Free Trial</h3>
-                  <p className="text-sm text-muted-foreground mb-3">7 days, all features</p>
+                <div className={`rounded-xl p-5 relative ${basic.isCurrent ? "border-2 border-royal" : "border border-border"}`}>
+                  {basic.badge && (
+                    <Badge className={`absolute -top-2.5 right-4 text-[10px] ${basic.isCurrent ? "bg-royal text-white" : "bg-secondary text-muted-foreground"}`}>
+                      {basic.badge}
+                    </Badge>
+                  )}
+                  <h3 className="font-heading font-bold text-foreground mb-1">{TIER_LABELS.pro}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">₹{TIER_PRICES.pro}/month</p>
                   <ul className="space-y-1.5 text-sm text-muted-foreground">
-                    {["Website Builder", "Appointment Booking", "Patient Records", "Blog (1 post)", "Basic Analytics"].map(f => (
-                      <li key={f} className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-success" />{f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="rounded-xl border-2 border-royal p-5 relative">
-                  <Badge className="absolute -top-2.5 right-4 bg-royal text-white text-[10px]">RECOMMENDED</Badge>
-                  <h3 className="font-heading font-bold text-foreground mb-1">Pro Plan</h3>
-                  <p className="text-sm text-muted-foreground mb-3">₹999/month</p>
-                  <ul className="space-y-1.5 text-sm text-muted-foreground">
-                    {["Everything in Free", "Unlimited Blogs", "AI Blog Writer", "WhatsApp Integration", "Priority Support", "Custom Domain"].map(f => (
+                    {basicFeatures.map(f => (
                       <li key={f} className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-royal" />{f}
                       </li>
                     ))}
                   </ul>
+                  {basic.showCta && (
+                    <RequestUpgradeDialog
+                      targetTier="pro"
+                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">Request Upgrade</Button>}
+                    />
+                  )}
+                </div>
+                <div className={`rounded-xl p-5 relative ${premium.isCurrent ? "border-2 border-royal" : "border border-border"}`}>
+                  {premium.badge && (
+                    <Badge className={`absolute -top-2.5 right-4 text-[10px] ${premium.isCurrent ? "bg-royal text-white" : "bg-secondary text-muted-foreground"}`}>
+                      {premium.badge}
+                    </Badge>
+                  )}
+                  <h3 className="font-heading font-bold text-foreground mb-1">{TIER_LABELS.premium}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">₹{TIER_PRICES.premium}/month</p>
+                  <ul className="space-y-1.5 text-sm text-muted-foreground">
+                    {premiumFeatures.map(f => (
+                      <li key={f} className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-royal" />{f}
+                      </li>
+                    ))}
+                  </ul>
+                  {premium.showCta && (
+                    <RequestUpgradeDialog
+                      targetTier="premium"
+                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">Request Upgrade</Button>}
+                    />
+                  )}
                 </div>
               </div>
             </CardContent>

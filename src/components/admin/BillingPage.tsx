@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
@@ -51,23 +52,27 @@ const BillingPage = () => {
     setInvoices((iRes.data || []) as Invoice[]);
   };
 
-  useEffect(() => { loadData(); }, [profile]);
+  useEffect(() => {
+    if (profile && isPremium) {
+      loadData();
+    }
+  }, [profile, isPremium]);
 
   // Realtime: refresh when appointments or invoices change for this doctor
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || !isPremium) return;
     const channel = supabase.channel(`billing-${profile.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: `doctor_id=eq.${profile.id}` }, () => loadData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile]);
+  }, [profile, isPremium]);
 
   // Auto-generate invoices for any paid appointment that doesn't yet have one.
   useEffect(() => {
     const run = async () => {
-      if (!profile || appointments.length === 0) return;
+      if (!profile || !isPremium || appointments.length === 0) return;
       const paidAppts = appointments.filter(a => a.payment_status === "paid");
       const missing = paidAppts.filter(a => !invoices.some(i => i.appointment_id === a.id));
       if (missing.length === 0) return;
@@ -245,7 +250,15 @@ const BillingPage = () => {
     generateInvoicePDF(buildInvoicePayload(inv));
   };
 
-  if (!planLoading && !isPremium) {
+  if (planLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-7 w-7 animate-spin text-royal" />
+      </div>
+    );
+  }
+
+  if (!isPremium) {
     return (
       <div className="max-w-6xl mx-auto">
         <LockedFeatureCard

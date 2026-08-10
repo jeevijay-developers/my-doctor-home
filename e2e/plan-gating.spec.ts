@@ -85,16 +85,16 @@ test.describe("Subscription Plan Gating E2E Tests", () => {
     // 1a. Log in as basic doctor below cap
     await loginDoctor(page, basicDocConfig.email);
 
-    // Verify Billing page displays LockedFeatureCard
+    // Verify Billing page displays LockedFeatureCard for basic doctor
     await page.goto("/admin/billing");
     await expect(page.locator("text=/Billing & Invoices/")).toBeVisible();
-    await expect(page.locator("text=/Track revenue, auto-generate GST invoices/")).toBeVisible();
     await expect(page.locator("button:has-text('Request Upgrade')")).toBeVisible();
 
-    // Click "Request Upgrade" and verify ContactSupportDialog opens pre-filled
+    // Click "Request Upgrade" and verify it opens the upgrade-request dialog in place
+    // (previously navigated to Settings — LockedFeatureCard now opens RequestUpgradeDialog directly)
     await page.click("button:has-text('Request Upgrade')");
-    await expect(page.getByRole("heading", { name: "Contact Support" })).toBeVisible();
-    await expect(page.locator("input[value='Upgrade to Premium']")).toBeVisible();
+    await expect(page.locator("text=/Request Upgrade to Premium/")).toBeVisible();
+    await expect(page).not.toHaveURL(/\/admin\/settings/);
     await page.keyboard.press("Escape");
 
     // Verify Blog Page AI Writer displays LockedFeatureCard

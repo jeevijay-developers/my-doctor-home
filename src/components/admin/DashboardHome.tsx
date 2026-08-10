@@ -9,7 +9,7 @@ import {
   Lightbulb, Send, Share2, IndianRupee
 } from "lucide-react";
 import { differenceInDays, format, subDays } from "date-fns";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
