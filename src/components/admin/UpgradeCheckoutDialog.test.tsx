@@ -1,14 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 
-const { invokeMock, refetchMock } = vi.hoisted(() => ({
+const { invokeMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
-  refetchMock: vi.fn(),
 }));
 
 vi.mock("@/hooks/useProfile", () => ({
-  useProfile: () => ({ profile: { plan_tier: "pro", plan_status: "active" }, loading: false, refetch: refetchMock }),
+  useProfile: () => ({ profile: { plan_tier: "pro", plan_status: "active" }, loading: false }),
 }));
 vi.mock("@/hooks/usePlanAccess", () => ({
   usePlanAccess: () => ({ isPremium: false, appointmentsCap: 100, appointmentsUsed: 0, nearCap: false, loading: false }),
@@ -23,7 +22,11 @@ vi.mock("@/integrations/supabase/client", () => ({
 describe("UpgradeCheckoutDialog", () => {
   beforeEach(() => {
     invokeMock.mockReset();
-    refetchMock.mockReset();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("opens on trigger click and shows the target tier's price and features", () => {
@@ -33,7 +36,10 @@ describe("UpgradeCheckoutDialog", () => {
     expect(screen.getByRole("button", { name: /pay .*3999.* upgrade/i })).toBeInTheDocument();
   });
 
-  it("creates an order and verifies a successful mock payment, then refetches the profile", async () => {
+  it("creates an order and verifies a successful mock payment, then reloads the page", async () => {
+    const reloadSpy = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload: reloadSpy });
+
     invokeMock.mockImplementation((fn: string) => {
       if (fn === "create-plan-upgrade-order") {
         return Promise.resolve({
@@ -66,6 +72,10 @@ describe("UpgradeCheckoutDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /payment successful/i }));
 
-    await waitFor(() => expect(refetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("verify-plan-upgrade-payment", expect.anything()));
+    await vi.advanceTimersByTimeAsync(1000);
+    await waitFor(() => expect(reloadSpy).toHaveBeenCalled());
+
+    vi.unstubAllGlobals();
   });
 });

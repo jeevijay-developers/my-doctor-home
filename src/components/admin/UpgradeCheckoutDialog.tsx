@@ -22,7 +22,7 @@ const UpgradeCheckoutDialog = ({
   targetTier: "pro" | "premium";
   trigger: React.ReactNode;
 }) => {
-  const { profile, refetch } = useProfile();
+  const { profile } = useProfile();
   const { appointmentsCap } = usePlanAccess();
   const { isMock } = usePaymentMode();
   const [open, setOpen] = useState(false);
@@ -55,9 +55,16 @@ const UpgradeCheckoutDialog = ({
     toast.success(`You're now on ${toLabel}!`);
     setMockOpen(false);
     setOrder(null);
-    setBusy(false);
     setOpen(false);
-    refetch();
+    // useProfile() has no shared state across components — each caller
+    // fetches its own independent copy, so refetching this dialog's own
+    // profile wouldn't unlock the page it's rendered on top of (that page
+    // has its own separate useProfile()/usePlanAccess() instances). A full
+    // reload is this codebase's existing pattern for reflecting a plan-tier
+    // change (see e2e/plan-gating.spec.ts's downgrade test, which reloads
+    // rather than expecting live propagation). Brief delay so the success
+    // toast is visible before the reload.
+    setTimeout(() => window.location.reload(), 900);
   };
 
   const handleFailed = (message: string) => {
