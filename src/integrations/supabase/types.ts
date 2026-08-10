@@ -738,6 +738,7 @@ export type Database = {
           description: string | null
           doctor_id: string
           id: string
+          metadata: Json | null
           notes: string | null
           priority: string
           status: string
@@ -750,6 +751,7 @@ export type Database = {
           description?: string | null
           doctor_id: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           priority?: string
           status?: string
@@ -762,6 +764,7 @@ export type Database = {
           description?: string | null
           doctor_id?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           priority?: string
           status?: string
