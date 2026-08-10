@@ -30,7 +30,6 @@ const PatientsPage = () => {
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
-  const [patientAppts, setPatientAppts] = useState<any[]>([]);
   const [newPatient, setNewPatient] = useState({ name: "", phone: "", email: "", age: "", gender: "" });
   const [deleting, setDeleting] = useState<Patient | null>(null);
 
@@ -107,12 +106,8 @@ const PatientsPage = () => {
     toast.success("Patient added");
   };
 
-  const viewPatient = async (p: Patient) => {
+  const viewPatient = (p: Patient) => {
     setSelected(p);
-    if (profile) {
-      const { data } = await supabase.from("appointments").select("*").eq("doctor_id", profile.id).eq("patient_phone", p.phone).order("date", { ascending: false });
-      setPatientAppts(data || []);
-    }
   };
 
   const exportPatients = () => {
@@ -399,36 +394,6 @@ const PatientsPage = () => {
                       <div className="font-medium text-sm text-foreground">{item.value}</div>
                     </div>
                   ))}
-                </div>
-
-                <div>
-                  <h3 className="font-heading font-semibold text-foreground mb-3">Visit History</h3>
-                  {patientAppts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4 text-center">No appointment history.</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {patientAppts.map((a: any, i: number) => (
-                        <div key={a.id} className="flex gap-3">
-                          <div className="flex flex-col items-center">
-                            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                              a.status === "completed" ? "bg-success" : a.status === "cancelled" ? "bg-destructive" : "bg-warning"
-                            }`} />
-                            {i < patientAppts.length - 1 && <div className="w-0.5 flex-1 bg-border min-h-[30px]" />}
-                          </div>
-                          <div className="pb-3 flex-1">
-                            <div className="flex justify-between items-start">
-                              <span className="font-medium text-sm text-foreground">{a.service_name}</span>
-                              <span className="text-xs text-muted-foreground">{a.date}</span>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {a.time_slot?.slice(0, 5)} · {a.appointment_type} · ₹{a.amount}
-                              {a.token_number && <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold">#{a.token_number}</span>}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 {!isStaff && (
