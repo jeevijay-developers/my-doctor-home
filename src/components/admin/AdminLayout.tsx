@@ -18,12 +18,15 @@ const pageTitles: Record<string, string> = {
   "/admin/billing": "Billing",
   "/admin/profile": "Profile",
   "/admin/settings": "Settings",
+  "/admin/staff": "Staff Management",
 };
 
 const AdminLayout = ({ children }: { children: ReactNode }) => {
   const { profile } = useProfile();
   const location = useLocation();
-  const pageTitle = pageTitles[location.pathname] || "Dashboard";
+  const pageTitle = location.pathname.startsWith("/admin/patients/")
+    ? "Medical Record"
+    : pageTitles[location.pathname] || "Dashboard";
   const { settings } = usePlatformSettings();
   const banner = typeof settings.announcement_banner === "string" ? settings.announcement_banner : "";
   const { mode, setTheme } = usePanelTheme("doctylia-admin-theme");

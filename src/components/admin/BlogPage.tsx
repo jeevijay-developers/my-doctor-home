@@ -36,7 +36,7 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp
 const MAX_IMAGE_MB = 5;
 
 const BlogPage = () => {
-  const { profile } = useProfile();
+  const { profile, can } = useProfile();
   const { isPremium } = usePlanAccess();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [search, setSearch] = useState("");
@@ -243,9 +243,11 @@ const BlogPage = () => {
             {publishedCount} published · {draftCount} drafts
           </p>
         </div>
+        {can("blog.create") && (
         <Button onClick={openNew} className="bg-royal hover:bg-royal/90">
           <Plus className="h-4 w-4 mr-1" /> New Post
         </Button>
+        )}
       </div>
 
       <div className="relative max-w-md">
@@ -259,9 +261,11 @@ const BlogPage = () => {
           <div className="col-span-full text-center py-16">
             <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground">No blog posts yet. Write your first article!</p>
+            {can("blog.create") && (
             <Button onClick={openNew} variant="outline" className="mt-4">
               <Plus className="h-4 w-4 mr-1" /> Create Post
             </Button>
+            )}
           </div>
         ) : filtered.map((post) => (
           <div key={post.id} className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow">
@@ -293,15 +297,21 @@ const BlogPage = () => {
                 {format(new Date(post.created_at), "MMM d, yyyy")}
               </p>
               <div className="flex gap-1 pt-2 border-t border-border">
-                <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => openEdit(post)}>
-                  <Pencil className="h-3 w-3 mr-1" /> Edit
-                </Button>
-                <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => togglePublish(post)}>
-                  {post.is_published ? <><EyeOff className="h-3 w-3 mr-1" /> Unpublish</> : <><Eye className="h-3 w-3 mr-1" /> Publish</>}
-                </Button>
-                <Button size="sm" variant="ghost" className="text-xs h-8 text-destructive" onClick={() => deletePost(post.id)}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+                {can("blog.edit") && (
+                  <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => openEdit(post)}>
+                    <Pencil className="h-3 w-3 mr-1" /> Edit
+                  </Button>
+                )}
+                {can("blog.edit") && (
+                  <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => togglePublish(post)}>
+                    {post.is_published ? <><EyeOff className="h-3 w-3 mr-1" /> Unpublish</> : <><Eye className="h-3 w-3 mr-1" /> Publish</>}
+                  </Button>
+                )}
+                {can("blog.delete") && (
+                  <Button size="sm" variant="ghost" className="text-xs h-8 text-destructive" onClick={() => deletePost(post.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
             </div>
           </div>

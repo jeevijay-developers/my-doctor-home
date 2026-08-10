@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Users, Plus, Search, Mail, Calendar, Activity, Download, Trash2, X } from "lucide-react";
+import { Users, Plus, Search, Mail, Calendar, Activity, Download, Trash2, X, FileHeart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,7 +24,8 @@ type Patient = {
 };
 
 const PatientsPage = () => {
-  const { profile } = useProfile();
+  const { profile, isStaff, can } = useProfile();
+  const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
@@ -171,6 +173,7 @@ const PatientsPage = () => {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportPatients} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
+          {can("patients.add") && (
           <Dialog open={showNew} onOpenChange={setShowNew}>
             <DialogTrigger asChild>
               <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> Add Patient</Button>
@@ -214,6 +217,7 @@ const PatientsPage = () => {
             </div>
           </DialogContent>
         </Dialog>
+          )}
         </div>
       </div>
 
@@ -248,6 +252,7 @@ const PatientsPage = () => {
                 {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
               </Button>
             )}
+            {!isStaff && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -265,6 +270,7 @@ const PatientsPage = () => {
                 <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            )}
           </div>
         </div>
       )}
@@ -369,6 +375,15 @@ const PatientsPage = () => {
                 </div>
               </SheetHeader>
               <div className="mt-6 space-y-6">
+                {can("patients.medical_records") && (
+                <Button
+                  className="w-full h-10 bg-royal hover:bg-royal/90"
+                  onClick={() => navigate(`/admin/patients/${selected.id}`)}
+                >
+                  <FileHeart className="h-4 w-4 mr-2" /> Open Medical Record
+                </Button>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: "Email", value: selected.email || "—", icon: Mail },
@@ -416,12 +431,14 @@ const PatientsPage = () => {
                   )}
                 </div>
 
+                {!isStaff && (
                 <div className="pt-4 border-t border-border">
                   <Button variant="outline" className="w-full text-destructive border-destructive/30 hover:bg-destructive/5"
                     onClick={() => setDeleting(selected)}>
                     <Trash2 className="h-4 w-4 mr-2" /> Delete Patient Record
                   </Button>
                 </div>
+                )}
               </div>
             </>
           )}

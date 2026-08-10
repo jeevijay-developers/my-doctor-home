@@ -33,7 +33,7 @@ const specializations = [
 ];
 
 const ProfilePage = () => {
-  const { profile, refetch } = useProfile();
+  const { profile, refetch, can } = useProfile();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -382,11 +382,13 @@ const ProfilePage = () => {
               <span>Payouts will only start flowing once the Doctylia team activates the platform's RazorpayX account. Your details are saved securely either way.</span>
             </div>
 
+            {can("profile.edit") && (
             <div className="flex justify-end">
               <Button onClick={saveBankDetails} disabled={savingBank} className="bg-royal hover:bg-royal/90 text-white h-10">
                 {savingBank ? "Saving..." : "Save Payout Details"}
               </Button>
             </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -417,11 +419,13 @@ const ProfilePage = () => {
         </Card>
       )}
 
+      {can("profile.edit") && (
       <div className="flex justify-end">
         <Button onClick={save} disabled={saving} className="bg-royal hover:bg-royal/90 h-10 min-w-[160px]">
           {saving ? "Saving..." : "Save Profile"}
         </Button>
       </div>
+      )}
     </div>
   );
 };

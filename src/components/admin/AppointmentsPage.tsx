@@ -40,7 +40,7 @@ const statusConfig: Record<string, { bg: string; dot: string; label: string }> =
 };
 
 const AppointmentsPage = () => {
-  const { profile } = useProfile();
+  const { profile, isStaff, can } = useProfile();
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [search, setSearch] = useState("");
@@ -338,6 +338,7 @@ const AppointmentsPage = () => {
         <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
           <CalendarCheck className="h-6 w-6 text-royal" /> Appointments
         </h1>
+        {can("appointments.create") && (
         <Dialog open={showNew} onOpenChange={setShowNew}>
           <DialogTrigger asChild>
             <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> New Appointment</Button>
@@ -393,6 +394,7 @@ const AppointmentsPage = () => {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {nearCap && (
@@ -519,6 +521,7 @@ const AppointmentsPage = () => {
                 {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
               </Button>
             )}
+            {!isStaff && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -536,6 +539,7 @@ const AppointmentsPage = () => {
                 <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            )}
           </div>
         </div>
       )}
@@ -641,7 +645,9 @@ const AppointmentsPage = () => {
               no_show: [],
               cancelled: [],
             };
-            const options = transitions[viewing.status] ?? [];
+            const options = (transitions[viewing.status] ?? []).filter((o) =>
+              o.next === "cancelled" ? (can("appointments.edit") || can("appointments.cancel")) : can("appointments.edit")
+            );
             return (
               <>
                 <SheetHeader>
@@ -733,7 +739,7 @@ const AppointmentsPage = () => {
                   )}
 
                   {/* Secondary actions */}
-                  {viewing.status !== "completed" && viewing.status !== "cancelled" && (
+                  {viewing.status !== "completed" && viewing.status !== "cancelled" && can("appointments.edit") && (
                     <div className="pt-4 border-t border-border flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => { const a = viewing; setViewing(null); openReschedule(a); }}>
                         Reschedule
