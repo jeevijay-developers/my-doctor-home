@@ -12,6 +12,7 @@ import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { usePaymentMode } from "@/hooks/usePaymentMode";
 import TestModeBadge from "@/components/shared/TestModeBadge";
+import { loadRazorpayCheckout } from "@/lib/razorpayCheckout";
 import AppointmentSlip from "./AppointmentSlip";
 import PaymentSlip from "./PaymentSlip";
 import MockCheckoutModal from "./MockCheckoutModal";
@@ -21,25 +22,6 @@ const getNextDays = (count: number) => {
   const today = new Date();
   for (let i = 0; i < count; i++) days.push(addDays(today, i));
   return days;
-};
-
-// Lazily loads Razorpay's Checkout script once (shared across repeat opens).
-let razorpayCheckoutPromise: Promise<void> | null = null;
-const loadRazorpayCheckout = (): Promise<void> => {
-  if ((window as any).Razorpay) return Promise.resolve();
-  if (razorpayCheckoutPromise) return razorpayCheckoutPromise;
-  razorpayCheckoutPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => {
-      razorpayCheckoutPromise = null;
-      reject(new Error("Failed to load the payment gateway"));
-    };
-    document.body.appendChild(script);
-  });
-  return razorpayCheckoutPromise;
 };
 
 const generateTimeSlots = (start: string | null, end: string | null) => {
