@@ -145,9 +145,28 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
   const download = async (doc: Doc) => {
     const url = await signedUrl(doc.file_path);
     if (!url) return;
-    const a = document.createElement("a");
-    a.href = url; a.download = doc.document_name;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    // The signed URL is cross-origin (Supabase Storage, not this app's own
+    // origin) — browsers ignore the `download` attribute on cross-origin
+    // links for security reasons and just open/preview the file instead of
+    // saving it. Fetching the file into a blob and downloading from a
+    // same-origin blob: URL is the only reliable way to force a real save.
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const ext = doc.file_path.split(".").pop();
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = ext ? `${doc.document_name}.${ext}` : doc.document_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      console.error("patient-documents download failed:", e);
+      toast.error("Could not download document");
+    }
   };
 
   const confirmDelete = async () => {
