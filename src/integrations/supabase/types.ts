@@ -1466,8 +1466,10 @@ export type Database = {
           id: string
           medications: string | null
           notes: string | null
+          patient_age: number | null
           patient_id: string | null
           patient_name: string
+          patient_weight: number | null
         }
         Insert: {
           created_at?: string
@@ -1477,8 +1479,10 @@ export type Database = {
           id?: string
           medications?: string | null
           notes?: string | null
+          patient_age?: number | null
           patient_id?: string | null
           patient_name: string
+          patient_weight?: number | null
         }
         Update: {
           created_at?: string
@@ -1488,8 +1492,10 @@ export type Database = {
           id?: string
           medications?: string | null
           notes?: string | null
+          patient_age?: number | null
           patient_id?: string | null
           patient_name?: string
+          patient_weight?: number | null
         }
         Relationships: [
           {
