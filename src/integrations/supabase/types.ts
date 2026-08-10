@@ -1459,43 +1459,64 @@ export type Database = {
       }
       prescriptions: {
         Row: {
+          advice: string | null
           created_at: string
           date: string
           diagnosis: string | null
+          diet_advice: string | null
           doctor_id: string
+          follow_up_date: string | null
+          follow_up_instructions: string | null
           id: string
+          lifestyle_advice: string | null
           medications: string | null
+          medicines: Json
           notes: string | null
           patient_age: number | null
           patient_id: string | null
           patient_name: string
           patient_weight: number | null
+          visit_id: string | null
         }
         Insert: {
+          advice?: string | null
           created_at?: string
           date?: string
           diagnosis?: string | null
+          diet_advice?: string | null
           doctor_id: string
+          follow_up_date?: string | null
+          follow_up_instructions?: string | null
           id?: string
+          lifestyle_advice?: string | null
           medications?: string | null
+          medicines?: Json
           notes?: string | null
           patient_age?: number | null
           patient_id?: string | null
           patient_name: string
           patient_weight?: number | null
+          visit_id?: string | null
         }
         Update: {
+          advice?: string | null
           created_at?: string
           date?: string
           diagnosis?: string | null
+          diet_advice?: string | null
           doctor_id?: string
+          follow_up_date?: string | null
+          follow_up_instructions?: string | null
           id?: string
+          lifestyle_advice?: string | null
           medications?: string | null
+          medicines?: Json
           notes?: string | null
           patient_age?: number | null
           patient_id?: string | null
           patient_name?: string
           patient_weight?: number | null
+          visit_id?: string | null
         }
         Relationships: [
           {
@@ -1505,12 +1526,20 @@ export type Database = {
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "prescriptions_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "patient_visits"
+            referencedColumns: ["id"]
+          },
         ]
       }
       profiles: {
         Row: {
           address: string | null
           city: string | null
+          clinic_email: string | null
           clinic_name: string | null
           consultation_fee: number
           created_at: string
@@ -1526,6 +1555,8 @@ export type Database = {
           plan_tier: string
           profile_photo_url: string | null
           qualifications: string | null
+          registration_number: string | null
+          signature_url: string | null
           slug: string | null
           specialization: string | null
           trial_end: string | null
@@ -1535,6 +1566,7 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          clinic_email?: string | null
           clinic_name?: string | null
           consultation_fee?: number
           created_at?: string
@@ -1550,6 +1582,8 @@ export type Database = {
           plan_tier?: string
           profile_photo_url?: string | null
           qualifications?: string | null
+          registration_number?: string | null
+          signature_url?: string | null
           slug?: string | null
           specialization?: string | null
           trial_end?: string | null
@@ -1559,6 +1593,7 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          clinic_email?: string | null
           clinic_name?: string | null
           consultation_fee?: number
           created_at?: string
@@ -1574,6 +1609,8 @@ export type Database = {
           plan_tier?: string
           profile_photo_url?: string | null
           qualifications?: string | null
+          registration_number?: string | null
+          signature_url?: string | null
           slug?: string | null
           specialization?: string | null
           trial_end?: string | null

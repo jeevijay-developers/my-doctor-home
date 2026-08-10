@@ -40,6 +40,7 @@ const ProfilePage = () => {
     full_name: "", specialization: "", qualifications: "", experience_years: 0,
     phone: "", clinic_name: "", city: "", address: "",
     consultation_fee: 0, gstin: "", gst_registered: false,
+    registration_number: "", clinic_email: "",
   });
   const [servicesCount, setServicesCount] = useState(0);
   const [blogCount, setBlogCount] = useState(0);
@@ -70,6 +71,8 @@ const ProfilePage = () => {
         consultation_fee: (profile as any).consultation_fee || 0,
         gstin: (profile as any).gstin || "",
         gst_registered: Boolean((profile as any).gst_registered),
+        registration_number: profile.registration_number || "",
+        clinic_email: profile.clinic_email || "",
       });
     }
   }, [profile]);
@@ -200,6 +203,19 @@ const ProfilePage = () => {
     toast.success("Photo updated");
   };
 
+  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+    const ext = file.name.split(".").pop();
+    const path = `${profile.id}/signature.${ext}`;
+    const { error } = await supabase.storage.from("doctor-uploads").upload(path, file, { upsert: true });
+    if (error) { toast.error("Upload failed: " + error.message); return; }
+    const { data: { publicUrl } } = supabase.storage.from("doctor-uploads").getPublicUrl(path);
+    await supabase.from("profiles").update({ signature_url: publicUrl }).eq("id", profile.id);
+    refetch();
+    toast.success("Signature updated");
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
@@ -269,6 +285,36 @@ const ProfilePage = () => {
                 placeholder="500" className="h-10" />
               <p className="text-[11px] text-muted-foreground">Used as a fallback when a service doesn't set its own price.</p>
             </div>
+            <div className="space-y-1.5">
+              <Label>Medical Registration Number</Label>
+              <Input value={form.registration_number} onChange={(e) => setForm({ ...form, registration_number: e.target.value })}
+                placeholder="e.g. MCI-12345" className="h-10" />
+              <p className="text-[11px] text-muted-foreground">Shown on prescriptions, near your signature.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-5 pt-1">
+            <div className="relative group">
+              <div className="w-24 h-14 rounded-xl bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
+                {profile?.signature_url ? (
+                  <img src={profile.signature_url} alt="Signature" className="w-full h-full object-contain" />
+                ) : (
+                  <span className="text-[10px] text-muted-foreground px-2 text-center">No signature</span>
+                )}
+              </div>
+              <label className="absolute inset-0 bg-black/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center">
+                <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
+                <Upload className="h-4 w-4 text-white" />
+              </label>
+            </div>
+            <div>
+              <p className="font-medium text-sm text-foreground">Signature Image</p>
+              <p className="text-xs text-muted-foreground">Used on your prescriptions. Optional.</p>
+              <label className="cursor-pointer">
+                <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
+                <span className="text-sm text-royal hover:underline flex items-center gap-1 mt-1"><Upload className="h-3.5 w-3.5" /> {profile?.signature_url ? "Change Signature" : "Upload Signature"}</span>
+              </label>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -291,6 +337,12 @@ const ProfilePage = () => {
           <div className="space-y-1.5">
             <Label>Full Address</Label>
             <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={3} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Clinic Email</Label>
+            <Input type="email" value={form.clinic_email} onChange={(e) => setForm({ ...form, clinic_email: e.target.value })}
+              placeholder="clinic@example.com" className="h-10" />
+            <p className="text-[11px] text-muted-foreground">Shown on prescriptions and other clinic documents. Optional.</p>
           </div>
 
           <div className="rounded-xl border border-border p-4 space-y-3">

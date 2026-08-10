@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { FileText, Plus, Search, Calendar, Pill, Stethoscope, User, Trash2, CheckSquare, X, Pencil, Download } from "lucide-react";
+import {
+  FileText, Plus, Search, Calendar, Pill, Stethoscope, User, Trash2, X, Pencil, Download, ClipboardList,
+} from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +21,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import PrescriptionSlip from "./PrescriptionSlip";
+import PrescriptionSlip, { PrescriptionSlipData, VisitSummary, VitalsSummary } from "./PrescriptionSlip";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
+import { parseMedicineItems } from "@/lib/prescriptionMedicines";
 
 type Prescription = {
   id: string; doctor_id: string; patient_id: string | null; patient_name: string;
   diagnosis: string | null; medications: string | null; notes: string | null;
   date: string; created_at: string; patient_age: number | null; patient_weight: number | null;
+  visit_id: string | null; medicines: unknown;
+  advice: string | null; diet_advice: string | null; lifestyle_advice: string | null;
+  follow_up_date: string | null; follow_up_instructions: string | null;
 };
 
 const emptyForm = {
@@ -33,12 +39,24 @@ const emptyForm = {
   date: format(new Date(), "yyyy-MM-dd"), patient_age: "", patient_weight: "",
 };
 
+// Compact read-only render of the structured medicine list, used in the
+// table row summary and the detail Sheet — falls back to the legacy free
+// text for prescriptions created before structured medicines existed.
+const MedicineSummaryLine = ({ rx }: { rx: Prescription }) => {
+  const items = parseMedicineItems(rx.medicines);
+  if (items.length > 0) {
+    const label = items.map((m) => m.name).join(", ");
+    return <span className="line-clamp-1">{label}</span>;
+  }
+  return <span className="line-clamp-1">{rx.medications || "—"}</span>;
+};
+
 const PrescriptionsPage = () => {
   const { profile, isStaff, can } = useProfile();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
-  const [patients, setPatients] = useState<{ id: string; name: string; phone: string }[]>([]);
+  const [patients, setPatients] = useState<{ id: string; name: string; phone: string; gender: string | null }[]>([]);
   const [form, setForm] = useState(emptyForm);
 
   const [viewing, setViewing] = useState<Prescription | null>(null);
@@ -51,7 +69,7 @@ const PrescriptionsPage = () => {
   const [bulkConfirmText, setBulkConfirmText] = useState("");
 
   const [slipOpen, setSlipOpen] = useState(false);
-  const [slipPrescription, setSlipPrescription] = useState<(Prescription & { patient_gender: string | null }) | null>(null);
+  const [slipPrescription, setSlipPrescription] = useState<PrescriptionSlipData | null>(null);
 
   const load = async () => {
     if (!profile) return;
@@ -69,11 +87,11 @@ const PrescriptionsPage = () => {
     // Otherwise records the doctor believes are "deleted" (hidden from Patients) still surface here.
     const { data } = await supabase
       .from("patients")
-      .select("id, name, phone, total_visits")
+      .select("id, name, phone, gender, total_visits")
       .eq("doctor_id", profile.id)
       .gt("total_visits", 0)
       .order("name");
-    setPatients((data || []).map(({ id, name, phone }) => ({ id, name, phone })));
+    setPatients((data || []).map(({ id, name, phone, gender }) => ({ id, name, phone, gender })));
   };
 
   useEffect(() => { load(); loadPatients(); }, [profile]);
@@ -84,13 +102,42 @@ const PrescriptionsPage = () => {
       const { data } = await supabase.from("patients").select("gender").eq("id", rx.patient_id).maybeSingle();
       gender = data?.gender ?? null;
     }
-    setSlipPrescription({ ...rx, patient_gender: gender });
+    let visit: VisitSummary = null;
+    let vitals: VitalsSummary = null;
+    if (rx.visit_id) {
+      const [{ data: v }, { data: vt }] = await Promise.all([
+        supabase.from("patient_visits").select("visit_date, reason_for_visit, symptoms").eq("id", rx.visit_id).maybeSingle(),
+        supabase.from("patient_vitals").select("blood_pressure, pulse, temperature, respiratory_rate, spo2, height, weight, bmi")
+          .eq("visit_id", rx.visit_id).order("recorded_date", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      visit = (v as VisitSummary) || null;
+      vitals = (vt as VitalsSummary) || null;
+    }
+    setSlipPrescription({
+      id: rx.id,
+      patient_id: rx.patient_id,
+      patient_name: rx.patient_name,
+      diagnosis: rx.diagnosis,
+      medications: rx.medications,
+      medicines: parseMedicineItems(rx.medicines),
+      advice: rx.advice,
+      diet_advice: rx.diet_advice,
+      lifestyle_advice: rx.lifestyle_advice,
+      follow_up_date: rx.follow_up_date,
+      follow_up_instructions: rx.follow_up_instructions,
+      date: rx.date,
+      patient_age: rx.patient_age,
+      patient_weight: rx.patient_weight,
+      patient_gender: gender,
+      visit,
+      vitals,
+    });
     setSlipOpen(true);
   };
 
   const downloadSlip = () => {
     if (!slipPrescription) return;
-    downloadPdfFromNode('[data-prescription-slip-print-root] .slip-card', `prescription-${slipPrescription.id}.pdf`);
+    downloadPdfFromNode('[data-prescription-slip-print-root] .slip-card', `prescription-${slipPrescription.id || "preview"}.pdf`, { multiPage: true });
   };
 
   // Keep patients list in sync with Patients section (add/delete/update)
@@ -214,7 +261,7 @@ const PrescriptionsPage = () => {
           <p className="text-sm text-muted-foreground mt-0.5">{prescriptions.length} total records</p>
         </div>
         {can("prescriptions.create") && (
-        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); }}>
+        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); else setForm(emptyForm); }}>
           <DialogTrigger asChild>
             <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> New Prescription</Button>
           </DialogTrigger>
@@ -252,6 +299,7 @@ const PrescriptionsPage = () => {
                   <Input type="number" min={0} step="0.1" value={form.patient_weight} onChange={(e) => setForm({ ...form, patient_weight: e.target.value })} className="h-10" />
                 </div>
               </div>
+
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
                 <Input value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} placeholder="e.g. Acute bronchitis" className="h-10" />
@@ -342,7 +390,7 @@ const PrescriptionsPage = () => {
                   {selectMode && <th className="pl-4 pr-2 py-3 w-10"></th>}
                   <th className="px-4 py-3">Patient</th>
                   <th className="px-4 py-3 hidden md:table-cell">Diagnosis</th>
-                  <th className="px-4 py-3 hidden lg:table-cell">Medications</th>
+                  <th className="px-4 py-3 hidden lg:table-cell">Medicines</th>
                   <th className="px-4 py-3 whitespace-nowrap">Date</th>
                 </tr>
               </thead>
@@ -389,7 +437,7 @@ const PrescriptionsPage = () => {
                       <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell max-w-[280px]">
                         <div className="flex items-start gap-1.5">
                           <Pill className="h-3.5 w-3.5 text-teal flex-shrink-0 mt-0.5" />
-                          <span className="line-clamp-1">{rx.medications || "—"}</span>
+                          <MedicineSummaryLine rx={rx} />
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -428,9 +476,44 @@ const PrescriptionsPage = () => {
                     <p className="text-sm text-foreground mt-1">{viewing.diagnosis || <span className="text-muted-foreground italic">Not specified</span>}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medications</Label>
-                    <p className="text-sm text-foreground mt-1 whitespace-pre-line">{viewing.medications || <span className="text-muted-foreground italic">None recorded</span>}</p>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medicines</Label>
+                    {parseMedicineItems(viewing.medicines).length > 0 ? (
+                      <ol className="mt-1.5 space-y-2">
+                        {parseMedicineItems(viewing.medicines).map((m, i) => (
+                          <li key={i} className="text-sm text-foreground">
+                            <span className="font-medium">{i + 1}. {m.name}{m.strength ? ` — ${m.strength}` : ""}</span>
+                            {(m.frequency || m.duration || m.timing || m.route) && (
+                              <div className="text-xs text-muted-foreground pl-4">
+                                {[m.frequency, m.duration, m.timing, m.route].filter(Boolean).join(" · ")}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="text-sm text-foreground mt-1 whitespace-pre-line">{viewing.medications || <span className="text-muted-foreground italic">None recorded</span>}</p>
+                    )}
                   </div>
+                  {(viewing.advice || viewing.diet_advice || viewing.lifestyle_advice) && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5" /> Advice</Label>
+                      <div className="text-sm text-foreground mt-1 space-y-1.5">
+                        {viewing.advice && <p>{viewing.advice}</p>}
+                        {viewing.diet_advice && <p><span className="text-muted-foreground">Diet:</span> {viewing.diet_advice}</p>}
+                        {viewing.lifestyle_advice && <p><span className="text-muted-foreground">Lifestyle:</span> {viewing.lifestyle_advice}</p>}
+                      </div>
+                    </div>
+                  )}
+                  {(viewing.follow_up_date || viewing.follow_up_instructions) && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Follow-up</Label>
+                      <p className="text-sm text-foreground mt-1">
+                        {viewing.follow_up_date && <span className="font-medium">{viewing.follow_up_date}</span>}
+                        {viewing.follow_up_date && viewing.follow_up_instructions && " — "}
+                        {viewing.follow_up_instructions}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <Label className="text-xs text-muted-foreground">Notes</Label>
                     <p className="text-sm text-foreground mt-1 whitespace-pre-line">{viewing.notes || <span className="text-muted-foreground italic">No notes</span>}</p>
@@ -479,6 +562,7 @@ const PrescriptionsPage = () => {
                       <Input type="number" min={0} step="0.1" value={editForm.patient_weight} onChange={(e) => setEditForm({ ...editForm, patient_weight: e.target.value })} className="h-10" />
                     </div>
                   </div>
+
                   <div className="space-y-1.5">
                     <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
                     <Input value={editForm.diagnosis} onChange={(e) => setEditForm({ ...editForm, diagnosis: e.target.value })} className="h-10" />
