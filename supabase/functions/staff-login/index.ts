@@ -9,14 +9,29 @@
 // session tokens for the frontend to adopt via supabase.auth.setSession(),
 // exactly the same session mechanism a doctor's own login already produces.
 //
-// Deliberately returns the SAME generic error for "no such username",
-// "wrong password" and "account disabled" — never reveal which case it was.
+// IMPORTANT: this project has CAPTCHA (Cloudflare Turnstile) enforcement
+// enabled at the GoTrue/Auth level for signInWithPassword (see Auth.tsx's
+// doctor login, which passes options.captchaToken) — confirmed via a direct
+// call to /auth/v1/token?grant_type=password, which returns
+// error_code "captcha_failed" without one. There's no browser in this flow
+// to solve a Turnstile challenge, so we MUST call signInWithPassword through
+// the service-role (`admin`) client, not a fresh anon client — GoTrue
+// exempts the service_role JWT from the captcha check (confirmed
+// empirically). Do not swap this back to an anon client without re-adding a
+// real captcha token, or every staff login will fail with a generic
+// "Invalid login ID or password" while the real cause (captcha_failed) is
+// silently swallowed below.
+//
+// Deliberately returns the SAME generic error to the CLIENT for "no such
+// username", "wrong password" and "account disabled" — never reveal which
+// case it was, to avoid username enumeration. The specific reason is still
+// logged server-side (console.error) so it's visible in Edge Function logs
+// without weakening the client-facing response.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/staffPermissions.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const INVALID = "Invalid login ID or password";
@@ -37,17 +52,29 @@ Deno.serve(async (req) => {
 
   const { data: staffRows } = await admin.from("staff_members").select("id, doctor_id, staff_name, username, status, permissions").order("created_at");
   const staff = (staffRows || []).find((r) => r.username.toLowerCase() === username.toLowerCase());
-  if (!staff || staff.status !== "active") return json(401, { error: INVALID });
+  if (!staff) {
+    console.error("staff-login: no staff_members row for username", { username });
+    return json(401, { error: INVALID });
+  }
+  if (staff.status !== "active") {
+    console.error("staff-login: staff account is not active", { username, status: staff.status });
+    return json(401, { error: INVALID });
+  }
 
   const { data: authUser, error: userErr } = await admin.auth.admin.getUserById(staff.id);
-  if (userErr || !authUser?.user?.email) return json(401, { error: INVALID });
+  if (userErr || !authUser?.user?.email) {
+    console.error("staff-login: could not resolve auth user for staff id", { staffId: staff.id, message: userErr?.message });
+    return json(401, { error: INVALID });
+  }
 
-  const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
-  const { data: signIn, error: signInErr } = await anon.auth.signInWithPassword({
+  const { data: signIn, error: signInErr } = await admin.auth.signInWithPassword({
     email: authUser.user.email,
     password,
   });
-  if (signInErr || !signIn?.session) return json(401, { error: INVALID });
+  if (signInErr || !signIn?.session) {
+    console.error("staff-login: signInWithPassword failed", { username, code: (signInErr as { code?: string })?.code, message: signInErr?.message });
+    return json(401, { error: INVALID });
+  }
 
   await admin.from("staff_members").update({ last_login_at: new Date().toISOString() }).eq("id", staff.id);
 
