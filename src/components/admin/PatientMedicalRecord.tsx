@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { ArrowLeft, Mail, Phone, Cake, VenetianMask, CalendarClock, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
+import LockedFeatureCard from "./LockedFeatureCard";
 
 import OverviewTab from "./medical-records/OverviewTab";
 import MedicalHistoryTab from "./medical-records/MedicalHistoryTab";
@@ -35,6 +37,7 @@ const PatientMedicalRecord = () => {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const { profile } = useProfile();
+  const { isPremium, loading: planLoading } = usePlanAccess();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -51,6 +54,25 @@ const PatientMedicalRecord = () => {
     };
     load();
   }, [profile, patientId]);
+
+  if (planLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-7 w-7 animate-spin text-royal" />
+      </div>
+    );
+  }
+
+  if (!isPremium) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <LockedFeatureCard
+          featureName="Patient Medical Records"
+          description="Open a patient's full medical history, prescriptions, documents and visit timeline. Available on Premium."
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
