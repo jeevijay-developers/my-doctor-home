@@ -61,10 +61,16 @@ const SASubscriptions = () => {
   const loadUpgradePayments = () =>
     supabase
       .from("plan_upgrade_payments")
-      .select("id, doctor_id, from_tier, target_tier, amount, status, is_mock, created_at, profiles(full_name, email)")
+      .select("id, doctor_id, from_tier, target_tier, amount, status, is_mock, created_at, profiles(full_name, clinic_name)")
       .order("created_at", { ascending: false })
       .limit(50)
-      .then(({ data }) => setUpgradePayments(data ?? []));
+      .then(({ data, error }) => {
+        if (error) {
+          toast({ title: "Failed to load upgrade payments", description: error.message, variant: "destructive" });
+          return;
+        }
+        setUpgradePayments(data ?? []);
+      });
 
   useEffect(() => { load(); loadUpgradePayments(); }, []);
 
@@ -350,7 +356,7 @@ const SASubscriptions = () => {
                 <tr key={p.id} className="border-b last:border-0">
                   <td className="p-2">
                     <div className="font-medium">{p.profiles?.full_name || "—"}</div>
-                    <div className="text-xs text-muted-foreground">{p.profiles?.email || ""}</div>
+                    <div className="text-xs text-muted-foreground">{p.profiles?.clinic_name || ""}</div>
                   </td>
                   <td className="p-2 text-xs">{p.from_tier} → {p.target_tier}</td>
                   <td className="p-2">₹{p.amount}</td>
