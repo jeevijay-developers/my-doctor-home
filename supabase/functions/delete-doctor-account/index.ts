@@ -50,14 +50,28 @@ Deno.serve(async (req) => {
   if (!isAdmin) return json(403, { error: "Admin only" });
 
   let doctor_ids: unknown;
+  let password: unknown;
   try {
-    ({ doctor_ids } = await req.json());
+    ({ doctor_ids, password } = await req.json());
   } catch {
     return json(400, { error: "Bad request" });
   }
   if (!Array.isArray(doctor_ids) || doctor_ids.length === 0 || !doctor_ids.every((id) => typeof id === "string")) {
     return json(400, { error: "doctor_ids must be a non-empty array of strings" });
   }
+  if (typeof password !== "string" || password.length === 0) {
+    return json(400, { error: "password is required" });
+  }
+
+  // Step-up re-authentication: checking the password only in the browser
+  // dialog would be cosmetic, since this function is reachable directly
+  // with just a valid session token (no password needed) — verifying here,
+  // before any doctor data is read or touched, is what makes it a real
+  // control. One check covers the whole batch, not one per doctor.
+  const callerEmail = claims?.claims?.email as string | undefined;
+  if (!callerEmail) return json(401, { error: "Invalid token" });
+  const { error: passwordError } = await scoped.auth.signInWithPassword({ email: callerEmail, password });
+  if (passwordError) return json(401, { error: "Incorrect password" });
 
   const deleted: string[] = [];
   const failed: { id: string; error: string }[] = [];
