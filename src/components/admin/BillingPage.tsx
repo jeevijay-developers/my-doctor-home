@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import PaymentStatusDonut, { type DonutSegment } from "@/components/shared/PaymentStatusDonut";
+import TestModeBadge from "@/components/shared/TestModeBadge";
 import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -150,7 +151,12 @@ const BillingPage = () => {
     amount: number;
     payment_status: "paid" | "pending" | "refunded" | "pay_at_clinic";
     status: string;
+    is_mock: boolean;
   };
+  // payment_gateway lives on appointments (set by verify-razorpay-payment:
+  // "razorpay_mock" vs "razorpay"), not on invoices — look it up by
+  // appointment_id so invoice-based rows still show the mock badge.
+  const apptGatewayById = new Map(appointments.map(a => [a.id, a.payment_gateway]));
   const invoicedApptIds = new Set(invoices.map(i => i.appointment_id).filter(Boolean));
   const invoiceTx: TxRow[] = invoices.map(i => ({
     key: `inv-${i.id}`,
@@ -160,6 +166,7 @@ const BillingPage = () => {
     amount: Number(i.amount || 0),
     payment_status: "paid",
     status: "completed",
+    is_mock: apptGatewayById.get(i.appointment_id) === "razorpay_mock",
   }));
   const openApptTx: TxRow[] = appointments
     .filter(a => !invoicedApptIds.has(a.id) && a.payment_status !== "paid")
@@ -171,6 +178,7 @@ const BillingPage = () => {
       amount: Number(a.amount || 0),
       payment_status: a.payment_status,
       status: a.status,
+      is_mock: a.payment_gateway === "razorpay_mock",
     }));
   const transactions: TxRow[] = [...invoiceTx, ...openApptTx].sort(
     (a, b) => (b.date || "").localeCompare(a.date || "")
@@ -212,6 +220,7 @@ const BillingPage = () => {
       "Amount (INR)": a.amount,
       "Payment Status": a.payment_status,
       "Appointment Status": a.status,
+      "Mock": a.is_mock ? "yes" : "no",
     }));
     if (rows.length === 0) { toast.error("No transactions to export"); return; }
     const headers = Object.keys(rows[0]);
@@ -340,6 +349,7 @@ const BillingPage = () => {
                           <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-shrink-0">
                             <Badge variant="outline" className={`text-[10px] ${pc.bg} ${pc.text}`}>{pc.label}</Badge>
                             <Badge variant="outline" className={`text-[10px] capitalize ${statusColors[a.status] || ""}`}>{a.status}</Badge>
+                            {a.is_mock && <TestModeBadge />}
                             <span className="font-heading font-bold text-foreground">₹{a.amount}</span>
                           </div>
                         </CardContent>

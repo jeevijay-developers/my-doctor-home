@@ -20,7 +20,10 @@ vi.mock("@/integrations/supabase/client", () => {
   });
   return {
     supabase: {
-      from: vi.fn(() => chain({ data: [] })),
+      from: vi.fn((table: string) => {
+        if (table === "appointments") return chain({ data: (globalThis as any).__mockAppointments ?? [] });
+        return chain({ data: [] });
+      }),
       channel: vi.fn(() => ({
         on: vi.fn().mockReturnThis(),
         subscribe: vi.fn().mockReturnThis(),
@@ -52,5 +55,29 @@ describe("BillingPage - plan gating", () => {
     );
     expect(screen.getByText(/billing & revenue/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /upgrade now/i })).not.toBeInTheDocument();
+  });
+
+  it("shows a Test Mode badge for a transaction whose appointment was paid via razorpay_mock", async () => {
+    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: true, loading: false, appointmentsUsed: 0, appointmentsCap: 0, nearCap: false });
+    (globalThis as any).__mockAppointments = [
+      {
+        id: "apt-mock-1",
+        patient_name: "Test Patient",
+        service_name: "Consultation",
+        date: "2026-08-11",
+        amount: 500,
+        payment_status: "pending",
+        status: "confirmed",
+        payment_gateway: "razorpay_mock",
+      },
+    ];
+    render(
+      <MemoryRouter>
+        <BillingPage />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText("Test Patient")).toBeInTheDocument();
+    expect(screen.getByText(/test mode/i)).toBeInTheDocument();
+    (globalThis as any).__mockAppointments = undefined;
   });
 });
