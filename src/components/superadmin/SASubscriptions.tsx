@@ -5,13 +5,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
-import { Search, RotateCcw, Save } from "lucide-react";
+import { Search, RotateCcw, Save, Trash2, X } from "lucide-react";
+import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
 
 // Default plan prices (INR / month). Single source of truth for default pricing.
 export const DEFAULT_PLAN_PRICES: Record<string, number> = {
@@ -35,6 +38,22 @@ const SASubscriptions = () => {
   } | null>(null);
 
   const [upgradePayments, setUpgradePayments] = useState<any[]>([]);
+
+  // Bulk selection/delete mirrors the Doctor Side → Patients pattern
+  // (PatientsPage.tsx) exactly.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const exitSelectMode = () => { setSelectMode(false); clearSelection(); };
 
   const load = () =>
     supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
@@ -62,6 +81,8 @@ const SASubscriptions = () => {
       (r.email || "").toLowerCase().includes(q)
     );
   }, [rows, search]);
+
+  const bulkTargets = rows.filter((r) => selectedIds.has(r.id)).map((r) => ({ id: r.id, full_name: r.full_name }));
 
   const requestTierChange = (id: string, tier: string, prev: string) => {
     const row = rows.find((r) => r.id === id);
@@ -159,7 +180,7 @@ const SASubscriptions = () => {
         </Card>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -172,11 +193,53 @@ const SASubscriptions = () => {
         <div className="text-xs text-muted-foreground">{filtered.length} of {rows.length}</div>
       </div>
 
+      {/* Select mode toggle */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs text-muted-foreground">
+            {selectMode && <span>{selectedIds.size} of {filtered.length} selected</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            {selectMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => {
+                  if (selectedIds.size === filtered.length) clearSelection();
+                  else setSelectedIds(new Set(filtered.map((r) => r.id)));
+                }}
+              >
+                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
+              </Button>
+            )}
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={selectMode ? "default" : "outline"}
+                    className={`h-8 w-8 p-0 ${selectMode ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}`}
+                    onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                    aria-pressed={selectMode}
+                    aria-label={selectMode ? "Exit selection mode" : "Select items to delete"}
+                  >
+                    {selectMode ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-secondary text-xs uppercase text-muted-foreground">
               <tr>
+                {selectMode && <th className="p-3 w-10"></th>}
                 <th className="text-left p-3">Doctor</th>
                 <th className="text-left p-3">Tier</th>
                 <th className="text-left p-3">Effective Price</th>
@@ -192,7 +255,12 @@ const SASubscriptions = () => {
                 const hasCustom = r.custom_plan_price != null;
                 const effective = getEffectivePlanPrice(r);
                 return (
-                  <tr key={r.id} className="border-t align-top">
+                  <tr key={r.id} className={`border-t align-top ${selectedIds.has(r.id) ? "bg-destructive/5" : ""}`}>
+                    {selectMode && (
+                      <td className="p-3">
+                        <Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelected(r.id)} aria-label={`Select ${r.full_name || "doctor"}`} />
+                      </td>
+                    )}
                     <td className="p-3">
                       <div className="font-medium">{r.full_name}</div>
                       <div className="text-xs text-muted-foreground">{r.clinic_name}</div>
@@ -257,7 +325,7 @@ const SASubscriptions = () => {
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground text-sm">No doctors match your search.</td></tr>
+                <tr><td colSpan={selectMode ? 8 : 7} className="p-6 text-center text-muted-foreground text-sm">No doctors match your search.</td></tr>
               )}
             </tbody>
           </table>
@@ -338,6 +406,39 @@ const SASubscriptions = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Floating bulk action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div
+          role="toolbar"
+          aria-label="Bulk actions"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-md"
+        >
+          <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-full px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+            <span className="text-sm font-medium text-foreground whitespace-nowrap">
+              {selectedIds.size} doctor{selectedIds.size === 1 ? "" : "s"} selected
+            </span>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelection}>
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-4"
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Selected
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {bulkDeleteOpen && (
+        <BulkDeleteDoctorsDialog
+          targets={bulkTargets}
+          onClose={() => setBulkDeleteOpen(false)}
+          onDeleted={() => { exitSelectMode(); load(); loadUpgradePayments(); }}
+        />
+      )}
     </div>
   );
 };

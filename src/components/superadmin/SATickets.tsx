@@ -4,11 +4,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
 import { logAdminAction } from "@/lib/adminAudit";
 import { TIER_LABELS } from "@/lib/planFeatures";
+import { Trash2, X } from "lucide-react";
 
 const STATUSES = ["open", "in_progress", "resolved", "closed"];
 const PRIORITIES = ["low", "normal", "high", "urgent"];
@@ -19,6 +27,17 @@ const SATickets = () => {
   const [priorityF, setPriorityF] = useState("all");
   const [open, setOpen] = useState<any | null>(null);
   const [notes, setNotes] = useState("");
+
+  // Bulk selection/delete mirrors the Doctor Side → Patients pattern
+  // (PatientsPage.tsx) exactly: select-mode toggle, row checkboxes + a
+  // "Select all" text button, a floating bottom action bar, and an
+  // AlertDialog confirmation. Ticket deletion uses sonner's toast (aliased
+  // to sonnerToast here) to match Patients' exact success/error messages —
+  // every other action on this page keeps the existing @/hooks/use-toast
+  // convention unchanged.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from("support_tickets").select("*, profiles:doctor_id(full_name, clinic_name)").order("created_at", { ascending: false });
@@ -35,11 +54,34 @@ const SATickets = () => {
     if (open?.id === id) setOpen({ ...open, ...patch });
   };
 
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const exitSelectMode = () => { setSelectMode(false); clearSelection(); };
+
+  const bulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    const { error } = await supabase.from("support_tickets").delete().in("id", ids);
+    if (error) { sonnerToast.error("Could not delete tickets"); return; }
+    await logAdminAction("bulk_delete_tickets", "support_tickets", undefined, { ids });
+    sonnerToast.success(`${ids.length} ticket${ids.length === 1 ? "" : "s"} deleted`);
+    setBulkDeleteOpen(false);
+    if (open && ids.includes(open.id)) setOpen(null);
+    exitSelectMode();
+    load();
+  };
+
   const filtered = rows.filter((r) => (statusF === "all" || r.status === statusF) && (priorityF === "all" || r.priority === priorityF));
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-3">
+      <div className={`flex gap-3 transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
         <Select value={statusF} onValueChange={setStatusF}>
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="all">All statuses</SelectItem>{STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
@@ -50,11 +92,57 @@ const SATickets = () => {
         </Select>
       </div>
 
+      {/* Select mode toggle */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs text-muted-foreground">
+            {selectMode ? (
+              <span>{selectedIds.size} of {filtered.length} selected</span>
+            ) : (
+              <span>{filtered.length} ticket{filtered.length === 1 ? "" : "s"}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {selectMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => {
+                  if (selectedIds.size === filtered.length) clearSelection();
+                  else setSelectedIds(new Set(filtered.map((r) => r.id)));
+                }}
+              >
+                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
+              </Button>
+            )}
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={selectMode ? "default" : "outline"}
+                    className={`h-8 w-8 p-0 ${selectMode ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}`}
+                    onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                    aria-pressed={selectMode}
+                    aria-label={selectMode ? "Exit selection mode" : "Select items to delete"}
+                  >
+                    {selectMode ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-secondary text-xs uppercase text-muted-foreground">
               <tr>
+                {selectMode && <th className="p-3 w-10"></th>}
                 <th className="text-left p-3">Subject</th>
                 <th className="text-left p-3">Doctor</th>
                 <th className="text-left p-3">Priority</th>
@@ -63,16 +151,28 @@ const SATickets = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id} className="border-t cursor-pointer hover:bg-secondary/40" onClick={() => { setOpen(r); setNotes(r.notes || ""); }}>
-                  <td className="p-3 font-medium">{r.subject}</td>
-                  <td className="p-3 text-xs">{r.profiles?.full_name}<div className="text-muted-foreground">{r.profiles?.clinic_name}</div></td>
-                  <td className="p-3"><Badge variant="outline">{r.priority}</Badge></td>
-                  <td className="p-3"><Badge>{r.status}</Badge></td>
-                  <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
-                </tr>
-              ))}
-              {filtered.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No tickets.</td></tr>}
+              {filtered.map((r) => {
+                const isSelected = selectedIds.has(r.id);
+                return (
+                  <tr
+                    key={r.id}
+                    className={`border-t cursor-pointer hover:bg-secondary/40 ${isSelected ? "bg-destructive/5" : ""}`}
+                    onClick={selectMode ? () => toggleSelected(r.id) : () => { setOpen(r); setNotes(r.notes || ""); }}
+                  >
+                    {selectMode && (
+                      <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox checked={isSelected} onCheckedChange={() => toggleSelected(r.id)} aria-label={`Select ticket: ${r.subject}`} />
+                      </td>
+                    )}
+                    <td className="p-3 font-medium">{r.subject}</td>
+                    <td className="p-3 text-xs">{r.profiles?.full_name}<div className="text-muted-foreground">{r.profiles?.clinic_name}</div></td>
+                    <td className="p-3"><Badge variant="outline">{r.priority}</Badge></td>
+                    <td className="p-3"><Badge>{r.status}</Badge></td>
+                    <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
+                  </tr>
+                );
+              })}
+              {filtered.length === 0 && <tr><td colSpan={selectMode ? 6 : 5} className="p-6 text-center text-muted-foreground">No tickets.</td></tr>}
             </tbody>
           </table>
         </CardContent>
@@ -119,6 +219,52 @@ const SATickets = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Floating bulk action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div
+          role="toolbar"
+          aria-label="Bulk actions"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-md"
+        >
+          <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-full px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+            <span className="text-sm font-medium text-foreground whitespace-nowrap">
+              {selectedIds.size} ticket{selectedIds.size === 1 ? "" : "s"} selected
+            </span>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelection}>
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-4"
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Selected
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={(o) => !o && setBulkDeleteOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} ticket{selectedIds.size === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The selected support tickets will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={(e) => { e.preventDefault(); bulkDelete(); }}
+            >
+              Delete {selectedIds.size}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
