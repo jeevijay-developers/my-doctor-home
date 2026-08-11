@@ -50,14 +50,33 @@ Deno.serve(async (req) => {
   if (!isAdmin) return json(403, { error: "Admin only" });
 
   let doctor_ids: unknown;
+  let password: unknown;
   try {
-    ({ doctor_ids } = await req.json());
+    ({ doctor_ids, password } = await req.json());
   } catch {
     return json(400, { error: "Bad request" });
   }
   if (!Array.isArray(doctor_ids) || doctor_ids.length === 0 || !doctor_ids.every((id) => typeof id === "string")) {
     return json(400, { error: "doctor_ids must be a non-empty array of strings" });
   }
+  if (typeof password !== "string" || password.length === 0) {
+    return json(400, { error: "password is required" });
+  }
+
+  // Step-up re-authentication: checking the password only in the browser
+  // dialog would be cosmetic, since this function is reachable directly
+  // with just a valid session token (no password needed) — verifying here,
+  // before any doctor data is read or touched, is what makes it a real
+  // control. One check covers the whole batch, not one per doctor.
+  //
+  // Deliberately NOT supabase.auth.signInWithPassword(): this project has
+  // captcha protection on the password grant endpoint, so that call fails
+  // with "captcha protection: request disallowed" for every request
+  // regardless of whether the password is correct — confirmed via GoTrue's
+  // own logs. admin_verify_password() checks the bcrypt hash directly
+  // (same data GoTrue itself uses), never touching that endpoint.
+  const { data: isCorrectPassword } = await admin.rpc("admin_verify_password", { _user_id: callerId, _password: password });
+  if (!isCorrectPassword) return json(401, { error: "Incorrect password" });
 
   const deleted: string[] = [];
   const failed: { id: string; error: string }[] = [];
