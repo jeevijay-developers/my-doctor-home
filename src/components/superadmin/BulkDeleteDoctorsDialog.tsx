@@ -5,6 +5,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { logAdminAction } from "@/lib/adminAudit";
@@ -84,10 +85,9 @@ const BulkDeleteDoctorsDialog = ({ targets, onClose, onDeleted }: {
           <Label htmlFor="bulk-delete-password" className="text-xs">
             Enter your password to confirm:
           </Label>
-          <Input
+          <PasswordInput
             id="bulk-delete-password"
             ref={passwordRef}
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Your password"

@@ -25,7 +25,7 @@ describe("BulkDeleteDoctorsDialog", () => {
   it("disables Delete Selected until a password is entered", () => {
     render(<BulkDeleteDoctorsDialog targets={targets} onClose={vi.fn()} onDeleted={vi.fn()} />);
     expect(screen.getByRole("button", { name: /delete selected/i })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "secret" } });
+    fireEvent.change(screen.getByPlaceholderText(/your password/i), { target: { value: "secret" } });
     expect(screen.getByRole("button", { name: /delete selected/i })).not.toBeDisabled();
   });
 
@@ -36,7 +36,7 @@ describe("BulkDeleteDoctorsDialog", () => {
     } as any);
     const onDeleted = vi.fn();
     render(<BulkDeleteDoctorsDialog targets={targets} onClose={vi.fn()} onDeleted={onDeleted} />);
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "correct-horse" } });
+    fireEvent.change(screen.getByPlaceholderText(/your password/i), { target: { value: "correct-horse" } });
     fireEvent.click(screen.getByRole("button", { name: /delete selected/i }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
     expect(supabase.functions.invoke).toHaveBeenCalledWith(
@@ -52,7 +52,7 @@ describe("BulkDeleteDoctorsDialog", () => {
     } as any);
     const onClose = vi.fn();
     render(<BulkDeleteDoctorsDialog targets={targets} onClose={onClose} onDeleted={vi.fn()} />);
-    const passwordInput = screen.getByLabelText(/password/i) as HTMLInputElement;
+    const passwordInput = screen.getByPlaceholderText(/your password/i) as HTMLInputElement;
     fireEvent.change(passwordInput, { target: { value: "wrong-password" } });
     fireEvent.click(screen.getByRole("button", { name: /delete selected/i }));
     await waitFor(() => expect(passwordInput.value).toBe(""));
