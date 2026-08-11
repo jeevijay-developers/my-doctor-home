@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import SABilling from "./SABilling";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -10,6 +11,8 @@ vi.mock("@/integrations/supabase/client", () => ({
     removeChannel: vi.fn(),
   },
 }));
+
+vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn() }));
 
 const mockData = (payments: any[], profiles: any[]) => {
   const chain = (resolved: any): any => ({
@@ -26,6 +29,25 @@ const mockData = (payments: any[], profiles: any[]) => {
 describe("SABilling", () => {
   beforeEach(() => {
     vi.mocked(supabase.from).mockReset();
+    vi.mocked(toast).mockReset();
+  });
+
+  it("surfaces a query error via toast instead of silently showing an empty page", async () => {
+    const chain = (resolved: any): any => ({
+      select: () => chain(resolved),
+      order: () => Promise.resolve(resolved),
+    });
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "plan_upgrade_payments") {
+        return chain({ data: null, error: { message: "column profiles_1.email does not exist" } });
+      }
+      return chain({ data: [] });
+    });
+    render(<SABilling />);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Failed to load subscription payments", variant: "destructive" })
+    );
   });
 
   it("shows ₹0 cards and an empty state with no leftover patient-billing copy", async () => {
@@ -49,7 +71,7 @@ describe("SABilling", () => {
           status: "captured",
           is_mock: false,
           created_at: new Date().toISOString(),
-          profiles: { full_name: "Dr. Asha", email: "asha@example.com" },
+          profiles: { full_name: "Dr. Asha", clinic_name: "Asha Clinic" },
         },
       ],
       []
@@ -72,7 +94,7 @@ describe("SABilling", () => {
           status: "captured",
           is_mock: true,
           created_at: new Date().toISOString(),
-          profiles: { full_name: "Dr. Mock", email: "" },
+          profiles: { full_name: "Dr. Mock", clinic_name: "" },
         },
       ],
       []
@@ -104,7 +126,7 @@ describe("SABilling", () => {
           status: "captured",
           is_mock: false,
           created_at: new Date().toISOString(),
-          profiles: { full_name: "Dr. Asha", email: "asha@example.com" },
+          profiles: { full_name: "Dr. Asha", clinic_name: "Asha Clinic" },
         },
       ],
       []

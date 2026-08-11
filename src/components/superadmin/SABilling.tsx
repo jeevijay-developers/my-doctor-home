@@ -27,7 +27,7 @@ interface UpgradePaymentRow {
   status: PaymentTxnStatus;
   is_mock: boolean;
   created_at: string;
-  profiles: { full_name: string | null; email: string | null } | null;
+  profiles: { full_name: string | null; clinic_name: string | null } | null;
 }
 
 interface SubscriberProfileRow {
@@ -52,10 +52,14 @@ const SABilling = () => {
   const [filter, setFilter] = useState<StatusFilter>("all");
 
   const loadPayments = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("plan_upgrade_payments")
-      .select("id, doctor_id, from_tier, target_tier, amount, status, is_mock, created_at, profiles(full_name, email)")
+      .select("id, doctor_id, from_tier, target_tier, amount, status, is_mock, created_at, profiles(full_name, clinic_name)")
       .order("created_at", { ascending: false });
+    if (error) {
+      toast({ title: "Failed to load subscription payments", description: error.message, variant: "destructive" });
+      return;
+    }
     setPayments((data ?? []) as unknown as UpgradePaymentRow[]);
   };
 
@@ -108,7 +112,7 @@ const SABilling = () => {
   const exportTransactionsCSV = () => {
     const rows = filtered.map((p) => ({
       "Doctor Name": p.profiles?.full_name || "",
-      Email: p.profiles?.email || "",
+      Clinic: p.profiles?.clinic_name || "",
       "From Tier": p.from_tier,
       "Target Tier": p.target_tier,
       "Amount (INR)": p.amount,
