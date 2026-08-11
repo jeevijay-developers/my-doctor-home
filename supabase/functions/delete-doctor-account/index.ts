@@ -68,10 +68,15 @@ Deno.serve(async (req) => {
   // with just a valid session token (no password needed) — verifying here,
   // before any doctor data is read or touched, is what makes it a real
   // control. One check covers the whole batch, not one per doctor.
-  const callerEmail = claims?.claims?.email as string | undefined;
-  if (!callerEmail) return json(401, { error: "Invalid token" });
-  const { error: passwordError } = await scoped.auth.signInWithPassword({ email: callerEmail, password });
-  if (passwordError) return json(401, { error: "Incorrect password" });
+  //
+  // Deliberately NOT supabase.auth.signInWithPassword(): this project has
+  // captcha protection on the password grant endpoint, so that call fails
+  // with "captcha protection: request disallowed" for every request
+  // regardless of whether the password is correct — confirmed via GoTrue's
+  // own logs. admin_verify_password() checks the bcrypt hash directly
+  // (same data GoTrue itself uses), never touching that endpoint.
+  const { data: isCorrectPassword } = await admin.rpc("admin_verify_password", { _user_id: callerId, _password: password });
+  if (!isCorrectPassword) return json(401, { error: "Incorrect password" });
 
   const deleted: string[] = [];
   const failed: { id: string; error: string }[] = [];
