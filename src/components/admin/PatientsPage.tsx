@@ -280,76 +280,128 @@ const PatientsPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-border/60 shadow-none overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary/60 border-b border-border">
-                <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {selectMode && <th className="pl-4 pr-2 py-3 w-10"></th>}
-                  <th className="px-4 py-3">Patient</th>
-                  <th className="px-4 py-3">Phone</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Age / Gender</th>
-                  <th className="px-4 py-3 hidden lg:table-cell">Last Visit</th>
-                  <th className="px-4 py-3">Visits</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => {
-                  const isSelected = selectedIds.has(p.id);
-                  return (
-                    <tr
-                      key={p.id}
-                      className={`border-b border-border/60 last:border-0 cursor-pointer transition-colors ${
-                        isSelected ? "bg-royal/5" : "hover:bg-secondary/40"
-                      }`}
-                      onClick={selectMode ? () => toggleSelected(p.id) : () => viewPatient(p)}
-                    >
-                      {selectMode && (
-                        <td className="pl-4 pr-2 py-3 w-10" onClick={(e) => e.stopPropagation()}>
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => toggleSelected(p.id)}
-                            aria-label={`Select ${p.name}`}
-                            className="h-5 w-5 rounded"
-                          />
+        <>
+          {/* Table — tablet/desktop */}
+          <Card className="hidden md:block border-border/60 shadow-none overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/60 border-b border-border">
+                  <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    {selectMode && <th className="pl-4 pr-2 py-3 w-10"></th>}
+                    <th className="px-4 py-3">Patient</th>
+                    <th className="px-4 py-3">Phone</th>
+                    <th className="px-4 py-3 hidden md:table-cell">Age / Gender</th>
+                    <th className="px-4 py-3 hidden lg:table-cell">Last Visit</th>
+                    <th className="px-4 py-3">Visits</th>
+                    <th className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((p) => {
+                    const isSelected = selectedIds.has(p.id);
+                    return (
+                      <tr
+                        key={p.id}
+                        className={`border-b border-border/60 last:border-0 cursor-pointer transition-colors ${
+                          isSelected ? "bg-royal/5" : "hover:bg-secondary/40"
+                        }`}
+                        onClick={selectMode ? () => toggleSelected(p.id) : () => viewPatient(p)}
+                      >
+                        {selectMode && (
+                          <td className="pl-4 pr-2 py-3 w-10" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelected(p.id)}
+                              aria-label={`Select ${p.name}`}
+                              className="h-5 w-5 rounded"
+                            />
+                          </td>
+                        )}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-teal/10 flex items-center justify-center text-sm font-bold text-teal flex-shrink-0">
+                              {p.name?.charAt(0)?.toUpperCase() || "P"}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-foreground truncate">{p.name}</div>
+                              {p.email && <div className="text-xs text-muted-foreground truncate">{p.email}</div>}
+                            </div>
+                          </div>
                         </td>
-                      )}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-teal/10 flex items-center justify-center text-sm font-bold text-teal flex-shrink-0">
-                            {p.name?.charAt(0)?.toUpperCase() || "P"}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-foreground truncate">{p.name}</div>
-                            {p.email && <div className="text-xs text-muted-foreground truncate">{p.email}</div>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-foreground whitespace-nowrap">{p.phone}</td>
-                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell whitespace-nowrap">
-                        {p.age || p.gender ? `${p.age ?? "—"}${p.gender ? `, ${p.gender}` : ""}` : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
-                        {p.last_visit || "—"}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-foreground">{p.total_visits}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant="secondary" className={`text-[10px] ${
+                        <td className="px-4 py-3 text-foreground whitespace-nowrap">{p.phone}</td>
+                        <td className="px-4 py-3 text-muted-foreground hidden md:table-cell whitespace-nowrap">
+                          {p.age || p.gender ? `${p.age ?? "—"}${p.gender ? `, ${p.gender}` : ""}` : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
+                          {p.last_visit || "—"}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-foreground">{p.total_visits}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant="secondary" className={`text-[10px] ${
+                            p.total_visits >= 10 ? "bg-success/10 text-success" :
+                            p.total_visits >= 3 ? "bg-royal/10 text-royal" :
+                            "bg-warning/10 text-warning"
+                          }`}>
+                            {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : "New"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Cards — mobile */}
+          <div className="md:hidden space-y-2">
+            {filtered.map((p) => {
+              const isSelected = selectedIds.has(p.id);
+              return (
+                <Card
+                  key={p.id}
+                  className={`border-border/60 shadow-none cursor-pointer transition-colors ${isSelected ? "bg-royal/5 border-royal/30" : "hover:bg-secondary/40"}`}
+                  onClick={selectMode ? () => toggleSelected(p.id) : () => viewPatient(p)}
+                >
+                  <CardContent className="p-4 flex items-start gap-3">
+                    {selectMode && (
+                      <div onClick={(e) => e.stopPropagation()} className="pt-1">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelected(p.id)}
+                          aria-label={`Select ${p.name}`}
+                          className="h-5 w-5 rounded"
+                        />
+                      </div>
+                    )}
+                    <div className="w-9 h-9 rounded-full bg-teal/10 flex items-center justify-center text-sm font-bold text-teal flex-shrink-0">
+                      {p.name?.charAt(0)?.toUpperCase() || "P"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-semibold text-foreground truncate">{p.name}</div>
+                        <Badge variant="secondary" className={`text-[10px] flex-shrink-0 ${
                           p.total_visits >= 10 ? "bg-success/10 text-success" :
                           p.total_visits >= 3 ? "bg-royal/10 text-royal" :
                           "bg-warning/10 text-warning"
                         }`}>
                           {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : "New"}
                         </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {p.phone}{p.email ? ` · ${p.email}` : ""}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {p.age || p.gender ? `${p.age ?? "—"}${p.gender ? `, ${p.gender}` : ""} · ` : ""}
+                        {p.total_visits} visit{p.total_visits === 1 ? "" : "s"}{p.last_visit ? ` · last ${p.last_visit}` : ""}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
-        </Card>
+        </>
       )}
 
 

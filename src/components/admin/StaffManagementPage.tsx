@@ -202,70 +202,122 @@ const StaffManagementPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-border/60 shadow-none overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary/60 border-b border-border">
-                <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  <th className="px-4 py-3">Staff Name</th>
-                  <th className="px-4 py-3">Login ID</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Permissions</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {staff.map((s) => (
-                  <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-secondary/40">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
-                          {s.staff_name?.charAt(0)?.toUpperCase() || "S"}
-                        </div>
-                        <span className="font-semibold text-foreground">{s.staff_name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-foreground">{s.username}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant="secondary" className={`text-[10px] ${s.status === "active" ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>
-                        {s.status === "active" ? "Active" : "Inactive"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <Badge variant="secondary" className="text-[10px] flex items-center gap-1 w-fit">
-                        <ShieldCheck className="h-3 w-3" /> {grantedCount(s.permissions)} permission{grantedCount(s.permissions) === 1 ? "" : "s"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        {can("staff.edit") && (
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(s)} aria-label="Edit">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {can("staff.edit") && (
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setResetting(s); setNewPassword(""); }} aria-label="Reset Password">
-                            <KeyRound className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {can("staff.disable") && (
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => toggleStatus(s)} aria-label={s.status === "active" ? "Deactivate" : "Activate"}>
-                            {s.status === "active" ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                          </Button>
-                        )}
-                        {!isStaff && (
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => setDeleting(s)} aria-label="Delete">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+        <>
+          {/* Table — tablet/desktop */}
+          <Card className="hidden md:block border-border/60 shadow-none overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/60 border-b border-border">
+                  <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    <th className="px-4 py-3">Staff Name</th>
+                    <th className="px-4 py-3">Login ID</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 hidden md:table-cell">Permissions</th>
+                    <th className="px-4 py-3">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {staff.map((s) => (
+                    <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-secondary/40">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
+                            {s.staff_name?.charAt(0)?.toUpperCase() || "S"}
+                          </div>
+                          <span className="font-semibold text-foreground">{s.staff_name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-foreground">{s.username}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant="secondary" className={`text-[10px] ${s.status === "active" ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>
+                          {s.status === "active" ? "Active" : "Inactive"}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <Badge variant="secondary" className="text-[10px] flex items-center gap-1 w-fit">
+                          <ShieldCheck className="h-3 w-3" /> {grantedCount(s.permissions)} permission{grantedCount(s.permissions) === 1 ? "" : "s"}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          {can("staff.edit") && (
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(s)} aria-label="Edit">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {can("staff.edit") && (
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setResetting(s); setNewPassword(""); }} aria-label="Reset Password">
+                              <KeyRound className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {can("staff.disable") && (
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => toggleStatus(s)} aria-label={s.status === "active" ? "Deactivate" : "Activate"}>
+                              {s.status === "active" ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                            </Button>
+                          )}
+                          {!isStaff && (
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => setDeleting(s)} aria-label="Delete">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Cards — mobile */}
+          <div className="md:hidden space-y-2">
+            {staff.map((s) => (
+              <Card key={s.id} className="border-border/60 shadow-none">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
+                        {s.staff_name?.charAt(0)?.toUpperCase() || "S"}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-foreground truncate">{s.staff_name}</div>
+                        <div className="text-xs text-muted-foreground truncate">{s.username}</div>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className={`text-[10px] flex-shrink-0 ${s.status === "active" ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>
+                      {s.status === "active" ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] flex items-center gap-1 w-fit">
+                    <ShieldCheck className="h-3 w-3" /> {grantedCount(s.permissions)} permission{grantedCount(s.permissions) === 1 ? "" : "s"}
+                  </Badge>
+                  <div className="flex items-center gap-1 pt-1 border-t border-border">
+                    {can("staff.edit") && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(s)} aria-label="Edit">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {can("staff.edit") && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setResetting(s); setNewPassword(""); }} aria-label="Reset Password">
+                        <KeyRound className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {can("staff.disable") && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggleStatus(s)} aria-label={s.status === "active" ? "Deactivate" : "Activate"}>
+                        {s.status === "active" ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                      </Button>
+                    )}
+                    {!isStaff && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setDeleting(s)} aria-label="Delete">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </Card>
+        </>
       )}
 
       {/* Add / Edit Staff */}
@@ -318,6 +370,8 @@ const StaffManagementPage = () => {
               </div>
             </div>
 
+          </div>
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-1 bg-background border-t border-border">
             <Button onClick={save} disabled={saving} className="w-full h-10 bg-royal hover:bg-royal/90">
               {saving ? "Saving…" : editingId ? "Save Changes" : "Create Staff"}
             </Button>
