@@ -70,16 +70,16 @@ const BeforeAfter = () => (
         </div>
       </motion.div>
 
-      <div className="grid md:grid-cols-2 gap-5 md:gap-6 max-w-4xl mx-auto">
+      <div className="grid grid-cols-2 gap-2 sm:gap-5 md:gap-6 max-w-4xl mx-auto">
         {/* Without */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="rounded-2xl border-2 border-destructive/20 bg-white p-6 md:p-8 hover:shadow-lg transition-shadow"
+          className="rounded-lg sm:rounded-2xl border sm:border-2 border-destructive/20 bg-white p-2 sm:p-6 md:p-8 hover:shadow-lg transition-shadow min-w-0"
         >
-          <div className="rounded-xl overflow-hidden mb-5 h-32">
+          <div className="rounded sm:rounded-xl overflow-hidden mb-2 sm:mb-5 h-14 sm:h-32">
             <img
               src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=500&h=200&fit=crop&q=80"
               alt="Cluttered desk with papers"
@@ -87,13 +87,13 @@ const BeforeAfter = () => (
               loading="lazy"
             />
           </div>
-          <div className="flex items-center gap-2 mb-5">
-            <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center">
-              <X className="h-4 w-4 text-destructive" />
+          <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-5">
+            <div className="w-4 h-4 sm:w-8 sm:h-8 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+              <X className="h-2.5 w-2.5 sm:h-4 sm:w-4 text-destructive" />
             </div>
-            <h3 className="font-heading font-bold text-lg text-destructive">Without Doctylia</h3>
+            <h3 className="font-heading font-bold text-[10px] sm:text-lg text-destructive leading-tight">Without Doctylia</h3>
           </div>
-          <ul className="space-y-3.5">
+          <ul className="space-y-1.5 sm:space-y-3.5">
             {withoutItems.map((item, i) => (
               <motion.li
                 key={item}
@@ -101,9 +101,9 @@ const BeforeAfter = () => (
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
-                className="flex items-start gap-3 text-sm text-muted-foreground"
+                className="flex items-start gap-1 sm:gap-3 text-[9px] sm:text-sm text-muted-foreground leading-snug"
               >
-                <X className="h-4 w-4 text-destructive/60 mt-0.5 shrink-0" />
+                <X className="h-2 w-2 sm:h-4 sm:w-4 text-destructive/60 mt-0.5 shrink-0" />
                 {item}
               </motion.li>
             ))}
@@ -116,9 +116,9 @@ const BeforeAfter = () => (
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="rounded-2xl border-2 border-success/20 bg-white p-6 md:p-8 hover:shadow-lg transition-shadow"
+          className="rounded-lg sm:rounded-2xl border sm:border-2 border-success/20 bg-white p-2 sm:p-6 md:p-8 hover:shadow-lg transition-shadow min-w-0"
         >
-          <div className="rounded-xl overflow-hidden mb-5 h-32">
+          <div className="rounded sm:rounded-xl overflow-hidden mb-2 sm:mb-5 h-14 sm:h-32">
             <img
               src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=500&h=200&fit=crop&q=80"
               alt="Clean digital dashboard"
@@ -126,13 +126,13 @@ const BeforeAfter = () => (
               loading="lazy"
             />
           </div>
-          <div className="flex items-center gap-2 mb-5">
-            <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
-              <Check className="h-4 w-4 text-success" />
+          <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-5">
+            <div className="w-4 h-4 sm:w-8 sm:h-8 rounded-full bg-success/10 flex items-center justify-center shrink-0">
+              <Check className="h-2.5 w-2.5 sm:h-4 sm:w-4 text-success" />
             </div>
-            <h3 className="font-heading font-bold text-lg text-success">With Doctylia</h3>
+            <h3 className="font-heading font-bold text-[10px] sm:text-lg text-success leading-tight">With Doctylia</h3>
           </div>
-          <ul className="space-y-3.5">
+          <ul className="space-y-1.5 sm:space-y-3.5">
             {withItems.map((item, i) => (
               <motion.li
                 key={item}
@@ -140,9 +140,9 @@ const BeforeAfter = () => (
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
-                className="flex items-start gap-3 text-sm text-foreground font-medium"
+                className="flex items-start gap-1 sm:gap-3 text-[9px] sm:text-sm text-foreground font-medium leading-snug"
               >
-                <Check className="h-4 w-4 text-success mt-0.5 shrink-0" />
+                <Check className="h-2 w-2 sm:h-4 sm:w-4 text-success mt-0.5 shrink-0" />
                 {item}
               </motion.li>
             ))}

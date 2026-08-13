@@ -14,33 +14,33 @@ const faqs = [
 
 const FAQ = () => (
   <section id="faq" className="py-20 bg-secondary">
-    <div className="container mx-auto px-4">
-      <div className="grid lg:grid-cols-5 gap-10 max-w-5xl mx-auto">
-        <div className="lg:col-span-2">
-          <span className="text-sm font-semibold text-accent uppercase tracking-wider">FAQ</span>
-          <h2 className="font-heading font-bold text-3xl md:text-4xl text-primary mt-2">
+    <div className="container mx-auto px-3 sm:px-4">
+      <div className="grid grid-cols-5 gap-2 sm:gap-6 lg:gap-10 max-w-5xl mx-auto">
+        <div className="col-span-2 min-w-0">
+          <span className="text-[8px] sm:text-sm font-semibold text-accent uppercase tracking-wider">FAQ</span>
+          <h2 className="font-heading font-bold text-xs sm:text-2xl md:text-3xl lg:text-4xl text-primary mt-1 sm:mt-2 leading-tight">
             Frequently Asked Questions
           </h2>
-          <p className="text-muted-foreground mt-3 leading-relaxed">
+          <p className="text-[8px] sm:text-sm text-muted-foreground mt-1.5 sm:mt-3 leading-snug sm:leading-relaxed">
             Can't find the answer you're looking for? <a href="#contact" className="text-royal font-medium hover:underline">Contact our team</a>.
           </p>
-          <div className="mt-6 rounded-xl overflow-hidden shadow-md border border-border">
+          <div className="mt-2 sm:mt-6 rounded sm:rounded-xl overflow-hidden shadow-md border border-border">
             <img
               src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=280&fit=crop&q=80"
               alt="Doctor consulting with patient"
-              className="w-full h-40 md:h-48 object-cover"
+              className="w-full h-16 sm:h-40 md:h-48 object-cover"
               loading="lazy"
             />
           </div>
         </div>
-        <div className="lg:col-span-3">
-          <Accordion type="single" collapsible className="space-y-3">
+        <div className="col-span-3 min-w-0">
+          <Accordion type="single" collapsible className="space-y-1.5 sm:space-y-3">
             {faqs.map((f, i) => (
-              <AccordionItem key={i} value={`faq-${i}`} className="border border-border rounded-xl px-6 bg-white data-[state=open]:shadow-sm data-[state=open]:border-royal/30 transition-all">
-                <AccordionTrigger className="font-heading font-semibold text-primary text-left text-[15px]">
+              <AccordionItem key={i} value={`faq-${i}`} className="border border-border rounded sm:rounded-xl px-1.5 sm:px-6 bg-white data-[state=open]:shadow-sm data-[state=open]:border-royal/30 transition-all">
+                <AccordionTrigger className="font-heading font-semibold text-primary text-left text-[9px] sm:text-[15px] py-1.5 sm:py-4 gap-1">
                   {f.q}
                 </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground leading-relaxed">
+                <AccordionContent className="text-muted-foreground text-[8px] sm:text-sm leading-snug sm:leading-relaxed pb-1.5 sm:pb-4">
                   {f.a}
                 </AccordionContent>
               </AccordionItem>
