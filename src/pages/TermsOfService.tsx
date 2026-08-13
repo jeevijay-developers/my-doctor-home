@@ -292,14 +292,14 @@ const TermsOfService = () => {
     <div className="min-h-screen bg-background">
       <LandingNavbar />
 
-      <div className="pt-28 pb-10 md:pt-32 md:pb-14">
+      <div className="pt-28 md:pt-32">
         <div className="container mx-auto px-4 max-w-3xl">
           <h1 className="font-heading font-bold text-3xl md:text-4xl text-primary">Terms of Service</h1>
           <p className="text-muted-foreground mt-2 text-sm">Last updated: {LAST_UPDATED}</p>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 max-w-3xl py-10">
+      <div className="container mx-auto px-4 max-w-3xl pt-6 pb-10 md:pt-8">
         <nav aria-label="Table of contents" className="mb-10 rounded-xl border border-border bg-secondary p-4">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">On this page</p>
           <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">

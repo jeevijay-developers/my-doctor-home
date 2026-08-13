@@ -33,9 +33,8 @@ const LandingFooter = () => (
         <div>
           <h4 className="font-heading font-semibold text-white mb-3 md:mb-4 text-sm">Company</h4>
           <ul className="space-y-2 md:space-y-2.5 text-sm text-primary-foreground/60">
-            <li><span className="hover:text-white transition-colors cursor-pointer">About Us</span></li>
+            <li><Link to="/" className="hover:text-white transition-colors">About Us</Link></li>
             <li><a href="#contact" className="hover:text-white transition-colors">Contact</a></li>
-            <li><span className="hover:text-white transition-colors cursor-pointer">Careers</span></li>
             <li><span className="hover:text-white transition-colors cursor-pointer">Blog</span></li>
           </ul>
         </div>
@@ -45,7 +44,6 @@ const LandingFooter = () => (
           <ul className="space-y-2 md:space-y-2.5 text-sm text-primary-foreground/60">
             <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
             <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
-            <li><span className="hover:text-white transition-colors cursor-pointer">Refund Policy</span></li>
           </ul>
         </div>
         {/* Newsletter */}
