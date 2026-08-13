@@ -10,11 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   Wallet, IndianRupee, PieChart, History, Loader2, Info,
-  RefreshCw, Send, Users2, CreditCard, Undo2,
+  RefreshCw, Send, Users2, CreditCard,
 } from "lucide-react";
+import DoctorGroupCard from "@/components/shared/DoctorGroupCard";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { usePaymentMode } from "@/hooks/usePaymentMode";
@@ -25,14 +25,8 @@ type Payment = Tables<"payments">;
 type Ledger = Tables<"doctor_ledger">;
 type Payout = Tables<"payouts">;
 type ProfileLite = { id: string; full_name: string | null; clinic_name: string | null };
+type AppointmentLite = { id: string; doctor_id: string; patient_name: string | null; patient_phone: string | null; created_at: string };
 
-const paymentStatusStyle: Record<string, { bg: string; text: string }> = {
-  created: { bg: "bg-muted", text: "text-muted-foreground" },
-  authorized: { bg: "bg-royal/10", text: "text-royal" },
-  captured: { bg: "bg-success/10", text: "text-success" },
-  failed: { bg: "bg-destructive/10", text: "text-destructive" },
-  refunded: { bg: "bg-warning/10", text: "text-warning" },
-};
 const payoutStatusStyle: Record<string, { bg: string; text: string; label: string }> = {
   pending: { bg: "bg-warning/10", text: "text-warning", label: "Pending" },
   processing: { bg: "bg-royal/10", text: "text-royal", label: "Processing" },
@@ -47,17 +41,20 @@ const SAPayments = () => {
   const [ledger, setLedger] = useState<Ledger[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [profiles, setProfiles] = useState<Record<string, ProfileLite>>({});
+  const [appointments, setAppointments] = useState<AppointmentLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [runningCalc, setRunningCalc] = useState(false);
   const [payingOut, setPayingOut] = useState<string | null>(null);
-  const [refunding, setRefunding] = useState<string | null>(null);
+  const [drillDoctorId, setDrillDoctorId] = useState<string | null>(null);
+  const [drillPatientKey, setDrillPatientKey] = useState<string | null>(null);
 
   const loadData = async () => {
-    const [paymentsRes, ledgerRes, payoutsRes, profilesRes] = await Promise.all([
+    const [paymentsRes, ledgerRes, payoutsRes, profilesRes, appointmentsRes] = await Promise.all([
       supabase.from("payments").select("*").order("created_at", { ascending: false }).limit(300),
       supabase.from("doctor_ledger").select("*"),
       supabase.from("payouts").select("*").order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, full_name, clinic_name"),
+      supabase.from("appointments").select("id, doctor_id, patient_name, patient_phone, created_at"),
     ]);
     setPayments(paymentsRes.data || []);
     setLedger(ledgerRes.data || []);
@@ -65,48 +62,93 @@ const SAPayments = () => {
     const map: Record<string, ProfileLite> = {};
     (profilesRes.data || []).forEach((p) => { map[p.id] = p; });
     setProfiles(map);
+    setAppointments((appointmentsRes.data || []) as AppointmentLite[]);
     setLoading(false);
   };
 
   useEffect(() => { loadData(); }, []);
 
-  const doctorLabel = (id: string) => profiles[id]?.clinic_name || profiles[id]?.full_name || id.slice(0, 8);
+  const doctorLabel = (id: string) => profiles[id]?.full_name || id.slice(0, 8);
+  const appointmentById = new Map(appointments.map((a) => [a.id, a]));
 
   const captured = payments.filter((p) => p.status === "captured");
   const totalCollected = captured.reduce((s, p) => s + Number(p.amount), 0);
-  const totalCommission = ledger.reduce((s, l) => s + Number(l.commission_amount), 0);
-  const totalDoctorShare = ledger.reduce((s, l) => s + Number(l.doctor_share), 0);
   const pendingPayoutTotal = payouts.filter((p) => p.status === "pending" || p.status === "processing")
     .reduce((s, p) => s + Number(p.total_amount), 0);
 
+  // Only 2 cards: the platform takes no commission on consultation payments
+  // (doctors keep 100% — see verify-razorpay-payment), so "Platform
+  // Commission" is always ₹0 and "Doctor Share" always equals Total
+  // Collected. Showing either would be redundant/misleading.
   const overviewCards = [
     { label: "Total Collected", value: totalCollected, icon: IndianRupee, gradient: "from-royal to-teal" },
-    { label: "Platform Commission", value: totalCommission, icon: PieChart, gradient: "from-teal to-success" },
-    { label: "Doctor Share (Gross)", value: totalDoctorShare, icon: Users2, gradient: "from-success to-royal" },
     { label: "Awaiting Payout", value: pendingPayoutTotal, icon: Wallet, gradient: "from-warning to-royal" },
   ];
 
-  const monthlyChart = (() => {
-    const byMonth = new Map<string, number>();
-    captured.forEach((p) => {
-      const key = (p.created_at || "").slice(0, 7);
-      byMonth.set(key, (byMonth.get(key) || 0) + Number(p.amount));
-    });
-    return Array.from(byMonth.entries()).sort().map(([month, total]) => ({ month, total }));
+  const paymentsByDoctor = (() => {
+    const map = new Map<string, { count: number; total: number }>();
+    for (const p of payments) {
+      const row = map.get(p.doctor_id) || { count: 0, total: 0 };
+      row.count += 1;
+      row.total += Number(p.amount);
+      map.set(p.doctor_id, row);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1].total - a[1].total);
   })();
 
+  const patientKeyFor = (p: Payment) => {
+    const appt = p.appointment_id ? appointmentById.get(p.appointment_id) : undefined;
+    return appt?.patient_phone || `unknown-${p.id}`;
+  };
+
   const doctorEarnings = (() => {
-    const byDoctor = new Map<string, { gross: number; commission: number; doctorShare: number; unpaid: number }>();
+    // No commission is taken, so gross === doctorShare always — kept as
+    // separate fields (rather than collapsed to one) so this shape stays
+    // stable if a commission is ever reintroduced later.
+    const byDoctor = new Map<string, { gross: number; commission: number; doctorShare: number; unpaid: number; count: number }>();
     ledger.forEach((l) => {
-      const row = byDoctor.get(l.doctor_id) || { gross: 0, commission: 0, doctorShare: 0, unpaid: 0 };
+      const row = byDoctor.get(l.doctor_id) || { gross: 0, commission: 0, doctorShare: 0, unpaid: 0, count: 0 };
       row.gross += Number(l.gross_amount);
       row.commission += Number(l.commission_amount);
       row.doctorShare += Number(l.doctor_share);
       if (!l.paid) row.unpaid += Number(l.doctor_share);
+      row.count += 1;
       byDoctor.set(l.doctor_id, row);
     });
     return Array.from(byDoctor.entries()).sort((a, b) => b[1].gross - a[1].gross);
   })();
+
+  const payoutStatusCounts = (Object.keys(payoutStatusStyle) as Array<keyof typeof payoutStatusStyle>)
+    .map((status) => ({ status, count: payouts.filter((p) => p.status === status).length }))
+    .filter((s) => s.count > 0);
+
+  const topEarners = doctorEarnings.slice(0, 5);
+  const topEarnersMax = topEarners[0]?.[1].gross ?? 0;
+
+  const patientsForDrillDoctor = (() => {
+    if (!drillDoctorId) return [];
+    const map = new Map<string, { patientName: string; count: number; total: number; lastDate: string }>();
+    for (const p of payments) {
+      if (p.doctor_id !== drillDoctorId) continue;
+      const appt = p.appointment_id ? appointmentById.get(p.appointment_id) : undefined;
+      const key = patientKeyFor(p);
+      const row = map.get(key) || { patientName: appt?.patient_name || "Unknown patient", count: 0, total: 0, lastDate: p.created_at };
+      row.count += 1;
+      row.total += Number(p.amount);
+      if (p.created_at > row.lastDate) row.lastDate = p.created_at;
+      map.set(key, row);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1].total - a[1].total);
+  })();
+
+  const transactionsForDrillPatient = (() => {
+    if (!drillDoctorId || !drillPatientKey) return [];
+    return payments
+      .filter((p) => p.doctor_id === drillDoctorId && patientKeyFor(p) === drillPatientKey)
+      .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  })();
+
+  const drillPatientName = patientsForDrillDoctor.find(([key]) => key === drillPatientKey)?.[1].patientName;
 
   const pendingPayouts = payouts.filter((p) => p.status === "pending" || p.status === "processing");
   const payoutHistory = payouts.filter((p) => p.status === "processed" || p.status === "failed" || p.status === "cancelled");
@@ -134,20 +176,6 @@ const SAPayments = () => {
       return;
     }
     toast.success("Payout sent to RazorpayX", { description: "It will show as Paid once RazorpayX confirms processing." });
-    loadData();
-  };
-
-  const refundPayment = async (paymentId: string) => {
-    setRefunding(paymentId);
-    const { data, error } = await supabase.functions.invoke("refund-payment", { body: { payment_id: paymentId } });
-    setRefunding(null);
-    if (error || !data?.ok) {
-      toast.error("Couldn't process refund", {
-        description: "Real Razorpay refunds aren't wired up yet — this only works for test-mode payments right now.",
-      });
-      return;
-    }
-    toast.success("Payment marked as refunded");
     loadData();
   };
 
@@ -188,7 +216,7 @@ const SAPayments = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-2 gap-4">
             {overviewCards.map((c) => (
               <Card key={c.label} className="border-0 shadow-none overflow-hidden">
                 <CardContent className={`p-5 bg-gradient-to-br ${c.gradient} text-white relative`}>
@@ -201,62 +229,137 @@ const SAPayments = () => {
               </Card>
             ))}
           </div>
-          <Card>
-            <CardHeader><CardTitle className="text-base">Collections — monthly</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-72">
-                <ResponsiveContainer>
-                  <BarChart data={monthlyChart}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="month" fontSize={11} />
-                    <YAxis fontSize={11} />
-                    <Tooltip formatter={(v: number) => `₹${v.toLocaleString("en-IN")}`} />
-                    <Bar dataKey="total" fill="hsl(var(--royal))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Payout Status</CardTitle></CardHeader>
+              <CardContent>
+                {payoutStatusCounts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No payouts calculated yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {payoutStatusCounts.map(({ status, count }) => {
+                      const style = payoutStatusStyle[status];
+                      return (
+                        <div key={status} className="flex items-center justify-between text-sm">
+                          <Badge variant="outline" className={`text-[10px] ${style.bg} ${style.text}`}>{style.label}</Badge>
+                          <span className="font-medium text-foreground">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="text-base">Top Earning Doctors</CardTitle></CardHeader>
+              <CardContent>
+                {topEarners.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No earnings yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {topEarners.map(([doctorId, e]) => (
+                      <div key={doctorId}>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-foreground font-medium truncate">{doctorLabel(doctorId)}</span>
+                          <span className="text-muted-foreground">₹{e.gross.toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                          <div className="h-full bg-royal rounded-full" style={{ width: `${topEarnersMax ? (e.gross / topEarnersMax) * 100 : 0}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="payments" className="space-y-2">
-          {payments.length === 0 ? (
-            <EmptyState icon={CreditCard} text="No payments yet" />
-          ) : (
-            payments.map((p) => {
-              const style = paymentStatusStyle[p.status] || paymentStatusStyle.created;
-              // Money was captured by Razorpay but no appointment could be created
-              // (slot race, or the patient closed the tab before verification) —
-              // surface this so it doesn't silently disappear.
-              const orphaned = p.status === "captured" && (p.needs_refund || !p.appointment_id);
-              return (
-                <Card key={p.id} className={`border-border/60 shadow-none hover:shadow-sm transition-shadow ${orphaned ? "border-destructive/40" : ""}`}>
-                  <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">{doctorLabel(p.doctor_id)}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {p.razorpay_order_id || "—"} · {format(new Date(p.created_at), "d MMM yyyy, h:mm a")}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      {p.is_mock && <TestModeBadge />}
-                      {orphaned && (
-                        <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive">Needs Refund Review</Badge>
-                      )}
-                      <Badge variant="outline" className={`text-[10px] capitalize ${style.bg} ${style.text}`}>{p.status}</Badge>
-                      <span className="font-heading font-bold text-foreground">₹{Number(p.amount).toLocaleString("en-IN")}</span>
-                      {p.status === "captured" && (
-                        <Button size="sm" variant="outline" className="h-8 text-xs gap-1" disabled={refunding === p.id}
-                          onClick={() => refundPayment(p.id)}>
-                          <Undo2 className="h-3.5 w-3.5" /> {refunding === p.id ? "Refunding..." : "Refund"}
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
+        <TabsContent value="payments" className="space-y-3">
+          <div className="flex items-center gap-1.5 text-sm flex-wrap">
+            <button
+              className={`hover:underline ${!drillDoctorId ? "font-semibold text-foreground" : "text-royal"}`}
+              onClick={() => { setDrillDoctorId(null); setDrillPatientKey(null); }}
+            >
+              All Doctors
+            </button>
+            {drillDoctorId && (
+              <>
+                <span className="text-muted-foreground">›</span>
+                <button
+                  className={`hover:underline ${!drillPatientKey ? "font-semibold text-foreground" : "text-royal"}`}
+                  onClick={() => setDrillPatientKey(null)}
+                >
+                  {doctorLabel(drillDoctorId)}
+                </button>
+              </>
+            )}
+            {drillPatientKey && (
+              <>
+                <span className="text-muted-foreground">›</span>
+                <span className="font-semibold text-foreground">{drillPatientName}</span>
+              </>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {!drillDoctorId ? (
+              paymentsByDoctor.length === 0 ? (
+                <EmptyState icon={CreditCard} text="No payments yet" />
+              ) : (
+                paymentsByDoctor.map(([doctorId, s]) => (
+                  <Card key={doctorId} className="border-border/60 shadow-none hover:shadow-sm transition-shadow cursor-pointer" onClick={() => setDrillDoctorId(doctorId)}>
+                    <CardContent className="p-4 flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-foreground">{doctorLabel(doctorId)}</span>
+                      <span className="text-xs text-muted-foreground">{s.count} transaction{s.count === 1 ? "" : "s"} · ₹{s.total.toLocaleString("en-IN")}</span>
+                    </CardContent>
+                  </Card>
+                ))
+              )
+            ) : !drillPatientKey ? (
+              patientsForDrillDoctor.length === 0 ? (
+                <EmptyState icon={CreditCard} text="No payments for this doctor" />
+              ) : (
+                patientsForDrillDoctor.map(([key, s]) => (
+                  <Card key={key} className="border-border/60 shadow-none hover:shadow-sm transition-shadow cursor-pointer" onClick={() => setDrillPatientKey(key)}>
+                    <CardContent className="p-4 flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-foreground">{s.patientName}</span>
+                      <span className="text-xs text-muted-foreground">{s.count} transaction{s.count === 1 ? "" : "s"} · ₹{s.total.toLocaleString("en-IN")} · last {format(new Date(s.lastDate), "d MMM yyyy")}</span>
+                    </CardContent>
+                  </Card>
+                ))
+              )
+            ) : (
+              transactionsForDrillPatient.length === 0 ? (
+                <EmptyState icon={CreditCard} text="No transactions" />
+              ) : (
+                transactionsForDrillPatient.map((p) => {
+                  const orphaned = p.status === "captured" && (p.needs_refund || !p.appointment_id);
+                  return (
+                    <Card key={p.id} className={`border-border/60 shadow-none ${orphaned ? "border-destructive/40" : ""}`}>
+                      <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate">{p.razorpay_order_id || "—"}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {format(new Date(p.created_at), "d MMM yyyy, h:mm a")}{p.method ? ` · ${p.method}` : ""}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          {p.is_mock && <TestModeBadge />}
+                          {orphaned && (
+                            <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive">Needs Refund Review</Badge>
+                          )}
+                          <span className="font-heading font-bold text-foreground">₹{Number(p.amount).toLocaleString("en-IN")}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="doctors" className="space-y-2">
@@ -264,19 +367,26 @@ const SAPayments = () => {
             <EmptyState icon={Users2} text="No doctor earnings yet" />
           ) : (
             doctorEarnings.map(([doctorId, e]) => (
-              <Card key={doctorId} className="border-border/60 shadow-none">
-                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="text-sm font-medium text-foreground">{doctorLabel(doctorId)}</div>
-                  <div className="flex items-center gap-4 text-xs flex-wrap">
-                    <span className="text-muted-foreground">Gross <strong className="text-foreground">₹{e.gross.toLocaleString("en-IN")}</strong></span>
-                    <span className="text-muted-foreground">Commission <strong className="text-foreground">₹{e.commission.toLocaleString("en-IN")}</strong></span>
-                    <span className="text-muted-foreground">Doctor Share <strong className="text-foreground">₹{e.doctorShare.toLocaleString("en-IN")}</strong></span>
+              <DoctorGroupCard
+                key={doctorId}
+                doctorName={doctorLabel(doctorId)}
+                clinicName={profiles[doctorId]?.clinic_name ?? null}
+                count={e.count}
+                itemLabel="transaction"
+              >
+                <div className="p-4 space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Amount Earned</span>
+                    <span className="font-medium text-foreground">₹{e.doctorShare.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <span className="text-muted-foreground">Unpaid</span>
                     <Badge variant="outline" className={`text-[10px] ${e.unpaid > 0 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
-                      {e.unpaid > 0 ? `₹${e.unpaid.toLocaleString("en-IN")} unpaid` : "Fully paid out"}
+                      {e.unpaid > 0 ? `₹${e.unpaid.toLocaleString("en-IN")}` : "Fully paid out"}
                     </Badge>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </DoctorGroupCard>
             ))
           )}
         </TabsContent>
