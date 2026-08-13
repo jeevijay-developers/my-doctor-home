@@ -1,12 +1,41 @@
 import { useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
+import { groupByDoctor } from "@/lib/groupByDoctor";
+
+export const DoctorGroupCard = ({ doctorName, clinicName, count, itemLabel, children }: {
+  doctorName: string; clinicName: string | null; count: number; itemLabel: string; children: React.ReactNode;
+}) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="flex-row items-center justify-between gap-3 p-4 cursor-pointer select-none hover:bg-secondary/40">
+            <div>
+              <CardTitle className="text-sm font-semibold">{doctorName}</CardTitle>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {clinicName || "—"} · {count} {itemLabel}{count === 1 ? "" : "s"}
+              </div>
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${open ? "rotate-180" : ""}`} />
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="p-0 overflow-x-auto">{children}</CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+};
 
 const SAModeration = () => {
   const [posts, setPosts] = useState<any[]>([]);
@@ -15,8 +44,8 @@ const SAModeration = () => {
 
   const load = async () => {
     const [{ data: p }, { data: r }] = await Promise.all([
-      supabase.from("blog_posts").select("*, profiles:doctor_id(full_name)").order("created_at", { ascending: false }),
-      supabase.from("reviews").select("*, profiles:doctor_id(full_name)").order("created_at", { ascending: false }),
+      supabase.from("blog_posts").select("*, profiles:doctor_id(full_name, clinic_name)").order("created_at", { ascending: false }),
+      supabase.from("reviews").select("*, profiles:doctor_id(full_name, clinic_name)").order("created_at", { ascending: false }),
     ]);
     setPosts(p ?? []);
     setReviews(r ?? []);
@@ -40,6 +69,9 @@ const SAModeration = () => {
     load();
   };
 
+  const postGroups = groupByDoctor(posts);
+  const reviewGroups = groupByDoctor(reviews);
+
   return (
     <Tabs defaultValue="blogs">
       <TabsList>
@@ -47,68 +79,69 @@ const SAModeration = () => {
         <TabsTrigger value="reviews">Reviews</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="blogs">
-        <Card><CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-secondary text-xs uppercase text-muted-foreground">
-              <tr><th className="text-left p-3">Title</th><th className="text-left p-3">Doctor</th><th className="text-left p-3">Status</th><th className="text-left p-3">Date</th><th className="p-3"></th></tr>
-            </thead>
-            <tbody>
-              {posts.map((p) => (
-                <tr
-                  key={p.id}
-                  className="border-t cursor-pointer hover:bg-secondary/40"
-                  onClick={() => setOpenPost(p)}
-                >
-                  <td className="p-3 font-medium">{p.title}</td>
-                  <td className="p-3 text-xs">{p.profiles?.full_name || "—"}</td>
-                  <td className="p-3">
-                    <Badge
-                      variant={p.is_published ? "default" : "outline"}
-                      className="pointer-events-none"
-                    >
-                      {p.is_published ? "Published" : "Draft"}
-                    </Badge>
-                  </td>
-                  <td className="p-3 text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</td>
-                  <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                    {p.is_published
-                      ? <Button size="sm" variant="destructive" onClick={() => setPublished(p.id, false)}>Unpublish</Button>
-                      : <Button size="sm" onClick={() => setPublished(p.id, true)}>Publish</Button>}
-                  </td>
-                </tr>
-              ))}
-              {posts.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No posts.</td></tr>}
-            </tbody>
-          </table>
-        </CardContent></Card>
+      <TabsContent value="blogs" className="space-y-3">
+        {postGroups.length === 0 ? (
+          <Card><CardContent className="p-6 text-center text-muted-foreground">No posts.</CardContent></Card>
+        ) : (
+          postGroups.map((group) => (
+            <DoctorGroupCard key={group.doctorId} doctorName={group.doctorName} clinicName={group.clinicName} count={group.items.length} itemLabel="post">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary text-xs uppercase text-muted-foreground">
+                  <tr><th className="text-left p-3">Title</th><th className="text-left p-3">Status</th><th className="text-left p-3">Date</th><th className="p-3"></th></tr>
+                </thead>
+                <tbody>
+                  {group.items.map((p) => (
+                    <tr key={p.id} className="border-t cursor-pointer hover:bg-secondary/40" onClick={() => setOpenPost(p)}>
+                      <td className="p-3 font-medium">{p.title}</td>
+                      <td className="p-3">
+                        <Badge variant={p.is_published ? "default" : "outline"} className="pointer-events-none">
+                          {p.is_published ? "Published" : "Draft"}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</td>
+                      <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                        {p.is_published
+                          ? <Button size="sm" variant="destructive" onClick={() => setPublished(p.id, false)}>Unpublish</Button>
+                          : <Button size="sm" onClick={() => setPublished(p.id, true)}>Publish</Button>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </DoctorGroupCard>
+          ))
+        )}
       </TabsContent>
 
-      <TabsContent value="reviews">
-        <Card><CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-secondary text-xs uppercase text-muted-foreground">
-              <tr><th className="text-left p-3">Patient</th><th className="text-left p-3">Doctor</th><th className="text-left p-3">Rating</th><th className="text-left p-3">Text</th><th className="text-left p-3">Visible</th><th className="p-3"></th></tr>
-            </thead>
-            <tbody>
-              {reviews.map((r) => (
-                <tr key={r.id} className="border-t align-top">
-                  <td className="p-3">{r.patient_name}</td>
-                  <td className="p-3 text-xs">{r.profiles?.full_name}</td>
-                  <td className="p-3">{r.rating}★</td>
-                  <td className="p-3 text-xs max-w-xs">{r.review_text}</td>
-                  <td className="p-3"><Badge variant={r.is_visible ? "default" : "outline"} className="pointer-events-none">{r.is_visible ? "Yes" : "Hidden"}</Badge></td>
-                  <td className="p-3">
-                    <Button size="sm" variant={r.is_visible ? "destructive" : "default"} onClick={() => toggleReview(r.id, !r.is_visible)}>
-                      {r.is_visible ? "Hide" : "Show"}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {reviews.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No reviews.</td></tr>}
-            </tbody>
-          </table>
-        </CardContent></Card>
+      <TabsContent value="reviews" className="space-y-3">
+        {reviewGroups.length === 0 ? (
+          <Card><CardContent className="p-6 text-center text-muted-foreground">No reviews.</CardContent></Card>
+        ) : (
+          reviewGroups.map((group) => (
+            <DoctorGroupCard key={group.doctorId} doctorName={group.doctorName} clinicName={group.clinicName} count={group.items.length} itemLabel="review">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary text-xs uppercase text-muted-foreground">
+                  <tr><th className="text-left p-3">Patient</th><th className="text-left p-3">Rating</th><th className="text-left p-3">Text</th><th className="text-left p-3">Visible</th><th className="p-3"></th></tr>
+                </thead>
+                <tbody>
+                  {group.items.map((r) => (
+                    <tr key={r.id} className="border-t align-top">
+                      <td className="p-3">{r.patient_name}</td>
+                      <td className="p-3">{r.rating}★</td>
+                      <td className="p-3 text-xs max-w-xs">{r.review_text}</td>
+                      <td className="p-3"><Badge variant={r.is_visible ? "default" : "outline"} className="pointer-events-none">{r.is_visible ? "Yes" : "Hidden"}</Badge></td>
+                      <td className="p-3">
+                        <Button size="sm" variant={r.is_visible ? "destructive" : "default"} onClick={() => toggleReview(r.id, !r.is_visible)}>
+                          {r.is_visible ? "Hide" : "Show"}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </DoctorGroupCard>
+          ))
+        )}
       </TabsContent>
 
       <Dialog open={!!openPost} onOpenChange={(v) => !v && setOpenPost(null)}>
