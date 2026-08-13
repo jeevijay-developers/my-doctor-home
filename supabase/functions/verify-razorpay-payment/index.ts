@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
 
   const booking = payment.pending_booking as {
     doctor_id: string; patient_name: string; patient_phone: string; patient_age?: number | null;
-    patient_gender?: string | null; service_name: string; appointment_type: "clinic" | "online";
+    patient_gender?: string | null; patient_email?: string | null; service_name: string; appointment_type: "clinic" | "online";
     date: string; time_slot: string; amount: number; chief_complaint?: string | null;
   } | null;
   if (!booking) {
@@ -92,6 +92,7 @@ Deno.serve(async (req) => {
       patient_phone: booking.patient_phone,
       patient_age: booking.patient_age ?? null,
       patient_gender: booking.patient_gender ?? null,
+      patient_email: booking.patient_email ?? null,
       service_name: booking.service_name,
       appointment_type: booking.appointment_type,
       date: booking.date,
