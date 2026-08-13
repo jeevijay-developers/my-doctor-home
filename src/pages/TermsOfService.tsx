@@ -192,15 +192,9 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
       <>
         <p>
           Doctylia processes personal data — including patient names, contact details, appointment history,
-          prescriptions, and medical records — as described in our Privacy Policy.
-        </p>
-        <p>
-          <em>
-            [Placeholder — a separate Privacy Policy page does not yet exist on the site and should be
-            created before this Terms of Service page is published, since Terms and a Privacy Policy are
-            ordinarily separate documents. This link will need to be updated once that page exists.]
-          </em>{" "}
-          Until then, refer to this section as a placeholder pointer only.
+          prescriptions, and medical records — as described in our{" "}
+          <Link to="/privacy">Privacy Policy</Link>, which covers what data is collected and how it is
+          handled in full detail and should be read together with these Terms.
         </p>
       </>
     ),
