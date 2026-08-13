@@ -118,11 +118,11 @@ const LandingHero = () => {
             initial={{ opacity: 0, x: 40, scale: 0.95 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
-            className="relative flex justify-center mt-4 lg:mt-0"
+            className="relative flex flex-col items-center justify-center mt-4 lg:mt-0"
           >
             <div className="relative">
               <img src={heroDoctor} alt="Doctor using Doctylia" className="w-[200px] sm:w-[280px] lg:w-[420px] h-auto drop-shadow-2xl" />
-              {/* Floating stats cards — hidden on very small screens */}
+              {/* Floating overlay cards — sm+ only; the compact row below covers the same 3 stats on mobile */}
               <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
@@ -154,6 +154,22 @@ const LandingHero = () => {
                 <div className="text-[10px] text-muted-foreground">Patient Rating</div>
                 <div className="text-xs font-bold text-warning">★★★★★ 4.9</div>
               </motion.div>
+            </div>
+
+            {/* Same three stats as a compact row below the image — overlays don't have room at narrow widths */}
+            <div className="sm:hidden grid grid-cols-3 gap-2 mt-4 w-full max-w-xs">
+              <div className="bg-white rounded-xl shadow-sm px-2 py-2 border border-border text-center">
+                <div className="text-[9px] text-muted-foreground leading-tight">Next Slot</div>
+                <div className="text-[11px] font-bold text-primary leading-tight mt-0.5">5:30 PM</div>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm px-2 py-2 border border-border text-center">
+                <div className="text-[9px] text-muted-foreground leading-tight">Revenue</div>
+                <div className="text-[11px] font-bold text-success leading-tight mt-0.5">₹1.24L ↑</div>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm px-2 py-2 border border-border text-center">
+                <div className="text-[9px] text-muted-foreground leading-tight">Rating</div>
+                <div className="text-[11px] font-bold text-warning leading-tight mt-0.5">★ 4.9</div>
+              </div>
             </div>
           </motion.div>
         </div>

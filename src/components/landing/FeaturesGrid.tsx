@@ -65,7 +65,7 @@ const FeaturesGrid = () => (
                 <f.icon className="h-3.5 w-3.5 md:h-5 md:w-5" />
               </div>
               <h3 className="font-heading font-semibold text-primary text-xs sm:text-sm md:text-base">{f.title}</h3>
-              <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 leading-relaxed hidden sm:block">{f.desc}</p>
+              <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 leading-relaxed">{f.desc}</p>
             </div>
           </motion.div>
         ))}
