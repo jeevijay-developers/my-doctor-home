@@ -25,6 +25,7 @@ type Payment = Tables<"payments">;
 type Ledger = Tables<"doctor_ledger">;
 type Payout = Tables<"payouts">;
 type ProfileLite = { id: string; full_name: string | null; clinic_name: string | null };
+type AppointmentLite = { id: string; doctor_id: string; patient_name: string | null; patient_phone: string | null; created_at: string };
 
 const paymentStatusStyle: Record<string, { bg: string; text: string }> = {
   created: { bg: "bg-muted", text: "text-muted-foreground" },
@@ -47,17 +48,19 @@ const SAPayments = () => {
   const [ledger, setLedger] = useState<Ledger[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [profiles, setProfiles] = useState<Record<string, ProfileLite>>({});
+  const [appointments, setAppointments] = useState<AppointmentLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [runningCalc, setRunningCalc] = useState(false);
   const [payingOut, setPayingOut] = useState<string | null>(null);
   const [refunding, setRefunding] = useState<string | null>(null);
 
   const loadData = async () => {
-    const [paymentsRes, ledgerRes, payoutsRes, profilesRes] = await Promise.all([
+    const [paymentsRes, ledgerRes, payoutsRes, profilesRes, appointmentsRes] = await Promise.all([
       supabase.from("payments").select("*").order("created_at", { ascending: false }).limit(300),
       supabase.from("doctor_ledger").select("*"),
       supabase.from("payouts").select("*").order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, full_name, clinic_name"),
+      supabase.from("appointments").select("id, doctor_id, patient_name, patient_phone, created_at"),
     ]);
     setPayments(paymentsRes.data || []);
     setLedger(ledgerRes.data || []);
@@ -65,12 +68,14 @@ const SAPayments = () => {
     const map: Record<string, ProfileLite> = {};
     (profilesRes.data || []).forEach((p) => { map[p.id] = p; });
     setProfiles(map);
+    setAppointments((appointmentsRes.data || []) as AppointmentLite[]);
     setLoading(false);
   };
 
   useEffect(() => { loadData(); }, []);
 
-  const doctorLabel = (id: string) => profiles[id]?.clinic_name || profiles[id]?.full_name || id.slice(0, 8);
+  const doctorLabel = (id: string) => profiles[id]?.full_name || id.slice(0, 8);
+  const appointmentById = new Map(appointments.map((a) => [a.id, a]));
 
   const captured = payments.filter((p) => p.status === "captured");
   const totalCollected = captured.reduce((s, p) => s + Number(p.amount), 0);
