@@ -41,7 +41,7 @@ const LandingHero = () => {
             initial={{ opacity: 0, x: -40 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.7, ease: "easeOut" }}
-            className="order-2 space-y-3 min-w-0 sm:order-1 sm:space-y-4 md:space-y-6"
+            className="order-1 space-y-3 min-w-0 sm:space-y-4 md:order-1 md:space-y-6"
           >
             <div className="flex flex-wrap items-center gap-1 sm:gap-2">
               <motion.span
@@ -118,10 +118,51 @@ const LandingHero = () => {
             initial={{ opacity: 0, x: 40, scale: 0.95 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
-            className="order-1 relative flex justify-center mt-0 md:mt-4 lg:mt-0 sm:order-2"
+            className="order-2 relative mt-4 flex justify-center md:order-2 md:mt-4 lg:mt-0"
           >
-            <div className="relative flex items-end justify-center">
-              <img src={heroDoctor} alt="Doctor using Doctylia" className="w-[120px] sm:w-[220px] md:w-[280px] lg:w-[420px] h-auto drop-shadow-2xl" />
+            <div className="relative flex w-full max-w-[360px] items-end justify-center md:max-w-none">
+              <div className="w-full rounded-[28px] border border-[#dfeaf5] bg-[#dfeaf3] p-2 shadow-[0_10px_20px_rgba(74,97,120,0.08)] md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+                <img
+                  src={heroDoctor}
+                  alt="Doctor using Doctylia"
+                  className="mx-auto h-[300px] w-full rounded-[24px] object-cover object-center md:h-auto md:w-[280px] md:drop-shadow-2xl lg:w-[420px]"
+                />
+              </div>
+
+              <motion.div
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute right-2 top-3 block rounded-[18px] bg-white/90 px-3 py-2 shadow-[0_10px_18px_rgba(27,37,54,0.12)] ring-1 ring-[#e8edf5] md:hidden"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#dff7eb]">
+                    <CheckCircle className="h-4 w-4 text-[#1fa36c]" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-[#5d6f83]">Next Slot</div>
+                    <div className="text-[13px] font-semibold text-[#1c2e3d]">5:30 PM</div>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 3, delay: 1, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute bottom-7 left-3 block rounded-[18px] bg-white/90 px-3 py-2 shadow-[0_10px_18px_rgba(27,37,54,0.12)] ring-1 ring-[#e8edf5] md:hidden"
+              >
+                <div className="text-[10px] text-[#5d6f83]">Revenue</div>
+                <div className="text-[13px] font-semibold text-[#1fa36c]">₹1.24L ↑</div>
+              </motion.div>
+
+              <motion.div
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 3, delay: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute right-1 top-[42%] block rounded-[18px] bg-white/90 px-3 py-2 shadow-[0_10px_18px_rgba(27,37,54,0.12)] ring-1 ring-[#e8edf5] md:hidden"
+              >
+                <div className="text-[10px] text-[#5d6f83]">Rating</div>
+                <div className="text-[13px] font-semibold text-[#f2a90f]">★ 4.9</div>
+              </motion.div>
+
               <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
