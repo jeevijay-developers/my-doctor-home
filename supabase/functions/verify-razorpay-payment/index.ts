@@ -127,17 +127,17 @@ Deno.serve(async (req) => {
     .update({ status: "captured", razorpay_payment_id, razorpay_signature, appointment_id: appt.id })
     .eq("id", payment.id);
 
-  // Commission split — per-doctor override falls back to the platform default.
-  // Identical for mock and live so doctor-side earnings/settlement UI is
-  // exercised exactly the same way in both modes.
-  const [{ data: doctorProfile }, { data: platformSetting }] = await Promise.all([
-    admin.from("profiles").select("commission_percent").eq("id", booking.doctor_id).maybeSingle(),
-    admin.from("platform_settings").select("value").eq("key", "default_commission_percent").maybeSingle(),
-  ]);
-  const commissionPercent = Number(doctorProfile?.commission_percent ?? platformSetting?.value ?? 10);
+  // Platform takes no cut of consultation payments — doctors keep the full
+  // amount a patient pays. Platform revenue comes from subscription fees
+  // (plan_upgrade_payments) only, not a per-transaction commission. The
+  // ledger row is still written (doctor_ledger drives the monthly payout
+  // rollup — see calculate-monthly-earnings), just with commission fixed
+  // at 0 instead of read from profiles.commission_percent /
+  // platform_settings.default_commission_percent.
   const gross = Number(booking.amount);
-  const commissionAmount = +(gross * commissionPercent / 100).toFixed(2);
-  const doctorShare = +(gross - commissionAmount).toFixed(2);
+  const commissionPercent = 0;
+  const commissionAmount = 0;
+  const doctorShare = gross;
   const month = new Date().toISOString().slice(0, 7);
 
   const { error: ledgerErr } = await admin.from("doctor_ledger").insert({
