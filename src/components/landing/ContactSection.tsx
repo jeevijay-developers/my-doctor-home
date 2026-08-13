@@ -35,7 +35,7 @@ const ContactSection = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.from("enquiries" as any).insert([{
+    const { error } = await supabase.from("enquiries").insert([{
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim() || null,
@@ -76,50 +76,10 @@ const ContactSection = () => {
           </h2>
           <p className="text-sm md:text-base text-muted-foreground mt-3">Fill out the form and our team will get back to you within 24 hours.</p>
         </div>
-        <div className="grid grid-cols-5 gap-2 sm:gap-6 md:gap-10 max-w-5xl mx-auto">
-          {/* Left — Contact Info */}
-          <div className="col-span-2 space-y-2 sm:space-y-5 min-w-0">
-            <div className="rounded sm:rounded-xl overflow-hidden shadow-md border border-border">
-              <img
-                src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=200&fit=crop&q=80"
-                alt="Modern office workspace"
-                className="w-full h-14 sm:h-32 md:h-40 object-cover"
-                loading="lazy"
-              />
-            </div>
-            <div className="bg-primary rounded-lg sm:rounded-2xl p-2 sm:p-6 md:p-8 text-white space-y-2 sm:space-y-6 md:space-y-8">
-              <h3 className="font-heading font-bold text-[10px] sm:text-lg md:text-xl">Get in Touch</h3>
-              <div className="space-y-1.5 sm:space-y-4 md:space-y-5">
-                <div className="flex items-start gap-1 sm:gap-3">
-                  <Mail className="h-2.5 w-2.5 sm:h-5 sm:w-5 mt-0.5 text-accent shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-[8px] sm:text-sm font-medium">Email</div>
-                    <div className="text-[7px] sm:text-sm text-primary-foreground/70 break-words">support@doctylia.com</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-1 sm:gap-3">
-                  <Phone className="h-2.5 w-2.5 sm:h-5 sm:w-5 mt-0.5 text-accent shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-[8px] sm:text-sm font-medium">Phone</div>
-                    <div className="text-[7px] sm:text-sm text-primary-foreground/70">+91 86194 83010</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-1 sm:gap-3">
-                  <MapPin className="h-2.5 w-2.5 sm:h-5 sm:w-5 mt-0.5 text-accent shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-[8px] sm:text-sm font-medium">Office</div>
-                    <div className="text-[7px] sm:text-sm text-primary-foreground/70 break-words">22, Second Floor, Jeevijay Technologies Pvt. Ltd., Aerodrome, Behind Modern Petrol Pump, Kota, Rajasthan</div>
-                  </div>
-                </div>
-              </div>
-              <div className="pt-1.5 sm:pt-4 border-t border-primary-foreground/10">
-                <p className="text-[6px] sm:text-xs text-primary-foreground/50">We typically respond within 2-4 hours during business hours (Mon-Sat, 9 AM - 7 PM IST)</p>
-              </div>
-            </div>
-          </div>
-          {/* Right — Form */}
-          <div className="col-span-3 min-w-0">
-            <form onSubmit={handleSubmit} className="bg-secondary rounded-lg sm:rounded-2xl p-2 sm:p-5 md:p-8 shadow-sm border border-border space-y-2 sm:space-y-4 md:space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-6 md:gap-10 max-w-5xl mx-auto">
+          {/* Right — Form (first on mobile) */}
+          <div className="order-1 sm:order-2 col-span-1 sm:col-span-3 min-w-0">
+            <form onSubmit={handleSubmit} className="bg-secondary rounded-lg sm:rounded-2xl p-4 sm:p-5 md:p-8 shadow-sm border border-border space-y-4 md:space-y-5">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Full Name *</Label>
@@ -155,6 +115,39 @@ const ContactSection = () => {
                 <Send className="h-4 w-4" /> {loading ? "Submitting..." : "Send Enquiry"}
               </Button>
             </form>
+          </div>
+
+          {/* Left — Contact Info (footer on mobile) */}
+          <div className="order-2 sm:order-1 col-span-1 sm:col-span-2 min-w-0">
+            <div className="bg-primary rounded-lg sm:rounded-2xl p-5 sm:p-6 md:p-8 text-white space-y-5 sm:space-y-6 md:space-y-8">
+              <h3 className="font-heading font-bold text-xl">Get in Touch</h3>
+              <div className="space-y-4 sm:space-y-4 md:space-y-5">
+                <div className="flex items-start gap-3">
+                  <Mail className="h-5 w-5 mt-0.5 text-accent shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Email</div>
+                    <div className="text-sm text-primary-foreground/70 break-words">support@doctylia.com</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Phone className="h-5 w-5 mt-0.5 text-accent shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Phone</div>
+                    <div className="text-sm text-primary-foreground/70">+91 86194 83010</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 mt-0.5 text-accent shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Office</div>
+                    <div className="text-sm text-primary-foreground/70 break-words">22, Second Floor, Jeevijay Technologies Pvt. Ltd., Aerodrome, Behind Modern Petrol Pump, Kota, Rajasthan</div>
+                  </div>
+                </div>
+              </div>
+              <div className="pt-4 border-t border-primary-foreground/10">
+                <p className="text-xs text-primary-foreground/50">We typically respond within 2-4 hours during business hours (Mon-Sat, 9 AM - 7 PM IST)</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

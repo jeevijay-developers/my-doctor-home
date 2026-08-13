@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Globe, CalendarCheck, CreditCard, Users, Brain, Video, MessageCircle, BarChart3 } from "lucide-react";
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import featureWebsite from "@/assets/feature-website.png";
 import featureAppointments from "@/assets/feature-appointments.png";
 import featureBilling from "@/assets/feature-billing.png";
@@ -23,55 +25,118 @@ const features = [
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } } };
 
-const FeaturesGrid = () => (
-  <section id="features" className="py-16 md:py-20 bg-white">
-    <div className="container mx-auto px-4">
-      <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-        <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">Features</span>
-        <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
-          Everything Your Practice Needs
-        </h2>
-        <p className="text-sm md:text-base text-muted-foreground mt-3">
-          One platform to run, grow, and automate your entire medical practice.
-        </p>
-      </div>
-      <motion.div
-        variants={container}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-60px" }}
-        className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5"
-      >
-        {features.map((f) => (
-          <motion.div
-            key={f.title}
-            variants={item}
-            whileHover={{ y: -6, rotateY: 2, rotateX: -2 }}
-            style={{ perspective: 800 }}
-            className="group rounded-xl bg-white border border-border hover:border-royal/30 hover:shadow-xl transition-all duration-300 overflow-hidden"
-          >
-            <div className={`h-24 sm:h-32 md:h-36 overflow-hidden flex items-center justify-center ${f.bg}`}>
-              <motion.img
-                src={f.img}
-                alt={f.title}
-                className="h-16 sm:h-24 md:h-28 w-auto max-w-full object-contain"
-                whileHover={{ scale: 1.1 }}
-                transition={{ duration: 0.4 }}
-                loading="lazy"
-              />
-            </div>
-            <div className="p-3 md:p-5">
-              <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${f.color} flex items-center justify-center mb-2 md:mb-3`}>
-                <f.icon className="h-3.5 w-3.5 md:h-5 md:w-5" />
-              </div>
-              <h3 className="font-heading font-semibold text-primary text-xs sm:text-sm md:text-base">{f.title}</h3>
-              <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 leading-relaxed">{f.desc}</p>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+const featurePairs = features.reduce<(typeof features)[]>([], (acc, feature, idx) => {
+  if (idx % 2 === 0) {
+    acc.push([feature]);
+  } else {
+    acc[acc.length - 1].push(feature);
+  }
+  return acc;
+}, []);
+
+const FeatureCard = ({ f }: { f: (typeof features)[number] }) => (
+  <motion.div
+    key={f.title}
+    variants={item}
+    whileHover={{ y: -6, rotateY: 2, rotateX: -2 }}
+    style={{ perspective: 800 }}
+    className="group rounded-xl bg-white border border-border hover:border-royal/30 hover:shadow-xl transition-all duration-300 overflow-hidden"
+  >
+    <div className={`h-24 sm:h-32 md:h-36 overflow-hidden flex items-center justify-center ${f.bg}`}>
+      <motion.img
+        src={f.img}
+        alt={f.title}
+        className="h-16 sm:h-24 md:h-28 w-auto max-w-full object-contain"
+        whileHover={{ scale: 1.1 }}
+        transition={{ duration: 0.4 }}
+        loading="lazy"
+      />
     </div>
-  </section>
+    <div className="p-3 md:p-5">
+      <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${f.color} flex items-center justify-center mb-2 md:mb-3`}>
+        <f.icon className="h-3.5 w-3.5 md:h-5 md:w-5" />
+      </div>
+      <h3 className="font-heading font-semibold text-primary text-xs sm:text-sm md:text-base">{f.title}</h3>
+      <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 leading-relaxed">{f.desc}</p>
+    </div>
+  </motion.div>
 );
+
+const FeaturesGrid = () => {
+  const [api, setApi] = useState<CarouselApi>();
+  const [selected, setSelected] = useState(0);
+
+  useEffect(() => {
+    if (!api) return;
+    const onSelect = () => setSelected(api.selectedScrollSnap());
+    onSelect();
+    api.on("select", onSelect);
+    api.on("reInit", onSelect);
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api]);
+
+  return (
+    <section id="features" className="py-16 md:py-20 bg-white">
+      <div className="container mx-auto px-4">
+        <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
+          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">Features</span>
+          <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
+            Everything Your Practice Needs
+          </h2>
+          <p className="text-sm md:text-base text-muted-foreground mt-3">
+            One platform to run, grow, and automate your entire medical practice.
+          </p>
+        </div>
+
+        <motion.div
+          variants={container}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-60px" }}
+          className="relative md:hidden"
+        >
+          <Carousel setApi={setApi} opts={{ align: "start" }} className="px-1">
+            <CarouselContent className="-ml-3">
+              {featurePairs.map((pair, pairIndex) => (
+                <CarouselItem key={`feature-pair-${pairIndex}`} className="pl-3 basis-[94%]">
+                  <div className="grid grid-cols-2 gap-3">
+                    {pair.map((f) => (
+                      <FeatureCard key={f.title} f={f} />
+                    ))}
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent" />
+          <div className="flex justify-center gap-2 mt-4">
+            {featurePairs.map((_, i) => (
+              <button
+                key={`feature-pair-dot-${i}`}
+                aria-label={`Go to feature pair ${i + 1}`}
+                onClick={() => api?.scrollTo(i)}
+                className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
+              />
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div
+          variants={container}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-60px" }}
+          className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5"
+        >
+          {features.map((f) => (
+            <FeatureCard key={f.title} f={f} />
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
+};
 
 export default FeaturesGrid;
