@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import LandingFooter from "@/components/landing/LandingFooter";
-import { AlertTriangle } from "lucide-react";
 
 // LEGAL DRAFT — NOT YET REVIEWED BY COUNSEL. Do not treat this as final or
 // publish it as binding without sign-off from a qualified lawyer, given that
@@ -289,6 +288,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
 
 const TermsOfService = () => {
   useEffect(() => {
+    window.scrollTo(0, 0);
     const prev = document.title;
     document.title = "Terms of Service | Doctylia";
     return () => { document.title = prev; };
@@ -306,19 +306,6 @@ const TermsOfService = () => {
       </div>
 
       <div className="container mx-auto px-4 max-w-3xl py-10">
-        <div className="flex items-start gap-3 rounded-xl border-2 border-warning/40 bg-warning/10 p-4 mb-10">
-          <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
-          <p className="text-sm text-foreground leading-relaxed">
-            <strong>This page is a working draft, not a final legal document.</strong> It has not been
-            reviewed by a qualified lawyer. Given that Doctylia handles patient-adjacent health data,
-            processes payments via Razorpay/RazorpayX, and operates in India — where the Digital Personal
-            Data Protection Act, 2023 and healthcare-data-specific rules may apply — this draft must receive
-            legal sign-off before it is treated as binding or relied upon publicly. Bracketed{" "}
-            <em>[placeholders]</em> mark details that could not be determined from the codebase and must be
-            filled in or confirmed by the business/legal team.
-          </p>
-        </div>
-
         <nav aria-label="Table of contents" className="mb-10 rounded-xl border border-border bg-secondary p-4">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">On this page</p>
           <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
