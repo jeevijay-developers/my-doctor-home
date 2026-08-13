@@ -41,7 +41,7 @@ const HeroBanner = () => {
       />
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-10 items-center">
+        <div className="grid md:grid-cols-2 gap-10 items-center">
           <div className="space-y-6">
             {profile?.experience_years ? (
               <motion.span {...fadeUp(0)} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-pill bg-royal/10 text-royal text-sm font-heading font-semibold">
@@ -106,7 +106,7 @@ const HeroBanner = () => {
             </motion.div>
           </div>
 
-          <motion.div {...fadeUp(0.15)} className="relative flex justify-center lg:justify-end">
+          <motion.div {...fadeUp(0.15)} className="relative flex justify-center md:justify-end">
             <div className="relative">
               <div className="absolute -inset-4 rounded-[2.5rem] bg-gradient-to-br from-royal/15 via-teal/10 to-transparent -z-10" />
               <div className="w-72 h-80 md:w-80 md:h-96 rounded-[2rem] overflow-hidden shadow-xl border-4 border-card bg-secondary">

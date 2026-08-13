@@ -24,8 +24,8 @@ const AboutSection = () => {
       <div className="absolute -top-16 -left-24 w-72 h-72 rounded-full bg-royal/10 dark:bg-royal/20 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-24 -right-16 w-80 h-80 rounded-full bg-teal/10 dark:bg-teal/20 blur-3xl pointer-events-none" />
       <div className="container mx-auto px-4 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center max-w-5xl mx-auto">
-          <AnimatedItem className="relative flex justify-center lg:justify-start order-2 lg:order-1">
+        <div className="grid md:grid-cols-2 gap-12 items-center max-w-5xl mx-auto">
+          <AnimatedItem className="relative flex justify-center md:justify-start order-2 md:order-1">
             <div className="relative">
               <div className="absolute -inset-4 rounded-[2.5rem] bg-gradient-to-br from-teal/15 via-royal/10 to-transparent -z-10" />
               <div className="w-64 h-64 md:w-80 md:h-80 rounded-[2rem] overflow-hidden shadow-xl border-4 border-card bg-card">
@@ -40,7 +40,7 @@ const AboutSection = () => {
             </div>
           </AnimatedItem>
 
-          <AnimatedItem index={1} className="space-y-5 order-1 lg:order-2">
+          <AnimatedItem index={1} className="space-y-5 order-1 md:order-2">
             <span className="text-xs font-heading font-bold tracking-wider text-royal uppercase">About the Doctor</span>
             <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground">
               About Dr. {profile?.full_name || "Doctor"}
