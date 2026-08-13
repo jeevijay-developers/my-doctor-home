@@ -137,7 +137,8 @@ const SATickets = () => {
         </div>
       )}
 
-      <Card>
+      {/* Table — tablet/desktop */}
+      <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-secondary text-xs uppercase text-muted-foreground">
@@ -177,6 +178,43 @@ const SATickets = () => {
           </table>
         </CardContent>
       </Card>
+
+      {/* Cards — mobile */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <Card><CardContent className="p-6 text-center text-muted-foreground">No tickets.</CardContent></Card>
+        ) : (
+          filtered.map((r) => {
+            const isSelected = selectedIds.has(r.id);
+            return (
+              <Card
+                key={r.id}
+                className={`cursor-pointer transition-colors ${isSelected ? "bg-destructive/5 border-destructive/30" : "hover:bg-secondary/40"}`}
+                onClick={selectMode ? () => toggleSelected(r.id) : () => { setOpen(r); setNotes(r.notes || ""); }}
+              >
+                <CardContent className="p-4 flex items-start gap-3">
+                  {selectMode && (
+                    <div onClick={(e) => e.stopPropagation()} className="pt-1">
+                      <Checkbox checked={isSelected} onCheckedChange={() => toggleSelected(r.id)} aria-label={`Select ticket: ${r.subject}`} />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-foreground truncate">{r.subject}</div>
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                      {r.profiles?.full_name}{r.profiles?.clinic_name ? ` · ${r.profiles.clinic_name}` : ""}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap mt-2">
+                      <Badge variant="outline" className="text-[10px]">{r.priority}</Badge>
+                      <Badge className="text-[10px]">{r.status}</Badge>
+                      <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
 
       <Dialog open={!!open} onOpenChange={(v) => !v && setOpen(null)}>
         <DialogContent className="max-w-lg">

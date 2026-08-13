@@ -73,7 +73,8 @@ const SATeam = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      {/* Table — tablet/desktop */}
+      <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-secondary text-xs uppercase text-muted-foreground">
@@ -105,6 +106,36 @@ const SATeam = () => {
           </table>
         </CardContent>
       </Card>
+
+      {/* Cards — mobile */}
+      <div className="md:hidden space-y-2">
+        {rows.length === 0 ? (
+          <Card><CardContent className="p-6 text-center text-muted-foreground">No team members.</CardContent></Card>
+        ) : (
+          rows.map((r) => (
+            <Card key={r.id}>
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <div className="font-medium text-foreground">{r.profiles?.full_name || "—"}</div>
+                  <div className="text-xs text-muted-foreground">{r.user_id?.slice(0, 8)}…</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={r.role} onValueChange={(v: any) => changeRole(r.id, r.user_id, v, r.role)} disabled={r.user_id === me}>
+                    <SelectTrigger className="h-9 w-32"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="destructive" disabled={r.user_id === me && r.role === "admin"} onClick={() => remove(r.id, r.user_id, r.role)}>
+                    Remove
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
       <p className="text-xs text-muted-foreground">Your own admin role is protected from accidental removal.</p>
     </div>
   );

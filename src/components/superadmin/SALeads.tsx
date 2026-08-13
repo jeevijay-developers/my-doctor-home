@@ -34,7 +34,8 @@ const SALeads = () => {
         </SelectContent>
       </Select>
 
-      <Card>
+      {/* Table — tablet/desktop */}
+      <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-secondary text-xs uppercase text-muted-foreground">
@@ -74,6 +75,37 @@ const SALeads = () => {
           </table>
         </CardContent>
       </Card>
+
+      {/* Cards — mobile */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <Card><CardContent className="p-6 text-center text-muted-foreground">No leads.</CardContent></Card>
+        ) : (
+          filtered.map((r) => (
+            <Card key={r.id}>
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium text-foreground truncate">{r.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{r.clinic_name || "—"}{r.city ? ` · ${r.city}` : ""}</div>
+                  </div>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">{new Date(r.created_at).toLocaleDateString()}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {r.email || "—"}{r.phone ? ` · ${r.phone}` : ""}
+                </div>
+                {r.message && <p className="text-xs text-muted-foreground line-clamp-2">{r.message}</p>}
+                <Select value={r.status || "new"} onValueChange={(v) => updateStatus(r.id, v, r.status || "new")}>
+                  <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
     </div>
   );
 };

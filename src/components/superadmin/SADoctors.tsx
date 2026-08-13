@@ -121,7 +121,8 @@ const SADoctors = () => {
         </div>
       )}
 
-      <Card>
+      {/* Table — tablet/desktop */}
+      <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-secondary text-xs uppercase text-muted-foreground">
@@ -181,6 +182,58 @@ const SADoctors = () => {
           </table>
         </CardContent>
       </Card>
+
+      {/* Cards — mobile */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <Card><CardContent className="p-6 text-center text-muted-foreground">No doctors found.</CardContent></Card>
+        ) : (
+          filtered.map((r) => {
+            const isSelected = selectedIds.has(r.id);
+            return (
+              <Card
+                key={r.id}
+                className={`transition-colors ${isSelected ? "bg-destructive/5 border-destructive/30" : ""} ${selectMode ? "cursor-pointer" : ""}`}
+                onClick={selectMode ? () => toggleSelected(r.id) : undefined}
+              >
+                <CardContent className="p-4 flex items-start gap-3">
+                  {selectMode && (
+                    <div onClick={(e) => e.stopPropagation()} className="pt-1">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelected(r.id)}
+                        aria-label={`Select ${r.full_name || "doctor"}`}
+                        className="h-5 w-5 rounded"
+                      />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      {selectMode ? (
+                        <span className="font-medium text-primary">{r.full_name || "—"}</span>
+                      ) : (
+                        <Link to={`/superadmin/doctors/${r.id}`} className="font-medium text-primary hover:underline">
+                          {r.full_name || "—"}
+                        </Link>
+                      )}
+                      <Badge className="flex-shrink-0">{r.plan_tier || "free"}</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{r.specialization || "—"}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {r.clinic_name || "—"}{r.city ? ` · ${r.city}` : ""} · Joined {new Date(r.created_at).toLocaleDateString()}
+                    </div>
+                    {r.slug && (
+                      <a href={`/dr/${r.slug}`} target="_blank" rel="noreferrer" className="text-royal hover:underline inline-flex items-center gap-1 text-xs mt-2" onClick={(e) => selectMode && e.preventDefault()}>
+                        Site <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
 
       {/* Floating bulk action bar */}
       {selectMode && selectedIds.size > 0 && (
