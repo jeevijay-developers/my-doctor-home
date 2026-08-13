@@ -20,10 +20,13 @@ const buttonVariants = cva(
           "rounded-full border-2 border-primary/70 bg-transparent text-primary transition-all duration-200 ease-out hover:scale-[1.04] hover:shadow-md hover:bg-primary/10 hover:border-primary",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
+        // max-lg: floors touch targets to ~44px on phone/tablet (below the
+        // desktop breakpoint) without changing the compact desktop sizing —
+        // min-height/min-width only ever grow the box, never shrink it.
+        default: "h-10 px-4 py-2 max-lg:min-h-[44px]",
+        sm: "h-9 rounded-md px-3 max-lg:min-h-[44px]",
         lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        icon: "h-10 w-10 max-lg:min-h-[44px] max-lg:min-w-[44px]",
       },
     },
     defaultVariants: {
