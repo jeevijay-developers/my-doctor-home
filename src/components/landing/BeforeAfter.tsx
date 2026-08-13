@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Check, ArrowRight, TrendingUp, IndianRupee } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 
 const withoutItems = [
   "Missed calls = lost patients",
@@ -21,56 +23,106 @@ const withItems = [
   "Collect & showcase 5-star reviews automatically",
 ];
 
-const BeforeAfter = () => (
-  <section className="py-14 md:py-20 bg-secondary">
-    <div className="container mx-auto px-4">
-      <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-        <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">The Difference</span>
-        <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
-          See the Transformation
-        </h2>
-        <p className="text-sm md:text-base text-muted-foreground mt-3">
-          Thousands of doctors have switched from chaos to clarity. Here's what changes.
-        </p>
-      </div>
+const stats = [
+  {
+    icon: TrendingUp,
+    value: "14 hrs/week",
+    label: "Time saved per doctor",
+    accent: "bg-royal/10 text-royal",
+  },
+  {
+    icon: IndianRupee,
+    value: "₹2.4 Cr+",
+    label: "Revenue generated",
+    accent: "bg-success/10 text-success",
+  },
+  {
+    icon: Check,
+    value: "98%",
+    label: "Satisfaction rate",
+    accent: "bg-teal/10 text-teal",
+  },
+];
 
-      {/* ROI stats callout row */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true }}
-        className="max-w-2xl mx-auto mb-8 md:mb-10 grid grid-cols-3 gap-2 md:gap-3"
-      >
-        <div className="bg-white rounded-xl p-3 md:p-4 flex items-center gap-2 md:gap-3 border border-border shadow-sm">
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-royal/10 flex items-center justify-center shrink-0">
-            <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-royal" />
-          </div>
-          <div>
-            <div className="font-heading font-extrabold text-sm md:text-lg text-primary">14 hrs/week</div>
-            <div className="text-xs text-muted-foreground">Time saved per doctor</div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-3 md:p-4 flex items-center gap-2 md:gap-3 border border-border shadow-sm">
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
-            <IndianRupee className="h-4 w-4 md:h-5 md:w-5 text-success" />
-          </div>
-          <div>
-            <div className="font-heading font-extrabold text-sm md:text-lg text-primary">₹2.4 Cr+</div>
-            <div className="text-xs text-muted-foreground">Revenue generated</div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-3 md:p-4 flex items-center gap-2 md:gap-3 border border-border shadow-sm">
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-teal/10 flex items-center justify-center shrink-0">
-            <Check className="h-4 w-4 md:h-5 md:w-5 text-teal" />
-          </div>
-          <div>
-            <div className="font-heading font-extrabold text-sm md:text-lg text-primary">98%</div>
-            <div className="text-xs text-muted-foreground">Satisfaction rate</div>
-          </div>
-        </div>
-      </motion.div>
+const StatCard = ({ stat }: { stat: (typeof stats)[number] }) => (
+  <div className="bg-white rounded-xl p-3 md:p-4 flex items-center gap-2 md:gap-3 border border-border shadow-sm min-h-[96px]">
+    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${stat.accent} flex items-center justify-center shrink-0`}>
+      <stat.icon className="h-4 w-4 md:h-5 md:w-5" />
+    </div>
+    <div>
+      <div className="font-heading font-extrabold text-sm md:text-lg text-primary">{stat.value}</div>
+      <div className="text-xs text-muted-foreground">{stat.label}</div>
+    </div>
+  </div>
+);
 
-      <div className="grid grid-cols-2 gap-2 sm:gap-5 md:gap-6 max-w-4xl mx-auto">
+const BeforeAfter = () => {
+  const [api, setApi] = useState<CarouselApi>();
+  const [selected, setSelected] = useState(0);
+
+  useEffect(() => {
+    if (!api) return;
+
+    const onSelect = () => setSelected(api.selectedScrollSnap());
+    onSelect();
+    api.on("select", onSelect);
+    api.on("reInit", onSelect);
+
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api]);
+
+  return (
+    <section className="py-14 md:py-20 bg-secondary">
+      <div className="container mx-auto px-4">
+        <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
+          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">The Difference</span>
+          <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
+            See the Transformation
+          </h2>
+          <p className="text-sm md:text-base text-muted-foreground mt-3">
+            Thousands of doctors have switched from chaos to clarity. Here's what changes.
+          </p>
+        </div>
+
+        <div className="hidden md:block">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="max-w-2xl mx-auto mb-8 md:mb-10 grid grid-cols-3 gap-2 md:gap-3"
+          >
+            {stats.map((stat) => (
+              <StatCard key={stat.label} stat={stat} />
+            ))}
+          </motion.div>
+        </div>
+
+        <div className="md:hidden max-w-2xl mx-auto mb-8">
+          <Carousel setApi={setApi} opts={{ align: "start", loop: false }} className="px-1">
+            <CarouselContent className="-ml-3">
+              {stats.map((stat) => (
+                <CarouselItem key={stat.label} className="pl-3 basis-full">
+                  <StatCard stat={stat} />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
+
+          <div className="mt-4 flex justify-center gap-2">
+            {stats.map((_, index) => (
+              <button
+                key={`stat-dot-${index}`}
+                aria-label={`Go to stat ${index + 1}`}
+                onClick={() => api?.scrollTo(index)}
+                className={`h-2 rounded-full transition-all ${index === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:gap-5 md:gap-6 max-w-4xl mx-auto">
         {/* Without */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
@@ -150,20 +202,21 @@ const BeforeAfter = () => (
         </motion.div>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        className="text-center mt-8"
-      >
-        <Link to="/auth?mode=signup">
-          <Button className="bg-royal hover:bg-royal/90 text-white gap-2 shadow-md shadow-royal/20">
-            Make the Switch Today <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
-      </motion.div>
-    </div>
-  </section>
-);
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mt-8"
+        >
+          <Link to="/auth?mode=signup">
+            <Button className="bg-royal hover:bg-royal/90 text-white gap-2 shadow-md shadow-royal/20">
+              Make the Switch Today <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </motion.div>
+      </div>
+    </section>
+  );
+};
 
 export default BeforeAfter;
