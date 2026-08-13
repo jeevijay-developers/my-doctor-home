@@ -13,34 +13,39 @@ const faqs = [
 ];
 
 const FAQ = () => (
-  <section id="faq" className="py-20 bg-secondary">
-    <div className="container mx-auto px-3 sm:px-4">
-      <div className="grid grid-cols-5 gap-2 sm:gap-6 lg:gap-10 max-w-5xl mx-auto">
-        <div className="col-span-2 min-w-0">
-          <span className="text-[8px] sm:text-sm font-semibold text-accent uppercase tracking-wider">FAQ</span>
-          <h2 className="font-heading font-bold text-xs sm:text-2xl md:text-3xl lg:text-4xl text-primary mt-1 sm:mt-2 leading-tight">
+  <section id="faq" className="bg-secondary py-12 sm:py-16 md:py-20">
+    <div className="container mx-auto px-4 sm:px-5">
+      <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-5 md:gap-8 lg:gap-10">
+        <div className="min-w-0 md:col-span-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-accent sm:text-sm">FAQ</span>
+          <h2 className="mt-2 font-heading text-3xl font-bold leading-tight text-primary sm:text-4xl md:text-5xl">
             Frequently Asked Questions
           </h2>
-          <p className="text-[8px] sm:text-sm text-muted-foreground mt-1.5 sm:mt-3 leading-snug sm:leading-relaxed">
-            Can't find the answer you're looking for? <a href="#contact" className="text-royal font-medium hover:underline">Contact our team</a>.
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Can't find the answer you're looking for? <a href="#contact" className="font-medium text-royal hover:underline">Contact our team</a>.
           </p>
-          <div className="mt-2 sm:mt-6 rounded sm:rounded-xl overflow-hidden shadow-md border border-border">
+          <div className="mt-5 overflow-hidden rounded-xl border border-border shadow-md sm:mt-6">
             <img
               src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=280&fit=crop&q=80"
               alt="Doctor consulting with patient"
-              className="w-full h-16 sm:h-40 md:h-48 object-cover"
+              className="h-40 w-full object-cover sm:h-48 md:h-52"
               loading="lazy"
             />
           </div>
         </div>
-        <div className="col-span-3 min-w-0">
-          <Accordion type="single" collapsible className="space-y-1.5 sm:space-y-3">
+
+        <div className="min-w-0 md:col-span-3">
+          <Accordion type="single" collapsible className="space-y-2 sm:space-y-3">
             {faqs.map((f, i) => (
-              <AccordionItem key={i} value={`faq-${i}`} className="border border-border rounded sm:rounded-xl px-1.5 sm:px-6 bg-white data-[state=open]:shadow-sm data-[state=open]:border-royal/30 transition-all">
-                <AccordionTrigger className="font-heading font-semibold text-primary text-left text-[9px] sm:text-[15px] py-1.5 sm:py-4 gap-1">
+              <AccordionItem
+                key={i}
+                value={`faq-${i}`}
+                className="rounded-xl border border-border bg-white px-3 transition-all data-[state=open]:border-royal/30 data-[state=open]:shadow-sm sm:px-5"
+              >
+                <AccordionTrigger className="gap-2 py-3 text-left font-heading text-sm font-semibold text-primary sm:py-4 sm:text-base">
                   {f.q}
                 </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground text-[8px] sm:text-sm leading-snug sm:leading-relaxed pb-1.5 sm:pb-4">
+                <AccordionContent className="pb-3 text-sm leading-relaxed text-muted-foreground sm:pb-4">
                   {f.a}
                 </AccordionContent>
               </AccordionItem>
