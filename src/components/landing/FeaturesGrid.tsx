@@ -25,14 +25,19 @@ const features = [
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } } };
 
-const featurePairs = features.reduce<(typeof features)[]>([], (acc, feature, idx) => {
+const featurePairs: Array<Array<(typeof features)[number]>> = [];
+
+features.forEach((feature, idx) => {
   if (idx % 2 === 0) {
-    acc.push([feature]);
-  } else {
-    acc[acc.length - 1].push(feature);
+    featurePairs.push([feature]);
+    return;
   }
-  return acc;
-}, []);
+
+  const lastPair = featurePairs[featurePairs.length - 1];
+  if (lastPair) {
+    lastPair.push(feature);
+  }
+});
 
 const FeatureCard = ({ f }: { f: (typeof features)[number] }) => (
   <motion.div
