@@ -24,7 +24,7 @@ import VideoConsultationCard from "@/components/VideoConsultationCard";
 
 type Appointment = {
   id: string; patient_name: string; patient_phone: string; patient_age: number | null;
-  patient_gender: string | null; service_name: string; appointment_type: string;
+  patient_gender: string | null; patient_email: string | null; service_name: string; appointment_type: string;
   date: string; time_slot: string; status: string; payment_status: string;
   amount: number; token_number: string | null; chief_complaint: string | null; notes: string | null;
   reschedule_count?: number | null;
@@ -157,7 +157,7 @@ const AppointmentsPage = () => {
     // patient's UUID (patients.id) is the true identity; phone is contact info.
     const normalizedName = (appt.patient_name || "").trim().toLowerCase();
     const { data: candidates } = await supabase
-      .from("patients").select("id, name, total_visits, first_visit")
+      .from("patients").select("id, name, email, total_visits, first_visit")
       .eq("doctor_id", profile.id).eq("phone", appt.patient_phone);
     const existing = (candidates || []).find(
       (p: any) => (p.name || "").trim().toLowerCase() === normalizedName
@@ -167,12 +167,15 @@ const AppointmentsPage = () => {
         total_visits: (existing.total_visits || 0) + 1,
         last_visit: appt.date,
         first_visit: existing.first_visit || appt.date,
+        // Backfill a missing email from the appointment, but never clobber an
+        // email the patient record already has with a blank/older value.
+        ...((existing as any).email ? {} : { email: appt.patient_email || (existing as any).email }),
       } as any).eq("id", existing.id);
     } else {
       await supabase.from("patients").insert({
         doctor_id: profile.id, name: appt.patient_name, phone: appt.patient_phone,
         first_visit: appt.date, last_visit: appt.date, total_visits: 1,
-        age: appt.patient_age, gender: appt.patient_gender,
+        age: appt.patient_age, gender: appt.patient_gender, email: appt.patient_email,
       });
     }
   };

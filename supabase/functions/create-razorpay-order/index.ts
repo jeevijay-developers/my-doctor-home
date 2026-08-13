@@ -23,6 +23,7 @@ type BookingPayload = {
   patient_phone: string;
   patient_age?: number | null;
   patient_gender?: string | null;
+  patient_email?: string | null;
   service_name: string;
   appointment_type: "clinic" | "online";
   date: string; // yyyy-MM-dd

@@ -176,6 +176,7 @@ const BookingWidget = () => {
         patient_phone: normalizedPhone,
         patient_age: age ? Number(age) : null,
         patient_gender: gender || null,
+        patient_email: email || null,
         service_name: selectedService.name,
         appointment_type: type,
         date: dStr,
@@ -286,6 +287,7 @@ const BookingWidget = () => {
       patient_phone: normalizeIndianPhone(phone),
       patient_age: age ? Number(age) : null,
       patient_gender: gender || null,
+      patient_email: email || null,
       service_name: selectedService.name,
       appointment_type: type,
       date: dStr,
@@ -754,7 +756,7 @@ const BookingWidget = () => {
                     className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                   <select value={gender} onChange={(e) => setGender(e.target.value)}
                     className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal">
-                    <option value="">Gender *</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
+                    <option value="" disabled hidden>Gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
                   </select>
                 </div>
                 <textarea placeholder="Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}

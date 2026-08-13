@@ -61,6 +61,7 @@ export type Database = {
           meeting_status: string | null
           notes: string | null
           patient_age: number | null
+          patient_email: string | null
           patient_gender: string | null
           patient_name: string
           patient_phone: string
@@ -92,6 +93,7 @@ export type Database = {
           meeting_status?: string | null
           notes?: string | null
           patient_age?: number | null
+          patient_email?: string | null
           patient_gender?: string | null
           patient_name: string
           patient_phone: string
@@ -123,6 +125,7 @@ export type Database = {
           meeting_status?: string | null
           notes?: string | null
           patient_age?: number | null
+          patient_email?: string | null
           patient_gender?: string | null
           patient_name?: string
           patient_phone?: string
