@@ -39,10 +39,16 @@ const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; per
 ];
 
 const AdminSidebar = () => {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
   const { isStaff, can } = useProfile();
+
+  // On mobile/tablet the sidebar renders as an overlay Sheet (see
+  // ui/sidebar.tsx) — picking a section should navigate there AND close the
+  // overlay immediately, same as any other mobile drawer nav. Desktop's
+  // persistent sidebar (`state`/`open`) is untouched.
+  const closeMobileSidebar = () => { if (isMobile) setOpenMobile(false); };
 
   const visibleItems = mainItems.filter((item) => {
     if (!isStaff) return true;
@@ -93,6 +99,7 @@ const AdminSidebar = () => {
                     <NavLink
                       to={item.url}
                       end
+                      onClick={closeMobileSidebar}
                       className="text-sidebar-foreground/90 font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                       activeClassName="!bg-primary !text-primary-foreground !font-semibold shadow-lg shadow-primary/30"
                     >
