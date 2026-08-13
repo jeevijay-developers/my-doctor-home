@@ -44,7 +44,7 @@ const LandingFooter = () => (
           <h4 className="font-heading font-semibold text-white mb-3 md:mb-4 text-sm">Legal</h4>
           <ul className="space-y-2 md:space-y-2.5 text-sm text-primary-foreground/60">
             <li><span className="hover:text-white transition-colors cursor-pointer">Privacy Policy</span></li>
-            <li><span className="hover:text-white transition-colors cursor-pointer">Terms of Service</span></li>
+            <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
             <li><span className="hover:text-white transition-colors cursor-pointer">Refund Policy</span></li>
           </ul>
         </div>
