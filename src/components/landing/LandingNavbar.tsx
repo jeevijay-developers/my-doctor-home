@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
 const LandingNavbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const location = useLocation();
+  const onLandingPage = location.pathname === "/";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -29,15 +31,14 @@ const LandingNavbar = () => {
         </Link>
 
         <div className="hidden md:flex items-center gap-7">
-          {navLinks.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) => {
+            const linkClassName = "text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full";
+            return onLandingPage ? (
+              <a key={link.label} href={link.href} className={linkClassName}>{link.label}</a>
+            ) : (
+              <Link key={link.label} to={`/${link.href}`} className={linkClassName}>{link.label}</Link>
+            );
+          })}
         </div>
 
         <div className="hidden md:flex items-center gap-3">
@@ -58,11 +59,14 @@ const LandingNavbar = () => {
 
       {mobileOpen && (
         <div className="md:hidden bg-white border-t border-border px-4 py-4 space-y-3 shadow-lg">
-          {navLinks.map((link) => (
-            <a key={link.label} href={link.href} className="block text-sm font-medium text-muted-foreground py-1" onClick={() => setMobileOpen(false)}>
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) => {
+            const mobileLinkClassName = "block text-sm font-medium text-muted-foreground py-1";
+            return onLandingPage ? (
+              <a key={link.label} href={link.href} className={mobileLinkClassName} onClick={() => setMobileOpen(false)}>{link.label}</a>
+            ) : (
+              <Link key={link.label} to={`/${link.href}`} className={mobileLinkClassName} onClick={() => setMobileOpen(false)}>{link.label}</Link>
+            );
+          })}
           <div className="flex gap-2 pt-3">
             <Link to="/auth?mode=login" className="flex-1">
               <Button variant="outline" className="w-full" size="sm">Login</Button>

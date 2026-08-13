@@ -298,10 +298,10 @@ const TermsOfService = () => {
     <div className="min-h-screen bg-background">
       <LandingNavbar />
 
-      <div className="bg-primary text-primary-foreground pt-28 pb-10 md:pt-32 md:pb-14">
+      <div className="pt-28 pb-10 md:pt-32 md:pb-14">
         <div className="container mx-auto px-4 max-w-3xl">
-          <h1 className="font-heading font-bold text-3xl md:text-4xl">Terms of Service</h1>
-          <p className="text-primary-foreground/70 mt-2 text-sm">Last updated: {LAST_UPDATED}</p>
+          <h1 className="font-heading font-bold text-3xl md:text-4xl text-primary">Terms of Service</h1>
+          <p className="text-muted-foreground mt-2 text-sm">Last updated: {LAST_UPDATED}</p>
         </div>
       </div>
 
