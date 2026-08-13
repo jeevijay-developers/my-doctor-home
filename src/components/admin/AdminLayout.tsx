@@ -34,7 +34,11 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AdminSidebar />
-        <div className="flex-1 flex flex-col">
+        {/* min-w-0 stops this column's default min-width:auto from letting
+            wide/unbreakable descendant content bloat it past the viewport
+            width — without it, any such content anywhere on a page forces
+            the whole row (and every section in it) to overflow together. */}
+        <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center justify-between bg-background px-4 md:px-6">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
