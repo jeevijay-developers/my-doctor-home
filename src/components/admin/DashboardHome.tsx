@@ -187,10 +187,11 @@ const DashboardHome = () => {
                 <div className={`w-9 h-9 rounded-xl ${s.bgClass} flex items-center justify-center flex-shrink-0`}>
                   <s.icon className={`h-4 w-4 ${s.iconClass}`} />
                 </div>
-                <div className="text-[10px] font-semibold text-muted-foreground tracking-wider">{s.label}</div>
+                {/* min-w-0 overrides the flex item's default min-width:auto so the unbreakable all-caps label can shrink/truncate instead of forcing the card wider */}
+                <div className="text-[10px] font-semibold text-muted-foreground tracking-wider truncate min-w-0">{s.label}</div>
               </div>
-              <div className="font-heading font-bold text-xl xl:text-2xl text-foreground leading-tight">{s.value}</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
+              <div className="font-heading font-bold text-xl xl:text-2xl text-foreground leading-tight truncate">{s.value}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{s.sub}</div>
             </CardContent>
           </Card>
         ))}
@@ -257,13 +258,13 @@ const DashboardHome = () => {
                       {i < todayAppointments.length - 1 && <div className="w-0.5 flex-1 bg-border min-h-[40px]" />}
                     </div>
                     <div className="flex-1 pb-4 flex items-start justify-between gap-3 p-3 -mt-1 rounded-xl group-hover:bg-secondary/60 transition-colors">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
                           {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
                         </div>
-                        <div>
-                          <div className="font-medium text-sm text-foreground">{a.patient_name}</div>
-                          <div className="text-xs text-muted-foreground">{a.service_name} · {a.appointment_type}</div>
+                        <div className="min-w-0">
+                          <div className="font-medium text-sm text-foreground truncate">{a.patient_name}</div>
+                          <div className="text-xs text-muted-foreground truncate">{a.service_name} · {a.appointment_type}</div>
                         </div>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-shrink-0">
