@@ -86,7 +86,7 @@ const SettingsPage = () => {
         Manage your profile, subscription and account preferences.
       </p>
 
-      <Tabs defaultValue={requestedTab === "profile" ? "profile" : "subscription"} className="space-y-6">
+      <Tabs defaultValue={requestedTab === "subscription" || requestedTab === "account" ? requestedTab : "profile"} className="space-y-6">
         <TabsList className="bg-card border border-border h-11">
           <TabsTrigger value="profile" className="gap-1.5"><UserCircle className="h-3.5 w-3.5" /> Profile</TabsTrigger>
           <TabsTrigger value="subscription" className="gap-1.5"><Crown className="h-3.5 w-3.5" /> Subscription</TabsTrigger>

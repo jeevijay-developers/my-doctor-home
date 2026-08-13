@@ -195,12 +195,26 @@ const ProfilePage = () => {
     if (!file || !profile) return;
     const ext = file.name.split(".").pop();
     const path = `${profile.id}/profile.${ext}`;
-    const { error } = await supabase.storage.from("doctor-uploads").upload(path, file, { upsert: true });
-    if (error) { toast.error("Upload failed: " + error.message); return; }
+    const { error: uploadError } = await supabase.storage.from("doctor-uploads").upload(path, file, { upsert: true });
+    if (uploadError) {
+      console.error("Profile photo upload failed:", uploadError);
+      toast.error("Upload failed: " + uploadError.message);
+      return;
+    }
     const { data: { publicUrl } } = supabase.storage.from("doctor-uploads").getPublicUrl(path);
-    await supabase.from("profiles").update({ profile_photo_url: publicUrl }).eq("id", profile.id);
-    refetch();
-    toast.success("Photo updated");
+    // `upsert: true` overwrites the same storage path, so re-uploading with the
+    // same file extension produces an identical URL — browsers then keep
+    // serving the old cached image even though the file changed. A cache-busting
+    // query param forces every replacement to be treated as a new resource.
+    const versionedUrl = `${publicUrl}?v=${Date.now()}`;
+    const { error: updateError } = await supabase.from("profiles").update({ profile_photo_url: versionedUrl }).eq("id", profile.id);
+    if (updateError) {
+      console.error("Profile photo DB update failed:", updateError);
+      toast.error("Photo uploaded, but couldn't save it to your profile. Please try again.");
+      return;
+    }
+    await refetch();
+    toast.success("Profile picture updated successfully");
   };
 
   const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,12 +222,22 @@ const ProfilePage = () => {
     if (!file || !profile) return;
     const ext = file.name.split(".").pop();
     const path = `${profile.id}/signature.${ext}`;
-    const { error } = await supabase.storage.from("doctor-uploads").upload(path, file, { upsert: true });
-    if (error) { toast.error("Upload failed: " + error.message); return; }
+    const { error: uploadError } = await supabase.storage.from("doctor-uploads").upload(path, file, { upsert: true });
+    if (uploadError) {
+      console.error("Signature upload failed:", uploadError);
+      toast.error("Upload failed: " + uploadError.message);
+      return;
+    }
     const { data: { publicUrl } } = supabase.storage.from("doctor-uploads").getPublicUrl(path);
-    await supabase.from("profiles").update({ signature_url: publicUrl }).eq("id", profile.id);
-    refetch();
-    toast.success("Signature updated");
+    const versionedUrl = `${publicUrl}?v=${Date.now()}`;
+    const { error: updateError } = await supabase.from("profiles").update({ signature_url: versionedUrl }).eq("id", profile.id);
+    if (updateError) {
+      console.error("Signature DB update failed:", updateError);
+      toast.error("Signature uploaded, but couldn't save it to your profile. Please try again.");
+      return;
+    }
+    await refetch();
+    toast.success("Signature updated successfully");
   };
 
   return (

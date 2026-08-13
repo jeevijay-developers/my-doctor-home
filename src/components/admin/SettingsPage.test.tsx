@@ -5,7 +5,13 @@ import SettingsPage from "./SettingsPage";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { useProfile } from "@/hooks/useProfile";
 
-const renderSettingsPage = () => render(<SettingsPage />, { wrapper: MemoryRouter });
+// Settings now defaults to the Profile tab unless ?tab= says otherwise (see
+// SettingsPage.tsx) — these tests exercise the Subscription tab's content,
+// so they need to request it explicitly rather than relying on it being the
+// default.
+const renderSettingsPage = () => render(<SettingsPage />, {
+  wrapper: ({ children }) => <MemoryRouter initialEntries={["/admin/settings?tab=subscription"]}>{children}</MemoryRouter>,
+});
 
 vi.mock("@/hooks/usePlanAccess", () => ({ usePlanAccess: vi.fn() }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: vi.fn() }));
