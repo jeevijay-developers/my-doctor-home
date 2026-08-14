@@ -27,6 +27,8 @@ const SATickets = () => {
   const [priorityF, setPriorityF] = useState("all");
   const [open, setOpen] = useState<any | null>(null);
   const [notes, setNotes] = useState("");
+  const [reply, setReply] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
 
   // Bulk selection/delete mirrors the Doctor Side → Patients pattern
   // (PatientsPage.tsx) exactly: select-mode toggle, row checkboxes + a
@@ -52,6 +54,28 @@ const SATickets = () => {
     toast({ title: "Ticket updated" });
     load();
     if (open?.id === id) setOpen({ ...open, ...patch });
+  };
+
+  const sendReply = async () => {
+    if (!open || !reply.trim()) return;
+    setSendingReply(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const patch = { reply: reply.trim(), replied_at: new Date().toISOString(), replied_by: user?.id ?? null };
+    const { error } = await supabase.from("support_tickets").update(patch as any).eq("id", open.id);
+    if (error) { setSendingReply(false); return toast({ title: "Failed", description: error.message, variant: "destructive" }); }
+    await supabase.from("notifications" as any).insert({
+      doctor_id: open.doctor_id,
+      source_type: "ticket_reply",
+      title: `Re: ${open.subject}`,
+      message: reply.trim(),
+      ticket_id: open.id,
+      sender_id: user?.id ?? null,
+    } as any);
+    await logAdminAction("reply_to_ticket", "support_tickets", open.id, { reply: reply.trim() });
+    setSendingReply(false);
+    toast({ title: "Reply sent" });
+    setOpen({ ...open, ...patch });
+    load();
   };
 
   const toggleSelected = (id: string) => {
@@ -158,7 +182,7 @@ const SATickets = () => {
                   <tr
                     key={r.id}
                     className={`border-t cursor-pointer hover:bg-secondary/40 ${isSelected ? "bg-destructive/5" : ""}`}
-                    onClick={selectMode ? () => toggleSelected(r.id) : () => { setOpen(r); setNotes(r.notes || ""); }}
+                    onClick={selectMode ? () => toggleSelected(r.id) : () => { setOpen(r); setNotes(r.notes || ""); setReply(""); }}
                   >
                     {selectMode && (
                       <td className="p-3" onClick={(e) => e.stopPropagation()}>
@@ -190,7 +214,7 @@ const SATickets = () => {
               <Card
                 key={r.id}
                 className={`cursor-pointer transition-colors ${isSelected ? "bg-destructive/5 border-destructive/30" : "hover:bg-secondary/40"}`}
-                onClick={selectMode ? () => toggleSelected(r.id) : () => { setOpen(r); setNotes(r.notes || ""); }}
+                onClick={selectMode ? () => toggleSelected(r.id) : () => { setOpen(r); setNotes(r.notes || ""); setReply(""); }}
               >
                 <CardContent className="p-4 flex items-start gap-3">
                   {selectMode && (
@@ -245,6 +269,31 @@ const SATickets = () => {
                   </Select>
                 </div>
               </div>
+              <div className="border-t pt-3">
+                <label className="text-xs font-medium">Reply to doctor</label>
+                {open.reply && (
+                  <div className="bg-secondary rounded-lg p-3 mt-1.5 mb-2 text-sm">
+                    <p className="whitespace-pre-wrap">{open.reply}</p>
+                    {open.replied_at && (
+                      <p className="text-[11px] text-muted-foreground mt-1.5">
+                        Sent {new Date(open.replied_at).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <Textarea
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  rows={3}
+                  placeholder={open.reply ? "Send another reply — this replaces the one above." : "Write a reply the doctor will see…"}
+                />
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <Button size="sm" disabled={!reply.trim() || sendingReply} onClick={sendReply}>
+                    {sendingReply ? "Sending…" : "Send reply"}
+                  </Button>
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-medium">Internal notes</label>
                 <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} />

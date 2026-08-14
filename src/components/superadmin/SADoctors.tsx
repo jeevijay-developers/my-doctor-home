@@ -7,9 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/hooks/use-toast";
+import { logAdminAction } from "@/lib/adminAudit";
 import { Link } from "react-router-dom";
-import { ExternalLink, Trash2, X } from "lucide-react";
+import { ExternalLink, MessageSquarePlus, Radio, Trash2, X } from "lucide-react";
 import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
+
+type MessageTarget = { type: "single"; id: string; name: string } | { type: "broadcast" };
 
 // Bulk selection/delete mirrors the Doctor Side → Patients pattern
 // (PatientsPage.tsx) exactly: a select-mode toggle, row checkboxes + a
@@ -26,6 +33,11 @@ const SADoctors = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
+  const [messageTarget, setMessageTarget] = useState<MessageTarget | null>(null);
+  const [messageSubject, setMessageSubject] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+
   const load = () => {
     supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
   };
@@ -41,6 +53,52 @@ const SADoctors = () => {
   };
   const clearSelection = () => setSelectedIds(new Set());
   const exitSelectMode = () => { setSelectMode(false); clearSelection(); };
+
+  const closeMessageDialog = () => {
+    setMessageTarget(null);
+    setMessageSubject("");
+    setMessageBody("");
+  };
+
+  // "Active" matches the same plan_status === "active" definition already
+  // used by the status filter above — not a separately-invented notion.
+  const activeDoctors = rows.filter((r) => r.plan_status === "active");
+
+  const sendMessage = async () => {
+    if (!messageTarget || !messageSubject.trim() || !messageBody.trim()) return;
+    setSendingMessage(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (messageTarget.type === "single") {
+      const { error } = await supabase.from("notifications" as any).insert({
+        doctor_id: messageTarget.id,
+        source_type: "direct_message",
+        title: messageSubject.trim(),
+        message: messageBody.trim(),
+        sender_id: user?.id ?? null,
+      } as any);
+      if (error) { setSendingMessage(false); return toast({ title: "Failed", description: error.message, variant: "destructive" }); }
+      await logAdminAction("send_direct_message", "profiles", messageTarget.id, { subject: messageSubject.trim() });
+      toast({ title: `Message sent to ${messageTarget.name}` });
+    } else {
+      // One notification row per recipient — simplest model consistent with
+      // the per-doctor read/unread state, and fine at this doctor count.
+      const recipients = activeDoctors.map((d) => ({
+        doctor_id: d.id,
+        source_type: "broadcast",
+        title: messageSubject.trim(),
+        message: messageBody.trim(),
+        sender_id: user?.id ?? null,
+      }));
+      if (recipients.length === 0) { setSendingMessage(false); return toast({ title: "No active doctors to message", variant: "destructive" }); }
+      const { error } = await supabase.from("notifications" as any).insert(recipients as any);
+      if (error) { setSendingMessage(false); return toast({ title: "Failed", description: error.message, variant: "destructive" }); }
+      await logAdminAction("send_broadcast_message", "profiles", undefined, { subject: messageSubject.trim(), recipient_count: recipients.length });
+      toast({ title: `Broadcast sent to ${recipients.length} doctor${recipients.length === 1 ? "" : "s"}` });
+    }
+    setSendingMessage(false);
+    closeMessageDialog();
+  };
 
   const filtered = rows.filter((r) => {
     const t = q.toLowerCase();
@@ -74,6 +132,13 @@ const SADoctors = () => {
             <SelectItem value="premium">Premium</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant="outline"
+          className="md:ml-auto gap-1.5"
+          onClick={() => setMessageTarget({ type: "broadcast" })}
+        >
+          <Radio className="h-4 w-4" /> Broadcast to Active ({activeDoctors.length})
+        </Button>
       </div>
 
       {/* Select mode toggle */}
@@ -166,11 +231,25 @@ const SADoctors = () => {
                     <td className="p-3"><Badge>{r.plan_tier || "free"}</Badge></td>
                     <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                     <td className="p-3">
-                      {r.slug && (
-                        <a href={`/dr/${r.slug}`} target="_blank" rel="noreferrer" className="text-royal hover:underline inline-flex items-center gap-1 text-xs" onClick={(e) => selectMode && e.preventDefault()}>
-                          Site <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
+                      <div className="flex items-center gap-3">
+                        {r.slug && (
+                          <a href={`/dr/${r.slug}`} target="_blank" rel="noreferrer" className="text-royal hover:underline inline-flex items-center gap-1 text-xs" onClick={(e) => selectMode && e.preventDefault()}>
+                            Site <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              className="text-muted-foreground hover:text-royal transition-colors"
+                              aria-label={`Message ${r.full_name || "doctor"}`}
+                              onClick={() => { if (selectMode) return; setMessageTarget({ type: "single", id: r.id, name: r.full_name || "this doctor" }); }}
+                            >
+                              <MessageSquarePlus className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>Send message</TooltipContent>
+                        </Tooltip>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -222,11 +301,19 @@ const SADoctors = () => {
                     <div className="text-xs text-muted-foreground mt-1">
                       {r.clinic_name || "—"}{r.city ? ` · ${r.city}` : ""} · Joined {new Date(r.created_at).toLocaleDateString()}
                     </div>
-                    {r.slug && (
-                      <a href={`/dr/${r.slug}`} target="_blank" rel="noreferrer" className="text-royal hover:underline inline-flex items-center gap-1 text-xs mt-2" onClick={(e) => selectMode && e.preventDefault()}>
-                        Site <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
+                    <div className="flex items-center gap-3 mt-2">
+                      {r.slug && (
+                        <a href={`/dr/${r.slug}`} target="_blank" rel="noreferrer" className="text-royal hover:underline inline-flex items-center gap-1 text-xs" onClick={(e) => selectMode && e.preventDefault()}>
+                          Site <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      <button
+                        className="text-muted-foreground hover:text-royal transition-colors inline-flex items-center gap-1 text-xs"
+                        onClick={(e) => { e.stopPropagation(); if (selectMode) return; setMessageTarget({ type: "single", id: r.id, name: r.full_name || "this doctor" }); }}
+                      >
+                        <MessageSquarePlus className="h-3.5 w-3.5" /> Message
+                      </button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -267,6 +354,42 @@ const SADoctors = () => {
           onDeleted={() => { exitSelectMode(); load(); }}
         />
       )}
+
+      <Dialog open={!!messageTarget} onOpenChange={(v) => !v && closeMessageDialog()}>
+        <DialogContent className="max-w-md">
+          {messageTarget && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {messageTarget.type === "single" ? `Message ${messageTarget.name}` : "Broadcast to active doctors"}
+                </DialogTitle>
+                <DialogDescription>
+                  {messageTarget.type === "single"
+                    ? "Delivered to this doctor's notification bell in the admin panel."
+                    : `Delivered to all ${activeDoctors.length} doctor${activeDoctors.length === 1 ? "" : "s"} with an active plan.`}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>Subject</Label>
+                  <Input value={messageSubject} onChange={(e) => setMessageSubject(e.target.value)} placeholder="What's this about?" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Message</Label>
+                  <Textarea value={messageBody} onChange={(e) => setMessageBody(e.target.value)} rows={5} />
+                </div>
+                <Button
+                  className="w-full"
+                  disabled={!messageSubject.trim() || !messageBody.trim() || sendingMessage}
+                  onClick={sendMessage}
+                >
+                  {sendingMessage ? "Sending…" : messageTarget.type === "single" ? "Send message" : `Send to ${activeDoctors.length} doctors`}
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

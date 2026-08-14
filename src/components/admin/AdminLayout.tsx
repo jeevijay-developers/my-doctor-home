@@ -1,13 +1,21 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
 import { useLocation, Link } from "react-router-dom";
-import { Bell, BellOff, ChevronRight, Home, Megaphone } from "lucide-react";
+import { Bell, BellOff, ChevronRight, Home, Megaphone, MessageSquare, Radio, LifeBuoy } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
+import ContactSupportDialog from "./ContactSupportDialog";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useDoctorNotifications, type DoctorNotification } from "@/hooks/useDoctorNotifications";
+
+const SOURCE_ICON: Record<DoctorNotification["source_type"], typeof MessageSquare> = {
+  ticket_reply: LifeBuoy,
+  direct_message: MessageSquare,
+  broadcast: Radio,
+};
 
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
@@ -29,6 +37,18 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   const { settings } = usePlatformSettings();
   const banner = typeof settings.announcement_banner === "string" ? settings.announcement_banner : "";
   const { mode, setTheme } = usePanelTheme("doctylia-admin-theme");
+
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useDoctorNotifications(profile?.id);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportTicketId, setSupportTicketId] = useState<string | undefined>(undefined);
+
+  const openNotification = (n: DoctorNotification) => {
+    if (!n.is_read) markAsRead(n.id);
+    if (n.source_type === "ticket_reply" && n.ticket_id) {
+      setSupportTicketId(n.ticket_id);
+      setSupportOpen(true);
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -60,21 +80,57 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                     className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors relative"
                   >
                     <Bell className="h-4 w-4" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-80 p-0">
-                  <div className="px-4 py-3 border-b border-border">
+                  <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                     <h4 className="font-semibold text-sm text-foreground">Notifications</h4>
+                    {unreadCount > 0 && (
+                      <button onClick={markAllAsRead} className="text-xs text-royal hover:underline">Mark all read</button>
+                    )}
                   </div>
-                  <div className="p-6 flex flex-col items-center justify-center text-center">
-                    <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mb-3">
-                      <BellOff className="h-5 w-5 text-muted-foreground" />
+                  {notifications.length === 0 ? (
+                    <div className="p-6 flex flex-col items-center justify-center text-center">
+                      <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mb-3">
+                        <BellOff className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">No notifications yet</p>
+                      <p className="text-xs text-muted-foreground mt-1">You're all caught up.</p>
                     </div>
-                    <p className="text-sm font-medium text-foreground">No notifications yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">You're all caught up.</p>
-                  </div>
+                  ) : (
+                    <div className="max-h-80 overflow-y-auto divide-y divide-border">
+                      {notifications.map((n) => {
+                        const Icon = SOURCE_ICON[n.source_type];
+                        return (
+                          <button
+                            key={n.id}
+                            onClick={() => openNotification(n)}
+                            className={`w-full text-left px-4 py-3 hover:bg-secondary/60 transition-colors flex items-start gap-2.5 ${!n.is_read ? "bg-royal/5" : ""}`}
+                          >
+                            <div className="w-7 h-7 rounded-full bg-royal/10 flex items-center justify-center shrink-0 mt-0.5">
+                              <Icon className="h-3.5 w-3.5 text-royal" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-royal shrink-0" />}
+                                <span className="text-sm font-medium text-foreground truncate">{n.title}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
+                              <p className="text-[11px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </PopoverContent>
               </Popover>
+              <ContactSupportDialog trigger={null} open={supportOpen} onOpenChange={setSupportOpen} initialTicketId={supportTicketId} />
               <div className="h-5 w-px bg-border" />
               {isStaff && (
                 <span className="hidden sm:inline-flex items-center text-[10px] font-bold uppercase tracking-wider bg-warning/15 text-warning px-2 py-1 rounded">
