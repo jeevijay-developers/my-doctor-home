@@ -33,7 +33,7 @@ const LandingPage = () => {
   }, [location.hash]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden">
+    <div className="landing-page min-h-screen overflow-x-hidden">
       <LandingNavbar />
       <LandingHero />
       <TrustBar />
