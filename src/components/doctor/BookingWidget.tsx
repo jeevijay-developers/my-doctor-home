@@ -771,6 +771,13 @@ const BookingWidget = () => {
                 <div className="flex justify-between font-heading font-bold text-lg"><span>Total</span><span className="text-royal">₹{selectedService?.price}</span></div>
               </div>
 
+              <p className="text-[11px] text-text-gray text-center">
+                By booking, you agree to Doctylia's{" "}
+                <a href="/terms" target="_blank" rel="noreferrer" className="text-royal hover:underline">Terms of Service</a>{" "}
+                and{" "}
+                <a href="/privacy" target="_blank" rel="noreferrer" className="text-royal hover:underline">Privacy Policy</a>.
+              </p>
+
               {wantsOnlinePayment ? (
                 <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
                   disabled={!name || !phone || !age || !gender} onClick={proceedToReview}>

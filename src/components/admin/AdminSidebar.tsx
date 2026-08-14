@@ -1,10 +1,9 @@
-import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCog } from "lucide-react";
+import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCog, LifeBuoy } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import type { PermissionKey } from "@/lib/staffPermissions";
-import ContactSupportDialog from "./ContactSupportDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -117,7 +116,15 @@ const AdminSidebar = () => {
 
       <SidebarFooter className="bg-sidebar p-3 space-y-1 border-t border-sidebar-border">
 
-        <ContactSupportDialog />
+        <NavLink
+          to="/admin/support"
+          onClick={closeMobileSidebar}
+          className="flex items-center gap-2 text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 rounded-lg transition-colors"
+          activeClassName="!bg-sidebar-accent !text-sidebar-accent-foreground"
+        >
+          <LifeBuoy className="h-4 w-4" />
+          {!collapsed && <span>Contact Support</span>}
+        </NavLink>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <button className="flex items-center gap-2 text-sidebar-foreground hover:text-destructive hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 rounded-lg transition-colors">
