@@ -20,6 +20,11 @@ import { Trash2, X } from "lucide-react";
 
 const STATUSES = ["open", "in_progress", "resolved", "closed"];
 const PRIORITIES = ["low", "normal", "high", "urgent"];
+const CATEGORY_LABEL: Record<string, string> = {
+  dashboard: "Dashboard", "my-website": "My Website", appointments: "Appointments",
+  patients: "Patients", prescriptions: "Prescriptions", reviews: "Reviews", blog: "Blog",
+  billing: "Billing", staff: "Staff Management", settings: "Settings", account: "Account / Login", other: "Other",
+};
 
 const SATickets = () => {
   const [rows, setRows] = useState<any[]>([]);
@@ -101,7 +106,13 @@ const SATickets = () => {
     load();
   };
 
-  const filtered = rows.filter((r) => (statusF === "all" || r.status === statusF) && (priorityF === "all" || r.priority === priorityF));
+  // "All statuses" excludes closed tickets, same as a support queue clearing
+  // resolved items by default — still reachable by explicitly picking
+  // "closed" in the filter, so nothing is actually hidden for good.
+  const filtered = rows.filter((r) =>
+    (statusF === "all" ? r.status !== "closed" : r.status === statusF) &&
+    (priorityF === "all" || r.priority === priorityF)
+  );
 
   return (
     <div className="space-y-4">
@@ -170,6 +181,7 @@ const SATickets = () => {
                 {selectMode && <th className="p-3 w-10"></th>}
                 <th className="text-left p-3">Subject</th>
                 <th className="text-left p-3">Doctor</th>
+                <th className="text-left p-3">Category</th>
                 <th className="text-left p-3">Priority</th>
                 <th className="text-left p-3">Status</th>
                 <th className="text-left p-3">Created</th>
@@ -191,13 +203,14 @@ const SATickets = () => {
                     )}
                     <td className="p-3 font-medium">{r.subject}</td>
                     <td className="p-3 text-xs">{r.profiles?.full_name}<div className="text-muted-foreground">{r.profiles?.clinic_name}</div></td>
+                    <td className="p-3 text-xs text-muted-foreground">{r.category ? CATEGORY_LABEL[r.category] || r.category : "—"}</td>
                     <td className="p-3"><Badge variant="outline">{r.priority}</Badge></td>
                     <td className="p-3"><Badge>{r.status}</Badge></td>
                     <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                   </tr>
                 );
               })}
-              {filtered.length === 0 && <tr><td colSpan={selectMode ? 6 : 5} className="p-6 text-center text-muted-foreground">No tickets.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={selectMode ? 7 : 6} className="p-6 text-center text-muted-foreground">No tickets.</td></tr>}
             </tbody>
           </table>
         </CardContent>
@@ -228,6 +241,7 @@ const SATickets = () => {
                       {r.profiles?.full_name}{r.profiles?.clinic_name ? ` · ${r.profiles.clinic_name}` : ""}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mt-2">
+                      {r.category && <Badge variant="outline" className="text-[10px]">{CATEGORY_LABEL[r.category] || r.category}</Badge>}
                       <Badge variant="outline" className="text-[10px]">{r.priority}</Badge>
                       <Badge className="text-[10px]">{r.status}</Badge>
                       <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
@@ -245,6 +259,9 @@ const SATickets = () => {
           {open && (
             <>
               <DialogHeader><DialogTitle>{open.subject}</DialogTitle></DialogHeader>
+              {open.category && (
+                <div><Badge variant="outline" className="text-xs">{CATEGORY_LABEL[open.category] || open.category}</Badge></div>
+              )}
               {open.metadata?.upgrade_request && (
                 <div className="text-sm bg-secondary rounded-lg p-3">
                   {TIER_LABELS[open.metadata.upgrade_request.from_tier] || open.metadata.upgrade_request.from_tier}
