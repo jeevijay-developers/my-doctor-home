@@ -61,11 +61,16 @@ const ContactSupportDialog = ({
     setLoadingTickets(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoadingTickets(false); return; }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("support_tickets")
       .select("id, subject, description, status, priority, reply, replied_at, created_at")
       .eq("doctor_id", user.id)
       .order("created_at", { ascending: false });
+    if (error) {
+      toast({ title: "Couldn't load your requests", description: error.message, variant: "destructive" });
+      setLoadingTickets(false);
+      return;
+    }
     setTickets((data as unknown as Ticket[]) ?? []);
     setLoadingTickets(false);
   };

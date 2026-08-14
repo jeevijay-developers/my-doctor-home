@@ -22,12 +22,13 @@ export function useDoctorNotifications(doctorId: string | undefined) {
   const refresh = useCallback(async () => {
     if (!doctorId) { setNotifications([]); setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("notifications" as any)
       .select("id, source_type, title, message, ticket_id, is_read, created_at")
       .eq("doctor_id", doctorId)
       .order("created_at", { ascending: false })
       .limit(30);
+    if (error) console.error("Failed to load notifications:", error.message);
     setNotifications((data as unknown as DoctorNotification[]) ?? []);
     setLoading(false);
   }, [doctorId]);
