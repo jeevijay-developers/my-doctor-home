@@ -44,7 +44,7 @@ export function getTierFeatures(tier: "pro" | "premium", cap: number): string[] 
   ];
 }
 
-export type CardState = { badge: string; isCurrent: boolean; showCta: boolean };
+export type CardState = { badge: string; isCurrent: boolean; showCta: boolean; ctaLabel?: string };
 
 export function getSubscriptionCardStates(
   planStatus: string,
@@ -59,19 +59,19 @@ export function getSubscriptionCardStates(
   }
   if (isPremium) {
     return {
-      premium: { badge: "Current Plan", isCurrent: true, showCta: false },
+      premium: { badge: "Current Plan", isCurrent: true, showCta: false, ctaLabel: "Renew" },
       basic: { badge: "Included in your plan", isCurrent: false, showCta: false },
     };
   }
   if (planStatus === "active") {
     return {
-      basic: { badge: "Current Plan", isCurrent: true, showCta: false },
-      premium: { badge: "", isCurrent: false, showCta: true },
+      basic: { badge: "Current Plan", isCurrent: true, showCta: true, ctaLabel: "Renew" },
+      premium: { badge: "", isCurrent: false, showCta: true, ctaLabel: "Upgrade" },
     };
   }
   // hasNoActivePlan(planStatus): expired or cancelled
   return {
-    basic: { badge: "Your access level", isCurrent: false, showCta: true },
-    premium: { badge: "", isCurrent: false, showCta: true },
+    basic: { badge: "Your access level", isCurrent: false, showCta: true, ctaLabel: "Reactivate" },
+    premium: { badge: "", isCurrent: false, showCta: true, ctaLabel: "Reactivate" },
   };
 }

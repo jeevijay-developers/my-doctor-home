@@ -11,6 +11,7 @@ import { loadRazorpayCheckout } from "@/lib/razorpayCheckout";
 import { TIER_LABELS, TIER_PRICES, hasNoActivePlan, getTierFeatures, DEFAULT_APPOINTMENT_CAP } from "@/lib/planFeatures";
 import MockCheckoutModal from "@/components/doctor/MockCheckoutModal";
 import TestModeBadge from "@/components/shared/TestModeBadge";
+import { formatDistanceToNow, parseISO } from "date-fns";
 
 type Order = { order_id: string; key_id: string; amount: number; currency: string; payment_id: string; mode: "mock" | "live" };
 type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
@@ -36,6 +37,13 @@ const UpgradeCheckoutDialog = ({
   const features = getTierFeatures(targetTier, appointmentsCap || DEFAULT_APPOINTMENT_CAP);
   const price = TIER_PRICES[targetTier];
 
+  // Check if plan will be scheduled or activated immediately
+  const planEnd = profile?.plan_end ? parseISO(profile.plan_end) : null;
+  const willBeScheduled = fromStatus === "active" && planEnd;
+  const schedulingMessage = willBeScheduled 
+    ? `Plan will activate in ${formatDistanceToNow(planEnd)} when your current plan expires.`
+    : "Your plan updates immediately after payment.";
+
   const handleResult = async (o: Order, response: CheckoutResponse) => {
     const { data, error } = await supabase.functions.invoke("verify-plan-upgrade-payment", {
       body: {
@@ -52,7 +60,14 @@ const UpgradeCheckoutDialog = ({
       setBusy(false);
       return;
     }
-    toast.success(`You're now on ${toLabel}!`);
+    
+    if (data?.scheduled) {
+      const activationDate = data?.activation_date ? new Date(data.activation_date) : new Date();
+      toast.success(`Your ${toLabel} plan is scheduled to activate on ${activationDate.toLocaleDateString()} when your current plan expires.`);
+    } else {
+      toast.success(`You're now on ${toLabel}!`);
+    }
+    
     setMockOpen(false);
     setOrder(null);
     setOpen(false);
@@ -64,7 +79,7 @@ const UpgradeCheckoutDialog = ({
     // change (see e2e/plan-gating.spec.ts's downgrade test, which reloads
     // rather than expecting live propagation). Brief delay so the success
     // toast is visible before the reload.
-    setTimeout(() => window.location.reload(), 900);
+    setTimeout(() => window.location.reload(), willBeScheduled ? 2000 : 900);
   };
 
   const handleFailed = (message: string) => {
@@ -128,13 +143,13 @@ const UpgradeCheckoutDialog = ({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
-            {noActivePlan ? `Reactivate on ${toLabel}` : `Upgrade to ${toLabel}`}
+            {noActivePlan ? `Reactivate on ${toLabel}` : `${willBeScheduled ? "Schedule" : "Upgrade to"} ${toLabel}`}
             {isMock && <TestModeBadge />}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Pay ₹{price}/month to {noActivePlan ? "reactivate" : "switch"} to {toLabel} — your plan updates immediately after payment.
+            Pay ₹{price}/month to {noActivePlan ? "reactivate" : "switch"} to {toLabel} — {schedulingMessage}
           </p>
           <div>
             <p className="text-xs font-medium mb-1.5">{toLabel} includes:</p>
@@ -147,7 +162,7 @@ const UpgradeCheckoutDialog = ({
             </ul>
           </div>
           <Button onClick={startCheckout} disabled={busy} className="w-full">
-            {busy ? "Processing…" : `Pay ₹${price} & Upgrade`}
+            {busy ? "Processing…" : `Pay ₹${price} & ${willBeScheduled ? "Schedule" : "Upgrade"}`}
           </Button>
         </div>
 

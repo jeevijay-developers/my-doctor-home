@@ -113,6 +113,9 @@ const SettingsPage = () => {
                     {profile?.plan_status === "trial" && (
                       <p className="text-sm text-muted-foreground mt-1">{daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining in free trial</p>
                     )}
+                    {profile?.plan_status === "active" && profile?.plan_end && (
+                      <p className="text-sm text-muted-foreground mt-1">Expires in {differenceInDays(new Date(profile.plan_end), new Date())} day{differenceInDays(new Date(profile.plan_end), new Date()) !== 1 ? "s" : ""}</p>
+                    )}
                   </div>
                 </div>
                 {profile?.plan_status === "trial" && (
@@ -146,7 +149,7 @@ const SettingsPage = () => {
                   {basic.showCta && (
                     <UpgradeCheckoutDialog
                       targetTier="pro"
-                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">Upgrade Now</Button>}
+                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">{basic.ctaLabel || "Upgrade Now"}</Button>}
                     />
                   )}
                 </div>
@@ -169,7 +172,7 @@ const SettingsPage = () => {
                   {premium.showCta && (
                     <UpgradeCheckoutDialog
                       targetTier="premium"
-                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">Upgrade Now</Button>}
+                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">{premium.ctaLabel || "Upgrade Now"}</Button>}
                     />
                   )}
                 </div>

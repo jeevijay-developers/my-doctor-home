@@ -108,7 +108,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           {blockReason === "cancelled" ? (
             <>
               <h1 className="font-heading font-bold text-2xl text-primary mb-2">Account suspended</h1>
-              <p className="text-muted-foreground">Your Doctylia account is currently suspended. Please contact support for assistance.</p>
+              <p className="text-muted-foreground">Your Doctylia account is currently suspended. Reactivate a plan below to regain access.</p>
+              <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                <UpgradeCheckoutDialog targetTier="pro" trigger={<Button variant="outline" className="w-full">Reactivate Pro</Button>} />
+                <UpgradeCheckoutDialog targetTier="premium" trigger={<Button className="w-full bg-royal hover:bg-royal/90">Reactivate Premium</Button>} />
+              </div>
             </>
           ) : isStaff ? (
             <>

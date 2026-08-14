@@ -58,10 +58,51 @@ Deno.serve(async (req) => {
     .update({ status: "captured", razorpay_payment_id, razorpay_signature })
     .eq("id", payment.id);
 
+  // Set plan_end to 30 days from now (monthly subscription model)
+  const planEnd = new Date();
+  planEnd.setDate(planEnd.getDate() + 30);
+
+  // Check if doctor has an active plan
+  const { data: currentProfile } = await admin
+    .from("profiles")
+    .select("plan_status, plan_end")
+    .eq("id", payment.doctor_id)
+    .maybeSingle();
+
+  // If plan is active, create a pending plan to activate after current plan expires
+  if (currentProfile?.plan_status === "active" && currentProfile?.plan_end) {
+    const activationDate = new Date(currentProfile.plan_end);
+    const { error: pendingErr } = await admin
+      .from("pending_plans")
+      .insert({
+        doctor_id: payment.doctor_id,
+        target_tier: payment.target_tier,
+        activation_date: activationDate.toISOString(),
+        payment_id: payment.id,
+      });
+
+    if (pendingErr) {
+      console.error("Failed to create pending plan:", pendingErr);
+    }
+
+    return json(200, { 
+      ok: true, 
+      plan_tier: payment.target_tier,
+      scheduled: true,
+      activation_date: activationDate.toISOString()
+    });
+  }
+
+  // No active plan, upgrade immediately
   await admin
     .from("profiles")
-    .update({ plan_tier: payment.target_tier, plan_status: "active", trial_end: null })
+    .update({ 
+      plan_tier: payment.target_tier, 
+      plan_status: "active", 
+      trial_end: null,
+      plan_end: planEnd.toISOString()
+    })
     .eq("id", payment.doctor_id);
 
-  return json(200, { ok: true, plan_tier: payment.target_tier });
+  return json(200, { ok: true, plan_tier: payment.target_tier, scheduled: false });
 });
