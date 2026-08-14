@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import PrescriptionSlip, { PrescriptionSlipData, VisitSummary, VitalsSummary } from "./PrescriptionSlip";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { parseMedicineItems } from "@/lib/prescriptionMedicines";
+import { useTrialStatus } from "@/contexts/TrialStatusContext";
 
 type Prescription = {
   id: string; doctor_id: string; patient_id: string | null; patient_name: string;
@@ -53,6 +54,8 @@ const MedicineSummaryLine = ({ rx }: { rx: Prescription }) => {
 
 const PrescriptionsPage = () => {
   const { profile, isStaff, can } = useProfile();
+  const { accessLevel: trialAccessLevel } = useTrialStatus();
+  const writeDisabled = trialAccessLevel === "grace";
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
@@ -263,7 +266,13 @@ const PrescriptionsPage = () => {
         {can("prescriptions.create") && (
         <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); else setForm(emptyForm); }}>
           <DialogTrigger asChild>
-            <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> New Prescription</Button>
+            <Button
+              className="bg-royal hover:bg-royal/90"
+              disabled={writeDisabled}
+              title={writeDisabled ? "Upgrade to continue editing" : undefined}
+            >
+              <Plus className="h-4 w-4 mr-1" /> New Prescription
+            </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Add Prescription</DialogTitle></DialogHeader>
@@ -312,7 +321,7 @@ const PrescriptionsPage = () => {
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes..." rows={2} />
               </div>
-              <Button onClick={addPrescription} className="w-full h-10 bg-royal hover:bg-royal/90">Save Prescription</Button>
+              <Button onClick={addPrescription} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Save Prescription</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -624,7 +633,7 @@ const PrescriptionsPage = () => {
                   </div>
                   <div className="flex gap-2 pt-2">
                     <Button variant="outline" className="flex-1 h-10" onClick={() => setEditing(false)}>Cancel</Button>
-                    <Button onClick={saveEdit} className="flex-1 h-10 bg-royal hover:bg-royal/90">Save Changes</Button>
+                    <Button onClick={saveEdit} disabled={writeDisabled} className="flex-1 h-10 bg-royal hover:bg-royal/90">Save Changes</Button>
                   </div>
                 </div>
               )}

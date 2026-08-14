@@ -5,7 +5,7 @@ import { usePlanAccess } from "@/hooks/usePlanAccess";
 import {
   CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
   TrendingUp, Sparkles, ExternalLink, Copy, Eye, FileText,
-  Stethoscope,
+  Stethoscope, AlertTriangle, X,
   Lightbulb, Send, Share2, IndianRupee
 } from "lucide-react";
 import { differenceInDays, format, subDays } from "date-fns";
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { toast } from "sonner";
+import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 
 const growthTips = [
   { tip: "Add your services to get more bookings", icon: Stethoscope, action: "/admin/my-website" },
@@ -34,6 +35,7 @@ const DashboardHome = () => {
   const [tipIndex, setTipIndex] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [revenueSeries, setRevenueSeries] = useState<{ day: string; value: number }[]>([]);
+  const [urgentBannerDismissed, setUrgentBannerDismissed] = useState(false);
 
   const loadDashboard = () => {
     if (!profile) return;
@@ -113,6 +115,24 @@ const DashboardHome = () => {
     : 7;
   const trialProgress = ((7 - daysLeft) / 7) * 100;
 
+  // Separate, more urgent nudge from the small "Free Trial" widget above —
+  // only appears in the trial's final 24h, dismissible per browser tab
+  // session (sessionStorage, not permanently) so it resurfaces next visit
+  // if the doctor still hasn't upgraded.
+  const trialMsRemaining = profile?.trial_end ? new Date(profile.trial_end).getTime() - Date.now() : null;
+  const isTrialEndingSoon = profile?.plan_status === "trial" && trialMsRemaining !== null && trialMsRemaining > 0 && trialMsRemaining <= 24 * 60 * 60 * 1000;
+  const dismissKey = profile ? `trial-ending-banner-dismissed-${profile.id}` : null;
+
+  useEffect(() => {
+    if (!dismissKey) return;
+    setUrgentBannerDismissed(sessionStorage.getItem(dismissKey) === "1");
+  }, [dismissKey]);
+
+  const dismissUrgentBanner = () => {
+    if (dismissKey) sessionStorage.setItem(dismissKey, "1");
+    setUrgentBannerDismissed(true);
+  };
+
   const statCards = [
     { icon: CalendarCheck, label: "APPOINTMENTS", value: String(stats.appointments), bgClass: "bg-royal/15", iconClass: "text-royal", sub: `${stats.todayCount} today` },
     { icon: Users, label: "PATIENTS", value: String(stats.patients), bgClass: "bg-pink/15", iconClass: "text-pink", sub: "All time" },
@@ -169,6 +189,28 @@ const DashboardHome = () => {
           )}
         </div>
       </div>
+
+      {isTrialEndingSoon && !urgentBannerDismissed && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+            <p className="text-sm text-foreground">
+              Your free trial ends in less than 24 hours — upgrade now to avoid losing access to your dashboard.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <UpgradeCheckoutDialog targetTier="pro" trigger={<Button size="sm" variant="outline">Upgrade Pro</Button>} />
+            <UpgradeCheckoutDialog targetTier="premium" trigger={<Button size="sm" className="bg-royal hover:bg-royal/90">Upgrade Premium</Button>} />
+            <button
+              onClick={dismissUrgentBanner}
+              aria-label="Dismiss"
+              className="w-7 h-7 rounded-lg hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {nearCap && (
         <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">

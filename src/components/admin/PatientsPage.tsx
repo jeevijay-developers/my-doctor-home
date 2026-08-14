@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
+import { useTrialStatus } from "@/contexts/TrialStatusContext";
 
 type Patient = {
   id: string; name: string; phone: string; email: string | null;
@@ -26,6 +27,8 @@ type Patient = {
 const PatientsPage = () => {
   const { profile, isStaff, can } = useProfile();
   const navigate = useNavigate();
+  const { accessLevel: trialAccessLevel } = useTrialStatus();
+  const writeDisabled = trialAccessLevel === "grace";
   const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
@@ -171,7 +174,13 @@ const PatientsPage = () => {
           {can("patients.add") && (
           <Dialog open={showNew} onOpenChange={setShowNew}>
             <DialogTrigger asChild>
-              <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> Add Patient</Button>
+              <Button
+                className="bg-royal hover:bg-royal/90"
+                disabled={writeDisabled}
+                title={writeDisabled ? "Upgrade to continue editing" : undefined}
+              >
+                <Plus className="h-4 w-4 mr-1" /> Add Patient
+              </Button>
             </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Add Patient</DialogTitle></DialogHeader>
@@ -208,7 +217,7 @@ const PatientsPage = () => {
                   </Select>
                 </div>
               </div>
-              <Button onClick={addPatient} className="w-full h-10 bg-royal hover:bg-royal/90">Add Patient</Button>
+              <Button onClick={addPatient} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Add Patient</Button>
             </div>
           </DialogContent>
         </Dialog>

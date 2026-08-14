@@ -21,6 +21,7 @@ import { PERMISSION_MODULES, type PermissionKey, type Permissions } from "@/lib/
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import LockedFeatureCard from "./LockedFeatureCard";
+import { useTrialStatus } from "@/contexts/TrialStatusContext";
 
 type StaffRow = {
   id: string; staff_name: string; username: string; status: string;
@@ -33,6 +34,8 @@ const emptyForm = { staff_name: "", username: "", password: "", confirm_password
 const StaffManagementPage = () => {
   const { profile, isStaff, can } = useProfile();
   const { isPremium, loading: planLoading } = usePlanAccess();
+  const { accessLevel: trialAccessLevel } = useTrialStatus();
+  const writeDisabled = trialAccessLevel === "grace";
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -186,7 +189,12 @@ const StaffManagementPage = () => {
             actual create action is still authorized server-side (RLS +
             create-staff-account's own checks), so a staff session without
             staff.create still can't succeed even though the button shows. */}
-        <Button className="bg-royal hover:bg-royal/90" onClick={openAdd}>
+        <Button
+          className="bg-royal hover:bg-royal/90"
+          onClick={openAdd}
+          disabled={writeDisabled}
+          title={writeDisabled ? "Upgrade to continue editing" : undefined}
+        >
           <Plus className="h-4 w-4 mr-1" /> Add Staff
         </Button>
       </div>
@@ -372,7 +380,7 @@ const StaffManagementPage = () => {
 
           </div>
           <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-1 bg-background border-t border-border">
-            <Button onClick={save} disabled={saving} className="w-full h-10 bg-royal hover:bg-royal/90">
+            <Button onClick={save} disabled={saving || writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">
               {saving ? "Saving…" : editingId ? "Save Changes" : "Create Staff"}
             </Button>
           </div>

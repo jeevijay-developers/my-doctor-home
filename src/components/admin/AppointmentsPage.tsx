@@ -21,6 +21,7 @@ import { format, isSameDay, parseISO } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { ensureInvoiceForAppointment } from "@/lib/invoiceGeneration";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
+import { useTrialStatus } from "@/contexts/TrialStatusContext";
 
 type Appointment = {
   id: string; patient_name: string; patient_phone: string; patient_age: number | null;
@@ -42,6 +43,8 @@ const statusConfig: Record<string, { bg: string; dot: string; label: string }> =
 const AppointmentsPage = () => {
   const { profile, isStaff, can } = useProfile();
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
+  const { accessLevel: trialAccessLevel } = useTrialStatus();
+  const writeDisabled = trialAccessLevel === "grace";
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -344,7 +347,13 @@ const AppointmentsPage = () => {
         {can("appointments.create") && (
         <Dialog open={showNew} onOpenChange={setShowNew}>
           <DialogTrigger asChild>
-            <Button className="bg-royal hover:bg-royal/90"><Plus className="h-4 w-4 mr-1" /> New Appointment</Button>
+            <Button
+              className="bg-royal hover:bg-royal/90"
+              disabled={writeDisabled}
+              title={writeDisabled ? "Upgrade to continue editing" : undefined}
+            >
+              <Plus className="h-4 w-4 mr-1" /> New Appointment
+            </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>Add Appointment</DialogTitle></DialogHeader>
@@ -393,7 +402,7 @@ const AppointmentsPage = () => {
                   <Input type="number" min={0} placeholder="0" value={newAppt.amount === 0 ? "" : newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
                 </div>
               </div>
-              <Button onClick={() => addAppointment()} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
+              <Button onClick={() => addAppointment()} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -768,7 +777,7 @@ const AppointmentsPage = () => {
               <Label>Time</Label>
               <Input type="time" value={rescheduleForm.time_slot} onChange={(e) => setRescheduleForm({ ...rescheduleForm, time_slot: e.target.value })} className="h-10" />
             </div>
-            <Button onClick={submitReschedule} className="w-full h-10 bg-royal hover:bg-royal/90">Save New Slot</Button>
+            <Button onClick={submitReschedule} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Save New Slot</Button>
           </div>
         </DialogContent>
       </Dialog>

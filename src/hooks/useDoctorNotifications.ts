@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type DoctorNotification = {
   id: string;
-  source_type: "ticket_reply" | "direct_message" | "broadcast";
+  source_type: "ticket_reply" | "direct_message" | "broadcast" | "trial_warning" | "cap_warning";
   title: string;
   message: string;
   ticket_id: string | null;

@@ -14,9 +14,36 @@ import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
 import { Link } from "react-router-dom";
 import { ExternalLink, MessageSquarePlus, Radio, Trash2, X } from "lucide-react";
+import { differenceInCalendarDays } from "date-fns";
 import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
 
 type MessageTarget = { type: "single"; id: string; name: string } | { type: "broadcast" };
+
+// plan_status "expired" only ever happens after a trial's end date passes
+// without the doctor converting to a paid plan (converting flips plan_status
+// straight to "active") — so it inherently means "never converted", no
+// separate flag needed to distinguish that.
+function PlanStatusBadge({ row }: { row: any }) {
+  if (row.plan_status === "trial") {
+    if (!row.trial_end) return null;
+    const days = Math.max(0, differenceInCalendarDays(new Date(row.trial_end), new Date()));
+    return (
+      <Badge
+        variant="outline"
+        className={days <= 3 ? "border-warning/40 text-warning bg-warning/10" : "border-border text-muted-foreground"}
+      >
+        {days}d left
+      </Badge>
+    );
+  }
+  if (row.plan_status === "expired") {
+    return <Badge className="bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/15">Trial expired</Badge>;
+  }
+  if (row.plan_status === "cancelled") {
+    return <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">Suspended</Badge>;
+  }
+  return null;
+}
 
 // Bulk selection/delete mirrors the Doctor Side → Patients pattern
 // (PatientsPage.tsx) exactly: a select-mode toggle, row checkboxes + a
@@ -197,6 +224,7 @@ const SADoctors = () => {
                 <th className="text-left p-3">Clinic</th>
                 <th className="text-left p-3">City</th>
                 <th className="text-left p-3">Tier</th>
+                <th className="text-left p-3">Plan Status</th>
                 <th className="text-left p-3">Joined</th>
                 <th className="p-3"></th>
               </tr>
@@ -229,6 +257,7 @@ const SADoctors = () => {
                     <td className="p-3">{r.clinic_name || "—"}</td>
                     <td className="p-3">{r.city || "—"}</td>
                     <td className="p-3"><Badge>{r.plan_tier || "free"}</Badge></td>
+                    <td className="p-3"><PlanStatusBadge row={r} /></td>
                     <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-3">
@@ -255,7 +284,7 @@ const SADoctors = () => {
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No doctors found.</td></tr>
+                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No doctors found.</td></tr>
               )}
             </tbody>
           </table>
@@ -295,7 +324,10 @@ const SADoctors = () => {
                           {r.full_name || "—"}
                         </Link>
                       )}
-                      <Badge className="flex-shrink-0">{r.plan_tier || "free"}</Badge>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <PlanStatusBadge row={r} />
+                        <Badge>{r.plan_tier || "free"}</Badge>
+                      </div>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">{r.specialization || "—"}</div>
                     <div className="text-xs text-muted-foreground mt-1">

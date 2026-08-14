@@ -2,19 +2,40 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { Bell, BellOff, ChevronRight, Home, Megaphone, MessageSquare, Radio, LifeBuoy } from "lucide-react";
+import { AlertTriangle, Bell, BellOff, ChevronRight, Clock, Gauge, Home, Megaphone, MessageSquare, Radio, LifeBuoy } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useDoctorNotifications, type DoctorNotification } from "@/hooks/useDoctorNotifications";
+import { useTrialStatus } from "@/contexts/TrialStatusContext";
+import { Button } from "@/components/ui/button";
+import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 
 const SOURCE_ICON: Record<DoctorNotification["source_type"], typeof MessageSquare> = {
   ticket_reply: LifeBuoy,
   direct_message: MessageSquare,
   broadcast: Radio,
+  trial_warning: Clock,
+  cap_warning: Gauge,
 };
+
+// Coarse "Xh" / "Xd Yh" remaining, not a live-ticking countdown — this is a
+// soft/UI-level nudge (see TrialStatusContext), re-derived on every render
+// rather than a timer, which is precise enough given how often admin pages
+// naturally re-render/navigate during a session.
+function formatGraceRemaining(endsAt: Date | null): string | null {
+  if (!endsAt) return null;
+  const ms = endsAt.getTime() - Date.now();
+  if (ms <= 0) return null;
+  const hours = Math.floor(ms / (60 * 60 * 1000));
+  if (hours < 1) return "less than an hour";
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
+}
 
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
@@ -40,11 +61,15 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   const { mode, setTheme } = usePanelTheme("doctylia-admin-theme");
 
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useDoctorNotifications(profile?.id);
+  const trialStatus = useTrialStatus();
+  const graceRemaining = trialStatus.accessLevel === "grace" ? formatGraceRemaining(trialStatus.graceEndsAt) : null;
 
   const openNotification = (n: DoctorNotification) => {
     if (!n.is_read) markAsRead(n.id);
     if (n.source_type === "ticket_reply" && n.ticket_id) {
       navigate(`/admin/support?ticket=${n.ticket_id}`);
+    } else if (n.source_type === "trial_warning" || n.source_type === "cap_warning") {
+      navigate("/admin/billing");
     }
   };
 
@@ -166,6 +191,24 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
               )}
             </div>
           </header>
+          {trialStatus.accessLevel === "grace" && (
+            <div className="bg-warning/15 border-b border-warning/30 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm text-primary">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0 text-warning" />
+                <span>
+                  {trialStatus.isStaff
+                    ? "Your clinic's Doctylia plan needs renewal. Editing is disabled until it's upgraded — contact your administrator."
+                    : `Your trial has ended. You have read-only access${graceRemaining ? ` for ${graceRemaining} more` : ""} — upgrade to keep editing.`}
+                </span>
+              </div>
+              {!trialStatus.isStaff && (
+                <div className="flex gap-2 shrink-0">
+                  <UpgradeCheckoutDialog targetTier="pro" trigger={<Button size="sm" variant="outline">Upgrade Pro</Button>} />
+                  <UpgradeCheckoutDialog targetTier="premium" trigger={<Button size="sm" className="bg-royal hover:bg-royal/90">Upgrade Premium</Button>} />
+                </div>
+              )}
+            </div>
+          )}
           {banner && (
             <div className="bg-spark/20 border-b border-spark/30 px-4 py-2 flex items-center gap-2 text-sm text-primary">
               <Megaphone className="h-4 w-4 flex-shrink-0" />
