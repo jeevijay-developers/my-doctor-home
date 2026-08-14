@@ -81,7 +81,7 @@ const BeforeAfter = () => {
           <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
             See the Transformation
           </h2>
-          <p className="text-sm md:text-base text-muted-foreground mt-3">
+          <p className="text-muted-foreground mt-3">
             Thousands of doctors have switched from chaos to clarity. Here's what changes.
           </p>
         </div>

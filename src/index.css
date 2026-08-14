@@ -144,6 +144,12 @@
     @apply font-heading;
   }
 
+  /* Uniform paragraph font size across the Main Website, all breakpoints.
+     Excludes inline form validation messages (text-destructive), which act as field labels. */
+  .landing-page p:not(.text-destructive) {
+    font-size: 1rem;
+  }
+
   input::placeholder,
   textarea::placeholder {
     color: hsl(220 15% 45%);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { UserPlus, Settings, Rocket } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
+import goLiveImg from "@/assets/step-go-live-24-7.jpg";
 
 const steps = [
   {
@@ -22,8 +23,8 @@ const steps = [
     icon: Rocket, num: "03", title: "Go Live & Grow",
     desc: "Your branded website is live! Patients book, pay & consult you 24/7 on autopilot.",
     color: "from-accent to-spark",
-    img: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=260&fit=crop&q=80",
-    imgAlt: "Happy doctor with patients"
+    img: goLiveImg,
+    imgAlt: "24/7 patient care on autopilot"
   },
 ];
 
@@ -81,7 +82,7 @@ const HowItWorks = () => {
                     <h3 className="font-heading font-bold text-lg text-primary">{s.title}</h3>
                     <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto leading-relaxed">{s.desc}</p>
                     <div className="mt-3 rounded-xl overflow-hidden mx-auto max-w-[180px] shadow-md border border-border">
-                      <img src={s.img} alt={s.imgAlt} className="w-full h-24 object-cover" loading="lazy" />
+                      <img src={s.img} alt={s.imgAlt} className={`w-full h-24 ${s.imgFit ?? "object-cover"}`} loading="lazy" />
                     </div>
                   </motion.div>
                 </CarouselItem>
@@ -129,7 +130,7 @@ const HowItWorks = () => {
               <h3 className="font-heading font-bold text-lg md:text-xl text-primary">{s.title}</h3>
               <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto leading-relaxed">{s.desc}</p>
               <div className="mt-3 md:mt-4 rounded-xl overflow-hidden mx-auto max-w-[160px] md:max-w-[200px] shadow-md border border-border">
-                <img src={s.img} alt={s.imgAlt} className="w-full h-20 md:h-28 object-cover" loading="lazy" />
+                <img src={s.img} alt={s.imgAlt} className={`w-full h-20 md:h-28 ${s.imgFit ?? "object-cover"}`} loading="lazy" />
               </div>
             </motion.div>
           ))}
