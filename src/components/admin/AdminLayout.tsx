@@ -1,10 +1,9 @@
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Bell, BellOff, ChevronRight, Home, Megaphone, MessageSquare, Radio, LifeBuoy } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
-import ContactSupportDialog from "./ContactSupportDialog";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
@@ -26,11 +25,13 @@ const pageTitles: Record<string, string> = {
   "/admin/billing": "Billing",
   "/admin/settings": "Settings",
   "/admin/staff": "Staff Management",
+  "/admin/support": "Support",
 };
 
 const AdminLayout = ({ children }: { children: ReactNode }) => {
   const { profile, isStaff, staffName } = useProfile();
   const location = useLocation();
+  const navigate = useNavigate();
   const pageTitle = location.pathname.startsWith("/admin/patients/")
     ? "Medical Record"
     : pageTitles[location.pathname] || "Dashboard";
@@ -39,14 +40,11 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   const { mode, setTheme } = usePanelTheme("doctylia-admin-theme");
 
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useDoctorNotifications(profile?.id);
-  const [supportOpen, setSupportOpen] = useState(false);
-  const [supportTicketId, setSupportTicketId] = useState<string | undefined>(undefined);
 
   const openNotification = (n: DoctorNotification) => {
     if (!n.is_read) markAsRead(n.id);
     if (n.source_type === "ticket_reply" && n.ticket_id) {
-      setSupportTicketId(n.ticket_id);
-      setSupportOpen(true);
+      navigate(`/admin/support?ticket=${n.ticket_id}`);
     }
   };
 
@@ -130,7 +128,6 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                   )}
                 </PopoverContent>
               </Popover>
-              <ContactSupportDialog trigger={null} open={supportOpen} onOpenChange={setSupportOpen} initialTicketId={supportTicketId} />
               <div className="h-5 w-px bg-border" />
               {isStaff && (
                 <span className="hidden sm:inline-flex items-center text-[10px] font-bold uppercase tracking-wider bg-warning/15 text-warning px-2 py-1 rounded">

@@ -15,6 +15,7 @@ const SettingsPage = lazy(() => import("@/components/admin/SettingsPage"));
 const PrescriptionsPage = lazy(() => import("@/components/admin/PrescriptionsPage"));
 const ReviewsManagePage = lazy(() => import("@/components/admin/ReviewsManagePage"));
 const StaffManagementPage = lazy(() => import("@/components/admin/StaffManagementPage"));
+const SupportPage = lazy(() => import("@/components/admin/SupportPage"));
 
 const PageFallback = () => (
   <div className="flex items-center justify-center py-24">
@@ -44,6 +45,12 @@ const AdminDashboard = () => (
         <Route path="prescriptions" element={<PermissionGate permission="prescriptions.view"><PrescriptionsPage /></PermissionGate>} />
         <Route path="reviews" element={<PermissionGate permission="reviews.view"><ReviewsManagePage /></PermissionGate>} />
         <Route path="staff" element={<PermissionGate permission="staff.view"><StaffManagementPage /></PermissionGate>} />
+        {/* Not permission-gated — same as the sidebar's old Contact Support
+            trigger before this became a page. There's no staff.* permission
+            key for support requests, and RLS already scopes support_tickets
+            to auth.uid() = doctor_id, so a staff session lands on a correctly
+            empty page rather than someone else's data. */}
+        <Route path="support" element={<SupportPage />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </Suspense>

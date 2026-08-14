@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, LifeBuoy, Plus } from "lucide-react";
@@ -27,38 +28,30 @@ const STATUS_LABEL: Record<string, string> = {
 
 type View = "list" | "detail" | "form";
 
-const ContactSupportDialog = ({
-  trigger,
-  defaultSubject,
-  open: controlledOpen,
-  onOpenChange: controlledOnOpenChange,
-  initialTicketId,
-}: {
-  trigger?: React.ReactNode;
-  defaultSubject?: string;
-  /** Pass these two to drive the dialog externally (e.g. from a notification
-   *  bell click-through) instead of the default self-contained trigger button. */
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  /** Opens straight to this ticket's detail view instead of the list. */
-  initialTicketId?: string;
-}) => {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = controlledOpen ?? internalOpen;
-  const setOpen = controlledOnOpenChange ?? setInternalOpen;
+// Full page rather than a modal — was previously ContactSupportDialog,
+// opened two different ways (a sidebar-footer trigger, and a second,
+// separately-controlled instance for the notification bell's click-through)
+// that both rendered the exact same list/detail/form UI. Moving it to a
+// route collapses that into one code path: both entry points now just link
+// or navigate here instead of managing dialog-open state of their own.
+const SupportPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const ticketIdFromUrl = searchParams.get("ticket");
 
-  const [view, setView] = useState<View>("list");
+  const [view, setView] = useState<View>(ticketIdFromUrl ? "detail" : "list");
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
-  const [subject, setSubject] = useState(defaultSubject ?? "");
+  const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("normal");
   const [busy, setBusy] = useState(false);
 
   const loadTickets = async () => {
     setLoadingTickets(true);
+    setLoadError(null);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoadingTickets(false); return; }
     const { data, error } = await supabase
@@ -67,7 +60,7 @@ const ContactSupportDialog = ({
       .eq("doctor_id", user.id)
       .order("created_at", { ascending: false });
     if (error) {
-      toast({ title: "Couldn't load your requests", description: error.message, variant: "destructive" });
+      setLoadError(error.message);
       setLoadingTickets(false);
       return;
     }
@@ -75,28 +68,34 @@ const ContactSupportDialog = ({
     setLoadingTickets(false);
   };
 
+  useEffect(() => { loadTickets(); }, []);
+
+  // Resolve the "?ticket=" deep link (from the notification bell) to the
+  // actual row once tickets have loaded. Falls back to the list if the id
+  // doesn't match anything (stale link, or it belongs to another doctor).
   useEffect(() => {
-    if (!open) return;
-    loadTickets();
-    if (initialTicketId) {
-      // Clear any previously-selected ticket so the "detail" view shows a
-      // loading state instead of briefly flashing the wrong ticket's content
-      // while the new one resolves below.
-      setSelectedTicket(null);
-      setView("detail");
+    if (!ticketIdFromUrl || tickets.length === 0) return;
+    const t = tickets.find((x) => x.id === ticketIdFromUrl);
+    if (t) {
+      setSelectedTicket(t);
     } else {
       setView("list");
+      setSearchParams({}, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialTicketId]);
+  }, [ticketIdFromUrl, tickets]);
 
-  // Once tickets load, resolve initialTicketId (from a bell click) to the actual row.
-  useEffect(() => {
-    if (initialTicketId && tickets.length > 0) {
-      const t = tickets.find((x) => x.id === initialTicketId);
-      if (t) setSelectedTicket(t);
-    }
-  }, [initialTicketId, tickets]);
+  const openTicket = (t: Ticket) => {
+    setSelectedTicket(t);
+    setView("detail");
+    setSearchParams({ ticket: t.id }, { replace: true });
+  };
+
+  const backToList = () => {
+    setSelectedTicket(null);
+    setView("list");
+    if (searchParams.get("ticket")) setSearchParams({}, { replace: true });
+  };
 
   const submit = async () => {
     if (!subject.trim()) return;
@@ -109,36 +108,41 @@ const ContactSupportDialog = ({
     setBusy(false);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     toast({ title: "Support ticket raised", description: "Our team will get back to you soon." });
-    setSubject(defaultSubject ?? ""); setDescription(""); setPriority("normal");
+    setSubject(""); setDescription(""); setPriority("normal");
     setView("list");
     loadTickets();
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      {trigger !== null && (
-        <DialogTrigger asChild>
-          {trigger || (
-            <button className="flex items-center gap-2 text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 rounded-lg transition-colors">
-              <LifeBuoy className="h-4 w-4" /> <span>Contact Support</span>
-            </button>
-          )}
-        </DialogTrigger>
-      )}
-      <DialogContent className="max-w-md">
+    <div className="max-w-2xl mx-auto space-y-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
+            <LifeBuoy className="h-6 w-6 text-royal" /> Support
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Your support requests and Doctylia's replies.
+          </p>
+        </div>
         {view === "list" && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between gap-2">
-                My Support Requests
-                <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => setView("form")}>
-                  <Plus className="h-3.5 w-3.5" /> New Request
-                </Button>
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+          <Button className="bg-royal hover:bg-royal/90" onClick={() => setView("form")}>
+            <Plus className="h-4 w-4 mr-1" /> New Request
+          </Button>
+        )}
+      </div>
+
+      <Card>
+        <CardContent className="p-4 sm:p-6">
+          {view === "list" && (
+            <div className="space-y-2">
               {loadingTickets ? (
                 <p className="text-sm text-muted-foreground text-center py-6">Loading…</p>
+              ) : loadError ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-destructive font-medium">Couldn't load your requests</p>
+                  <p className="text-xs text-muted-foreground mt-1">{loadError}</p>
+                  <Button size="sm" variant="outline" className="mt-3" onClick={loadTickets}>Try again</Button>
+                </div>
               ) : tickets.length === 0 ? (
                 <div className="text-center py-8">
                   <LifeBuoy className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
@@ -148,12 +152,15 @@ const ContactSupportDialog = ({
                 tickets.map((t) => (
                   <button
                     key={t.id}
-                    onClick={() => { setSelectedTicket(t); setView("detail"); }}
+                    onClick={() => openTicket(t)}
                     className="w-full text-left border border-border rounded-lg p-3 hover:bg-secondary/60 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-medium text-sm text-foreground truncate">{t.subject}</span>
-                      <Badge variant="secondary" className="text-[10px] shrink-0">{STATUS_LABEL[t.status] || t.status}</Badge>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge variant="outline" className="text-[10px]">{t.priority}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">{STATUS_LABEL[t.status] || t.status}</Badge>
+                      </div>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       {new Date(t.created_at).toLocaleDateString()}
@@ -163,24 +170,20 @@ const ContactSupportDialog = ({
                 ))
               )}
             </div>
-          </>
-        )}
+          )}
 
-        {view === "detail" && !selectedTicket && (
-          <p className="text-sm text-muted-foreground text-center py-10">Loading…</p>
-        )}
+          {view === "detail" && !selectedTicket && (
+            <p className="text-sm text-muted-foreground text-center py-10">Loading…</p>
+          )}
 
-        {view === "detail" && selectedTicket && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <button onClick={() => setView("list")} className="text-muted-foreground hover:text-foreground" aria-label="Back to list">
+          {view === "detail" && selectedTicket && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <button onClick={backToList} className="text-muted-foreground hover:text-foreground" aria-label="Back to list">
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                {selectedTicket.subject}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
+                <h2 className="font-heading font-semibold text-foreground">{selectedTicket.subject}</h2>
+              </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-[10px]">{STATUS_LABEL[selectedTicket.status] || selectedTicket.status}</Badge>
                 <Badge variant="outline" className="text-[10px]">{selectedTicket.priority}</Badge>
@@ -199,22 +202,18 @@ const ContactSupportDialog = ({
                 <p className="text-xs text-muted-foreground italic">No response yet — our team will get back to you soon.</p>
               )}
             </div>
-          </>
-        )}
+          )}
 
-        {view === "form" && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+          {view === "form" && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
                 {tickets.length > 0 && (
-                  <button onClick={() => setView("list")} className="text-muted-foreground hover:text-foreground" aria-label="Back to list">
+                  <button onClick={backToList} className="text-muted-foreground hover:text-foreground" aria-label="Back to list">
                     <ArrowLeft className="h-4 w-4" />
                   </button>
                 )}
-                Contact Support
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
+                <h2 className="font-heading font-semibold text-foreground">New Request</h2>
+              </div>
               <div className="space-y-1.5">
                 <Label>Subject</Label>
                 <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="What do you need help with?" />
@@ -237,11 +236,11 @@ const ContactSupportDialog = ({
               </div>
               <Button onClick={submit} disabled={!subject.trim() || busy} className="w-full">{busy ? "Sending…" : "Send"}</Button>
             </div>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
-export default ContactSupportDialog;
+export default SupportPage;
