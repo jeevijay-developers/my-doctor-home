@@ -16,7 +16,7 @@ const allNavLinks = [
 ];
 
 const Navbar = () => {
-  const { profile, settings } = useDoctorData();
+  const { profile, settings, services, gallery } = useDoctorData();
   const { slug } = useParams<{ slug: string }>();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -54,7 +54,20 @@ const Navbar = () => {
     : "#";
 
   const showBlogLink = hasPublishedBlog && slug && settings?.show_blog === true;
-  const navLinks = allNavLinks.filter((l) => !l.settingKey || settings?.[l.settingKey] !== false);
+
+  const isServicesActive = settings?.show_services !== false && (services?.length || 0) > 0;
+  const isAboutActive = settings?.show_about !== false;
+  const isGalleryActive = settings?.show_gallery === true && (gallery?.length || 0) > 0;
+  const isReviewsActive = settings?.show_reviews !== false;
+  const isContactActive = settings?.show_clinic_details !== false;
+
+  const navLinks = [
+    { label: "Services", target: "services", show: isServicesActive },
+    { label: "About", target: "about", show: isAboutActive },
+    { label: "Gallery", target: "gallery", show: isGalleryActive },
+    { label: "Reviews", target: "reviews", show: isReviewsActive },
+    { label: "Contact", target: "contact", show: isContactActive },
+  ].filter((l) => l.show);
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-card/90 backdrop-blur-md shadow-sm border-b border-border" : "bg-transparent border-b border-transparent"}`}>

@@ -252,7 +252,7 @@ const MyWebsite = () => {
         <div className="w-full lg:w-[38%] overflow-y-auto border-r border-border bg-card p-4">
           {lastSaved && <p className="text-xs text-muted-foreground mb-3">Last saved: {lastSaved.toLocaleTimeString()}</p>}
 
-          <Accordion type="multiple" defaultValue={["hero", "services"]} className="space-y-2">
+          <Accordion type="multiple" defaultValue={[]} className="space-y-2">
             {/* Hero Section */}
             <AccordionItem value="hero" className="border rounded-xl px-4">
               <AccordionTrigger className="text-sm font-semibold text-primary">Hero Banner</AccordionTrigger>
