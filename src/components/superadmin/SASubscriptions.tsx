@@ -143,7 +143,14 @@ const SASubscriptions = () => {
     const row = rows.find((r) => r.id === id);
     if (!row) return;
 
-    const isoDate = new Date(`${d}T23:59:59Z`).toISOString();
+    // "23:59:59Z" (UTC) is actually early-morning-next-day in IST, so a
+    // doctor viewing their own timezone-local-formatted date would see one
+    // day later than what the superadmin picked (and than the server-side,
+    // UTC-formatted notification text shows). Anchor end-of-day to IST
+    // (this platform's business timezone, no DST) so every rendering of
+    // this instant — server or client, whatever viewer timezone — lands on
+    // the calendar date actually picked here.
+    const isoDate = new Date(`${d}T23:59:59+05:30`).toISOString();
     const updateData: any = {};
 
     if (row.plan_status === "trial") {

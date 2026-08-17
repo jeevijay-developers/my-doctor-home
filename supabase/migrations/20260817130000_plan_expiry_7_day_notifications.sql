@@ -22,8 +22,11 @@ BEGIN
     p.id, 
     'plan_warning', 
     'Subscription Expiring Soon',
-    'Your ' || INITCAP(p.plan_tier) || ' plan expires in ' || 
-    GREATEST(1, CEIL(EXTRACT(EPOCH FROM (p.plan_end - now())) / 86400)::int) || 
+    -- FLOOR (not CEIL) so this day-count matches the Settings page's
+    -- date-fns differenceInDays, which truncates rather than rounds up —
+    -- otherwise the two surfaces show different numbers for the same plan_end.
+    'Your ' || INITCAP(p.plan_tier) || ' plan expires in ' ||
+    GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (p.plan_end - now())) / 86400)::int) ||
     ' day(s) (on ' || to_char(p.plan_end, 'Mon DD, YYYY') || '). Renew or upgrade now to avoid any service interruption.'
   FROM public.profiles p
   WHERE p.plan_status = 'active'
