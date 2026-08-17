@@ -67,8 +67,8 @@ export function getSubscriptionCardStates(
 ): { basic: CardState; premium: CardState } {
   if (planStatus === "trial") {
     return {
-      premium: { badge: "Included via your trial", isCurrent: true, showCta: false },
-      basic: { badge: "What you'll have after your trial ends", isCurrent: false, showCta: false },
+      premium: { badge: "Included via your trial", isCurrent: true, showCta: true, ctaLabel: "Subscribe to Premium" },
+      basic: { badge: "What you'll have after your trial ends", isCurrent: false, showCta: true, ctaLabel: "Subscribe to Pro" },
     };
   }
   if (isPremium) {

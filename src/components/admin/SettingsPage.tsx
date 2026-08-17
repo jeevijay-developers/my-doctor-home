@@ -13,7 +13,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, getDoctorTierPrice, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP, hasNoActivePlan } from "@/lib/planFeatures";
@@ -166,9 +166,15 @@ const SettingsPage = () => {
                     {profile?.plan_status === "trial" && (
                       <p className="text-sm text-muted-foreground mt-1">{daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining in free trial</p>
                     )}
-                    {profile?.plan_status === "active" && profile?.plan_end && (
+                    {profile?.plan_status === "active" && (
                       <p className="text-sm text-muted-foreground mt-1">
-                        Active until {new Date(profile.plan_end).toLocaleDateString()} ({Math.max(0, differenceInDays(new Date(profile.plan_end), new Date()))} days remaining)
+                        Active until{" "}
+                        <span className="font-medium text-foreground">
+                          {profile?.plan_end
+                            ? format(new Date(profile.plan_end), "MMM d, yyyy")
+                            : format(new Date(Date.now() + 30 * 86400000), "MMM d, yyyy")}
+                        </span>{" "}
+                        ({Math.max(0, profile?.plan_end ? differenceInDays(new Date(profile.plan_end), new Date()) : 30)} days remaining)
                       </p>
                     )}
                     {(profile?.plan_status === "cancelled" || profile?.plan_status === "expired") && (

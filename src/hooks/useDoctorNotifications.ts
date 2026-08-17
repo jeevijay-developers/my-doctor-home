@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type DoctorNotification = {
   id: string;
-  source_type: "ticket_reply" | "direct_message" | "broadcast" | "trial_warning" | "cap_warning";
+  source_type: "ticket_reply" | "direct_message" | "broadcast" | "trial_warning" | "cap_warning" | "plan_warning";
   title: string;
   message: string;
   ticket_id: string | null;
@@ -19,6 +19,13 @@ export function useDoctorNotifications(doctorId: string | undefined) {
   const [notifications, setNotifications] = useState<DoctorNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Expiry/cap warnings (trial_warning, cap_warning, plan_warning) are
+  // inserted server-side by SECURITY DEFINER cron functions — never
+  // client-side. A doctor's own session has no INSERT policy on this
+  // table (by design: doctors only read/mark-read their own notifications,
+  // never write them), and mirroring that logic here would duplicate the
+  // cron's dedup/eligibility rules in a second place that drifts out of
+  // sync with it.
   const refresh = useCallback(async () => {
     if (!doctorId) { setNotifications([]); setLoading(false); return; }
     setLoading(true);
