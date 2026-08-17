@@ -1,6 +1,7 @@
 import { MapPin, Phone, Clock, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
+import { cardColorClass, type CardColor } from "@/lib/cardColor";
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -11,12 +12,12 @@ const InfoRow = ({ icon: Icon, children }: { icon: typeof MapPin; children: Reac
   </div>
 );
 
-const ClinicDetails = () => {
+const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { profile, workingHours, settings } = useDoctorData();
   const siteUrl = profile?.slug && typeof window !== "undefined" ? `${window.location.origin}/dr/${profile.slug}` : null;
 
   return (
-    <section id="contact" className="relative py-16 md:py-24 bg-card overflow-hidden">
+    <section id="contact" className={`relative py-16 md:py-24 overflow-hidden ${cardColorClass(cardColor)}`}>
       <svg
         className="absolute inset-0 w-full h-full opacity-[0.05] dark:opacity-[0.14] pointer-events-none"
         preserveAspectRatio="none"

@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { DoctorProvider, useDoctorData } from "@/contexts/DoctorContext";
 import Navbar from "@/components/doctor/Navbar";
 import HeroBanner from "@/components/doctor/HeroBanner";
-import QuickStats from "@/components/doctor/QuickStats";
 import AboutSection from "@/components/doctor/AboutSection";
 import ServicesSection from "@/components/doctor/ServicesSection";
 import GallerySection from "@/components/doctor/GallerySection";
@@ -13,9 +12,15 @@ import ClinicDetails from "@/components/doctor/ClinicDetails";
 import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 import SectionCard from "@/components/doctor/SectionCard";
+import { useMatchHeight } from "@/hooks/useMatchHeight";
 
 const DoctorPageContent = () => {
   const { profile, settings, loading, services, reviews, gallery } = useDoctorData();
+
+  // Hero and About cards naturally differ in height since their content
+  // (bio length, working-hours summary, bullet count, etc.) varies per
+  // doctor — this keeps them visually aligned regardless.
+  useMatchHeight("hero-card", "about");
 
   useEffect(() => {
     if (!profile?.display_name) return;
@@ -75,31 +80,61 @@ const DoctorPageContent = () => {
     );
   }
 
+  // Alternating card colors: Color A ("secondary") = About the Doctor card,
+  // Color B ("card") = Patient Review testimonial card. The Stats card
+  // (rendered inside HeroBanner) is always slot 1 (B) when shown, hardcoded
+  // in HeroBanner.tsx itself since its position never varies. Everything
+  // from here on is a card that may or may not render for a given doctor,
+  // so the slot counter only advances for cards that actually show — that
+  // way the alternation stays correct (and keeps working for any future
+  // card added to this list) regardless of which optional sections are on.
+  let slot = settings.show_quick_stats !== false ? 2 : 1;
+  const nextCardColor = () => {
+    const color = slot % 2 === 0 ? "secondary" : "card";
+    slot += 1;
+    return color;
+  };
+
+  const showAbout = settings.show_about !== false;
+  const showServices = settings.show_services !== false && services.length > 0;
+  const showGallery = Boolean(settings.show_gallery) && gallery.length > 0;
+  const showReviews = settings.show_reviews !== false;
+  const showBlog = Boolean(settings.show_blog);
+  const showClinicDetails = settings.show_clinic_details !== false;
+
+  const aboutColor = showAbout ? nextCardColor() : undefined;
+  const servicesColor = showServices ? nextCardColor() : undefined;
+  const galleryColor = showGallery ? nextCardColor() : undefined;
+  const bookingColor = nextCardColor(); // always rendered
+  const reviewsColor = showReviews ? nextCardColor() : undefined;
+  const blogColor = showBlog ? nextCardColor() : undefined;
+  const clinicDetailsColor = showClinicDetails ? nextCardColor() : undefined;
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-white dark:bg-black">
       <Navbar />
-      <HeroBanner />
-      {settings.show_quick_stats !== false && (
-        <AnimatedSection><QuickStats /></AnimatedSection>
+      {/* Hero card intentionally shares the exact same background color as
+          the About the Doctor card (falls back to "secondary" — About's own
+          default — on the rare doctor who has hidden the About section). */}
+      <HeroBanner cardColor={aboutColor ?? "secondary"} />
+      {showAbout && (
+        <AnimatedSection><SectionCard><AboutSection cardColor={aboutColor} /></SectionCard></AnimatedSection>
       )}
-      {settings.show_about !== false && (
-        <AnimatedSection><SectionCard><AboutSection /></SectionCard></AnimatedSection>
+      {showServices && (
+        <AnimatedSection><SectionCard><ServicesSection cardColor={servicesColor} /></SectionCard></AnimatedSection>
       )}
-      {settings.show_services !== false && services.length > 0 && (
-        <AnimatedSection><SectionCard><ServicesSection /></SectionCard></AnimatedSection>
+      {showGallery && (
+        <AnimatedSection><SectionCard><GallerySection cardColor={galleryColor} /></SectionCard></AnimatedSection>
       )}
-      {settings.show_gallery && gallery.length > 0 && (
-        <AnimatedSection><SectionCard><GallerySection /></SectionCard></AnimatedSection>
+      <AnimatedSection><SectionCard><BookingWidget cardColor={bookingColor} /></SectionCard></AnimatedSection>
+      {showReviews && (
+        <AnimatedSection><SectionCard><ReviewsSection cardColor={reviewsColor} /></SectionCard></AnimatedSection>
       )}
-      <AnimatedSection><SectionCard><BookingWidget /></SectionCard></AnimatedSection>
-      {settings.show_reviews !== false && (
-        <AnimatedSection><SectionCard><ReviewsSection /></SectionCard></AnimatedSection>
+      {showBlog && (
+        <AnimatedSection><SectionCard><BlogPreview cardColor={blogColor} /></SectionCard></AnimatedSection>
       )}
-      {settings.show_blog && (
-        <AnimatedSection><SectionCard><BlogPreview /></SectionCard></AnimatedSection>
-      )}
-      {settings.show_clinic_details !== false && (
-        <AnimatedSection><SectionCard><ClinicDetails /></SectionCard></AnimatedSection>
+      {showClinicDetails && (
+        <AnimatedSection><SectionCard><ClinicDetails cardColor={clinicDetailsColor} /></SectionCard></AnimatedSection>
       )}
       <Footer />
     </div>
