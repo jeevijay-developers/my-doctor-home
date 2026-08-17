@@ -86,9 +86,9 @@ const SASubscriptions = () => {
       });
 
   useEffect(() => { load(); loadUpgradePayments(); loadPendingPlans(); }, []);
-
+  const trialCount = rows.filter((r) => r.plan_status === "trial").length;
   const tiers = ["free", "pro", "premium"];
-  const tierCounts = Object.fromEntries(tiers.map((t) => [t, rows.filter((r) => (r.plan_tier || "free") === t).length]));
+  const tierCounts = Object.fromEntries(tiers.map((t) => [t, rows.filter((r) => r.plan_status === "active" && (r.plan_tier || "free") === t).length]));
   const customCount = rows.filter((r) => r.custom_plan_price != null).length;
 
   const filtered = useMemo(() => {
@@ -119,7 +119,8 @@ const SASubscriptions = () => {
     if (!pendingTierChange) return;
     const { id, tier, prev, wasTrial, hasCustom } = pendingTierChange;
 
-    const update: any = { plan_tier: tier, plan_status: "active", trial_end: null };
+    const planEnd = new Date(Date.now() + 30 * 86400000).toISOString();
+    const update: any = { plan_tier: tier, plan_status: "active", trial_end: null, plan_end: planEnd };
     if (hasCustom && !keepCustomPrice) update.custom_plan_price = null;
 
     const { error } = await supabase.from("profiles").update(update).eq("id", id);
@@ -139,10 +140,36 @@ const SASubscriptions = () => {
   const extend = async (id: string) => {
     const d = dates[id];
     if (!d) return;
-    const { error } = await supabase.from("profiles").update({ trial_end: d, plan_status: "trial" }).eq("id", id);
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+
+    const isoDate = new Date(`${d}T23:59:59Z`).toISOString();
+    const updateData: any = {};
+
+    if (row.plan_status === "trial") {
+      updateData.trial_end = isoDate;
+    } else {
+      updateData.plan_end = isoDate;
+      if (row.plan_status === "expired" || row.plan_status === "cancelled") {
+        updateData.plan_status = "active";
+      }
+    }
+
+    const { error } = await supabase.from("profiles").update(updateData).eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
-    await logAdminAction("extend_trial", "profiles", id, { new_trial_end: d });
-    toast({ title: "Trial extended" });
+
+    await logAdminAction(row.plan_status === "trial" ? "extend_trial" : "extend_subscription_expiry", "profiles", id, {
+      new_expiry: isoDate,
+      plan_status: row.plan_status,
+      plan_tier: row.plan_tier,
+    });
+
+    toast({
+      title: "Expiry date updated",
+      description: row.plan_status === "trial"
+        ? `Trial date set to ${d}.`
+        : `${(row.plan_tier || "Plan").toUpperCase()} plan expiry date updated to ${d}. Plan remains active.`,
+    });
     setDates((x) => ({ ...x, [id]: "" }));
     load();
   };
@@ -158,29 +185,34 @@ const SASubscriptions = () => {
       toast({ title: "Invalid price", description: "Price must be zero or a positive number.", variant: "destructive" });
       return;
     }
-    const prev = rows.find((r) => r.id === id)?.custom_plan_price ?? null;
+
     const { error } = await supabase.from("profiles").update({ custom_plan_price: value }).eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
-    await logAdminAction("set_custom_price", "profiles", id, { from: prev, to: value });
-    toast({ title: "Custom price saved", description: `Doctor will now be billed ₹${value}.` });
+    await logAdminAction("set_custom_price", "profiles", id, { custom_price: value });
+    toast({ title: "Custom price saved", description: `Override set to ₹${value} for this doctor.` });
     setPrices((x) => ({ ...x, [id]: "" }));
     load();
   };
 
-  const resetCustomPrice = async (id: string) => {
-    const prev = rows.find((r) => r.id === id)?.custom_plan_price ?? null;
-    if (prev == null) return;
+  const clearCustomPrice = async (id: string) => {
     const { error } = await supabase.from("profiles").update({ custom_plan_price: null }).eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
-    await logAdminAction("reset_custom_price", "profiles", id, { from: prev });
-    toast({ title: "Custom price removed", description: "Doctor reverted to standard plan price." });
+    await logAdminAction("clear_custom_price", "profiles", id, {});
+    toast({ title: "Custom price reset", description: "Doctor reverted to standard plan pricing." });
     setPrices((x) => ({ ...x, [id]: "" }));
     load();
   };
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs uppercase text-muted-foreground">In Trial</div>
+            <div className="text-2xl font-bold text-amber-500">{trialCount}</div>
+            <div className="text-xs text-muted-foreground mt-1">free trial active</div>
+          </CardContent>
+        </Card>
         {tiers.map((t) => (
           <Card key={t}>
             <CardContent className="p-4">
@@ -264,8 +296,8 @@ const SASubscriptions = () => {
                 <th className="text-left p-3">Effective Price</th>
                 <th className="text-left p-3">Change Tier</th>
                 <th className="text-left p-3">Custom Price (₹)</th>
-                <th className="text-left p-3">Trial end</th>
-                <th className="text-left p-3">Extend</th>
+                <th className="text-left p-3">Expiry / Trial End</th>
+                <th className="text-left p-3">Extend Date</th>
               </tr>
             </thead>
             <tbody>
@@ -285,7 +317,13 @@ const SASubscriptions = () => {
                       <div className="text-xs text-muted-foreground">{r.clinic_name}</div>
                     </td>
                     <td className="p-3">
-                      <Badge className="bg-royal/10 text-royal hover:bg-royal/10 border-royal/20 capitalize">{tier}</Badge>
+                      {r.plan_status === "trial" ? (
+                        <Badge variant="secondary" className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 capitalize">
+                          Trial ({tier})
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-royal/10 text-royal hover:bg-royal/10 border-royal/20 capitalize">{tier}</Badge>
+                      )}
                       {pendingPlansMap[r.id] && (
                         <div className="mt-1">
                           <Badge variant="outline" className="bg-royal/5 border-royal/30 text-[10px] text-royal font-medium">
@@ -340,7 +378,13 @@ const SASubscriptions = () => {
                         </Button>
                       </div>
                     </td>
-                    <td className="p-3 text-xs">{r.trial_end ? new Date(r.trial_end).toLocaleDateString() : "—"}</td>
+                    <td className="p-3 text-xs">
+                      {r.plan_status === "trial" ? (
+                        r.trial_end ? new Date(r.trial_end).toLocaleDateString() : "—"
+                      ) : (
+                        r.plan_end ? new Date(r.plan_end).toLocaleDateString() : "—"
+                      )}
+                    </td>
                     <td className="p-3">
                       <div className="flex gap-2">
                         <Input type="date" className="h-8 w-36" value={dates[r.id] || ""} onChange={(e) => setDates((x) => ({ ...x, [r.id]: e.target.value }))} />

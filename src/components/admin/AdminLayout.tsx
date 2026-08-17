@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { AlertTriangle, Bell, BellOff, ChevronRight, Clock, Gauge, Home, Megaphone, MessageSquare, Radio, LifeBuoy } from "lucide-react";
+import { AlertTriangle, Bell, BellOff, ChevronRight, Clock, CreditCard, Gauge, Home, Megaphone, MessageSquare, Radio, LifeBuoy } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,6 +19,7 @@ const SOURCE_ICON: Record<DoctorNotification["source_type"], typeof MessageSquar
   broadcast: Radio,
   trial_warning: Clock,
   cap_warning: Gauge,
+  plan_warning: CreditCard,
 };
 
 // Coarse "Xh" / "Xd Yh" remaining, not a live-ticking countdown — this is a
@@ -68,8 +69,8 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
     if (!n.is_read) markAsRead(n.id);
     if (n.source_type === "ticket_reply" && n.ticket_id) {
       navigate(`/admin/support?ticket=${n.ticket_id}`);
-    } else if (n.source_type === "trial_warning" || n.source_type === "cap_warning") {
-      navigate("/admin/billing");
+    } else if (n.source_type === "trial_warning" || n.source_type === "cap_warning" || n.source_type === "plan_warning") {
+      navigate("/admin/settings?tab=subscription");
     }
   };
 
