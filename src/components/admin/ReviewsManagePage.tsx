@@ -5,6 +5,7 @@ import { Star, Pin, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 type Review = {
@@ -15,6 +16,7 @@ type Review = {
 const ReviewsManagePage = () => {
   const { profile, can } = useProfile();
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [selected, setSelected] = useState<Review | null>(null);
 
   const load = async () => {
     if (!profile) return;
@@ -27,6 +29,7 @@ const ReviewsManagePage = () => {
   const togglePin = async (id: string, current: boolean) => {
     await supabase.from("reviews").update({ is_pinned: !current } as any).eq("id", id);
     load();
+    setSelected((prev) => (prev && prev.id === id ? { ...prev, is_pinned: !current } : prev));
     toast.success(!current ? "Review pinned" : "Review unpinned");
   };
 
@@ -76,7 +79,6 @@ const ReviewsManagePage = () => {
                   <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <th className="px-4 py-3">Patient</th>
                     <th className="px-4 py-3 whitespace-nowrap">Rating</th>
-                    <th className="px-4 py-3 hidden md:table-cell">Review</th>
                     <th className="px-4 py-3 hidden lg:table-cell whitespace-nowrap">Date</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
@@ -86,7 +88,8 @@ const ReviewsManagePage = () => {
                   {reviews.map((r) => (
                     <tr
                       key={r.id}
-                      className={`border-b border-border/60 last:border-0 transition-colors hover:bg-secondary/40 ${
+                      onClick={() => setSelected(r)}
+                      className={`border-b border-border/60 last:border-0 transition-colors hover:bg-secondary/40 cursor-pointer ${
                         r.is_pinned ? "bg-warning/5" : ""
                       }`}
                     >
@@ -110,9 +113,6 @@ const ReviewsManagePage = () => {
                           ))}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell max-w-[320px]">
-                        <span className="line-clamp-2">{r.review_text || "—"}</span>
-                      </td>
                       <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
                         {new Date(r.created_at).toLocaleDateString()}
                       </td>
@@ -128,7 +128,7 @@ const ReviewsManagePage = () => {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
                           {can("reviews.manage") && (
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => togglePin(r.id, r.is_pinned)} title={r.is_pinned ? "Unpin" : "Pin"}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); togglePin(r.id, r.is_pinned); }} title={r.is_pinned ? "Unpin" : "Pin"}>
                               <Pin className={`h-4 w-4 ${r.is_pinned ? "text-warning" : "text-muted-foreground/40"}`} />
                             </Button>
                           )}
@@ -144,7 +144,11 @@ const ReviewsManagePage = () => {
           {/* Cards — mobile */}
           <div className="md:hidden space-y-2">
             {reviews.map((r) => (
-              <Card key={r.id} className={`border-border/60 shadow-none ${r.is_pinned ? "bg-warning/5" : ""}`}>
+              <Card
+                key={r.id}
+                onClick={() => setSelected(r)}
+                className={`border-border/60 shadow-none cursor-pointer transition-colors hover:bg-secondary/40 ${r.is_pinned ? "bg-warning/5" : ""}`}
+              >
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
@@ -157,7 +161,7 @@ const ReviewsManagePage = () => {
                       </div>
                     </div>
                     {can("reviews.manage") && (
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0" onClick={() => togglePin(r.id, r.is_pinned)} title={r.is_pinned ? "Unpin" : "Pin"}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0" onClick={(e) => { e.stopPropagation(); togglePin(r.id, r.is_pinned); }} title={r.is_pinned ? "Unpin" : "Pin"}>
                         <Pin className={`h-4 w-4 ${r.is_pinned ? "text-warning" : "text-muted-foreground/40"}`} />
                       </Button>
                     )}
@@ -167,7 +171,6 @@ const ReviewsManagePage = () => {
                       <Star key={i} className={`h-3.5 w-3.5 ${i < r.rating ? "text-warning fill-warning" : "text-muted-foreground/20"}`} />
                     ))}
                   </div>
-                  {r.review_text && <p className="text-sm text-muted-foreground line-clamp-3">{r.review_text}</p>}
                   <div className="flex flex-wrap gap-1">
                     {r.is_verified && <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">Verified</Badge>}
                     {r.is_pinned && <Badge variant="secondary" className="text-[10px] bg-warning/10 text-warning">Pinned</Badge>}
@@ -181,6 +184,59 @@ const ReviewsManagePage = () => {
           </div>
         </>
       )}
+
+      {/* Review detail — full, untruncated text (the table/card list clips
+          long reviews with line-clamp for scannability). */}
+      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <DialogContent className="max-w-lg">
+          {selected && (
+            <div className="space-y-4">
+              <DialogHeader>
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full bg-warning/10 flex items-center justify-center text-base font-bold text-warning flex-shrink-0">
+                    {selected.patient_name?.charAt(0)?.toUpperCase() || "P"}
+                  </div>
+                  <div className="min-w-0">
+                    <DialogTitle className="truncate">{selected.patient_name}</DialogTitle>
+                    <p className="text-xs text-muted-foreground">{new Date(selected.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className={`h-4 w-4 ${i < selected.rating ? "text-warning fill-warning" : "text-muted-foreground/20"}`} />
+                ))}
+              </div>
+
+              <p className="text-sm text-foreground whitespace-pre-wrap">
+                {selected.review_text || "No written review — rating only."}
+              </p>
+
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <div className="flex flex-wrap gap-1">
+                  {selected.is_verified && <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">Verified</Badge>}
+                  {selected.is_pinned && <Badge variant="secondary" className="text-[10px] bg-warning/10 text-warning">Pinned</Badge>}
+                  {!selected.is_pinned && !selected.is_verified && (
+                    <Badge variant="secondary" className="text-[10px] bg-secondary">Published</Badge>
+                  )}
+                </div>
+                {can("reviews.manage") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => togglePin(selected.id, selected.is_pinned)}
+                  >
+                    <Pin className={`h-3.5 w-3.5 mr-1.5 ${selected.is_pinned ? "text-warning" : ""}`} />
+                    {selected.is_pinned ? "Unpin" : "Pin"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
