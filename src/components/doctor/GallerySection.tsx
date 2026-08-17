@@ -3,6 +3,7 @@ import { useDoctorData } from "@/contexts/DoctorContext";
 import {
   Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
 } from "@/components/ui/carousel";
+import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 // Switch from a static grid to a carousel once there are enough photos to page through.
@@ -31,7 +32,7 @@ const GalleryCard = ({ p, onClick, className = "" }: { p: any; onClick?: () => v
   </div>
 );
 
-const GallerySection = () => {
+const GallerySection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
   const { gallery } = useDoctorData();
   const [api, setApi] = useState<CarouselApi>();
   const [selected, setSelected] = useState(0);
@@ -59,7 +60,7 @@ const GallerySection = () => {
   if (gallery.length === 0) return null;
 
   return (
-    <section id="gallery" className="relative py-16 md:py-24 bg-secondary overflow-hidden">
+    <section id="gallery" className={`relative py-16 md:py-24 overflow-hidden ${cardColorClass(cardColor)}`}>
       <div
         className="absolute inset-0 opacity-[0.05] dark:opacity-[0.12] pointer-events-none"
         style={{

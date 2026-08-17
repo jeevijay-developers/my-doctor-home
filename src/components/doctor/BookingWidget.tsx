@@ -16,6 +16,7 @@ import { loadRazorpayCheckout } from "@/lib/razorpayCheckout";
 import AppointmentSlip from "./AppointmentSlip";
 import PaymentSlip from "./PaymentSlip";
 import MockCheckoutModal from "./MockCheckoutModal";
+import { cardColorClass, type CardColor } from "@/lib/cardColor";
 
 const getNextDays = (count: number) => {
   const days = [];
@@ -71,7 +72,7 @@ type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string
 
 const STEP_LABELS = ["Consultation Type", "Select Service", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
 
-const BookingWidget = () => {
+const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { profile, services, settings, workingHours, isPremium } = useDoctorData();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [step, setStep] = useState(1);
@@ -442,7 +443,7 @@ const BookingWidget = () => {
 
   if (confirmed) {
     return (
-      <section id="booking" className="py-16 md:py-24 bg-cloud-blue">
+      <section id="booking" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
         <div className="container mx-auto px-4 max-w-lg">
           <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
             <CheckCircle2 size={64} className="text-success mx-auto mb-4" />
@@ -563,7 +564,7 @@ const BookingWidget = () => {
   // cached order so retrying never creates a duplicate.
   if (paymentFailed) {
     return (
-      <section id="booking" className="py-16 md:py-24 bg-cloud-blue">
+      <section id="booking" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
         <div className="container mx-auto px-4 max-w-lg">
           <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
             <XCircle size={64} className="text-destructive mx-auto mb-4" />
@@ -618,7 +619,7 @@ const BookingWidget = () => {
   }
 
   return (
-    <section id="booking" className="py-16 md:py-24 bg-cloud-blue">
+    <section id="booking" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
       <div className="container mx-auto px-4 max-w-2xl">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-2">Book an Appointment</h2>
         <p className="text-text-gray text-center mb-4">Select your preference and book in under 2 minutes</p>

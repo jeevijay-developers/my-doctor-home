@@ -9,6 +9,7 @@ import BlogImagePlaceholder from "./BlogImagePlaceholder";
 import {
   Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
 } from "@/components/ui/carousel";
+import { cardColorClass, type CardColor } from "@/lib/cardColor";
 
 // Switch from a static row to a carousel once there are enough articles to page through.
 const CAROUSEL_THRESHOLD = 3;
@@ -49,7 +50,7 @@ const BlogCard = ({ post, slug }: { post: any; slug?: string }) => {
   );
 };
 
-const BlogPreview = () => {
+const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
   const { profile, settings } = useDoctorData();
   const { slug } = useParams<{ slug: string }>();
   const [posts, setPosts] = useState<any[]>([]);
@@ -77,7 +78,7 @@ const BlogPreview = () => {
   if (!settings?.show_blog || posts.length === 0) return null;
 
   return (
-    <section id="blog" className="py-16 md:py-24 bg-secondary">
+    <section id="blog" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-center gap-6 mb-10">
           <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground">Health Articles</h2>

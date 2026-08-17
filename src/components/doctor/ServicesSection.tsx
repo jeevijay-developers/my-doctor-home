@@ -6,6 +6,7 @@ import AnimatedItem from "@/components/landing/AnimatedItem";
 import {
   Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
 } from "@/components/ui/carousel";
+import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Switch from a static row to a carousel once there are enough services to page through.
@@ -60,7 +61,7 @@ const ServiceCard = ({ s, onBook, onSeeMore }: { s: any; onBook: () => void; onS
   );
 };
 
-const ServicesSection = () => {
+const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { services } = useDoctorData();
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
@@ -80,7 +81,7 @@ const ServicesSection = () => {
   }, [api]);
 
   return (
-    <section id="services" className="relative py-16 md:py-24 bg-card overflow-hidden">
+    <section id="services" className={`relative py-16 md:py-24 overflow-hidden ${cardColorClass(cardColor)}`}>
       <div
         className="absolute inset-0 opacity-[0.16] dark:opacity-[0.12] pointer-events-none"
         style={{

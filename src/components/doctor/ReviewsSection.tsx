@@ -9,8 +9,13 @@ import { toast } from "sonner";
 import {
   Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
 } from "@/components/ui/carousel";
+import { cardColorClass, type CardColor } from "@/lib/cardColor";
 
-const ReviewsSection = () => {
+// NOTE: the individual patient review testimonial card below (ReviewCard,
+// line ~137) is "the Patient Review card" referenced as Color B elsewhere
+// on this page — it always stays bg-card, unaffected by this section's own
+// alternating background (cardColor prop), which is a different element.
+const ReviewsSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { reviews, profile } = useDoctorData();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -56,7 +61,7 @@ const ReviewsSection = () => {
 
   if (reviews.length === 0) {
     return (
-      <section id="reviews" className="relative py-16 md:py-24 bg-card overflow-hidden">
+      <section id="reviews" className={`relative py-16 md:py-24 overflow-hidden ${cardColorClass(cardColor)}`}>
         <Quote
           size={220}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-royal/[0.05] dark:text-royal/[0.15] pointer-events-none"
@@ -77,7 +82,7 @@ const ReviewsSection = () => {
   const shownReviews = reviews.slice(0, 5);
 
   return (
-    <section id="reviews" className="py-16 md:py-24 bg-card">
+    <section id="reviews" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
       <div className="container mx-auto px-4 text-center">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground mb-2">Patient Reviews</h2>
         <p className="text-text-gray mb-2">What our patients say about Dr. {profile?.full_name || "Doctor"}</p>
@@ -136,7 +141,6 @@ const ReviewsSection = () => {
 
 const ReviewCard = ({ r }: { r: any }) => (
   <div className="hover-lift relative bg-card border border-border shadow-sm rounded-2xl p-6 overflow-hidden h-full">
-    <Quote size={56} className="absolute -top-2 -right-2 text-royal/[0.08] dark:text-royal/[0.2] pointer-events-none" fill="currentColor" />
     <div className="flex items-center justify-between mb-3 relative z-10">
       <div>
         <p className="font-heading font-semibold text-foreground">{r.patient_name}</p>

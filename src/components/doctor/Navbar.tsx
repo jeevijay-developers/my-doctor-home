@@ -80,9 +80,16 @@ const Navbar = () => {
               {profile?.full_name?.charAt(0) || "D"}
             </div>
           )}
-          <span className="font-heading font-bold text-foreground text-lg hidden sm:block">
-            Dr. {profile?.full_name || "Doctor"}
-          </span>
+          <div className="hidden sm:flex flex-col justify-center leading-tight">
+            <span className="font-heading font-bold text-foreground text-lg leading-tight">
+              Dr. {profile?.full_name || "Doctor"}
+            </span>
+            {profile?.specialization && (
+              <span className="text-xs text-text-gray leading-tight">
+                {profile.specialization}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="hidden lg:flex items-center gap-7">
