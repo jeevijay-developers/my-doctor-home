@@ -27,8 +27,17 @@ const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 
 const MyWebsite = () => {
   const nav = useNavigate();
-  const { profile } = useProfile();
+  const { profile, isStaff, can } = useProfile();
   const { isPremium } = usePlanAccess();
+  // This page is route-gated only on "View My Website" (website.view), so a
+  // staff member with just that checkbox reaches it — but everything below
+  // (services, hours, gallery, settings) writes through website.edit /
+  // website.settings, and review pin/hide writes through reviews.manage
+  // (see the staff_permission_policies migration). Without these, the editor
+  // showed every control as if it were usable regardless of what the doctor
+  // actually granted, and only silently failed at the RLS layer on save.
+  const canEditWebsite = !isStaff || can("website.edit") || can("website.settings");
+  const canManageReviews = !isStaff || can("reviews.manage");
   const [settings, setSettings] = useState<WebSettings>({});
   const [aboutOpen, setAboutOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
@@ -65,7 +74,7 @@ const MyWebsite = () => {
   }, [saveAllRef]);
 
   const saveAll = async (silent = false) => {
-    if (!profile) return;
+    if (!profile || !canEditWebsite) return;
     setSaving(true);
 
     for (const s of services) {
@@ -119,8 +128,12 @@ const MyWebsite = () => {
 
   const updateSetting = (key: string, value: any) => setSettings((prev) => ({ ...prev, [key]: value }));
 
-  const addService = () => setServices([...services, { name: "", description: "", price: 500, type: "clinic", duration: 30, active: true, sort_order: services.length }]);
+  const addService = () => {
+    if (!canEditWebsite) return;
+    setServices([...services, { name: "", description: "", price: 500, type: "clinic", duration: 30, active: true, sort_order: services.length }]);
+  };
   const removeService = async (idx: number) => {
+    if (!canEditWebsite) return;
     const s = services[idx];
     if (s.id) await supabase.from("services").delete().eq("id", s.id);
     setServices(services.filter((_, i) => i !== idx));
@@ -139,12 +152,14 @@ const MyWebsite = () => {
   };
 
   const toggleReviewVisibility = async (id: string, visible: boolean) => {
+    if (!canManageReviews) return;
     await supabase.from("reviews").update({ is_visible: visible }).eq("id", id);
     setReviews(reviews.map((r) => r.id === id ? { ...r, is_visible: visible } : r));
     toast({ title: visible ? "Review shown" : "Review hidden" });
   };
 
   const toggleReviewPin = async (id: string, pinned: boolean) => {
+    if (!canManageReviews) return;
     await supabase.from("reviews").update({ is_pinned: pinned }).eq("id", id);
     setReviews(reviews.map((r) => r.id === id ? { ...r, is_pinned: pinned } : r));
     toast({ title: pinned ? "Review pinned" : "Review unpinned" });
@@ -181,9 +196,11 @@ const MyWebsite = () => {
               <Button size="sm" variant="ghost"><ExternalLink className="h-3 w-3 mr-1" /> View</Button>
             </a>
           )}
-          <Button size="sm" onClick={() => saveAll(false)} disabled={saving} className="bg-royal hover:bg-royal/90">
-            <Save className="h-3 w-3 mr-1" /> {saving ? "Saving..." : "Save"}
-          </Button>
+          {canEditWebsite && (
+            <Button size="sm" onClick={() => saveAll(false)} disabled={saving} className="bg-royal hover:bg-royal/90">
+              <Save className="h-3 w-3 mr-1" /> {saving ? "Saving..." : "Save"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -245,8 +262,10 @@ const MyWebsite = () => {
                     <div className="flex items-center justify-between">
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                       <div className="flex items-center gap-2">
-                        <Switch checked={s.active} onCheckedChange={(v) => updateService(i, "active", v)} />
-                        <button onClick={() => removeService(i)}><Trash2 className="h-4 w-4 text-destructive" /></button>
+                        <Switch checked={s.active} onCheckedChange={(v) => updateService(i, "active", v)} disabled={!canEditWebsite} />
+                        {canEditWebsite && (
+                          <button onClick={() => removeService(i)}><Trash2 className="h-4 w-4 text-destructive" /></button>
+                        )}
                       </div>
                     </div>
                     <Input placeholder="Service name" value={s.name} onChange={(e) => updateService(i, "name", e.target.value)} />
@@ -264,7 +283,9 @@ const MyWebsite = () => {
                     </div>
                   </div>
                 ))}
-                <Button size="sm" variant="outline" onClick={addService}><Plus className="h-3 w-3 mr-1" /> Add Service</Button>
+                {canEditWebsite && (
+                  <Button size="sm" variant="outline" onClick={addService}><Plus className="h-3 w-3 mr-1" /> Add Service</Button>
+                )}
               </AccordionContent>
             </AccordionItem>
 
@@ -273,12 +294,12 @@ const MyWebsite = () => {
               <AccordionTrigger className="text-sm font-semibold text-primary">
                 <div className="flex items-center justify-between w-full pr-2">
                   Gallery
-                  <Switch checked={settings.show_gallery ?? false} onCheckedChange={(v) => updateSetting("show_gallery", v)} onClick={(e) => e.stopPropagation()} />
+                  <Switch checked={settings.show_gallery ?? false} onCheckedChange={(v) => updateSetting("show_gallery", v)} onClick={(e) => e.stopPropagation()} disabled={!canEditWebsite} />
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pb-4">
                 <p className="text-xs text-muted-foreground mb-2">Upload up to 6 clinic photos with optional captions.</p>
-                <GalleryUploader doctorId={profile?.id} />
+                <GalleryUploader doctorId={profile?.id} canEdit={canEditWebsite} />
               </AccordionContent>
             </AccordionItem>
 
@@ -467,6 +488,7 @@ const MyWebsite = () => {
                           {[...Array(r.rating)].map((_, i) => <Star key={i} size={12} className="text-warning fill-warning" />)}
                         </div>
                       </div>
+                      {canManageReviews && (
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <Button size="sm" variant="ghost" className={`h-7 px-2 ${r.is_pinned ? "text-royal" : "text-muted-foreground"}`}
                           onClick={() => toggleReviewPin(r.id, !r.is_pinned)} title={r.is_pinned ? "Unpin" : "Pin to top"}>
@@ -477,6 +499,7 @@ const MyWebsite = () => {
                           {r.is_visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                         </Button>
                       </div>
+                      )}
                     </div>
                     {r.review_text && <p className="text-xs text-muted-foreground line-clamp-3 break-words">{r.review_text}</p>}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
@@ -576,7 +599,7 @@ const MyWebsite = () => {
 };
 
 // Gallery sub-component with captions
-const GalleryUploader = ({ doctorId }: { doctorId?: string }) => {
+const GalleryUploader = ({ doctorId, canEdit }: { doctorId?: string; canEdit: boolean }) => {
   const [photos, setPhotos] = useState<any[]>([]);
   const [editingCaption, setEditingCaption] = useState<string | null>(null);
 
@@ -587,7 +610,7 @@ const GalleryUploader = ({ doctorId }: { doctorId?: string }) => {
 
   const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !doctorId || photos.length >= 6) return;
+    if (!file || !doctorId || !canEdit || photos.length >= 6) return;
     const ext = file.name.split(".").pop();
     const path = `${doctorId}/gallery/${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from("doctor-uploads").upload(path, file);
@@ -600,11 +623,13 @@ const GalleryUploader = ({ doctorId }: { doctorId?: string }) => {
   };
 
   const remove = async (id: string) => {
+    if (!canEdit) return;
     await supabase.from("gallery_photos").delete().eq("id", id);
     setPhotos(photos.filter((p) => p.id !== id));
   };
 
   const updateCaption = async (id: string, caption: string) => {
+    if (!canEdit) return;
     await supabase.from("gallery_photos").update({ caption }).eq("id", id);
     setPhotos(photos.map((p) => p.id === id ? { ...p, caption } : p));
     setEditingCaption(null);
@@ -616,7 +641,9 @@ const GalleryUploader = ({ doctorId }: { doctorId?: string }) => {
         <div key={p.id} className="space-y-1">
           <div className="relative aspect-square rounded-lg overflow-hidden group">
             <img src={p.photo_url} alt={p.caption || ""} className="w-full h-full object-cover" />
-            <button onClick={() => remove(p.id)} className="absolute top-1 right-1 bg-destructive/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><Trash2 className="h-3 w-3" /></button>
+            {canEdit && (
+              <button onClick={() => remove(p.id)} className="absolute top-1 right-1 bg-destructive/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><Trash2 className="h-3 w-3" /></button>
+            )}
           </div>
           {editingCaption === p.id ? (
             <Input
@@ -629,15 +656,16 @@ const GalleryUploader = ({ doctorId }: { doctorId?: string }) => {
             />
           ) : (
             <button
-              onClick={() => setEditingCaption(p.id)}
+              onClick={() => canEdit && setEditingCaption(p.id)}
               className="text-xs text-muted-foreground hover:text-primary truncate w-full text-left"
+              disabled={!canEdit}
             >
-              {p.caption || "Add caption..."}
+              {p.caption || (canEdit ? "Add caption..." : "")}
             </button>
           )}
         </div>
       ))}
-      {photos.length < 6 && (
+      {canEdit && photos.length < 6 && (
         <label className="aspect-square rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-royal transition">
           <input type="file" accept="image/*" className="hidden" onChange={upload} />
           <Plus className="h-6 w-6 text-muted-foreground" />

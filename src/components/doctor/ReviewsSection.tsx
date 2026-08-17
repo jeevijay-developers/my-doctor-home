@@ -165,7 +165,7 @@ const ReviewForm = ({ name, setName, rating, setRating, text, setText, submittin
     <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((s) => (
         <button key={s} onClick={() => setRating(s)}>
-          <Star size={24} className={s <= rating ? "text-warning" : "text-muted"} fill={s <= rating ? "currentColor" : "none"} />
+          <Star size={24} className={s <= rating ? "text-warning" : "text-black dark:text-white"} fill={s <= rating ? "currentColor" : "none"} />
         </button>
       ))}
     </div>

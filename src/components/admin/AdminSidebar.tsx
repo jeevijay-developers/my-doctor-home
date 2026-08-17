@@ -41,7 +41,7 @@ const AdminSidebar = () => {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
-  const { isStaff, can } = useProfile();
+  const { isStaff, can, loading } = useProfile();
 
   // On mobile/tablet the sidebar renders as an overlay Sheet (see
   // ui/sidebar.tsx) — picking a section should navigate there AND close the
@@ -49,7 +49,11 @@ const AdminSidebar = () => {
   // persistent sidebar (`state`/`open`) is untouched.
   const closeMobileSidebar = () => { if (isMobile) setOpenMobile(false); };
 
-  const visibleItems = mainItems.filter((item) => {
+  // While the profile/permissions fetch is still in flight, `isStaff` hasn't
+  // resolved yet and defaults to false — showing every link during that
+  // window, however briefly, would mean a staff member momentarily sees
+  // sections they were never granted. Show nothing until it settles instead.
+  const visibleItems = loading ? [] : mainItems.filter((item) => {
     if (!isStaff) return true;
     if (item.permission === null) return false;
     return can(item.permission);
