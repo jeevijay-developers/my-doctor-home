@@ -2,7 +2,7 @@ import { Facebook, Instagram, Youtube, Linkedin, MessageCircle, Phone, MapPin } 
 import { useDoctorData } from "@/contexts/DoctorContext";
 
 const Footer = () => {
-  const { profile, settings, services } = useDoctorData();
+  const { profile, settings, services, gallery } = useDoctorData();
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
   const whatsappUrl = settings?.whatsapp_number
@@ -15,6 +15,20 @@ const Footer = () => {
     { icon: Youtube, url: settings?.social_youtube },
     { icon: Linkedin, url: settings?.social_linkedin },
   ].filter((s) => s.url);
+
+  const isServicesActive = settings?.show_services !== false && (services?.length || 0) > 0;
+  const isAboutActive = settings?.show_about !== false;
+  const isGalleryActive = settings?.show_gallery === true && (gallery?.length || 0) > 0;
+  const isReviewsActive = settings?.show_reviews !== false;
+  const isContactActive = settings?.show_clinic_details !== false;
+
+  const quickLinks = [
+    { label: "About", target: "about", show: isAboutActive },
+    { label: "Services", target: "services", show: isServicesActive },
+    { label: "Gallery", target: "gallery", show: isGalleryActive },
+    { label: "Reviews", target: "reviews", show: isReviewsActive },
+    { label: "Contact", target: "contact", show: isContactActive },
+  ].filter((l) => l.show);
 
   return (
     <>
@@ -50,12 +64,12 @@ const Footer = () => {
               <h4 className="font-heading font-semibold mb-3">Quick Links</h4>
               <div className="space-y-2 text-sm opacity-80">
                 <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="block hover:opacity-100 transition-opacity">Home</button>
-                {["About", "Services", "Gallery", "Reviews", "Contact"].map((l) => (
-                  <button key={l} onClick={() => scrollTo(l.toLowerCase())} className="block hover:opacity-100 transition-opacity">{l}</button>
+                {quickLinks.map((l) => (
+                  <button key={l.label} onClick={() => scrollTo(l.target)} className="block hover:opacity-100 transition-opacity">{l.label}</button>
                 ))}
               </div>
             </div>
-            {services.length > 0 && (
+            {isServicesActive && services.length > 0 && (
               <div>
                 <h4 className="font-heading font-semibold mb-3">Services</h4>
                 <div className="space-y-2 text-sm opacity-80">

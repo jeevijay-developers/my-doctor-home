@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Users, Plus, Search, Mail, Calendar, Activity, Download, Trash2, X, FileHeart } from "lucide-react";
+import { Users, Plus, Search, Mail, Calendar as CalendarIcon, Activity, Download, Trash2, X, FileHeart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,10 +11,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 
@@ -32,6 +35,9 @@ const PatientsPage = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [dateFilterActive, setDateFilterActive] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
   const [newPatient, setNewPatient] = useState({ name: "", phone: "", email: "", age: "", gender: "" });
   const [deleting, setDeleting] = useState<Patient | null>(null);
@@ -160,8 +166,14 @@ const PatientsPage = () => {
   // the check only ever hid legitimately-added patients. If a "pending/pre-registered
   // patient" concept is added later, give it its own explicit status field — don't
   // reuse total_visits as a proxy for it.
+  // last_visit is stored as a plain "yyyy-MM-dd" date (no time/timezone), so
+  // comparing it against the calendar's picked day is a direct string match
+  // — no Date parsing of last_visit needed, and no timezone-rollover risk.
+  const datesWithVisits = new Set(patients.map((p) => p.last_visit).filter((d): d is string => !!d));
+
   const filtered = patients.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)
+    (p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)) &&
+    (!dateFilterActive || p.last_visit === format(selectedDate, "yyyy-MM-dd"))
   );
 
   return (
@@ -171,7 +183,7 @@ const PatientsPage = () => {
           <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
             <Users className="h-6 w-6 text-teal" /> Patients
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{search ? `${filtered.length} of ${patients.length} patients match your search` : `${patients.length} patient${patients.length === 1 ? "" : "s"}`}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{search || dateFilterActive ? `${filtered.length} of ${patients.length} patients match your filters` : `${patients.length} patient${patients.length === 1 ? "" : "s"}`}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportPatients} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
@@ -228,6 +240,61 @@ const PatientsPage = () => {
           )}
         </div>
       </div>
+
+      {/* Date filter — filters to patients last seen on the picked day, same
+          Calendar-popover pattern as AppointmentsPage's "Filter by date". */}
+      <Card className="border-border/60 shadow-none">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  {dateFilterActive ? format(selectedDate, "EEE, d MMM yyyy") : "Filter by date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={dateFilterActive ? selectedDate : undefined}
+                  onSelect={(d) => {
+                    if (!d) return;
+                    setSelectedDate(d);
+                    setDateFilterActive(true);
+                    setCalendarOpen(false);
+                  }}
+                  modifiers={{
+                    hasVisits: (day) => datesWithVisits.has(format(day, "yyyy-MM-dd")),
+                  }}
+                  modifiersClassNames={{
+                    hasVisits:
+                      "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:rounded-full after:bg-teal",
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            {dateFilterActive ? (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  Showing patients last seen: {format(selectedDate, "EEEE, d MMMM yyyy")}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 text-xs text-teal"
+                  onClick={() => setDateFilterActive(false)}
+                >
+                  <X className="h-3 w-3" /> Clear
+                </Button>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">Showing all patients</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className={`flex flex-col sm:flex-row gap-3 transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
         <div className="relative flex-1 max-w-md">
@@ -288,8 +355,12 @@ const PatientsPage = () => {
         <Card className="border-border/60 shadow-none">
           <CardContent className="py-16 text-center">
             <Users className="h-12 w-12 text-teal/20 mx-auto mb-3" />
-            <p className="text-muted-foreground font-medium">No patients yet</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Add your first patient to get started</p>
+            <p className="text-muted-foreground font-medium">
+              {search || dateFilterActive ? "No patients match your filters" : "No patients yet"}
+            </p>
+            <p className="text-xs text-muted-foreground/60 mt-1">
+              {search || dateFilterActive ? "Try a different search or date" : "Add your first patient to get started"}
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -449,7 +520,7 @@ const PatientsPage = () => {
                     { label: "Email", value: selected.email || "—", icon: Mail },
                     { label: "Age", value: selected.age ? `${selected.age} years` : "—", icon: Activity },
                     { label: "Gender", value: selected.gender || "—", icon: Users },
-                    { label: "Total Visits", value: String(selected.total_visits), icon: Calendar },
+                    { label: "Total Visits", value: String(selected.total_visits), icon: CalendarIcon },
                   ].map(item => (
                     <div key={item.label} className="bg-secondary rounded-xl p-3">
                       <div className="flex items-center gap-1.5 text-muted-foreground mb-1">

@@ -4,21 +4,31 @@ import {
   Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
 } from "@/components/ui/carousel";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 // Switch from a static grid to a carousel once there are enough photos to page through.
 const CAROUSEL_THRESHOLD = 3;
 const AUTOPLAY_MS = 4000;
 
-const GalleryCard = ({ p, className = "" }: { p: any; className?: string }) => (
-  <div className={`rounded-2xl overflow-hidden group cursor-pointer shadow-sm ${className}`}>
-    <img
-      src={p.photo_url}
-      alt={p.caption || "Clinic"}
-      loading="lazy"
-      decoding="async"
-      className="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-300"
-    />
-    {p.caption && <p className="text-sm text-text-gray text-center mt-2">{p.caption}</p>}
+const GalleryCard = ({ p, onClick, className = "" }: { p: any; onClick?: () => void; className?: string }) => (
+  <div
+    onClick={onClick}
+    className={`rounded-2xl overflow-hidden group cursor-pointer shadow-sm bg-card border border-border/50 p-2 sm:p-2.5 flex flex-col h-full hover:shadow-md transition-all duration-300 ${className}`}
+  >
+    <div className="w-full aspect-[16/10] sm:aspect-[4/3] rounded-xl overflow-hidden bg-muted/20 relative">
+      <img
+        src={p.photo_url}
+        alt={p.caption || "Clinic"}
+        loading="lazy"
+        decoding="async"
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+      />
+    </div>
+    {p.caption && (
+      <p className="text-sm text-text-gray text-center mt-2 font-medium line-clamp-2 px-1">
+        {p.caption}
+      </p>
+    )}
   </div>
 );
 
@@ -27,6 +37,7 @@ const GallerySection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) 
   const [api, setApi] = useState<CarouselApi>();
   const [selected, setSelected] = useState(0);
   const [hovering, setHovering] = useState(false);
+  const [activePhoto, setActivePhoto] = useState<any | null>(null);
 
   const useCarouselLayout = gallery.length > CAROUSEL_THRESHOLD;
 
@@ -41,10 +52,10 @@ const GallerySection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) 
 
   // Autoplay — advances one slide at a time, paused while the pointer is over the carousel.
   useEffect(() => {
-    if (!api || !useCarouselLayout || hovering) return;
+    if (!api || gallery.length <= 1 || hovering || activePhoto) return;
     const timer = setInterval(() => api.scrollNext(), AUTOPLAY_MS);
     return () => clearInterval(timer);
-  }, [api, useCarouselLayout, hovering]);
+  }, [api, gallery.length, hovering, activePhoto]);
 
   if (gallery.length === 0) return null;
 
@@ -61,18 +72,52 @@ const GallerySection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) 
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-12">Our Clinic</h2>
 
         {!useCarouselLayout ? (
-          <div
-            className={
-              gallery.length === 1
-                ? "flex justify-center"
-                : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto"
-            }
-          >
-            {gallery.map((p: any) => (
-              <GalleryCard key={p.id} p={p} className={gallery.length === 1 ? "w-full max-w-[360px]" : ""} />
-            ))}
-          </div>
+          <>
+            {/* Mobile View: Always swipeable carousel without chevrons */}
+            <div className="block md:hidden max-w-5xl mx-auto">
+              <Carousel setApi={setApi} opts={{ align: "start", loop: gallery.length > 1 }} className="px-2">
+                <CarouselContent className="-ml-4">
+                  {gallery.map((p: any) => (
+                    <CarouselItem key={p.id} className="pl-4 basis-[88%]">
+                      <GalleryCard p={p} onClick={() => setActivePhoto(p)} />
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
+              {gallery.length > 1 && (
+                <div className="flex justify-center gap-2 mt-6">
+                  {gallery.map((p: any, i: number) => (
+                    <button
+                      key={p.id}
+                      aria-label={`Go to image ${i + 1}`}
+                      onClick={() => api?.scrollTo(i)}
+                      className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Desktop View (<= 3 items): Static grid/flex layout without carousel and without arrows */}
+            <div
+              className={
+                gallery.length === 1
+                  ? "hidden md:flex justify-center"
+                  : "hidden md:grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto"
+              }
+            >
+              {gallery.map((p: any) => (
+                <GalleryCard
+                  key={p.id}
+                  p={p}
+                  onClick={() => setActivePhoto(p)}
+                  className={gallery.length === 1 ? "w-full max-w-[360px]" : ""}
+                />
+              ))}
+            </div>
+          </>
         ) : (
+          /* Desktop (> 3 items) & Mobile (> 3 items): Carousel */
           <div
             className="max-w-5xl mx-auto"
             onMouseEnter={() => setHovering(true)}
@@ -81,13 +126,13 @@ const GallerySection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) 
             <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="px-2">
               <CarouselContent className="-ml-4 sm:-ml-6">
                 {gallery.map((p: any) => (
-                  <CarouselItem key={p.id} className="pl-4 sm:pl-6 basis-full md:basis-1/2 lg:basis-1/3">
-                    <GalleryCard p={p} />
+                  <CarouselItem key={p.id} className="pl-4 sm:pl-6 basis-[88%] sm:basis-1/2 lg:basis-1/3">
+                    <GalleryCard p={p} onClick={() => setActivePhoto(p)} />
                   </CarouselItem>
                 ))}
               </CarouselContent>
-              <CarouselPrevious className="left-1 md:left-2 lg:-left-12 border-border bg-card" />
-              <CarouselNext className="right-1 md:right-2 lg:-right-12 border-border bg-card" />
+              <CarouselPrevious className="hidden md:inline-flex left-1 md:left-2 lg:-left-12 border-border bg-card" />
+              <CarouselNext className="hidden md:inline-flex right-1 md:right-2 lg:-right-12 border-border bg-card" />
             </Carousel>
             <div className="flex justify-center gap-2 mt-6">
               {gallery.map((p: any, i: number) => (
@@ -102,6 +147,28 @@ const GallerySection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) 
           </div>
         )}
       </div>
+
+      {/* Photo Lightbox Dialog */}
+      <Dialog open={!!activePhoto} onOpenChange={(open) => !open && setActivePhoto(null)}>
+        <DialogContent className="max-w-4xl p-2 sm:p-4 bg-card/95 backdrop-blur-md border border-border">
+          {activePhoto && (
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <div className="max-h-[80vh] w-full flex items-center justify-center overflow-hidden rounded-xl bg-black/40 p-2">
+                <img
+                  src={activePhoto.photo_url}
+                  alt={activePhoto.caption || "Clinic photo"}
+                  className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
+                />
+              </div>
+              {activePhoto.caption && (
+                <p className="text-sm font-medium text-foreground text-center px-4 py-1">
+                  {activePhoto.caption}
+                </p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };

@@ -1,8 +1,9 @@
-import { Clock, MapPin, Star, Calendar, Phone, Navigation, Users, Award, Headset } from "lucide-react";
+import { Clock, MapPin, Calendar, Phone, Navigation, Users } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
+import { getStatIconComponent, resolveStatValue, type QuickStatItem } from "@/lib/quickStats";
 
 const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -59,12 +60,43 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
   // folded directly into this card (see the reference design) so the two
   // visually read as one continuous card. Still respects the doctor's
   // "Quick Stats" show/hide toggle from My Website → Settings.
-  const stats = [
-    { icon: Users, value: "5,000+", label: "Patient Consultations" },
-    { icon: Award, value: `${profile?.experience_years || 0}+`, label: "Years of Experience" },
-    { icon: Star, value: `${avgRating}/5`, label: "Patient Rating" },
-    { icon: Headset, value: "24/7", label: "Appointment Requests" },
+  //
+  // This session's own wording/values (not the shared library's own
+  // DEFAULT_QUICK_STATS, which uses different labels and a fake "Success
+  // Rate" placeholder) is the fallback whenever the doctor hasn't
+  // customized their stats yet — Patient Rating below is real, computed
+  // from actual reviews rather than a placeholder.
+  const defaultStats: QuickStatItem[] = [
+    { id: "patients", label: "Patient Consultations", value: "5,000+", icon: "Users", active: true },
+    { id: "experience", label: "Years of Experience", value: "", icon: "Award", active: true },
+    { id: "rating", label: "Patient Rating", value: `${avgRating}/5`, icon: "Star", active: true },
+    { id: "booking", label: "Appointment Requests", value: "24/7", icon: "Headset", active: true },
   ];
+
+  // Doctor-customized stats (My Website → Settings → Quick Stats) take over
+  // once set; older installs stored the same item shape under seo_keywords
+  // before the dedicated quick_stats column existed.
+  const configuredStats: QuickStatItem[] = (() => {
+    if (settings?.quick_stats && Array.isArray(settings.quick_stats) && settings.quick_stats.length > 0) {
+      return settings.quick_stats;
+    }
+    if (settings?.seo_keywords) {
+      try {
+        const parsed = JSON.parse(settings.seo_keywords);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        // not JSON
+      }
+    }
+    return defaultStats;
+  })();
+
+  const stats = configuredStats.filter((s) => s.active !== false);
+  const statsGridCols =
+    stats.length === 1 ? "grid-cols-1 max-w-xs mx-auto"
+    : stats.length === 2 ? "grid-cols-2 max-w-xl mx-auto"
+    : stats.length === 3 ? "grid-cols-1 sm:grid-cols-3"
+    : "grid-cols-2 sm:grid-cols-4";
 
   return (
     <section className="relative pt-24 pb-0 md:pt-32 md:pb-0 overflow-hidden bg-white dark:bg-black">
@@ -169,17 +201,21 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
             own dark background (via the dark: override below) instead of
             staying white — text switches to the theme-adaptive tokens only
             in Dark Mode too, so it stays legible against that darker card. */}
-        {settings.show_quick_stats !== false && (
+        {settings.show_quick_stats !== false && stats.length > 0 && (
           <motion.div {...fadeUp(0.1)} className={`relative rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] overflow-hidden bg-white ${cardColor === "secondary" ? "dark:bg-secondary" : "dark:bg-card"} border border-border/60 shadow-xl sm:shadow-2xl mt-8 md:mt-12`}>
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border">
-              {stats.map((s, i) => (
-                <motion.div key={i} {...fadeUp(0.15 + i * 0.05)} className="text-center py-3 px-1 sm:py-6 sm:px-3 space-y-0.5 sm:space-y-2">
-                  <s.icon size={16} className="mx-auto text-royal sm:hidden" strokeWidth={2} />
-                  <s.icon size={26} className="mx-auto text-royal hidden sm:block" strokeWidth={2} />
-                  <p className="font-heading font-extrabold text-sm sm:text-3xl md:text-4xl text-gray-900 dark:text-foreground">{s.value}</p>
-                  <p className="text-[7px] sm:text-sm text-gray-500 dark:text-text-gray font-medium">{s.label}</p>
-                </motion.div>
-              ))}
+            <div className={`grid ${statsGridCols} divide-x divide-y sm:divide-y-0 divide-border`}>
+              {stats.map((s, i) => {
+                const IconComp = getStatIconComponent(s.icon);
+                const val = resolveStatValue(s, profile);
+                return (
+                  <motion.div key={s.id || i} {...fadeUp(0.15 + i * 0.05)} className="text-center py-3 px-1 sm:py-6 sm:px-3 space-y-0.5 sm:space-y-2">
+                    <IconComp size={16} className="mx-auto text-royal sm:hidden" strokeWidth={2} />
+                    <IconComp size={26} className="mx-auto text-royal hidden sm:block" strokeWidth={2} />
+                    <p className="font-heading font-extrabold text-sm sm:text-3xl md:text-4xl text-gray-900 dark:text-foreground">{val}</p>
+                    <p className="text-[7px] sm:text-sm text-gray-500 dark:text-text-gray font-medium">{s.label}</p>
+                  </motion.div>
+                );
+              })}
             </div>
           </motion.div>
         )}
