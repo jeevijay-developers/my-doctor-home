@@ -766,7 +766,7 @@ const GalleryUploader = ({ doctorId, canEdit }: { doctorId?: string; canEdit: bo
     <div className="grid grid-cols-3 gap-2">
       {photos.map((p) => (
         <div key={p.id} className="space-y-1">
-          <div className="relative aspect-square rounded-lg overflow-hidden group">
+          <div className="relative aspect-square rounded-lg overflow-hidden group border border-border/40">
             <img src={p.photo_url} alt={p.caption || ""} className="w-full h-full object-cover" />
             {canEdit && (
               <button onClick={() => remove(p.id)} className="absolute top-1 right-1 bg-destructive/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><Trash2 className="h-3 w-3" /></button>
