@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ProfilePage from "@/components/admin/ProfilePage";
+import LockedFeatureCard from "@/components/admin/LockedFeatureCard";
 import { toast } from "@/hooks/use-toast";
 import { Star } from "lucide-react";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
-import LockedFeatureCard from "./LockedFeatureCard";
+import { DEFAULT_QUICK_STATS, AVAILABLE_STAT_ICONS, QuickStatItem } from "@/lib/quickStats";
 
 type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
 
@@ -56,7 +57,21 @@ const MyWebsite = () => {
       supabase.from("working_hours").select("*").eq("doctor_id", profile.id).order("day_of_week"),
       supabase.from("reviews").select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }),
     ]);
-    if (settingsRes.data) setSettings(settingsRes.data);
+    if (settingsRes.data) {
+      let parsedStats = null;
+      if (settingsRes.data.seo_keywords) {
+        try {
+          const parsed = JSON.parse(settingsRes.data.seo_keywords);
+          if (Array.isArray(parsed) && parsed.length > 0) parsedStats = parsed;
+        } catch (e) {
+          // not JSON keywords
+        }
+      }
+      setSettings({
+        ...settingsRes.data,
+        quick_stats: parsedStats || DEFAULT_QUICK_STATS,
+      });
+    }
     setServices((servicesRes.data || []).map((s: any) => ({ ...s, description: s.description || "" })));
     setWorkingHours((hoursRes.data || []) as WorkingHour[]);
     setReviews((reviewsRes.data || []) as Review[]);
@@ -98,7 +113,10 @@ const MyWebsite = () => {
       return;
     }
 
-    const { id: _id, doctor_id: _did, created_at: _ca, updated_at: _ua, ...settingsData } = settings;
+    const { id: _id, doctor_id: _did, created_at: _ca, updated_at: _ua, quick_stats, ...settingsData } = settings;
+    if (quick_stats) {
+      (settingsData as any).seo_keywords = JSON.stringify(quick_stats);
+    }
     const { error: settingsError } = await supabase.from("website_settings").update(settingsData as any).eq("doctor_id", profile.id);
     if (settingsError) toast({ title: "Save failed", description: settingsError.message, variant: "destructive" });
 
@@ -142,6 +160,30 @@ const MyWebsite = () => {
     const updated = [...services];
     (updated[idx] as any)[key] = value;
     setServices(updated);
+  };
+
+  const quickStatsList: QuickStatItem[] =
+    settings.quick_stats && Array.isArray(settings.quick_stats) && settings.quick_stats.length > 0
+      ? settings.quick_stats
+      : DEFAULT_QUICK_STATS;
+
+  const updateStatItem = (idx: number, field: string, val: any) => {
+    const updated = [...quickStatsList];
+    updated[idx] = { ...updated[idx], [field]: val };
+    updateSetting("quick_stats", updated);
+  };
+
+  const addStatItem = () => {
+    const updated = [
+      ...quickStatsList,
+      { id: `custom_${Date.now()}`, label: "New Stat", value: "100+", icon: "Award", active: true },
+    ];
+    updateSetting("quick_stats", updated);
+  };
+
+  const removeStatItem = (idx: number) => {
+    const updated = quickStatsList.filter((_, i) => i !== idx);
+    updateSetting("quick_stats", updated);
   };
 
   const updateWorkingHour = (dayIdx: number, key: string, value: any) => {
@@ -227,8 +269,93 @@ const MyWebsite = () => {
                   <Switch checked={settings.show_quick_stats ?? true} onCheckedChange={(v) => updateSetting("show_quick_stats", v)} onClick={(e) => e.stopPropagation()} />
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="space-y-3 pb-4">
-                <p className="text-xs text-muted-foreground">Stats are pulled from your profile data.</p>
+              <AccordionContent className="space-y-4 pb-4">
+                <p className="text-xs text-muted-foreground">
+                  Customize the stat cards displayed below your website hero banner.
+                </p>
+                {quickStatsList.map((stat, i) => (
+                  <div key={stat.id || i} className="p-3 rounded-lg bg-secondary space-y-3 border border-border/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs font-semibold text-primary">
+                          Stat #{i + 1} {stat.id === "experience" && "(Experience)"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={stat.active !== false}
+                          onCheckedChange={(v) => updateStatItem(i, "active", v)}
+                          disabled={!canEditWebsite}
+                        />
+                        {canEditWebsite && (
+                          <button onClick={() => removeStatItem(i)} title="Remove stat">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Label</Label>
+                        <Input
+                          placeholder="e.g. Patients Treated"
+                          value={stat.label}
+                          onChange={(e) => updateStatItem(i, "label", e.target.value)}
+                          disabled={!canEditWebsite}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Value</Label>
+                        <Input
+                          placeholder={
+                            stat.id === "experience"
+                              ? `Default: ${profile?.experience_years || 0}+`
+                              : "e.g. 5,000+"
+                          }
+                          value={stat.value}
+                          onChange={(e) => updateStatItem(i, "value", e.target.value)}
+                          disabled={!canEditWebsite}
+                        />
+                        {stat.id === "experience" && !stat.value && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Defaults to onboarding experience ({profile?.experience_years || 0}+). Type to override.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs">Icon</Label>
+                      <Select
+                        value={stat.icon || "Users"}
+                        onValueChange={(v) => updateStatItem(i, "icon", v)}
+                        disabled={!canEditWebsite}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVAILABLE_STAT_ICONS.map((ic) => (
+                            <SelectItem key={ic.value} value={ic.value}>
+                              <div className="flex items-center gap-2">
+                                <ic.icon className="h-4 w-4 text-royal" />
+                                <span>{ic.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ))}
+
+                {canEditWebsite && (
+                  <Button size="sm" variant="outline" onClick={addStatItem}>
+                    <Plus className="h-3 w-3 mr-1" /> Add Quick Stat
+                  </Button>
+                )}
               </AccordionContent>
             </AccordionItem>
 
