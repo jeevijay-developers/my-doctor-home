@@ -22,6 +22,10 @@ const SAFlags = () => {
   }, []);
 
   const save = async (key: string, value: any, action: string) => {
+    if (key === "default_trial_days" && (Number(value) < 1 || !Number.isFinite(Number(value)))) {
+      toast({ title: "Invalid trial days", description: "Trial days must be at least 1.", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("platform_settings").upsert({ key, value, updated_at: new Date().toISOString() });
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     await logAdminAction(action, "platform_settings", undefined, { key, value });
@@ -49,7 +53,7 @@ const SAFlags = () => {
       <Card>
         <CardHeader><CardTitle className="text-base">Default Trial Days</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          <Input type="number" value={trialDays} onChange={(e) => setTrialDays(Number(e.target.value))} className="max-w-[120px]" />
+          <Input type="number" min={1} value={trialDays} onChange={(e) => setTrialDays(Number(e.target.value))} className="max-w-[120px]" />
           <p className="text-xs text-muted-foreground">Note: this is displayed/tracked here, but the DB default is fixed at 7 days. Changing the actual trial length for new signups requires a follow-up migration.</p>
           <Button size="sm" onClick={() => save("default_trial_days", trialDays, "update_trial_days")}>Save</Button>
         </CardContent>

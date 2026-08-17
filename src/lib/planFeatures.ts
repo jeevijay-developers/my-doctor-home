@@ -13,6 +13,20 @@ export const TIER_TAGLINES: Record<"pro" | "premium", string> = {
 
 export const TIER_PRICES: Record<string, number> = DEFAULT_PLAN_PRICES;
 
+export function getDoctorTierPrice(
+  tier: "pro" | "premium",
+  profile?: { plan_tier?: string | null; custom_plan_price?: number | null } | null
+): number {
+  if (!profile || profile.custom_plan_price == null) {
+    return TIER_PRICES[tier] ?? 0;
+  }
+  const currentTier = profile.plan_tier || "pro";
+  if (currentTier === tier || ((currentTier === "free" || currentTier === "trial") && tier === "pro")) {
+    return Number(profile.custom_plan_price);
+  }
+  return TIER_PRICES[tier] ?? 0;
+}
+
 // Fallback shown when appointmentsCap is 0 — either usePlanAccess is still loading,
 // or the viewing doctor is Premium (whose real cap is legitimately 0/inapplicable)
 // but the Pro card still needs a real number to describe what Pro actually includes.
@@ -59,14 +73,14 @@ export function getSubscriptionCardStates(
   }
   if (isPremium) {
     return {
-      premium: { badge: "Current Plan", isCurrent: true, showCta: false, ctaLabel: "Renew" },
-      basic: { badge: "Included in your plan", isCurrent: false, showCta: false },
+      premium: { badge: "Current Plan", isCurrent: true, showCta: true, ctaLabel: "Renew / Schedule" },
+      basic: { badge: "Included in your plan", isCurrent: false, showCta: true, ctaLabel: "Switch to Pro (Schedule)" },
     };
   }
   if (planStatus === "active") {
     return {
-      basic: { badge: "Current Plan", isCurrent: true, showCta: true, ctaLabel: "Renew" },
-      premium: { badge: "", isCurrent: false, showCta: true, ctaLabel: "Upgrade" },
+      basic: { badge: "Current Plan", isCurrent: true, showCta: true, ctaLabel: "Renew / Schedule" },
+      premium: { badge: "", isCurrent: false, showCta: true, ctaLabel: "Upgrade to Premium" },
     };
   }
   // hasNoActivePlan(planStatus): expired or cancelled

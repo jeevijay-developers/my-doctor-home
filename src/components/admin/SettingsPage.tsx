@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Settings, Crown, Shield, Download, Trash2, UserCircle } from "lucide-react";
+import { Settings, Crown, Shield, Download, Trash2, UserCircle, CalendarClock, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
-import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP } from "@/lib/planFeatures";
+import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, getDoctorTierPrice, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP, hasNoActivePlan } from "@/lib/planFeatures";
 import ProfilePage from "./ProfilePage";
 
 const SettingsPage = () => {
@@ -20,6 +24,61 @@ const SettingsPage = () => {
   const [exporting, setExporting] = useState(false);
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
+
+  const [pendingPlan, setPendingPlan] = useState<any>(null);
+  const [cancellingScheduled, setCancellingScheduled] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    supabase
+      .from("pending_plans" as any)
+      .select("id, target_tier, activation_date, payment_id, created_at, plan_upgrade_payments(amount, status)")
+      .eq("doctor_id", profile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setPendingPlan(data);
+      });
+  }, [profile?.id]);
+
+  const handleCancelScheduledPlan = async () => {
+    if (!pendingPlan) return;
+    setCancellingScheduled(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("cancel-scheduled-plan", {
+        body: { pending_plan_id: pendingPlan.id },
+      });
+      if (error || !data?.ok) {
+        toast.error(error?.message || data?.error || "Could not cancel scheduled plan");
+        return;
+      }
+      toast.success("Scheduled plan cancelled and payment marked for refund.");
+      setPendingPlan(null);
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (e: any) {
+      toast.error("Failed to cancel: " + (e?.message || "Unknown error"));
+    } finally {
+      setCancellingScheduled(false);
+    }
+  };
+
+  const handleReactivateSubscription = async () => {
+    if (!profile) return;
+    setReactivating(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ plan_status: "active" })
+        .eq("id", profile.id);
+      if (error) throw error;
+      toast.success("Subscription reactivated successfully!");
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (e: any) {
+      toast.error("Failed to reactivate: " + (e?.message || "Unknown error"));
+    } finally {
+      setReactivating(false);
+    }
+  };
 
   const exportAllData = async () => {
     if (!profile) return;
@@ -61,11 +120,6 @@ const SettingsPage = () => {
   const basicFeatures = getTierFeatures("pro", appointmentsCap || DEFAULT_APPOINTMENT_CAP);
   const premiumFeatures = getTierFeatures("premium", appointmentsCap || DEFAULT_APPOINTMENT_CAP);
 
-  // Staff can only ever land here with "View Profile" granted (the route
-  // itself is gated on profile.view — see AdminDashboard.tsx), and only ever
-  // get the Profile tab — Subscription, Account (data export), and Danger
-  // Zone (account deletion) stay doctor-only, matching their existing
-  // doctor-only status before Profile moved in here.
   if (isStaff) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
@@ -93,7 +147,6 @@ const SettingsPage = () => {
           <TabsTrigger value="account" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Account</TabsTrigger>
         </TabsList>
 
-
         <TabsContent value="profile">
           <ProfilePage />
         </TabsContent>
@@ -105,18 +158,41 @@ const SettingsPage = () => {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="rounded-xl bg-secondary p-5">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                   <div>
                     <Badge variant="secondary" className="capitalize text-sm font-semibold mb-2 bg-royal/10 text-royal">
-                      {profile?.plan_status || "trial"} Plan
+                      {profile?.plan_status || "trial"} Plan ({TIER_LABELS[planTier] || planTier})
                     </Badge>
                     {profile?.plan_status === "trial" && (
                       <p className="text-sm text-muted-foreground mt-1">{daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining in free trial</p>
                     )}
                     {profile?.plan_status === "active" && profile?.plan_end && (
-                      <p className="text-sm text-muted-foreground mt-1">Expires in {differenceInDays(new Date(profile.plan_end), new Date())} day{differenceInDays(new Date(profile.plan_end), new Date()) !== 1 ? "s" : ""}</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Active until {new Date(profile.plan_end).toLocaleDateString()} ({Math.max(0, differenceInDays(new Date(profile.plan_end), new Date()))} days remaining)
+                      </p>
+                    )}
+                    {(profile?.plan_status === "cancelled" || profile?.plan_status === "expired") && (
+                      <p className="text-sm text-destructive mt-1 font-medium">Your subscription is currently inactive/cancelled.</p>
                     )}
                   </div>
+
+                  {(hasNoActivePlan(planStatus) || planStatus === "cancelled" || planStatus === "expired") && (
+                    <div className="flex items-center gap-2">
+                      <UpgradeCheckoutDialog
+                        targetTier={planTier === "premium" ? "premium" : "pro"}
+                        trigger={
+                          <Button size="sm" className="bg-royal hover:bg-royal/90 font-semibold">
+                            <RotateCcw className="h-4 w-4 mr-1.5" /> Reactivate Plan
+                          </Button>
+                        }
+                      />
+                      {profile?.plan_end && new Date(profile.plan_end) > new Date() && (
+                        <Button size="sm" variant="outline" onClick={handleReactivateSubscription} disabled={reactivating}>
+                          {reactivating ? "Reactivating…" : "Resume Subscription"}
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {profile?.plan_status === "trial" && (
                   <div>
@@ -129,54 +205,130 @@ const SettingsPage = () => {
                 )}
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className={`rounded-xl p-5 relative ${basic.isCurrent ? "border-2 border-royal" : "border border-border"}`}>
-                  {basic.badge && (
-                    <Badge className={`absolute -top-2.5 right-4 text-[10px] ${basic.isCurrent ? "bg-royal text-white" : "bg-secondary text-muted-foreground"}`}>
-                      {basic.badge}
+              {pendingPlan && (
+                <div className="rounded-xl border border-royal/30 bg-royal/5 p-5 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <CalendarClock className="h-5 w-5 text-royal" />
+                      <div>
+                        <h4 className="font-heading font-bold text-foreground">Upcoming Scheduled Plan</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Scheduled to start on {new Date(pendingPlan.activation_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-royal/10 text-royal border-royal/30 capitalize">
+                      {TIER_LABELS[pendingPlan.target_tier] || pendingPlan.target_tier} Plan
                     </Badge>
-                  )}
-                  <h3 className="font-heading font-bold text-foreground mb-1">{TIER_LABELS.pro}</h3>
-                  <p className="text-xs text-muted-foreground">{TIER_TAGLINES.pro}</p>
-                  <p className="text-sm text-muted-foreground mb-3">₹{TIER_PRICES.pro}/month</p>
-                  <ul className="space-y-1.5 text-sm text-muted-foreground">
-                    {basicFeatures.map(f => (
-                      <li key={f} className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-royal" />{f}
-                      </li>
-                    ))}
-                  </ul>
-                  {basic.showCta && (
-                    <UpgradeCheckoutDialog
-                      targetTier="pro"
-                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">{basic.ctaLabel || "Upgrade Now"}</Button>}
-                    />
-                  )}
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-1 bg-card/70 rounded-lg p-3 border border-border/50">
+                    <p>• Your current <strong>{TIER_LABELS[planTier] || planTier}</strong> plan remains active until {profile?.plan_end ? new Date(profile.plan_end).toLocaleDateString() : "period end"}.</p>
+                    <p>• The new <strong>{TIER_LABELS[pendingPlan.target_tier] || pendingPlan.target_tier}</strong> plan will activate automatically on {new Date(pendingPlan.activation_date).toLocaleDateString()}.</p>
+                    {pendingPlan.plan_upgrade_payments?.amount && (
+                      <p>• Advance payment of ₹{pendingPlan.plan_upgrade_payments.amount} completed.</p>
+                    )}
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10 text-xs">
+                          Cancel Scheduled Plan
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Cancel Scheduled Plan?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will cancel your upcoming {TIER_LABELS[pendingPlan.target_tier] || pendingPlan.target_tier} plan scheduled for {new Date(pendingPlan.activation_date).toLocaleDateString()}. Your payment will be marked for refund.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Keep Scheduled Plan</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleCancelScheduledPlan} disabled={cancellingScheduled} className="bg-destructive hover:bg-destructive/90 text-white">
+                            {cancellingScheduled ? "Cancelling…" : "Confirm Cancellation"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-                <div className={`rounded-xl p-5 relative ${premium.isCurrent ? "border-2 border-royal" : "border border-border"}`}>
-                  {premium.badge && (
-                    <Badge className={`absolute -top-2.5 right-4 text-[10px] ${premium.isCurrent ? "bg-royal text-white" : "bg-secondary text-muted-foreground"}`}>
-                      {premium.badge}
-                    </Badge>
-                  )}
-                  <h3 className="font-heading font-bold text-foreground mb-1">{TIER_LABELS.premium}</h3>
-                  <p className="text-xs text-muted-foreground">{TIER_TAGLINES.premium}</p>
-                  <p className="text-sm text-muted-foreground mb-3">₹{TIER_PRICES.premium}/month</p>
-                  <ul className="space-y-1.5 text-sm text-muted-foreground">
-                    {premiumFeatures.map(f => (
-                      <li key={f} className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-royal" />{f}
-                      </li>
-                    ))}
-                  </ul>
-                  {premium.showCta && (
-                    <UpgradeCheckoutDialog
-                      targetTier="premium"
-                      trigger={<Button size="sm" className="w-full mt-4 bg-royal hover:bg-royal/90">{premium.ctaLabel || "Upgrade Now"}</Button>}
-                    />
-                  )}
-                </div>
-              </div>
+              )}
+
+              {(() => {
+                const proPrice = getDoctorTierPrice("pro", profile);
+                const premiumPrice = getDoctorTierPrice("premium", profile);
+                const hasProCustom = profile?.custom_plan_price != null && proPrice !== TIER_PRICES.pro;
+                const hasPremiumCustom = profile?.custom_plan_price != null && premiumPrice !== TIER_PRICES.premium;
+
+                return (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className={`rounded-xl p-5 relative flex flex-col justify-between ${basic.isCurrent ? "border-2 border-royal" : "border border-border"}`}>
+                      <div>
+                        {basic.badge && (
+                          <Badge className={`absolute -top-2.5 right-4 text-[10px] ${basic.isCurrent ? "bg-royal text-white" : "bg-secondary text-muted-foreground"}`}>
+                            {basic.badge}
+                          </Badge>
+                        )}
+                        <h3 className="font-heading font-bold text-foreground mb-1">{TIER_LABELS.pro}</h3>
+                        <p className="text-xs text-muted-foreground">{TIER_TAGLINES.pro}</p>
+                        <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                          ₹{proPrice}/month
+                          {hasProCustom && (
+                            <Badge variant="outline" className="text-[10px] bg-spark/15 text-spark border-spark/30 font-normal">Custom Price</Badge>
+                          )}
+                        </p>
+                        <ul className="space-y-1.5 text-sm text-muted-foreground">
+                          {basicFeatures.map(f => (
+                            <li key={f} className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-royal" />{f}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      {basic.showCta && (
+                        <div className="pt-4 mt-auto">
+                          <UpgradeCheckoutDialog
+                            targetTier="pro"
+                            trigger={<Button size="sm" className="w-full bg-royal hover:bg-royal/90">{basic.ctaLabel || "Upgrade Now"}</Button>}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className={`rounded-xl p-5 relative flex flex-col justify-between ${premium.isCurrent ? "border-2 border-royal" : "border border-border"}`}>
+                      <div>
+                        {premium.badge && (
+                          <Badge className={`absolute -top-2.5 right-4 text-[10px] ${premium.isCurrent ? "bg-royal text-white" : "bg-secondary text-muted-foreground"}`}>
+                            {premium.badge}
+                          </Badge>
+                        )}
+                        <h3 className="font-heading font-bold text-foreground mb-1">{TIER_LABELS.premium}</h3>
+                        <p className="text-xs text-muted-foreground">{TIER_TAGLINES.premium}</p>
+                        <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                          ₹{premiumPrice}/month
+                          {hasPremiumCustom && (
+                            <Badge variant="outline" className="text-[10px] bg-spark/15 text-spark border-spark/30 font-normal">Custom Price</Badge>
+                          )}
+                        </p>
+                        <ul className="space-y-1.5 text-sm text-muted-foreground">
+                          {premiumFeatures.map(f => (
+                            <li key={f} className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-royal" />{f}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      {premium.showCta && (
+                        <div className="pt-4 mt-auto">
+                          <UpgradeCheckoutDialog
+                            targetTier="premium"
+                            trigger={<Button size="sm" className="w-full bg-royal hover:bg-royal/90">{premium.ctaLabel || "Upgrade Now"}</Button>}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

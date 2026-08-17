@@ -64,12 +64,26 @@ const SADoctors = () => {
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [pendingPlansMap, setPendingPlansMap] = useState<Record<string, any>>({});
 
   const load = () => {
     supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
   };
 
-  useEffect(() => { load(); }, []);
+  const loadPendingPlans = () => {
+    supabase
+      .from("pending_plans" as any)
+      .select("id, doctor_id, target_tier, activation_date")
+      .then(({ data }) => {
+        const map: Record<string, any> = {};
+        (data || []).forEach((item: any) => {
+          map[item.doctor_id] = item;
+        });
+        setPendingPlansMap(map);
+      });
+  };
+
+  useEffect(() => { load(); loadPendingPlans(); }, []);
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -256,7 +270,16 @@ const SADoctors = () => {
                     </td>
                     <td className="p-3">{r.clinic_name || "—"}</td>
                     <td className="p-3">{r.city || "—"}</td>
-                    <td className="p-3"><Badge>{r.plan_tier || "free"}</Badge></td>
+                    <td className="p-3">
+                      <Badge>{r.plan_tier || "free"}</Badge>
+                      {pendingPlansMap[r.id] && (
+                        <div className="mt-1">
+                          <Badge variant="outline" className="bg-royal/5 border-royal/30 text-[10px] text-royal font-medium">
+                            Scheduled: {pendingPlansMap[r.id].target_tier} ({new Date(pendingPlansMap[r.id].activation_date).toLocaleDateString()})
+                          </Badge>
+                        </div>
+                      )}
+                    </td>
                     <td className="p-3"><PlanStatusBadge row={r} /></td>
                     <td className="p-3 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                     <td className="p-3">

@@ -68,6 +68,27 @@ const MyWebsite = () => {
     if (!profile) return;
     setSaving(true);
 
+    for (const s of services) {
+      if (s.price < 0) { toast({ title: "Invalid service price", description: `Price for "${s.name || 'service'}" cannot be negative.`, variant: "destructive" }); return; }
+      if (s.duration < 1) { toast({ title: "Invalid service duration", description: `Duration for "${s.name || 'service'}" must be at least 1 minute.`, variant: "destructive" }); return; }
+    }
+    if (settings.online_fee != null && settings.online_fee < 0) {
+      toast({ title: "Invalid fee", description: "Online consultation fee cannot be negative.", variant: "destructive" });
+      return;
+    }
+    if (settings.booking_advance_days != null && (settings.booking_advance_days < 1 || settings.booking_advance_days > 365)) {
+      toast({ title: "Invalid booking days", description: "Advance booking days must be between 1 and 365.", variant: "destructive" });
+      return;
+    }
+    if (settings.max_per_slot != null && (settings.max_per_slot < 1 || settings.max_per_slot > 50)) {
+      toast({ title: "Invalid slot limit", description: "Max bookings per slot must be between 1 and 50.", variant: "destructive" });
+      return;
+    }
+    if (settings.cancellation_cutoff_hours != null && settings.cancellation_cutoff_hours < 0) {
+      toast({ title: "Invalid cutoff hours", description: "Cancellation cutoff hours cannot be negative.", variant: "destructive" });
+      return;
+    }
+
     const { id: _id, doctor_id: _did, created_at: _ca, updated_at: _ua, ...settingsData } = settings;
     const { error: settingsError } = await supabase.from("website_settings").update(settingsData as any).eq("doctor_id", profile.id);
     if (settingsError) toast({ title: "Save failed", description: settingsError.message, variant: "destructive" });
@@ -231,7 +252,7 @@ const MyWebsite = () => {
                     <Input placeholder="Service name" value={s.name} onChange={(e) => updateService(i, "name", e.target.value)} />
                     <Input placeholder="Description" value={s.description} onChange={(e) => updateService(i, "description", e.target.value)} />
                     <div className="grid grid-cols-3 gap-2">
-                      <div><Label className="text-xs">Price ₹</Label><Input type="number" placeholder="0" value={s.price || ""} onChange={(e) => updateService(i, "price", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
+                      <div><Label className="text-xs">Price ₹</Label><Input type="number" min={0} placeholder="0" value={s.price || ""} onChange={(e) => updateService(i, "price", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
                       <div>
                         <Label className="text-xs">Type</Label>
                         <Select value={s.type} onValueChange={(v) => updateService(i, "type", v)}>
@@ -239,7 +260,7 @@ const MyWebsite = () => {
                           <SelectContent><SelectItem value="clinic">Clinic</SelectItem><SelectItem value="online">Online</SelectItem><SelectItem value="both">Both</SelectItem></SelectContent>
                         </Select>
                       </div>
-                      <div><Label className="text-xs">Duration</Label><Input type="number" placeholder="0" value={s.duration || ""} onChange={(e) => updateService(i, "duration", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
+                      <div><Label className="text-xs">Duration</Label><Input type="number" min={1} placeholder="0" value={s.duration || ""} onChange={(e) => updateService(i, "duration", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
                     </div>
                   </div>
                 ))}
@@ -307,7 +328,7 @@ const MyWebsite = () => {
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><Label>Fee ₹</Label><Input type="number" value={settings.online_fee || 500} onChange={(e) => updateSetting("online_fee", Number(e.target.value))} /></div>
+                  <div><Label>Fee ₹</Label><Input type="number" min={0} value={settings.online_fee || 500} onChange={(e) => updateSetting("online_fee", Number(e.target.value))} /></div>
                   <div>
                     <Label>Duration</Label>
                     <Select value={String(settings.online_duration || 30)} onValueChange={(v) => updateSetting("online_duration", Number(v))}>

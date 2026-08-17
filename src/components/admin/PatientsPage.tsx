@@ -97,6 +97,10 @@ const PatientsPage = () => {
   const addPatient = async () => {
     if (!profile || !newPatient.name || !newPatient.phone) return;
     if (!isValidIndianPhone(newPatient.phone)) { toast.error(phoneErrorMessage); return; }
+    if (newPatient.age && (Number(newPatient.age) < 0 || Number(newPatient.age) > 120)) {
+      toast.error("Please enter a valid age (0–120)");
+      return;
+    }
     const { error } = await supabase.from("patients").insert({
       doctor_id: profile.id, name: newPatient.name, phone: normalizeIndianPhone(newPatient.phone),
       email: newPatient.email || null, age: newPatient.age ? Number(newPatient.age) : null,
@@ -203,7 +207,7 @@ const PatientsPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Age</Label>
-                  <Input type="number" value={newPatient.age} onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })} className="h-10" />
+                  <Input type="number" min={0} max={120} value={newPatient.age} onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Gender</Label>

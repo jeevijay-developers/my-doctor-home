@@ -47,23 +47,29 @@ Deno.serve(async (req) => {
   // a profiles row), or they're an active staff member acting on behalf of
   // one (mirrors staff_doctor_id() at the SQL level) — either way the
   // resulting doctor_id is who actually gets upgraded and who actually pays.
-  const { data: ownProfile } = await admin.from("profiles").select("id, plan_tier").eq("id", uid).maybeSingle();
+  const { data: ownProfile } = await admin.from("profiles").select("id, plan_tier, custom_plan_price").eq("id", uid).maybeSingle();
   let doctorId: string;
   let fromTier: string;
+  let customPrice: number | null = null;
   if (ownProfile) {
     doctorId = ownProfile.id;
     fromTier = ownProfile.plan_tier || "free";
+    customPrice = ownProfile.custom_plan_price != null ? Number(ownProfile.custom_plan_price) : null;
   } else {
     const { data: staffRow } = await admin
       .from("staff_members").select("doctor_id, status").eq("id", uid).maybeSingle();
     if (!staffRow || staffRow.status !== "active") return json(403, { error: "Not authorized" });
-    const { data: doctorProfile } = await admin.from("profiles").select("id, plan_tier").eq("id", staffRow.doctor_id).maybeSingle();
+    const { data: doctorProfile } = await admin.from("profiles").select("id, plan_tier, custom_plan_price").eq("id", staffRow.doctor_id).maybeSingle();
     if (!doctorProfile) return json(404, { error: "Doctor not found" });
     doctorId = doctorProfile.id;
     fromTier = doctorProfile.plan_tier || "free";
+    customPrice = doctorProfile.custom_plan_price != null ? Number(doctorProfile.custom_plan_price) : null;
   }
 
-  const amountRupees = TIER_PRICES[targetTier];
+  let amountRupees = TIER_PRICES[targetTier];
+  if (customPrice != null && (fromTier === targetTier || ((fromTier === "free" || fromTier === "trial") && targetTier === "pro"))) {
+    amountRupees = customPrice;
+  }
   const amountPaise = Math.round(amountRupees * 100);
   const hasLiveKeys = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
   const mode = resolvePaymentMode(hasLiveKeys);

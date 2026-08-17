@@ -99,7 +99,8 @@ const CheckupReminderTab = ({ patientId, doctorId, onChange }: { patientId: stri
 
   const save = async () => {
     if (!form.next_checkup_date) { toast.error("Next Checkup Date is required"); return; }
-    if (form.frequency === "custom" && !form.custom_interval_days) { toast.error("Custom interval (days) is required"); return; }
+    if (form.frequency === "custom" && (!form.custom_interval_days || Number(form.custom_interval_days) < 1)) { toast.error("Custom interval must be at least 1 day"); return; }
+    if (Number(form.reminder_before_days) < 0) { toast.error("Reminder before days cannot be negative"); return; }
     if (!form.whatsapp_enabled && !form.sms_enabled && !form.in_app_enabled) { toast.error("Enable at least one notification channel"); return; }
 
     const reminderBeforeDays = Number(form.reminder_before_days) || 0;

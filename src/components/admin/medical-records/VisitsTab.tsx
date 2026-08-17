@@ -111,6 +111,14 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
     }
 
     const hasVitals = Object.values(vitalsForm).some((v) => v.trim() !== "");
+    if (hasVitals) {
+      if (vitalsForm.pulse && Number(vitalsForm.pulse) < 0) { toast.error("Pulse cannot be negative"); return; }
+      if (vitalsForm.temperature && Number(vitalsForm.temperature) < 0) { toast.error("Temperature cannot be negative"); return; }
+      if (vitalsForm.spo2 && (Number(vitalsForm.spo2) < 0 || Number(vitalsForm.spo2) > 100)) { toast.error("SpO2 must be between 0 and 100%"); return; }
+      if (vitalsForm.weight && Number(vitalsForm.weight) < 0) { toast.error("Weight cannot be negative"); return; }
+      if (vitalsForm.height && Number(vitalsForm.height) < 0) { toast.error("Height cannot be negative"); return; }
+      if (vitalsForm.respiratory_rate && Number(vitalsForm.respiratory_rate) < 0) { toast.error("Respiratory rate cannot be negative"); return; }
+    }
     if (hasVitals && visitId) {
       const weight = vitalsForm.weight ? Number(vitalsForm.weight) : null;
       const height = vitalsForm.height ? Number(vitalsForm.height) : null;
@@ -280,12 +288,12 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
               <Label className="flex items-center gap-1.5 mb-3"><Activity className="h-4 w-4" /> Vitals (optional)</Label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1"><Label className="text-xs">Blood Pressure</Label><Input placeholder="120/80" value={vitalsForm.blood_pressure} onChange={(e) => setVitalsForm({ ...vitalsForm, blood_pressure: e.target.value })} className="h-9" /></div>
-                <div className="space-y-1"><Label className="text-xs">Pulse (bpm)</Label><Input type="number" value={vitalsForm.pulse} onChange={(e) => setVitalsForm({ ...vitalsForm, pulse: e.target.value })} className="h-9" /></div>
-                <div className="space-y-1"><Label className="text-xs">Temp (°F)</Label><Input type="number" value={vitalsForm.temperature} onChange={(e) => setVitalsForm({ ...vitalsForm, temperature: e.target.value })} className="h-9" /></div>
-                <div className="space-y-1"><Label className="text-xs">SpO2 (%)</Label><Input type="number" value={vitalsForm.spo2} onChange={(e) => setVitalsForm({ ...vitalsForm, spo2: e.target.value })} className="h-9" /></div>
-                <div className="space-y-1"><Label className="text-xs">Weight (kg)</Label><Input type="number" value={vitalsForm.weight} onChange={(e) => setVitalsForm({ ...vitalsForm, weight: e.target.value })} className="h-9" /></div>
-                <div className="space-y-1"><Label className="text-xs">Height (cm)</Label><Input type="number" value={vitalsForm.height} onChange={(e) => setVitalsForm({ ...vitalsForm, height: e.target.value })} className="h-9" /></div>
-                <div className="space-y-1"><Label className="text-xs">Resp. Rate</Label><Input type="number" value={vitalsForm.respiratory_rate} onChange={(e) => setVitalsForm({ ...vitalsForm, respiratory_rate: e.target.value })} className="h-9" /></div>
+                <div className="space-y-1"><Label className="text-xs">Pulse (bpm)</Label><Input type="number" min={0} value={vitalsForm.pulse} onChange={(e) => setVitalsForm({ ...vitalsForm, pulse: e.target.value })} className="h-9" /></div>
+                <div className="space-y-1"><Label className="text-xs">Temp (°F)</Label><Input type="number" min={0} value={vitalsForm.temperature} onChange={(e) => setVitalsForm({ ...vitalsForm, temperature: e.target.value })} className="h-9" /></div>
+                <div className="space-y-1"><Label className="text-xs">SpO2 (%)</Label><Input type="number" min={0} max={100} value={vitalsForm.spo2} onChange={(e) => setVitalsForm({ ...vitalsForm, spo2: e.target.value })} className="h-9" /></div>
+                <div className="space-y-1"><Label className="text-xs">Weight (kg)</Label><Input type="number" min={0} value={vitalsForm.weight} onChange={(e) => setVitalsForm({ ...vitalsForm, weight: e.target.value })} className="h-9" /></div>
+                <div className="space-y-1"><Label className="text-xs">Height (cm)</Label><Input type="number" min={0} value={vitalsForm.height} onChange={(e) => setVitalsForm({ ...vitalsForm, height: e.target.value })} className="h-9" /></div>
+                <div className="space-y-1"><Label className="text-xs">Resp. Rate</Label><Input type="number" min={0} value={vitalsForm.respiratory_rate} onChange={(e) => setVitalsForm({ ...vitalsForm, respiratory_rate: e.target.value })} className="h-9" /></div>
               </div>
             </div>
 

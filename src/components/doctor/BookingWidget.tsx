@@ -154,6 +154,7 @@ const BookingWidget = () => {
   const validatePatientDetails = () => {
     if (!name || !phone || !age || !gender) return false;
     if (!isValidIndianPhone(phone)) { toast.error(phoneErrorMessage); return false; }
+    if (Number(age) < 0 || Number(age) > 120) { toast.error("Please enter a valid age (0–120)."); return false; }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("Enter a valid email or leave it blank."); return false; }
     return true;
   };
@@ -752,11 +753,11 @@ const BookingWidget = () => {
                 <input type="email" placeholder="Email (optional — for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="number" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
+                  <input type="number" min="0" max="120" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
                     className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
                   <select value={gender} onChange={(e) => setGender(e.target.value)}
                     className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal">
-                    <option value="" disabled hidden>Gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
+                    <option value="" disabled hidden>Gender *</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
                   </select>
                 </div>
                 <textarea placeholder="Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}

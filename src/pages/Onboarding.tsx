@@ -60,8 +60,10 @@ const Onboarding = () => {
     if (!form.specialization) return toast.error("Please select your specialization");
     
     if (!form.qualifications.trim()) return toast.error("Please enter your qualifications");
-    if (!form.experience_years || parseInt(form.experience_years) < 0) return toast.error("Please enter years of experience");
-    if (!form.consultation_fee || parseInt(form.consultation_fee) < 0) return toast.error("Please enter your consultation fee");
+    if (!form.experience_years.trim()) return toast.error("Please enter years of experience");
+    if (parseInt(form.experience_years) < 0) return toast.error("Years of experience cannot be negative");
+    if (form.consultation_fee.trim() === "") return toast.error("Please enter your consultation fee");
+    if (parseInt(form.consultation_fee) < 0) return toast.error("Consultation fee cannot be negative");
     setStep(2);
   };
 
@@ -227,11 +229,11 @@ const Onboarding = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div className="space-y-2">
                         <Label>Years of Experience <span className="text-destructive">*</span></Label>
-                        <Input type="number" value={form.experience_years} onChange={(e) => update("experience_years", e.target.value)} placeholder="15" className="h-11" />
+                        <Input type="number" min="0" value={form.experience_years} onChange={(e) => update("experience_years", e.target.value)} placeholder="15" className="h-11" />
                       </div>
                       <div className="space-y-2">
                         <Label>Consultation Fee (₹) <span className="text-destructive">*</span></Label>
-                        <Input type="number" value={form.consultation_fee} onChange={(e) => update("consultation_fee", e.target.value)} placeholder="500" className="h-11" />
+                        <Input type="number" min="0" value={form.consultation_fee} onChange={(e) => update("consultation_fee", e.target.value)} placeholder="500" className="h-11" />
                       </div>
                     </div>
                     <div className="space-y-2">

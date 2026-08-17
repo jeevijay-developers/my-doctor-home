@@ -38,6 +38,7 @@ const SASubscriptions = () => {
   } | null>(null);
 
   const [upgradePayments, setUpgradePayments] = useState<any[]>([]);
+  const [pendingPlansMap, setPendingPlansMap] = useState<Record<string, any>>({});
 
   // Bulk selection/delete mirrors the Doctor Side → Patients pattern
   // (PatientsPage.tsx) exactly.
@@ -72,7 +73,19 @@ const SASubscriptions = () => {
         setUpgradePayments(data ?? []);
       });
 
-  useEffect(() => { load(); loadUpgradePayments(); }, []);
+  const loadPendingPlans = () =>
+    supabase
+      .from("pending_plans" as any)
+      .select("id, doctor_id, target_tier, activation_date")
+      .then(({ data }) => {
+        const map: Record<string, any> = {};
+        (data || []).forEach((item: any) => {
+          map[item.doctor_id] = item;
+        });
+        setPendingPlansMap(map);
+      });
+
+  useEffect(() => { load(); loadUpgradePayments(); loadPendingPlans(); }, []);
 
   const tiers = ["free", "pro", "premium"];
   const tierCounts = Object.fromEntries(tiers.map((t) => [t, rows.filter((r) => (r.plan_tier || "free") === t).length]));
@@ -273,6 +286,13 @@ const SASubscriptions = () => {
                     </td>
                     <td className="p-3">
                       <Badge className="bg-royal/10 text-royal hover:bg-royal/10 border-royal/20 capitalize">{tier}</Badge>
+                      {pendingPlansMap[r.id] && (
+                        <div className="mt-1">
+                          <Badge variant="outline" className="bg-royal/5 border-royal/30 text-[10px] text-royal font-medium">
+                            Scheduled: {pendingPlansMap[r.id].target_tier} ({new Date(pendingPlansMap[r.id].activation_date).toLocaleDateString()})
+                          </Badge>
+                        </div>
+                      )}
                     </td>
                     <td className="p-3">
                       <div className="font-semibold">₹{effective}</div>

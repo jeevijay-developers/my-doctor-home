@@ -163,6 +163,8 @@ const ProfilePage = () => {
 
   const save = async () => {
     if (!profile) return;
+    if (form.experience_years < 0) { toast.error("Years of experience cannot be negative."); return; }
+    if (form.consultation_fee < 0) { toast.error("Consultation fee cannot be negative."); return; }
     if (form.phone && !isValidIndianPhone(form.phone)) { toast.error(phoneErrorMessage); return; }
     setSaving(true);
     const payload: any = { ...form, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
@@ -293,7 +295,7 @@ const ProfilePage = () => {
             </div>
             <div className="space-y-1.5">
               <Label>Years of Experience</Label>
-              <Input type="number" value={form.experience_years} onChange={(e) => setForm({ ...form, experience_years: Number(e.target.value) })} className="h-10" />
+              <Input type="number" min={0} value={form.experience_years} onChange={(e) => setForm({ ...form, experience_years: Number(e.target.value) })} className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>

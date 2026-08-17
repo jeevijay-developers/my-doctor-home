@@ -166,6 +166,14 @@ const PrescriptionsPage = () => {
 
   const addPrescription = async () => {
     if (!profile || !form.patient_name) { toast.error("Patient name is required"); return; }
+    if (form.patient_age && (Number(form.patient_age) < 0 || Number(form.patient_age) > 120)) {
+      toast.error("Please enter a valid age (0–120)");
+      return;
+    }
+    if (form.patient_weight && Number(form.patient_weight) < 0) {
+      toast.error("Weight cannot be negative");
+      return;
+    }
     const { data, error } = await supabase.from("prescriptions").insert({
       doctor_id: profile.id,
       patient_id: form.patient_id || null,
@@ -188,6 +196,14 @@ const PrescriptionsPage = () => {
   const saveEdit = async () => {
     if (!viewing) return;
     if (!editForm.patient_name) { toast.error("Patient name is required"); return; }
+    if (editForm.patient_age && (Number(editForm.patient_age) < 0 || Number(editForm.patient_age) > 120)) {
+      toast.error("Please enter a valid age (0–120)");
+      return;
+    }
+    if (editForm.patient_weight && Number(editForm.patient_weight) < 0) {
+      toast.error("Weight cannot be negative");
+      return;
+    }
     const { error } = await supabase.from("prescriptions").update({
       patient_id: editForm.patient_id || null,
       patient_name: editForm.patient_name,
@@ -301,7 +317,7 @@ const PrescriptionsPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Age</Label>
-                  <Input type="number" min={0} value={form.patient_age} onChange={(e) => setForm({ ...form, patient_age: e.target.value })} className="h-10" />
+                  <Input type="number" min={0} max={120} value={form.patient_age} onChange={(e) => setForm({ ...form, patient_age: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Weight (kg)</Label>
@@ -611,7 +627,7 @@ const PrescriptionsPage = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label>Age</Label>
-                      <Input type="number" min={0} value={editForm.patient_age} onChange={(e) => setEditForm({ ...editForm, patient_age: e.target.value })} className="h-10" />
+                      <Input type="number" min={0} max={120} value={editForm.patient_age} onChange={(e) => setEditForm({ ...editForm, patient_age: e.target.value })} className="h-10" />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Weight (kg)</Label>

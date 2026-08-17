@@ -72,6 +72,10 @@ Deno.serve(async (req) => {
   // If plan is active, create a pending plan to activate after current plan expires
   if (currentProfile?.plan_status === "active" && currentProfile?.plan_end) {
     const activationDate = new Date(currentProfile.plan_end);
+
+    // Enforce single pending plan rule: replace any previous scheduled plan for this doctor
+    await admin.from("pending_plans").delete().eq("doctor_id", payment.doctor_id);
+
     const { error: pendingErr } = await admin
       .from("pending_plans")
       .insert({

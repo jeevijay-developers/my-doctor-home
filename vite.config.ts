@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     watch: {
-      ignored: ["**/docs/**", "**/dist/**"],
+      ignored: ["**/docs/**", "**/dist/**", "**/*.md"],
     },
     hmr: {
       overlay: false,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TIER_LABELS, TIER_PRICES, hasNoActivePlan, getTierFeatures, getSubscriptionCardStates } from "./planFeatures";
+import { TIER_LABELS, TIER_PRICES, hasNoActivePlan, getTierFeatures, getSubscriptionCardStates, getDoctorTierPrice } from "./planFeatures";
 
 describe("planFeatures", () => {
   it("labels free and pro identically as Pro, premium as Premium", () => {
@@ -11,6 +11,18 @@ describe("planFeatures", () => {
   it("exposes real prices", () => {
     expect(TIER_PRICES.pro).toBe(1499);
     expect(TIER_PRICES.premium).toBe(3999);
+  });
+
+  it("getDoctorTierPrice respects custom price overrides for the matching tier and falls back otherwise", () => {
+    // Premium doctor with ₹9000 custom price override
+    const premiumDoc = { plan_tier: "premium", custom_plan_price: 9000 };
+    expect(getDoctorTierPrice("premium", premiumDoc)).toBe(9000);
+    expect(getDoctorTierPrice("pro", premiumDoc)).toBe(1499);
+
+    // Doctor with no custom price override
+    const normalDoc = { plan_tier: "pro", custom_plan_price: null };
+    expect(getDoctorTierPrice("pro", normalDoc)).toBe(1499);
+    expect(getDoctorTierPrice("premium", normalDoc)).toBe(3999);
   });
 
   it("hasNoActivePlan is true only for expired and cancelled", () => {
@@ -41,18 +53,18 @@ describe("planFeatures", () => {
     expect(basic.showCta).toBe(false);
   });
 
-  it("active premium tier: premium current, basic informational only", () => {
+  it("active premium tier: premium current with renewal CTA, basic shows schedule CTA", () => {
     const { basic, premium } = getSubscriptionCardStates("active", "premium", true);
     expect(premium.isCurrent).toBe(true);
-    expect(premium.showCta).toBe(false);
+    expect(premium.showCta).toBe(true);
     expect(basic.isCurrent).toBe(false);
-    expect(basic.showCta).toBe(false);
+    expect(basic.showCta).toBe(true);
   });
 
-  it("active basic tier: basic current with no CTA, premium shows CTA", () => {
+  it("active basic tier: basic current with renewal CTA, premium shows upgrade CTA", () => {
     const { basic, premium } = getSubscriptionCardStates("active", "pro", false);
     expect(basic.isCurrent).toBe(true);
-    expect(basic.showCta).toBe(false);
+    expect(basic.showCta).toBe(true);
     expect(premium.showCta).toBe(true);
   });
 

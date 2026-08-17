@@ -260,6 +260,7 @@ const AppointmentsPage = () => {
     if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
     if (!newAppt.patient_phone.trim()) { toast.error("Phone number is required"); return; }
     if (!isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
+    if (newAppt.amount < 0) { toast.error("Amount cannot be negative"); return; }
     // Block past date / time
     const apptTs = new Date(`${newAppt.date}T${newAppt.time_slot}`);
     if (apptTs.getTime() < Date.now()) { toast.error("Cannot book an appointment for a past date or time slot."); return; }
