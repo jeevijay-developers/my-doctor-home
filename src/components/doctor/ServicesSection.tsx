@@ -68,31 +68,60 @@ const ServicesSection = () => {
         <p className="text-text-gray text-center mb-12 max-w-lg mx-auto">Transparent pricing. Book instantly. No hidden charges.</p>
 
         {services.length === 0 ? null : !useCarouselLayout ? (
-          <div
-            className={
-              services.length === 1
-                ? "flex justify-center"
-                : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto"
-            }
-          >
-            {services.map((s, i) => (
-              <AnimatedItem key={s.id} index={i} className={services.length === 1 ? "w-full max-w-[340px]" : ""}>
-                <ServiceCard s={s} onBook={() => scrollTo("booking")} />
-              </AnimatedItem>
-            ))}
-          </div>
+          <>
+            {/* Mobile View: Always swipeable carousel without chevrons */}
+            <div className="block md:hidden max-w-5xl mx-auto">
+              <Carousel setApi={setApi} opts={{ align: "start", loop: services.length > 1 }} className="px-2">
+                <CarouselContent className="-ml-4">
+                  {services.map((s) => (
+                    <CarouselItem key={s.id} className="pl-4 basis-[88%]">
+                      <ServiceCard s={s} onBook={() => scrollTo("booking")} />
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
+              {services.length > 1 && (
+                <div className="flex justify-center gap-2 mt-6">
+                  {services.map((s, i) => (
+                    <button
+                      key={s.id}
+                      aria-label={`Go to service ${i + 1}`}
+                      onClick={() => api?.scrollTo(i)}
+                      className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Desktop View (<= 3 cards): Static grid/flex layout without carousel and without arrows */}
+            <div
+              className={
+                services.length === 1
+                  ? "hidden md:flex justify-center"
+                  : "hidden md:grid grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto"
+              }
+            >
+              {services.map((s, i) => (
+                <AnimatedItem key={s.id} index={i} className={services.length === 1 ? "w-full max-w-[340px]" : ""}>
+                  <ServiceCard s={s} onBook={() => scrollTo("booking")} />
+                </AnimatedItem>
+              ))}
+            </div>
+          </>
         ) : (
+          /* Desktop (> 3 cards) & Mobile (> 3 cards): Carousel */
           <div className="max-w-5xl mx-auto">
             <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="px-2">
               <CarouselContent className="-ml-4 sm:-ml-6">
                 {services.map((s) => (
-                  <CarouselItem key={s.id} className="pl-4 sm:pl-6 basis-full md:basis-1/2 lg:basis-1/3">
+                  <CarouselItem key={s.id} className="pl-4 sm:pl-6 basis-[88%] sm:basis-1/2 lg:basis-1/3">
                     <ServiceCard s={s} onBook={() => scrollTo("booking")} />
                   </CarouselItem>
                 ))}
               </CarouselContent>
-              <CarouselPrevious className="left-1 md:left-2 lg:-left-12 border-border bg-card" />
-              <CarouselNext className="right-1 md:right-2 lg:-right-12 border-border bg-card" />
+              <CarouselPrevious className="hidden md:inline-flex left-1 md:left-2 lg:-left-12 border-border bg-card" />
+              <CarouselNext className="hidden md:inline-flex right-1 md:right-2 lg:-right-12 border-border bg-card" />
             </Carousel>
             <div className="flex justify-center gap-2 mt-6">
               {services.map((s, i) => (

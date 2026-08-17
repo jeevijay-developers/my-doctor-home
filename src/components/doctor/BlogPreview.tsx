@@ -86,26 +86,55 @@ const BlogPreview = () => {
           </Link>
         </div>
 
-        {!useCarouselLayout ? (
-          <div className="flex flex-wrap justify-center gap-6">
-            {posts.map((post, i) => (
-              <AnimatedItem key={post.id} index={i} className="w-full sm:w-[340px]">
-                <BlogCard post={post} slug={slug} />
-              </AnimatedItem>
-            ))}
-          </div>
+        {posts.length === 0 ? null : !useCarouselLayout ? (
+          <>
+            {/* Mobile View: Always swipeable carousel without chevrons */}
+            <div className="block md:hidden max-w-5xl mx-auto">
+              <Carousel setApi={setApi} opts={{ align: "start", loop: posts.length > 1 }} className="px-2">
+                <CarouselContent className="-ml-4">
+                  {posts.map((post) => (
+                    <CarouselItem key={post.id} className="pl-4 basis-[88%]">
+                      <BlogCard post={post} slug={slug} />
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
+              {posts.length > 1 && (
+                <div className="flex justify-center gap-2 mt-6">
+                  {posts.map((post, i) => (
+                    <button
+                      key={post.id}
+                      aria-label={`Go to article ${i + 1}`}
+                      onClick={() => api?.scrollTo(i)}
+                      className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Desktop View (<= 3 items): Static grid/flex layout without carousel and without arrows */}
+            <div className="hidden md:flex flex-wrap justify-center gap-6">
+              {posts.map((post, i) => (
+                <AnimatedItem key={post.id} index={i} className="w-full sm:w-[340px]">
+                  <BlogCard post={post} slug={slug} />
+                </AnimatedItem>
+              ))}
+            </div>
+          </>
         ) : (
+          /* Desktop (> 3 items) & Mobile (> 3 items): Carousel */
           <div className="max-w-5xl mx-auto">
             <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="px-2">
               <CarouselContent className="-ml-4 sm:-ml-6">
                 {posts.map((post) => (
-                  <CarouselItem key={post.id} className="pl-4 sm:pl-6 basis-full md:basis-1/2 lg:basis-1/3">
+                  <CarouselItem key={post.id} className="pl-4 sm:pl-6 basis-[88%] sm:basis-1/2 lg:basis-1/3">
                     <BlogCard post={post} slug={slug} />
                   </CarouselItem>
                 ))}
               </CarouselContent>
-              <CarouselPrevious className="left-1 md:left-2 lg:-left-12 border-border bg-card" />
-              <CarouselNext className="right-1 md:right-2 lg:-right-12 border-border bg-card" />
+              <CarouselPrevious className="hidden md:inline-flex left-1 md:left-2 lg:-left-12 border-border bg-card" />
+              <CarouselNext className="hidden md:inline-flex right-1 md:right-2 lg:-right-12 border-border bg-card" />
             </Carousel>
             <div className="flex justify-center gap-2 mt-6">
               {posts.map((post, i) => (

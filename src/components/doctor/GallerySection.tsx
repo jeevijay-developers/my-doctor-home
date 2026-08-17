@@ -40,10 +40,10 @@ const GallerySection = () => {
 
   // Autoplay — advances one slide at a time, paused while the pointer is over the carousel.
   useEffect(() => {
-    if (!api || !useCarouselLayout || hovering) return;
+    if (!api || gallery.length <= 1 || hovering) return;
     const timer = setInterval(() => api.scrollNext(), AUTOPLAY_MS);
     return () => clearInterval(timer);
-  }, [api, useCarouselLayout, hovering]);
+  }, [api, gallery.length, hovering]);
 
   if (gallery.length === 0) return null;
 
@@ -60,18 +60,47 @@ const GallerySection = () => {
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-12">Our Clinic</h2>
 
         {!useCarouselLayout ? (
-          <div
-            className={
-              gallery.length === 1
-                ? "flex justify-center"
-                : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto"
-            }
-          >
-            {gallery.map((p: any) => (
-              <GalleryCard key={p.id} p={p} className={gallery.length === 1 ? "w-full max-w-[360px]" : ""} />
-            ))}
-          </div>
+          <>
+            {/* Mobile View: Always swipeable carousel without chevrons */}
+            <div className="block md:hidden max-w-5xl mx-auto">
+              <Carousel setApi={setApi} opts={{ align: "start", loop: gallery.length > 1 }} className="px-2">
+                <CarouselContent className="-ml-4">
+                  {gallery.map((p: any) => (
+                    <CarouselItem key={p.id} className="pl-4 basis-[88%]">
+                      <GalleryCard p={p} />
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
+              {gallery.length > 1 && (
+                <div className="flex justify-center gap-2 mt-6">
+                  {gallery.map((p: any, i: number) => (
+                    <button
+                      key={p.id}
+                      aria-label={`Go to image ${i + 1}`}
+                      onClick={() => api?.scrollTo(i)}
+                      className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Desktop View (<= 3 items): Static grid/flex layout without carousel and without arrows */}
+            <div
+              className={
+                gallery.length === 1
+                  ? "hidden md:flex justify-center"
+                  : "hidden md:grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto"
+              }
+            >
+              {gallery.map((p: any) => (
+                <GalleryCard key={p.id} p={p} className={gallery.length === 1 ? "w-full max-w-[360px]" : ""} />
+              ))}
+            </div>
+          </>
         ) : (
+          /* Desktop (> 3 items) & Mobile (> 3 items): Carousel */
           <div
             className="max-w-5xl mx-auto"
             onMouseEnter={() => setHovering(true)}
@@ -80,13 +109,13 @@ const GallerySection = () => {
             <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="px-2">
               <CarouselContent className="-ml-4 sm:-ml-6">
                 {gallery.map((p: any) => (
-                  <CarouselItem key={p.id} className="pl-4 sm:pl-6 basis-full md:basis-1/2 lg:basis-1/3">
+                  <CarouselItem key={p.id} className="pl-4 sm:pl-6 basis-[88%] sm:basis-1/2 lg:basis-1/3">
                     <GalleryCard p={p} />
                   </CarouselItem>
                 ))}
               </CarouselContent>
-              <CarouselPrevious className="left-1 md:left-2 lg:-left-12 border-border bg-card" />
-              <CarouselNext className="right-1 md:right-2 lg:-right-12 border-border bg-card" />
+              <CarouselPrevious className="hidden md:inline-flex left-1 md:left-2 lg:-left-12 border-border bg-card" />
+              <CarouselNext className="hidden md:inline-flex right-1 md:right-2 lg:-right-12 border-border bg-card" />
             </Carousel>
             <div className="flex justify-center gap-2 mt-6">
               {gallery.map((p: any, i: number) => (
