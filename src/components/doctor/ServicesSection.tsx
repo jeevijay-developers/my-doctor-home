@@ -6,6 +6,7 @@ import AnimatedItem from "@/components/landing/AnimatedItem";
 import {
   Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
 } from "@/components/ui/carousel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Switch from a static row to a carousel once there are enough services to page through.
 const CAROUSEL_THRESHOLD = 3;
@@ -19,38 +20,42 @@ const typeColor: Record<string, string> = {
 // Rough threshold for when a description is likely to overflow 3 clamped lines.
 const DESCRIPTION_TRUNCATE_LENGTH = 140;
 
-const ServiceCard = ({ s, onBook }: { s: any; onBook: () => void }) => {
-  const [expanded, setExpanded] = useState(false);
+const ServiceCard = ({ s, onBook, onSeeMore }: { s: any; onBook: () => void; onSeeMore: () => void }) => {
   const isLong = (s.description?.length || 0) > DESCRIPTION_TRUNCATE_LENGTH;
 
   return (
-    <div className="hover-lift w-full bg-card border border-border shadow-sm rounded-2xl p-6 flex flex-col">
-      <div className="w-14 h-14 rounded-2xl bg-royal/10 flex items-center justify-center mb-4">
-        <Heart size={24} className="text-royal" />
+    <div className="hover-lift w-full h-full bg-card border border-border shadow-sm rounded-2xl p-6 flex flex-col justify-between">
+      <div>
+        <div className="w-14 h-14 rounded-2xl bg-royal/10 flex items-center justify-center mb-4">
+          <Heart size={24} className="text-royal" />
+        </div>
+        <h3 className="font-heading font-semibold text-foreground text-lg">{s.name?.trim() || "Consultation"}</h3>
+        {s.description && (
+          <div>
+            <p className="text-sm text-text-gray mt-1 line-clamp-3">{s.description}</p>
+            {isLong && (
+              <button
+                type="button"
+                onClick={onSeeMore}
+                className="text-xs font-medium text-royal hover:underline mt-1 inline-block"
+              >
+                See more
+              </button>
+            )}
+          </div>
+        )}
       </div>
-      <h3 className="font-heading font-semibold text-foreground text-lg">{s.name?.trim() || "Consultation"}</h3>
-      {s.description && (
-        <>
-          <p className={`text-sm text-text-gray mt-1 ${expanded ? "" : "line-clamp-3"}`}>{s.description}</p>
-          {isLong && (
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="text-xs font-medium text-royal hover:underline mt-1 self-start"
-            >
-              {expanded ? "See less" : "See more"}
-            </button>
-          )}
-        </>
-      )}
-      <div className="flex items-center gap-2 mt-3 mb-3">
-        <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${typeColor[s.type] || ""}`}>{s.type}</span>
-        <span className="text-xs text-text-gray">{s.duration} mins</span>
+
+      <div className="mt-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${typeColor[s.type] || ""}`}>{s.type}</span>
+          <span className="text-xs text-text-gray">{s.duration} mins</span>
+        </div>
+        <p className="font-heading font-extrabold text-2xl text-royal mb-4">₹{s.price.toLocaleString()}</p>
+        <Button variant="cta" className="w-full font-heading font-semibold" onClick={onBook}>
+          Book Now
+        </Button>
       </div>
-      <p className="font-heading font-extrabold text-2xl text-royal mb-4">₹{s.price.toLocaleString()}</p>
-      <Button variant="cta" className="w-full font-heading font-semibold mt-auto" onClick={onBook}>
-        Book Now
-      </Button>
     </div>
   );
 };
@@ -61,6 +66,7 @@ const ServicesSection = () => {
 
   const [api, setApi] = useState<CarouselApi>();
   const [selected, setSelected] = useState(0);
+  const [activeService, setActiveService] = useState<any | null>(null);
 
   const useCarouselLayout = services.length > CAROUSEL_THRESHOLD;
 
@@ -93,10 +99,10 @@ const ServicesSection = () => {
             {/* Mobile View: Always swipeable carousel without chevrons */}
             <div className="block md:hidden max-w-5xl mx-auto">
               <Carousel setApi={setApi} opts={{ align: "start", loop: services.length > 1 }} className="px-2">
-                <CarouselContent className="-ml-4 items-start">
+                <CarouselContent className="-ml-4">
                   {services.map((s) => (
-                    <CarouselItem key={s.id} className="pl-4 basis-[88%] self-start">
-                      <ServiceCard s={s} onBook={() => scrollTo("booking")} />
+                    <CarouselItem key={s.id} className="pl-4 basis-[88%]">
+                      <ServiceCard s={s} onBook={() => scrollTo("booking")} onSeeMore={() => setActiveService(s)} />
                     </CarouselItem>
                   ))}
                 </CarouselContent>
@@ -119,13 +125,13 @@ const ServicesSection = () => {
             <div
               className={
                 services.length === 1
-                  ? "hidden md:flex justify-center items-start"
-                  : "hidden md:grid grid-cols-2 lg:grid-cols-3 items-start gap-6 max-w-5xl mx-auto"
+                  ? "hidden md:flex justify-center"
+                  : "hidden md:grid grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto"
               }
             >
               {services.map((s, i) => (
-                <AnimatedItem key={s.id} index={i} className={`self-start ${services.length === 1 ? "w-full max-w-[340px]" : ""}`}>
-                  <ServiceCard s={s} onBook={() => scrollTo("booking")} />
+                <AnimatedItem key={s.id} index={i} className={`h-full ${services.length === 1 ? "w-full max-w-[340px]" : ""}`}>
+                  <ServiceCard s={s} onBook={() => scrollTo("booking")} onSeeMore={() => setActiveService(s)} />
                 </AnimatedItem>
               ))}
             </div>
@@ -134,10 +140,10 @@ const ServicesSection = () => {
           /* Desktop (> 3 cards) & Mobile (> 3 cards): Carousel */
           <div className="max-w-5xl mx-auto">
             <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="px-2">
-              <CarouselContent className="-ml-4 sm:-ml-6 items-start">
+              <CarouselContent className="-ml-4 sm:-ml-6">
                 {services.map((s) => (
-                  <CarouselItem key={s.id} className="pl-4 sm:pl-6 basis-[88%] sm:basis-1/2 lg:basis-1/3 self-start">
-                    <ServiceCard s={s} onBook={() => scrollTo("booking")} />
+                  <CarouselItem key={s.id} className="pl-4 sm:pl-6 basis-[88%] sm:basis-1/2 lg:basis-1/3">
+                    <ServiceCard s={s} onBook={() => scrollTo("booking")} onSeeMore={() => setActiveService(s)} />
                   </CarouselItem>
                 ))}
               </CarouselContent>
@@ -157,6 +163,55 @@ const ServicesSection = () => {
           </div>
         )}
       </div>
+
+      {/* Service Details Modal */}
+      <Dialog open={!!activeService} onOpenChange={(open) => !open && setActiveService(null)}>
+        <DialogContent className="max-w-lg p-6 bg-card border border-border rounded-2xl shadow-xl">
+          {activeService && (
+            <div className="space-y-4">
+              <DialogHeader className="space-y-1">
+                <div className="w-12 h-12 rounded-xl bg-royal/10 flex items-center justify-center mb-2">
+                  <Heart size={22} className="text-royal" />
+                </div>
+                <DialogTitle className="font-heading font-bold text-xl text-foreground">
+                  {activeService.name?.trim() || "Consultation"}
+                </DialogTitle>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${typeColor[activeService.type] || ""}`}>
+                    {activeService.type}
+                  </span>
+                  <span className="text-xs text-text-gray">{activeService.duration} mins</span>
+                </div>
+              </DialogHeader>
+
+              <div className="max-h-[50vh] overflow-y-auto pr-1">
+                <p className="text-sm text-text-gray whitespace-pre-line leading-relaxed">
+                  {activeService.description}
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-border flex items-center justify-between">
+                <div>
+                  <span className="text-xs text-text-gray block">Fee</span>
+                  <span className="font-heading font-extrabold text-2xl text-royal">
+                    ₹{activeService.price.toLocaleString()}
+                  </span>
+                </div>
+                <Button
+                  variant="cta"
+                  className="font-heading font-semibold px-6"
+                  onClick={() => {
+                    setActiveService(null);
+                    scrollTo("booking");
+                  }}
+                >
+                  Book Now
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };
