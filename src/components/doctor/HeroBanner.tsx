@@ -109,9 +109,9 @@ const HeroBanner = () => {
           <motion.div {...fadeUp(0.15)} className="relative flex justify-center md:justify-end">
             <div className="relative">
               <div className="absolute -inset-1.5 sm:-inset-4 rounded-2xl sm:rounded-[2.5rem] bg-gradient-to-br from-royal/15 via-teal/10 to-transparent -z-10" />
-              <div className="w-[100px] h-[112px] sm:w-56 sm:h-64 md:w-80 md:h-96 rounded-xl sm:rounded-[2rem] overflow-hidden shadow-xl border-2 sm:border-4 border-card bg-secondary">
+              <div className="w-[100px] h-[112px] sm:w-56 sm:h-64 md:w-80 md:h-96 rounded-xl sm:rounded-[2rem] overflow-hidden shadow-xl border-2 sm:border-4 border-card bg-secondary flex items-center justify-center">
                 {profile?.profile_photo_url ? (
-                  <img src={profile.profile_photo_url} alt={`Dr. ${profile.full_name}`} className="w-full h-full object-cover" />
+                  <img src={profile.profile_photo_url} alt={`Dr. ${profile.full_name}`} className="w-full h-full object-contain" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xl sm:text-6xl font-heading font-bold text-royal/30">
                     {profile?.full_name?.charAt(0) || "D"}
