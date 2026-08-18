@@ -120,7 +120,7 @@ const Navbar = () => {
           </Button>
           <button
             aria-label="Menu"
-            className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-muted text-text-muted dark:text-foreground transition-colors"
+            className="lg:hidden p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-muted text-text-muted dark:text-foreground transition-colors"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
