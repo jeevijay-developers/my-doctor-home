@@ -25,12 +25,12 @@ const ServiceCard = ({ s, onBook, onSeeMore }: { s: any; onBook: () => void; onS
   const isLong = (s.description?.length || 0) > DESCRIPTION_TRUNCATE_LENGTH;
 
   return (
-    <div className="hover-lift w-full h-full bg-card border border-border shadow-sm rounded-2xl p-6 flex flex-col justify-between">
+    <div className="hover-lift w-full h-full bg-card border border-border shadow-sm rounded-2xl py-6 px-[5px] md:px-6 flex flex-col justify-between">
       <div>
         <div className="w-14 h-14 rounded-2xl bg-royal/10 flex items-center justify-center mb-4">
           <Heart size={24} className="text-royal" />
         </div>
-        <h3 className="font-heading font-semibold text-foreground text-lg">{s.name?.trim() || "Consultation"}</h3>
+        <h3 className="font-heading font-semibold text-foreground text-lg break-words md:break-normal">{s.name?.trim() || "Consultation"}</h3>
         {s.description && (
           <div>
             <p className="text-sm text-text-gray mt-1 line-clamp-3">{s.description}</p>
@@ -48,7 +48,7 @@ const ServiceCard = ({ s, onBook, onSeeMore }: { s: any; onBook: () => void; onS
       </div>
 
       <div className="mt-4">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center flex-wrap md:flex-nowrap gap-2 mb-3">
           <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${typeColor[s.type] || ""}`}>{s.type}</span>
           <span className="text-xs text-text-gray">{s.duration} mins</span>
         </div>
@@ -91,7 +91,7 @@ const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           WebkitMaskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
         }}
       />
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-[5px] md:px-4 relative z-10">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-4">Medical Services</h2>
         <p className="text-text-gray text-center mb-12 max-w-lg mx-auto">Transparent pricing. Book instantly. No hidden charges.</p>
 

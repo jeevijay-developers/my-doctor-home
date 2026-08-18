@@ -33,7 +33,7 @@ const BlogCard = ({ post, slug }: { post: any; slug?: string }) => {
           </span>
         )}
       </div>
-      <div className="p-5 space-y-3 flex flex-col flex-1">
+      <div className="py-5 px-[5px] md:px-5 space-y-3 flex flex-col flex-1">
         <h3 className="font-heading font-semibold text-foreground group-hover:text-royal transition-colors line-clamp-2">{post.title}</h3>
         {post.excerpt && <p className="text-sm text-muted-foreground line-clamp-2">{post.excerpt}</p>}
         {dateVal && (
@@ -79,7 +79,7 @@ const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => 
 
   return (
     <section id="blog" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-[5px] md:px-4">
         <div className="flex items-center justify-center gap-6 mb-10">
           <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground">Health Articles</h2>
           <Link to={`/dr/${slug}/blog`} className="text-sm text-royal font-semibold flex items-center gap-1 hover:underline">

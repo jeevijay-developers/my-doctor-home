@@ -444,14 +444,14 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   if (confirmed) {
     return (
       <section id="booking" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-        <div className="container mx-auto px-4 max-w-lg">
-          <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
+        <div className="container mx-auto px-[5px] md:px-4 max-w-lg">
+          <div className="bg-card rounded-2xl shadow-xl py-8 px-[5px] md:px-8 text-center">
             <CheckCircle2 size={64} className="text-success mx-auto mb-4" />
             <h3 className="font-heading font-bold text-2xl text-foreground mb-2">
               {confirmedPaymentStatus === "paid" ? "Booking Successful!" : `Appointment ${settings?.auto_confirm ? "Confirmed" : "Requested"}!`}
             </h3>
             <p className="text-text-gray mb-4">Token #{token}</p>
-            <div className="bg-secondary rounded-xl p-4 text-left space-y-2 text-sm mb-4">
+            <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 text-left space-y-2 text-sm mb-4">
               <p><strong>Appointment ID:</strong> {token}</p>
               <p><strong>Doctor:</strong> Dr. {profile?.full_name}</p>
               <p><strong>Consultation Type:</strong> {type === "clinic" ? "Clinic Visit" : "Online"}</p>
@@ -565,14 +565,14 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   if (paymentFailed) {
     return (
       <section id="booking" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-        <div className="container mx-auto px-4 max-w-lg">
-          <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
+        <div className="container mx-auto px-[5px] md:px-4 max-w-lg">
+          <div className="bg-card rounded-2xl shadow-xl py-8 px-[5px] md:px-8 text-center">
             <XCircle size={64} className="text-destructive mx-auto mb-4" />
             <h3 className="font-heading font-bold text-2xl text-foreground mb-2 flex items-center justify-center gap-2 flex-wrap">
               Payment Failed {paymentModeIsMock && <TestModeBadge />}
             </h3>
             <p className="text-text-gray mb-4">{paymentFailureMessage || "Your payment could not be completed."}</p>
-            <div className="bg-secondary rounded-xl p-4 text-left space-y-2 text-sm mb-4">
+            <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 text-left space-y-2 text-sm mb-4">
               <p><strong>Doctor:</strong> Dr. {profile?.full_name}</p>
               <p><strong>Consultation Type:</strong> {type === "clinic" ? "Clinic Visit" : "Online"}</p>
               <p><strong>Service:</strong> {selectedService?.name}</p>
@@ -620,7 +620,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   return (
     <section id="booking" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-      <div className="container mx-auto px-4 max-w-2xl">
+      <div className="container mx-auto px-[5px] md:px-4 max-w-2xl">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-2">Book an Appointment</h2>
         <p className="text-text-gray text-center mb-4">Select your preference and book in under 2 minutes</p>
         {profile?.slug && (
@@ -631,7 +631,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           </p>
         )}
 
-        <div className="bg-card rounded-2xl shadow-xl p-6 md:p-8">
+        <div className="bg-card rounded-2xl shadow-xl py-6 px-[5px] md:p-8">
           <p className="text-xs font-semibold text-royal mb-2 tracking-wide">
             Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
           </p>
@@ -765,7 +765,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                   className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal resize-none" />
               </div>
 
-              <div className="bg-secondary rounded-xl p-4 space-y-2 text-sm">
+              <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="text-foreground font-medium">{selectedService?.name}</span></div>
                 <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="text-foreground font-medium">{selectedDate && format(selectedDate, "d MMM")}</span></div>
                 <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="text-foreground font-medium">{selectedTime}</span></div>
@@ -801,7 +801,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               </h3>
               <p className="text-xs text-muted-foreground">Please review your details before payment.</p>
 
-              <div className="bg-secondary rounded-xl p-4 space-y-4 text-sm">
+              <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 space-y-4 text-sm">
                 <div className="space-y-2">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Appointment Details</p>
                   <div className="space-y-1.5">

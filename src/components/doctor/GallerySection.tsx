@@ -13,7 +13,7 @@ const AUTOPLAY_MS = 4000;
 const GalleryCard = ({ p, onClick, className = "" }: { p: any; onClick?: () => void; className?: string }) => (
   <div
     onClick={onClick}
-    className={`rounded-2xl overflow-hidden group cursor-pointer shadow-sm bg-card border border-border/50 p-2 sm:p-2.5 flex flex-col h-full hover:shadow-md transition-all duration-300 ${className}`}
+    className={`rounded-2xl overflow-hidden group cursor-pointer shadow-sm bg-card border border-border/50 py-2 px-[5px] sm:py-2.5 md:px-2.5 flex flex-col h-full hover:shadow-md transition-all duration-300 ${className}`}
   >
     <div className="w-full aspect-[16/10] sm:aspect-[4/3] rounded-xl overflow-hidden bg-muted/20 relative">
       <img
@@ -25,7 +25,7 @@ const GalleryCard = ({ p, onClick, className = "" }: { p: any; onClick?: () => v
       />
     </div>
     {p.caption && (
-      <p className="text-sm text-text-gray text-center mt-2 font-medium line-clamp-2 px-1">
+      <p className="text-sm text-text-gray text-center mt-2 font-medium line-clamp-2 px-0 md:px-1">
         {p.caption}
       </p>
     )}
@@ -68,7 +68,7 @@ const GallerySection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) 
           backgroundSize: "24px 24px",
         }}
       />
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-[5px] md:px-4 relative z-10">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-12">Our Clinic</h2>
 
         {!useCarouselLayout ? (

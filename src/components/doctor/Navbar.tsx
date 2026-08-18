@@ -71,21 +71,21 @@ const Navbar = () => {
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-card/90 backdrop-blur-md shadow-sm border-b border-border" : "bg-transparent border-b border-transparent"}`}>
-      <div className="container mx-auto flex items-center justify-between py-3.5 px-4">
-        <div className="flex items-center gap-3">
+      <div className="container mx-auto flex items-center justify-between py-3.5 px-[5px] md:px-4">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {profile?.profile_photo_url ? (
-            <img src={profile.profile_photo_url} alt={profile.full_name} className="w-10 h-10 rounded-full object-cover ring-2 ring-royal/70 ring-offset-2 ring-offset-background" />
+            <img src={profile.profile_photo_url} alt={profile.full_name} className="w-10 h-10 rounded-full object-cover ring-2 ring-royal/70 ring-offset-2 ring-offset-background shrink-0" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-royal/10 flex items-center justify-center font-heading font-bold text-royal ring-2 ring-royal/20">
+            <div className="w-10 h-10 rounded-full bg-royal/10 flex items-center justify-center font-heading font-bold text-royal ring-2 ring-royal/20 shrink-0">
               {profile?.full_name?.charAt(0) || "D"}
             </div>
           )}
-          <div className="hidden sm:flex flex-col justify-center leading-tight">
-            <span className="font-heading font-bold text-foreground text-lg leading-tight">
+          <div className="flex flex-col justify-center leading-tight min-w-0">
+            <span className="font-heading font-bold text-foreground text-lg leading-tight truncate">
               Dr. {profile?.full_name || "Doctor"}
             </span>
             {profile?.specialization && (
-              <span className="text-xs text-text-gray leading-tight">
+              <span className="text-xs text-text-gray leading-tight truncate">
                 {profile.specialization}
               </span>
             )}
@@ -124,7 +124,7 @@ const Navbar = () => {
               <MessageCircle size={18} />
             </a>
           )}
-          <ThemeToggle mode={mode} onChange={setTheme} className="hidden sm:flex" />
+          <ThemeToggle mode={mode} onChange={setTheme} />
           <Button size="sm" variant="cta" className="hidden sm:flex font-heading font-semibold" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>

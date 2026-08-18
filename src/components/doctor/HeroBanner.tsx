@@ -1,4 +1,4 @@
-import { Clock, MapPin, Calendar, Phone, Navigation, Users } from "lucide-react";
+import { Clock, MapPin, Calendar, Phone, Navigation, Star } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
@@ -100,9 +100,9 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
 
   return (
     <section className="relative pt-24 pb-0 md:pt-32 md:pb-0 overflow-hidden bg-white dark:bg-black">
-      <div className="px-5 relative z-10">
+      <div className="px-[5px] md:px-5 relative z-10">
         <motion.div id="hero-card" {...fadeUp(0)} className={`relative flex flex-col justify-center rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] overflow-hidden border border-border/60 shadow-xl sm:shadow-2xl ${cardColorClass(cardColor)}`}>
-          <div className="relative z-10 px-3 py-5 sm:px-8 sm:py-10 md:px-12 md:py-14">
+          <div className="relative z-10 px-[5px] py-5 sm:py-10 md:px-12 md:py-14">
             {/* flex (not grid-cols-2) so text/photo size to their own
                 content instead of stretching to fixed 50/50 columns —
                 justify-center then centers the pair as a unit, turning
@@ -141,18 +141,18 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                   </motion.div>
                 )}
 
-                <motion.div {...fadeUp(0.28)} className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:gap-3 pt-1 sm:pt-2">
-                  <Button variant="cta" className="font-heading font-semibold h-7 px-2 text-[9px] sm:h-11 sm:px-8 sm:text-sm w-full sm:w-auto" onClick={() => scrollTo("booking")}>
-                    <Calendar className="h-3 w-3 sm:h-[18px] sm:w-[18px] mr-1 sm:mr-2" /> Book Appointment
+                <motion.div {...fadeUp(0.28)} className="flex flex-row gap-1 sm:flex-wrap sm:gap-3 pt-1 sm:pt-2">
+                  <Button variant="cta" className="font-heading font-semibold !min-h-0 h-6 px-1 gap-0.5 text-[7px] sm:h-11 sm:px-8 sm:gap-2 sm:text-sm flex-none sm:w-auto" onClick={() => scrollTo("booking")}>
+                    <Calendar className="h-2 w-2 sm:h-[18px] sm:w-[18px] sm:mr-2 shrink-0" /> <span className="truncate">Book Appointment</span>
                   </Button>
                   {profile?.phone && (
                     <Button
                       variant="cta-outline"
-                      className="font-heading font-semibold h-7 px-2 text-[9px] sm:h-11 sm:px-8 sm:text-sm w-full sm:w-auto"
+                      className="font-heading font-semibold !min-h-0 h-6 px-1 gap-0.5 text-[7px] sm:h-11 sm:px-8 sm:gap-2 sm:text-sm flex-none sm:w-auto"
                       asChild
                     >
                       <a href={`tel:${profile.phone}`}>
-                        <Phone className="h-3 w-3 sm:h-[18px] sm:w-[18px] mr-1 sm:mr-2" /> Call Now
+                        <Phone className="h-2 w-2 sm:h-[18px] sm:w-[18px] sm:mr-2 shrink-0" /> <span className="truncate">Call Now</span>
                       </a>
                     </Button>
                   )}
@@ -184,8 +184,8 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                     )}
                   </div>
                   <div className="absolute -bottom-2 sm:-bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-4 sm:py-2 rounded-pill bg-card border border-border shadow-lg whitespace-nowrap">
-                    <Users className="h-2 w-2 sm:h-3.5 sm:w-3.5 text-royal" />
-                    <span className="text-[6px] sm:text-sm font-heading font-bold text-foreground">5,000+ Patient Consultations</span>
+                    <Star className="h-2 w-2 sm:h-3.5 sm:w-3.5 text-yellow-400" fill="currentColor" />
+                    <span className="text-[6px] sm:text-sm font-heading font-bold text-yellow-400">{avgRating} Rating</span>
                   </div>
                 </div>
               </motion.div>
@@ -208,7 +208,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                 const IconComp = getStatIconComponent(s.icon);
                 const val = resolveStatValue(s, profile);
                 return (
-                  <motion.div key={s.id || i} {...fadeUp(0.15 + i * 0.05)} className="text-center py-3 px-1 sm:py-6 sm:px-3 space-y-0.5 sm:space-y-2">
+                  <motion.div key={s.id || i} {...fadeUp(0.15 + i * 0.05)} className="text-center py-3 px-[5px] sm:py-6 md:px-3 space-y-0.5 sm:space-y-2">
                     <IconComp size={16} className="mx-auto text-royal sm:hidden" strokeWidth={2} />
                     <IconComp size={26} className="mx-auto text-royal hidden sm:block" strokeWidth={2} />
                     <p className="font-heading font-extrabold text-sm sm:text-3xl md:text-4xl text-gray-900 dark:text-foreground">{val}</p>

@@ -26,7 +26,7 @@ const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) =>
     <section id="about" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
       <div className="absolute -top-16 -left-24 w-72 h-72 rounded-full bg-teal/10 dark:bg-teal/20 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-24 -right-16 w-80 h-80 rounded-full bg-royal/10 dark:bg-royal/20 blur-3xl pointer-events-none" />
-      <div className="relative z-10 px-3 py-6 sm:px-8 sm:py-10 md:px-12 md:py-14">
+      <div className="relative z-10 px-[5px] py-6 sm:py-10 md:px-12 md:py-14">
         <div className="grid grid-cols-2 gap-2 sm:gap-8 lg:gap-12 items-center max-w-5xl mx-auto">
           <AnimatedItem className="relative flex justify-center lg:justify-start">
             <div className="relative">
@@ -41,7 +41,7 @@ const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) =>
                 )}
               </div>
               {(profile?.specialization || profile?.qualifications) && (
-                <div className="mt-1.5 sm:mt-3 rounded-lg sm:rounded-xl bg-card border border-border px-2 py-1 sm:px-4 sm:py-2.5 text-center">
+                <div className="mt-1.5 sm:mt-3 rounded-lg sm:rounded-xl bg-card border border-border px-[5px] py-1 sm:py-2.5 md:px-4 text-center">
                   {profile?.specialization && (
                     <p className="text-foreground text-[7px] sm:text-sm font-heading font-semibold truncate">{profile.specialization}</p>
                   )}
@@ -73,7 +73,7 @@ const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) =>
             </div>
             <Button
               variant="cta-outline"
-              className="font-heading font-semibold h-7 px-2 text-[9px] sm:h-10 sm:px-6 sm:text-sm mt-1 sm:mt-2"
+              className="hidden sm:inline-flex font-heading font-semibold h-7 px-2 text-[9px] sm:h-10 sm:px-6 sm:text-sm mt-1 sm:mt-2"
               onClick={() => scrollTo("services")}
             >
               Know More About Me

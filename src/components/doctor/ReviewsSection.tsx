@@ -67,7 +67,7 @@ const ReviewsSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-royal/[0.05] dark:text-royal/[0.15] pointer-events-none"
           fill="currentColor"
         />
-        <div className="container mx-auto px-4 text-center relative z-10">
+        <div className="container mx-auto px-[5px] md:px-4 text-center relative z-10">
           <h2 className="font-heading font-bold text-3xl text-foreground mb-4">Patient Reviews</h2>
           <p className="text-text-gray mb-6">No reviews yet. Be the first to share your experience!</p>
           <Button onClick={() => setShowForm(true)} variant="cta-outline">
@@ -83,7 +83,7 @@ const ReviewsSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   return (
     <section id="reviews" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-      <div className="container mx-auto px-4 text-center">
+      <div className="container mx-auto px-[5px] md:px-4 text-center">
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground mb-2">Patient Reviews</h2>
         <p className="text-text-gray mb-2">What our patients say about Dr. {profile?.full_name || "Doctor"}</p>
         <div className="inline-flex items-center gap-1.5 mb-10 text-sm">
@@ -140,13 +140,13 @@ const ReviewsSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 };
 
 const ReviewCard = ({ r }: { r: any }) => (
-  <div className="hover-lift relative bg-card border border-border shadow-sm rounded-2xl p-6 overflow-hidden h-full">
-    <div className="flex items-center justify-between mb-3 relative z-10">
-      <div>
-        <p className="font-heading font-semibold text-foreground">{r.patient_name}</p>
+  <div className="hover-lift relative bg-card border border-border shadow-sm rounded-2xl py-6 px-[5px] md:px-6 overflow-hidden h-full">
+    <div className="flex items-center justify-between flex-wrap md:flex-nowrap gap-x-3 gap-y-1 md:gap-0 mb-3 relative z-10">
+      <div className="min-w-0 md:min-w-fit">
+        <p className="font-heading font-semibold text-foreground break-words md:break-normal">{r.patient_name}</p>
         <p className="text-xs text-text-gray">{new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 shrink-0 md:shrink">
         {[...Array(r.rating)].map((_, j) => <Star key={j} size={14} className="text-warning" fill="currentColor" />)}
       </div>
     </div>
@@ -163,7 +163,7 @@ const ReviewForm = ({ name, setName, rating, setRating, text, setText, submittin
   name: string; setName: (v: string) => void; rating: number; setRating: (v: number) => void;
   text: string; setText: (v: string) => void; submitting: boolean; onSubmit: () => void; onCancel: () => void;
 }) => (
-  <div className="bg-secondary rounded-xl p-5 mt-4 text-left space-y-3">
+  <div className="bg-secondary rounded-xl py-5 px-[5px] md:px-5 mt-4 text-left space-y-3">
     <h4 className="font-heading font-semibold text-primary text-sm">Share Your Experience</h4>
     <Input placeholder="Your Name *" value={name} onChange={(e) => setName(e.target.value)} />
     <div className="flex items-center gap-1">
