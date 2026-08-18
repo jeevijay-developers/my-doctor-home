@@ -1,10 +1,11 @@
 import { Video, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
+import { scrollToSection } from "@/lib/scrollToSection";
 
 const OnlineConsultation = () => {
   const { profile, settings } = useDoctorData();
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const scrollTo = (id: string) => scrollToSection(id);
   if (!settings?.show_online_consultation) return null;
 
   return (

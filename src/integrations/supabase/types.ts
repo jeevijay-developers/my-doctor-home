@@ -2055,8 +2055,10 @@ export type Database = {
           hero_headline_line2: string
           hero_hours_label: string
           hero_location_label: string
+          hero_photo_url: string | null
           hero_primary_button_label: string
           hero_secondary_button_label: string
+          hero_stat_icon: string
           hero_stat_text: string
           id: string
           max_per_slot: number
@@ -2103,8 +2105,10 @@ export type Database = {
           hero_headline_line2?: string
           hero_hours_label?: string
           hero_location_label?: string
+          hero_photo_url?: string | null
           hero_primary_button_label?: string
           hero_secondary_button_label?: string
+          hero_stat_icon?: string
           hero_stat_text?: string
           id?: string
           max_per_slot?: number
@@ -2151,8 +2155,10 @@ export type Database = {
           hero_headline_line2?: string
           hero_hours_label?: string
           hero_location_label?: string
+          hero_photo_url?: string | null
           hero_primary_button_label?: string
           hero_secondary_button_label?: string
+          hero_stat_icon?: string
           hero_stat_text?: string
           id?: string
           max_per_slot?: number

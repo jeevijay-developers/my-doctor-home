@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Globe, ExternalLink, Copy, Monitor, Smartphone, Tablet, Save, Plus, Trash2, GripVertical, Clock, Pin, EyeOff, Eye } from "lucide-react";
+import { Globe, ExternalLink, Copy, Monitor, Smartphone, Tablet, Save, Plus, Trash2, GripVertical, Clock, Pin, EyeOff, Eye, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -146,6 +146,19 @@ const MyWebsite = () => {
 
   const updateSetting = (key: string, value: any) => setSettings((prev) => ({ ...prev, [key]: value }));
 
+  const handleHeroPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile || !canEditWebsite) return;
+    const ext = file.name.split(".").pop();
+    const path = `${profile.id}/hero-photo.${ext}`;
+    const { error } = await supabase.storage.from("doctor-uploads").upload(path, file, { upsert: true });
+    if (error) { toast({ title: "Upload failed", description: error.message, variant: "destructive" }); return; }
+    const { data: { publicUrl } } = supabase.storage.from("doctor-uploads").getPublicUrl(path);
+    // upsert reuses the same path, so bust the cache or the browser keeps showing the old image.
+    updateSetting("hero_photo_url", `${publicUrl}?v=${Date.now()}`);
+    toast({ title: "Hero photo uploaded — click Save to publish it" });
+  };
+
   const addService = () => {
     if (!canEditWebsite) return;
     setServices([...services, { name: "", description: "", price: 500, type: "clinic", duration: 30, active: true, sort_order: services.length }]);
@@ -258,8 +271,45 @@ const MyWebsite = () => {
               <AccordionTrigger className="text-sm font-semibold text-primary">Hero Banner</AccordionTrigger>
               <AccordionContent className="space-y-4 pb-4">
                 <p className="text-xs text-muted-foreground">
-                  Hero is always visible at the top of your website. Clinic location, hours, and photo come from Profile / Working Hours — only their labels are editable here.
+                  Hero is always visible at the top of your website. Clinic location and hours come from Profile / Working Hours — only their labels are editable here.
                 </p>
+
+                <div>
+                  <Label className="text-xs">Hero Photo</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    <div className="w-14 h-14 rounded-lg bg-secondary border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
+                      {(settings.hero_photo_url || profile?.profile_photo_url) ? (
+                        <img
+                          src={settings.hero_photo_url || profile?.profile_photo_url}
+                          alt="Hero"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <UserCircle className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    {canEditWebsite && (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-royal hover:underline cursor-pointer">
+                          <input type="file" accept="image/*" className="hidden" onChange={handleHeroPhotoUpload} />
+                          {settings.hero_photo_url ? "Change Photo" : "Upload Photo"}
+                        </label>
+                        {settings.hero_photo_url && (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:underline text-left"
+                            onClick={() => updateSetting("hero_photo_url", null)}
+                          >
+                            Use Profile Photo Instead
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Defaults to your Profile photo until you upload one here.
+                  </p>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
@@ -348,7 +398,7 @@ const MyWebsite = () => {
 
                 <div className="p-3 rounded-lg bg-secondary space-y-2 border border-border/50">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs">Patient Stat Badge</Label>
+                    <Label className="text-xs">Rating Badge (overlaps bottom of photo)</Label>
                     <Switch
                       checked={settings.show_hero_stat_badge ?? true}
                       onCheckedChange={(v) => updateSetting("show_hero_stat_badge", v)}
@@ -356,12 +406,33 @@ const MyWebsite = () => {
                     />
                   </div>
                   {(settings.show_hero_stat_badge ?? true) && (
-                    <Input
-                      placeholder="5,000+ Patient Consultations"
-                      value={settings.hero_stat_text ?? ""}
-                      onChange={(e) => updateSetting("hero_stat_text", e.target.value)}
-                      disabled={!canEditWebsite}
-                    />
+                    <>
+                      <Input
+                        placeholder="Leave blank to auto-show average rating (e.g. 5.0 Rating)"
+                        value={settings.hero_stat_text ?? ""}
+                        onChange={(e) => updateSetting("hero_stat_text", e.target.value)}
+                        disabled={!canEditWebsite}
+                      />
+                      <Select
+                        value={settings.hero_stat_icon || "Star"}
+                        onValueChange={(v) => updateSetting("hero_stat_icon", v)}
+                        disabled={!canEditWebsite}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVAILABLE_STAT_ICONS.map((ic) => (
+                            <SelectItem key={ic.value} value={ic.value}>
+                              <div className="flex items-center gap-2">
+                                <ic.icon className="h-4 w-4 text-royal" />
+                                <span>{ic.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>
                   )}
                 </div>
               </AccordionContent>

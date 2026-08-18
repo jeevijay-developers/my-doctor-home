@@ -1,11 +1,12 @@
 import { Facebook, Instagram, Youtube, Linkedin, MessageCircle, Phone, MapPin } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
+import { scrollToSection } from "@/lib/scrollToSection";
 
 const DEFAULT_SERVICES = ["abc", "xdvzdfvdf", "mmmm", "99999"];
 
 const Footer = () => {
   const { profile, settings, services, gallery } = useDoctorData();
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const scrollTo = (id: string) => scrollToSection(id);
 
   const whatsappUrl = settings?.whatsapp_number
     ? `https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(settings.whatsapp_message || "")}`

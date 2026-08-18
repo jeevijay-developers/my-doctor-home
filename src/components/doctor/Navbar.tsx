@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
+import { scrollToSection } from "@/lib/scrollToSection";
 
 const DEFAULT_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuClyFEerp4mAd3k1VHT2_ClTS4H1V1BmPJkNVr37q5OOjti61-JQUkFAbyfeWKvo6ML3RO8g0cOSiBFAZ_M3hr8OkEJHKAXd2ghxJPkeqXf1--VXbE2MdghyYalIdnll8fHn_jFT0D1348IzPSnm3J4ouWgd0Af9lf1EIr4GvtpG_atHK1cR82IwImf6HuP7nrsJGUWE3ErViCFvFykM9nJLqxT9sA-w-2mYn_vQ1-cDdfOQP_aCOT_";
 
@@ -26,8 +27,13 @@ const Navbar = () => {
   }, [profile?.id]);
 
   const scrollTo = (id: string) => {
-    document.getElementById(id.toLowerCase())?.scrollIntoView({ behavior: "smooth" });
+    // Closing the mobile menu removes its height from the page, shifting
+    // every section up. Scrolling before that reflow lands mid-animation on
+    // a target computed from the old (menu-open) layout, overshooting into
+    // the next section — so close the menu and wait a frame for the DOM to
+    // settle before scrolling.
     setMobileOpen(false);
+    requestAnimationFrame(() => requestAnimationFrame(() => scrollToSection(id.toLowerCase())));
   };
 
   const scrollToTop = () => {
@@ -47,9 +53,12 @@ const Navbar = () => {
   const isReviewsActive = settings?.show_reviews !== false;
   const isContactActive = settings?.show_clinic_details !== false;
 
+  // Order must mirror the section order rendered in DoctorPublicPage.tsx
+  // (About, Services, Gallery, Reviews, Contact) so the nav reflects where
+  // each link actually scrolls to on the page.
   const navLinks = [
-    { label: "Services", target: "services", show: isServicesActive },
     { label: "About", target: "about", show: isAboutActive },
+    { label: "Services", target: "services", show: isServicesActive },
     { label: "Gallery", target: "gallery", show: isGalleryActive },
     { label: "Reviews", target: "reviews", show: isReviewsActive },
     { label: "Contact", target: "contact", show: isContactActive },
