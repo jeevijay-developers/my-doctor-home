@@ -26,6 +26,21 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          50: '#eff6ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          400: '#60a5fa',
+          500: '#3b82f6',
+          600: '#2563eb',
+        },
+        text: {
+          dark: '#1f2937',
+          muted: '#6b7280',
+          light: '#9ca3af'
+        },
+        surface: {
+          light: '#f8fafc',
+          card: '#ffffff'
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
