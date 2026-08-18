@@ -255,9 +255,9 @@ const ProfilePage = () => {
         <CardContent className="space-y-6">
           <div className="flex items-center gap-5">
             <div className="relative group">
-              <div className="w-24 h-24 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
+              <div className="w-24 h-24 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden border-2 border-border p-1">
                 {profile?.profile_photo_url ? (
-                  <img src={profile.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
+                  <img src={profile.profile_photo_url} alt="Profile" className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl" />
                 ) : (
                   <User className="h-10 w-10 text-muted-foreground" />
                 )}

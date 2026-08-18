@@ -256,8 +256,114 @@ const MyWebsite = () => {
             {/* Hero Section */}
             <AccordionItem value="hero" className="border rounded-xl px-4">
               <AccordionTrigger className="text-sm font-semibold text-primary">Hero Banner</AccordionTrigger>
-              <AccordionContent className="space-y-3 pb-4">
-                <p className="text-xs text-muted-foreground">Managed from Settings → Profile. Hero is always visible.</p>
+              <AccordionContent className="space-y-4 pb-4">
+                <p className="text-xs text-muted-foreground">
+                  Hero is always visible at the top of your website. Clinic location, hours, and photo come from Profile / Working Hours — only their labels are editable here.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Headline — Line 1</Label>
+                    <Input
+                      placeholder="Trusted Care for"
+                      value={settings.hero_headline_line1 ?? ""}
+                      onChange={(e) => updateSetting("hero_headline_line1", e.target.value)}
+                      disabled={!canEditWebsite}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Headline — Line 2 (highlighted)</Label>
+                    <Input
+                      placeholder="You & Your Family"
+                      value={settings.hero_headline_line2 ?? ""}
+                      onChange={(e) => updateSetting("hero_headline_line2", e.target.value)}
+                      disabled={!canEditWebsite}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Description</Label>
+                  <Textarea
+                    placeholder="Compassionate, personalized and professional healthcare for a better tomorrow."
+                    value={settings.hero_description ?? ""}
+                    onChange={(e) => updateSetting("hero_description", e.target.value)}
+                    rows={2}
+                    disabled={!canEditWebsite}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Location Label</Label>
+                    <Input
+                      placeholder="Clinic Location"
+                      value={settings.hero_location_label ?? ""}
+                      onChange={(e) => updateSetting("hero_location_label", e.target.value)}
+                      disabled={!canEditWebsite}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Hours Label</Label>
+                    <Input
+                      placeholder="Consultation"
+                      value={settings.hero_hours_label ?? ""}
+                      onChange={(e) => updateSetting("hero_hours_label", e.target.value)}
+                      disabled={!canEditWebsite}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Primary Button Label</Label>
+                    <Input
+                      placeholder="Book Appointment"
+                      value={settings.hero_primary_button_label ?? ""}
+                      onChange={(e) => updateSetting("hero_primary_button_label", e.target.value)}
+                      disabled={!canEditWebsite}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Call Button Label</Label>
+                    <Input
+                      placeholder="Call Now"
+                      value={settings.hero_secondary_button_label ?? ""}
+                      onChange={(e) => updateSetting("hero_secondary_button_label", e.target.value)}
+                      disabled={!canEditWebsite}
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Only shown when a phone number is set in Profile.</p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs">"Get Directions" Link Label</Label>
+                  <Input
+                    placeholder="Get Directions"
+                    value={settings.hero_directions_label ?? ""}
+                    onChange={(e) => updateSetting("hero_directions_label", e.target.value)}
+                    disabled={!canEditWebsite}
+                  />
+                </div>
+
+                <div className="p-3 rounded-lg bg-secondary space-y-2 border border-border/50">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Patient Stat Badge</Label>
+                    <Switch
+                      checked={settings.show_hero_stat_badge ?? true}
+                      onCheckedChange={(v) => updateSetting("show_hero_stat_badge", v)}
+                      disabled={!canEditWebsite}
+                    />
+                  </div>
+                  {(settings.show_hero_stat_badge ?? true) && (
+                    <Input
+                      placeholder="5,000+ Patient Consultations"
+                      value={settings.hero_stat_text ?? ""}
+                      onChange={(e) => updateSetting("hero_stat_text", e.target.value)}
+                      disabled={!canEditWebsite}
+                    />
+                  )}
+                </div>
               </AccordionContent>
             </AccordionItem>
 

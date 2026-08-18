@@ -31,9 +31,9 @@ const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) =>
           <AnimatedItem className="relative flex justify-center lg:justify-start">
             <div className="relative">
               <div className="absolute -inset-1.5 sm:-inset-4 rounded-2xl sm:rounded-[2.5rem] bg-gradient-to-br from-teal/15 via-royal/10 to-transparent -z-10" />
-              <div className="w-[100px] h-[100px] sm:w-56 sm:h-56 md:w-72 md:h-72 rounded-xl sm:rounded-[2rem] overflow-hidden shadow-xl border-2 sm:border-4 border-border bg-card">
+              <div className="w-[100px] h-[100px] sm:w-56 sm:h-56 md:w-72 md:h-72 rounded-xl sm:rounded-[2rem] overflow-hidden shadow-xl border-2 sm:border-4 border-border bg-card flex items-center justify-center">
                 {profile?.profile_photo_url ? (
-                  <img src={profile.profile_photo_url} alt={`Dr. ${profile.full_name}`} className="w-full h-full object-cover" />
+                  <img src={profile.profile_photo_url} alt={`Dr. ${profile.full_name}`} className="w-full h-full object-contain" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <User className="h-6 w-6 sm:h-20 sm:w-20 text-royal/30" />

@@ -15,13 +15,13 @@ const GalleryCard = ({ p, onClick, className = "" }: { p: any; onClick?: () => v
     onClick={onClick}
     className={`rounded-2xl overflow-hidden group cursor-pointer shadow-sm bg-card border border-border/50 py-2 px-[5px] sm:py-2.5 md:px-2.5 flex flex-col h-full hover:shadow-md transition-all duration-300 ${className}`}
   >
-    <div className="w-full aspect-[16/10] sm:aspect-[4/3] rounded-xl overflow-hidden bg-muted/20 relative">
+    <div className="w-full aspect-[4/3] rounded-xl overflow-hidden relative bg-muted/20 flex items-center justify-center">
       <img
         src={p.photo_url}
         alt={p.caption || "Clinic"}
         loading="lazy"
         decoding="async"
-        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        className="w-full h-full object-contain block group-hover:scale-105 transition-transform duration-300"
       />
     </div>
     {p.caption && (

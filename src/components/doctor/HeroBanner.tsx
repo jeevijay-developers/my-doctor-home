@@ -56,6 +56,22 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
   const mapsQuery = [profile?.clinic_name, profile?.address, profile?.city].filter(Boolean).join(", ");
   const directionsUrl = mapsQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}` : null;
 
+  // Doctor-editable copy (My Website → Hero Banner). Falls back to the
+  // original hardcoded strings so a doctor who hasn't opened that panel yet
+  // — or whose settings row predates the hero_* columns — sees unchanged copy.
+  const headlineLine1 = settings?.hero_headline_line1 || "Trusted Care for";
+  const headlineLine2 = settings?.hero_headline_line2 || "You & Your Family";
+  const heroDescription = settings?.hero_description || "Compassionate, personalized and professional healthcare for a better tomorrow.";
+  const locationLabel = settings?.hero_location_label || "Clinic Location";
+  const hoursLabel = settings?.hero_hours_label || "Consultation";
+  const primaryButtonLabel = settings?.hero_primary_button_label || "Book Appointment";
+  const secondaryButtonLabel = settings?.hero_secondary_button_label || "Call Now";
+  const directionsLabel = settings?.hero_directions_label || "Get Directions";
+  // Badge shows the doctor's live-computed review rating rather than the
+  // editable hero_stat_text — the admin toggle still controls whether it's
+  // shown at all, it just no longer controls the badge's copy.
+  const showHeroStatBadge = settings?.show_hero_stat_badge !== false;
+
   // Same stats previously rendered by the separate QuickStats section — now
   // folded directly into this card (see the reference design) so the two
   // visually read as one continuous card. Still respects the doctor's
@@ -111,11 +127,11 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
             <div className="flex items-center justify-center gap-2 sm:gap-6 lg:gap-[200px]">
               <div className="space-y-1.5 sm:space-y-4 lg:space-y-6 min-w-0">
                 <motion.h1 {...fadeUp(0.08)} className="font-heading font-extrabold text-sm sm:text-3xl md:text-4xl lg:text-[52px] leading-tight text-foreground">
-                  <span className="block">Trusted Care for</span>
-                  <span className="block text-royal mt-0.5 sm:mt-1.5 lg:mt-2">You &amp; Your Family</span>
+                  <span className="block">{headlineLine1}</span>
+                  <span className="block text-royal mt-0.5 sm:mt-1.5 lg:mt-2">{headlineLine2}</span>
                 </motion.h1>
                 <motion.p {...fadeUp(0.16)} className="text-text-gray text-[8px] sm:text-base leading-snug sm:leading-relaxed max-w-md">
-                  Compassionate, personalized and professional healthcare for a better tomorrow.
+                  {heroDescription}
                 </motion.p>
 
                 {(locationValue || hoursSummary) && (
@@ -124,7 +140,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                       <div className="flex items-start gap-1 sm:gap-2 min-w-0">
                         <span className="w-3.5 h-3.5 sm:w-8 sm:h-8 rounded-full bg-royal/10 flex items-center justify-center shrink-0"><MapPin className="h-2 w-2 sm:h-4 sm:w-4 text-royal" /></span>
                         <div className="min-w-0">
-                          <p className="text-text-gray text-[6px] sm:text-xs font-medium">Clinic Location</p>
+                          <p className="text-text-gray text-[6px] sm:text-xs font-medium">{locationLabel}</p>
                           <p className="text-foreground text-[7px] sm:text-sm font-semibold truncate">{locationValue}</p>
                         </div>
                       </div>
@@ -133,7 +149,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                       <div className="flex items-start gap-1 sm:gap-2 min-w-0">
                         <span className="w-3.5 h-3.5 sm:w-8 sm:h-8 rounded-full bg-royal/10 flex items-center justify-center shrink-0"><Clock className="h-2 w-2 sm:h-4 sm:w-4 text-royal" /></span>
                         <div className="min-w-0">
-                          <p className="text-text-gray text-[6px] sm:text-xs font-medium">Consultation</p>
+                          <p className="text-text-gray text-[6px] sm:text-xs font-medium">{hoursLabel}</p>
                           <p className="text-foreground text-[7px] sm:text-sm font-semibold truncate">{hoursSummary}</p>
                         </div>
                       </div>
@@ -143,7 +159,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
 
                 <motion.div {...fadeUp(0.28)} className="flex flex-row gap-1 sm:flex-wrap sm:gap-3 pt-1 sm:pt-2">
                   <Button variant="cta" className="font-heading font-semibold !min-h-0 h-6 px-1 gap-0.5 text-[7px] sm:h-11 sm:px-8 sm:gap-2 sm:text-sm flex-none sm:w-auto" onClick={() => scrollTo("booking")}>
-                    <Calendar className="h-2 w-2 sm:h-[18px] sm:w-[18px] sm:mr-2 shrink-0" /> <span className="truncate">Book Appointment</span>
+                    <Calendar className="h-2 w-2 sm:h-[18px] sm:w-[18px] sm:mr-2 shrink-0" /> <span className="truncate">{primaryButtonLabel}</span>
                   </Button>
                   {profile?.phone && (
                     <Button
@@ -152,7 +168,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                       asChild
                     >
                       <a href={`tel:${profile.phone}`}>
-                        <Phone className="h-2 w-2 sm:h-[18px] sm:w-[18px] sm:mr-2 shrink-0" /> <span className="truncate">Call Now</span>
+                        <Phone className="h-2 w-2 sm:h-[18px] sm:w-[18px] sm:mr-2 shrink-0" /> <span className="truncate">{secondaryButtonLabel}</span>
                       </a>
                     </Button>
                   )}
@@ -166,7 +182,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 sm:gap-1.5 text-[7px] sm:text-sm text-royal hover:underline transition-colors pt-0.5 sm:pt-1"
                   >
-                    <Navigation className="h-2 w-2 sm:h-3.5 sm:w-3.5" /> Get Directions
+                    <Navigation className="h-2 w-2 sm:h-3.5 sm:w-3.5" /> {directionsLabel}
                   </motion.a>
                 )}
               </div>
@@ -174,19 +190,21 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
               <motion.div {...fadeUp(0.15)} className="relative shrink-0">
                 <div className="relative">
                   <div className="absolute -inset-1.5 sm:-inset-4 rounded-2xl sm:rounded-[2.5rem] bg-gradient-to-br from-royal/15 via-teal/10 to-transparent -z-10" />
-                  <div className="w-[100px] h-[112px] sm:w-56 sm:h-64 md:w-80 md:h-96 rounded-xl sm:rounded-[2rem] overflow-hidden shadow-xl border-2 sm:border-4 border-border bg-card">
+                  <div className="w-[100px] h-[112px] sm:w-56 sm:h-64 md:w-80 md:h-96 rounded-xl sm:rounded-[2rem] overflow-hidden shadow-xl border-2 sm:border-4 border-border bg-card flex items-center justify-center">
                     {profile?.profile_photo_url ? (
-                      <img src={profile.profile_photo_url} alt={`Dr. ${profile.full_name}`} className="w-full h-full object-cover" />
+                      <img src={profile.profile_photo_url} alt={`Dr. ${profile.full_name}`} className="w-full h-full object-contain" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xl sm:text-6xl font-heading font-bold text-royal/30">
                         {profile?.full_name?.charAt(0) || "D"}
                       </div>
                     )}
                   </div>
-                  <div className="absolute -bottom-2 sm:-bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-4 sm:py-2 rounded-pill bg-card border border-border shadow-lg whitespace-nowrap">
-                    <Star className="h-2 w-2 sm:h-3.5 sm:w-3.5 text-yellow-400" fill="currentColor" />
-                    <span className="text-[6px] sm:text-sm font-heading font-bold text-yellow-400">{avgRating} Rating</span>
-                  </div>
+                  {showHeroStatBadge && (
+                    <div className="absolute -bottom-2 sm:-bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-4 sm:py-2 rounded-pill bg-card border border-border shadow-lg whitespace-nowrap">
+                      <Star className="h-2 w-2 sm:h-3.5 sm:w-3.5 text-yellow-400" fill="currentColor" />
+                      <span className="text-[6px] sm:text-sm font-heading font-bold text-yellow-400">{avgRating} Rating</span>
+                    </div>
+                  )}
                 </div>
               </motion.div>
 
