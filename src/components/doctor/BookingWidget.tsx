@@ -618,239 +618,295 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     );
   }
 
-  return (
-    <section id="booking" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-      <div className="container mx-auto px-[5px] md:px-4 max-w-2xl">
-        <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-2">Book an Appointment</h2>
-        <p className="text-text-gray text-center mb-4">Select your preference and book in under 2 minutes</p>
-        {profile?.slug && (
-          <p className="text-center text-sm mb-6">
-            <a href={`/dr/${profile.slug}/manage`} className="text-royal hover:underline">
-              Already booked? Manage your appointment →
-            </a>
-          </p>
-        )}
+  const renderStepForm = () => (
+    <>
+      <div className="mb-6 text-left">
+        <p className="text-[10px] font-semibold text-primary-600 dark:text-primary-400 mb-2">
+          Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
+        </p>
+        <div className="flex gap-1">
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
+            <div
+              key={s}
+              className={`h-1 rounded-full flex-1 transition-colors ${
+                s <= step ? "bg-primary-500" : "bg-gray-100 dark:bg-gray-700"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
 
-        <div className="bg-card rounded-2xl shadow-xl py-6 px-[5px] md:p-8">
-          <p className="text-xs font-semibold text-royal mb-2 tracking-wide">
-            Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
-          </p>
-          <div className="flex gap-1 mb-6">
-            {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
-              <div key={s} className={`h-1 flex-1 rounded-pill transition-colors ${s <= step ? "gradient-hero" : "bg-muted"}`} />
+      {step > 1 && (
+        <button onClick={() => setStep(step - 1)} className="flex items-center gap-1 text-xs text-primary-600 mb-4 hover:underline">
+          <ChevronLeft size={16} /> Back
+        </button>
+      )}
+
+      {step === 1 && (
+        <div className="text-left">
+          <h3 className="text-sm font-bold text-text-dark dark:text-foreground mb-4">Select Consultation Type</h3>
+          <div className={`grid gap-3 ${consultationTypes.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+            {consultationTypes.map((t) => {
+              const isSelected = type === t.k;
+              return (
+                <button
+                  key={t.k}
+                  onClick={() => { setType(t.k); setStep(2); }}
+                  className={`rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all ${
+                    isSelected
+                      ? "border-2 border-primary-500 bg-primary-50/50 dark:bg-primary-900/30"
+                      : "border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                  }`}
+                >
+                  <t.Icon className={`text-xl ${isSelected ? "text-primary-500" : "text-text-muted dark:text-gray-400"}`} size={24} />
+                  <span className={`text-sm ${isSelected ? "font-semibold text-primary-600 dark:text-primary-400" : "font-medium text-text-dark dark:text-gray-200"}`}>
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4 text-left">
+          <h3 className="font-heading font-semibold text-lg text-foreground">Select Service</h3>
+          <div className="space-y-2">
+            {availableServices.map((s) => (
+              <button key={s.id} onClick={() => { setSelectedService(s); setStep(3); }}
+                className={`w-full p-4 rounded-xl border-2 text-left flex justify-between items-center transition-all ${selectedService?.id === s.id ? "border-royal bg-royal/5" : "border-border hover:border-royal/50"}`}>
+                <div>
+                  <span className="font-medium text-foreground">{s.name}</span>
+                  {s.duration && <span className="text-xs text-text-gray ml-2">{s.duration} min</span>}
+                </div>
+                <span className="font-heading font-bold text-royal">₹{s.price}</span>
+              </button>
             ))}
+            {availableServices.length === 0 && <p className="text-muted-foreground text-sm">No services available for this type.</p>}
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="space-y-4 text-left">
+          <h3 className="font-heading font-semibold text-lg text-foreground">Select Date</h3>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {days.map((d, i) => {
+              const dow = d.getDay();
+              const dwh = workingHours.find((h) => h.day_of_week === dow);
+              const closed = !dwh?.is_open;
+              return (
+                <button key={i} disabled={closed} onClick={() => { setSelectedDate(d); setStep(4); }}
+                  className={`flex-shrink-0 w-20 py-3 rounded-xl border-2 text-center transition-all ${closed ? "opacity-40 cursor-not-allowed border-border" : selectedDate?.getTime() === d.getTime() ? "border-royal bg-royal/5" : "border-border hover:border-royal/50"}`}>
+                  <p className="text-xs text-text-gray">{format(d, "EEE")}</p>
+                  <p className="font-heading font-bold text-lg text-foreground">{d.getDate()}</p>
+                  <p className="text-xs text-text-gray">{format(d, "MMM")}</p>
+                  {closed && <p className="text-[10px] text-destructive mt-1">Closed</p>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="space-y-4 text-left">
+          <h3 className="font-heading font-semibold text-lg text-foreground">Select Time Slot</h3>
+          <p className="text-xs text-muted-foreground">Live availability — full slots update automatically.</p>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {timeSlots.map((t) => {
+              const full = isFull(t);
+              return (
+                <button
+                  key={t}
+                  disabled={full}
+                  onClick={() => { setSelectedTime(t); setStep(5); }}
+                  className={`py-3 rounded-lg border-2 text-sm font-medium transition-all relative ${
+                    full
+                      ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                      : selectedTime === t
+                      ? "border-royal bg-royal text-primary-foreground"
+                      : "border-border text-foreground hover:border-royal"
+                  }`}
+                >
+                  {t}
+                  {full ? (
+                    <span className="block text-[9px] mt-0.5 font-semibold uppercase text-destructive">Full</span>
+                  ) : maxPerSlot > 1 ? (
+                    <span className="block text-[9px] mt-0.5 opacity-70">{bookedIn(t)}/{maxPerSlot}</span>
+                  ) : null}
+                </button>
+              );
+            })}
+            {timeSlots.length === 0 && <p className="text-muted-foreground text-sm col-span-full">No slots available for this date.</p>}
+          </div>
+        </div>
+      )}
+
+      {step === 5 && (
+        <div className="space-y-4 text-left">
+          <h3 className="font-heading font-semibold text-lg text-foreground">Patient Details</h3>
+          <div className="space-y-3">
+            <input type="text" placeholder="Full Name *" value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-3 rounded-lg border border-border bg-secondary text-sm text-foreground">+91</span>
+              <input type="tel" inputMode="numeric" maxLength={13} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
+                className="flex-1 px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
+            </div>
+            {phone && !isValidIndianPhone(phone) && (
+              <p className="text-[11px] text-destructive -mt-1">{phoneErrorMessage}</p>
+            )}
+            <input type="email" placeholder="Email (optional — for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
+            <div className="grid grid-cols-2 gap-3">
+              <input type="number" min="0" max="120" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
+                className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
+              <select value={gender} onChange={(e) => setGender(e.target.value)}
+                className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal">
+                <option value="" disabled hidden>Gender *</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
+              </select>
+            </div>
+            <textarea placeholder="Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal resize-none" />
           </div>
 
-          {step > 1 && (
-            <button onClick={() => setStep(step - 1)} className="flex items-center gap-1 text-sm text-royal mb-4 hover:underline">
-              <ChevronLeft size={16} /> Back
-            </button>
-          )}
+          <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="text-foreground font-medium">{selectedService?.name}</span></div>
+            <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="text-foreground font-medium">{selectedDate && format(selectedDate, "d MMM")}</span></div>
+            <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="text-foreground font-medium">{selectedTime}</span></div>
+            <hr className="border-border" />
+            <div className="flex justify-between font-heading font-bold text-lg"><span>Total</span><span className="text-royal">₹{selectedService?.price}</span></div>
+          </div>
 
-          {step === 1 && (
-            <div className="space-y-4">
-              <h3 className="font-heading font-semibold text-lg text-foreground">Select Consultation Type</h3>
-              <div className={`grid gap-4 ${consultationTypes.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-                {consultationTypes.map((t) => (
-                  <button key={t.k} onClick={() => { setType(t.k); setStep(2); }}
-                    className={`flex flex-col items-center justify-center gap-2 p-6 rounded-2xl border-2 font-heading font-semibold text-lg transition-all ${type === t.k ? "border-royal bg-royal/5 text-royal" : "border-border text-foreground hover:border-royal/50"}`}>
-                    <t.Icon size={24} />
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <p className="text-[11px] text-text-gray text-center">
+            By booking, you agree to Doctylia's{" "}
+            <a href="/terms" target="_blank" rel="noreferrer" className="text-royal hover:underline">Terms of Service</a>{" "}
+            and{" "}
+            <a href="/privacy" target="_blank" rel="noreferrer" className="text-royal hover:underline">Privacy Policy</a>.
+          </p>
 
-          {step === 2 && (
-            <div className="space-y-4">
-              <h3 className="font-heading font-semibold text-lg text-foreground">Select Service</h3>
-              <div className="space-y-2">
-                {availableServices.map((s) => (
-                  <button key={s.id} onClick={() => { setSelectedService(s); setStep(3); }}
-                    className={`w-full p-4 rounded-xl border-2 text-left flex justify-between items-center transition-all ${selectedService?.id === s.id ? "border-royal bg-royal/5" : "border-border hover:border-royal/50"}`}>
-                    <div>
-                      <span className="font-medium text-foreground">{s.name}</span>
-                      {s.duration && <span className="text-xs text-text-gray ml-2">{s.duration} min</span>}
-                    </div>
-                    <span className="font-heading font-bold text-royal">₹{s.price}</span>
-                  </button>
-                ))}
-                {availableServices.length === 0 && <p className="text-muted-foreground text-sm">No services available for this type.</p>}
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-4">
-              <h3 className="font-heading font-semibold text-lg text-foreground">Select Date</h3>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {days.map((d, i) => {
-                  const dow = d.getDay();
-                  const dwh = workingHours.find((h) => h.day_of_week === dow);
-                  const closed = !dwh?.is_open;
-                  return (
-                    <button key={i} disabled={closed} onClick={() => { setSelectedDate(d); setStep(4); }}
-                      className={`flex-shrink-0 w-20 py-3 rounded-xl border-2 text-center transition-all ${closed ? "opacity-40 cursor-not-allowed border-border" : selectedDate?.getTime() === d.getTime() ? "border-royal bg-royal/5" : "border-border hover:border-royal/50"}`}>
-                      <p className="text-xs text-text-gray">{format(d, "EEE")}</p>
-                      <p className="font-heading font-bold text-lg text-foreground">{d.getDate()}</p>
-                      <p className="text-xs text-text-gray">{format(d, "MMM")}</p>
-                      {closed && <p className="text-[10px] text-destructive mt-1">Closed</p>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="space-y-4">
-              <h3 className="font-heading font-semibold text-lg text-foreground">Select Time Slot</h3>
-              <p className="text-xs text-muted-foreground">Live availability — full slots update automatically.</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {timeSlots.map((t) => {
-                  const full = isFull(t);
-                  return (
-                    <button
-                      key={t}
-                      disabled={full}
-                      onClick={() => { setSelectedTime(t); setStep(5); }}
-                      className={`py-3 rounded-lg border-2 text-sm font-medium transition-all relative ${
-                        full
-                          ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-60"
-                          : selectedTime === t
-                          ? "border-royal bg-royal text-primary-foreground"
-                          : "border-border text-foreground hover:border-royal"
-                      }`}
-                    >
-                      {t}
-                      {full ? (
-                        <span className="block text-[9px] mt-0.5 font-semibold uppercase text-destructive">Full</span>
-                      ) : maxPerSlot > 1 ? (
-                        <span className="block text-[9px] mt-0.5 opacity-70">{bookedIn(t)}/{maxPerSlot}</span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-                {timeSlots.length === 0 && <p className="text-muted-foreground text-sm col-span-full">No slots available for this date.</p>}
-              </div>
-            </div>
-          )}
-
-          {step === 5 && (
-            <div className="space-y-4">
-              <h3 className="font-heading font-semibold text-lg text-foreground">Patient Details</h3>
-              <div className="space-y-3">
-                <input type="text" placeholder="Full Name *" value={name} onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-3 rounded-lg border border-border bg-secondary text-sm text-foreground">+91</span>
-                  <input type="tel" inputMode="numeric" maxLength={13} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1 px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
-                </div>
-                {phone && !isValidIndianPhone(phone) && (
-                  <p className="text-[11px] text-destructive -mt-1">{phoneErrorMessage}</p>
-                )}
-                <input type="email" placeholder="Email (optional — for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" min="0" max="120" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
-                    className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
-                  <select value={gender} onChange={(e) => setGender(e.target.value)}
-                    className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal">
-                    <option value="" disabled hidden>Gender *</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
-                  </select>
-                </div>
-                <textarea placeholder="Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal resize-none" />
-              </div>
-
-              <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="text-foreground font-medium">{selectedService?.name}</span></div>
-                <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="text-foreground font-medium">{selectedDate && format(selectedDate, "d MMM")}</span></div>
-                <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="text-foreground font-medium">{selectedTime}</span></div>
-                <hr className="border-border" />
-                <div className="flex justify-between font-heading font-bold text-lg"><span>Total</span><span className="text-royal">₹{selectedService?.price}</span></div>
-              </div>
-
-              <p className="text-[11px] text-text-gray text-center">
-                By booking, you agree to Doctylia's{" "}
-                <a href="/terms" target="_blank" rel="noreferrer" className="text-royal hover:underline">Terms of Service</a>{" "}
-                and{" "}
-                <a href="/privacy" target="_blank" rel="noreferrer" className="text-royal hover:underline">Privacy Policy</a>.
-              </p>
-
-              {wantsOnlinePayment ? (
-                <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
-                  disabled={!name || !phone || !age || !gender} onClick={proceedToReview}>
-                  Continue
-                </Button>
-              ) : (
-                <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
-                  disabled={!name || !phone || !age || !gender || submitting} onClick={submitBooking}>
-                  {submitting ? "Booking..." : `Book Appointment — ₹${selectedService?.price}`}
-                </Button>
-              )}
-            </div>
-          )}
-
-          {step === 6 && wantsOnlinePayment && (
-            <div className="space-y-4">
-              <h3 className="font-heading font-semibold text-lg text-foreground flex items-center gap-2 flex-wrap">
-                Review Booking Summary {paymentModeIsMock && <TestModeBadge />}
-              </h3>
-              <p className="text-xs text-muted-foreground">Please review your details before payment.</p>
-
-              <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 space-y-4 text-sm">
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Appointment Details</p>
-                  <div className="space-y-1.5">
-                    <SummaryRow label="Doctor Name" value={`Dr. ${profile?.full_name || ""}`} />
-                    <SummaryRow label="Consultation Type" value={type === "clinic" ? "Clinic Visit" : "Online Consultation"} />
-                    <SummaryRow label="Appointment Date" value={selectedDate ? format(selectedDate, "EEEE, d MMMM yyyy") : ""} />
-                    <SummaryRow label="Appointment Time" value={selectedTime} />
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Patient Details</p>
-                  <div className="space-y-1.5">
-                    <SummaryRow label="Patient Name" value={name} />
-                    <SummaryRow label="Mobile Number" value={phone ? `+91 ${phone}` : ""} />
-                    <SummaryRow label="Email" value={email} />
-                    <SummaryRow label="Age" value={age} />
-                    <SummaryRow label="Gender" value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : ""} />
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Payment Details</p>
-                  <div className="space-y-1.5">
-                    <SummaryRow label="Consultation Fee" value={`₹${selectedService?.price ?? 0}`} />
-                    <div className="flex justify-between font-heading font-bold text-lg pt-1">
-                      <span className="text-foreground">Total Amount</span>
-                      <span className="text-royal">₹{selectedService?.price ?? 0}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(5)}>
-                  Back
-                </Button>
-                <Button variant="cta" className="flex-[2] h-12 font-heading font-semibold text-lg"
-                  disabled={submitting} onClick={payNow}>
-                  {submitting ? "Processing..." : "Pay Now"}
-                </Button>
-              </div>
-            </div>
+          {wantsOnlinePayment ? (
+            <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
+              disabled={!name || !phone || !age || !gender} onClick={proceedToReview}>
+              Continue
+            </Button>
+          ) : (
+            <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
+              disabled={!name || !phone || !age || !gender || submitting} onClick={submitBooking}>
+              {submitting ? "Booking..." : `Book Appointment — ₹${selectedService?.price}`}
+            </Button>
           )}
         </div>
+      )}
+
+      {step === 6 && wantsOnlinePayment && (
+        <div className="space-y-4 text-left">
+          <h3 className="font-heading font-semibold text-lg text-foreground flex items-center gap-2 flex-wrap">
+            Review Booking Summary {paymentModeIsMock && <TestModeBadge />}
+          </h3>
+          <p className="text-xs text-muted-foreground">Please review your details before payment.</p>
+
+          <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 space-y-4 text-sm">
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Appointment Details</p>
+              <div className="space-y-1.5">
+                <SummaryRow label="Doctor Name" value={`Dr. ${profile?.full_name || ""}`} />
+                <SummaryRow label="Consultation Type" value={type === "clinic" ? "Clinic Visit" : "Online Consultation"} />
+                <SummaryRow label="Appointment Date" value={selectedDate ? format(selectedDate, "EEEE, d MMMM yyyy") : ""} />
+                <SummaryRow label="Appointment Time" value={selectedTime} />
+              </div>
+            </div>
+
+            <hr className="border-border" />
+
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Patient Details</p>
+              <div className="space-y-1.5">
+                <SummaryRow label="Patient Name" value={name} />
+                <SummaryRow label="Mobile Number" value={phone ? `+91 ${phone}` : ""} />
+                <SummaryRow label="Email" value={email} />
+                <SummaryRow label="Age" value={age} />
+                <SummaryRow label="Gender" value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : ""} />
+              </div>
+            </div>
+
+            <hr className="border-border" />
+
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Payment Details</p>
+              <div className="space-y-1.5">
+                <SummaryRow label="Consultation Fee" value={`₹${selectedService?.price ?? 0}`} />
+                <div className="flex justify-between font-heading font-bold text-lg pt-1">
+                  <span className="text-foreground">Total Amount</span>
+                  <span className="text-royal">₹{selectedService?.price ?? 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(5)}>
+              Back
+            </Button>
+            <Button variant="cta" className="flex-[2] h-12 font-heading font-semibold text-lg"
+              disabled={submitting} onClick={payNow}>
+              {submitting ? "Processing..." : "Pay Now"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {/* MOBILE VIEW (md:hidden) — Untouched */}
+      <div className="md:hidden">
+        <section id="booking" className="py-10 px-4 max-w-2xl mx-auto my-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+            <h2 className="text-xl md:text-2xl font-bold text-text-dark dark:text-foreground mb-1">Book an Appointment</h2>
+            <p className="text-xs text-text-muted dark:text-muted-foreground mb-4">Select your preference and book in under 2 minutes</p>
+            {profile?.slug && (
+              <a
+                href={`/dr/${profile.slug}/manage`}
+                className="text-xs text-primary-500 font-medium hover:underline inline-block mb-8"
+              >
+                Already booked? Manage your appointment →
+              </a>
+            )}
+            {renderStepForm()}
+          </div>
+        </section>
+      </div>
+
+      {/* DESKTOP VIEW (hidden md:block) — Matching Patient Reviews styling */}
+      <div className="hidden md:block">
+        <section id="booking-desktop" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
+          <div className="container mx-auto px-[5px] md:px-4 text-center">
+            <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground mb-2">
+              Book an Appointment
+            </h2>
+            <p className="text-text-gray mb-2">
+              Select your preference and book in under 2 minutes
+            </p>
+            {profile?.slug && (
+              <div className="mb-10">
+                <a
+                  href={`/dr/${profile.slug}/manage`}
+                  className="text-sm font-medium text-royal hover:underline inline-block"
+                >
+                  Already booked? Manage your appointment →
+                </a>
+              </div>
+            )}
+
+            <div className="bg-card border border-border shadow-xl rounded-2xl p-6 md:p-8 max-w-2xl mx-auto text-left">
+              {renderStepForm()}
+            </div>
+          </div>
+        </section>
       </div>
 
       {cachedOrder?.mode === "mock" && (
@@ -867,7 +923,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           onDismiss={handleCheckoutDismiss}
         />
       )}
-    </section>
+    </>
   );
 };
 

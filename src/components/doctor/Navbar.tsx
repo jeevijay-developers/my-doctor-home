@@ -1,33 +1,19 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Menu, X, MessageCircle } from "lucide-react";
+import { Menu, X, Moon, Sun, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
-import ThemeToggle from "@/components/ThemeToggle";
 
-const allNavLinks = [
-  { label: "Services", target: "services", settingKey: "show_services" },
-  { label: "About", target: "about", settingKey: "show_about" },
-  { label: "Gallery", target: "gallery", settingKey: "show_gallery" },
-  { label: "Reviews", target: "reviews", settingKey: "show_reviews" },
-  { label: "Contact", target: "contact", settingKey: null },
-];
+const DEFAULT_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuClyFEerp4mAd3k1VHT2_ClTS4H1V1BmPJkNVr37q5OOjti61-JQUkFAbyfeWKvo6ML3RO8g0cOSiBFAZ_M3hr8OkEJHKAXd2ghxJPkeqXf1--VXbE2MdghyYalIdnll8fHn_jFT0D1348IzPSnm3J4ouWgd0Af9lf1EIr4GvtpG_atHK1cR82IwImf6HuP7nrsJGUWE3ErViCFvFykM9nJLqxT9sA-w-2mYn_vQ1-cDdfOQP_aCOT_";
 
 const Navbar = () => {
   const { profile, settings, services, gallery } = useDoctorData();
   const { slug } = useParams<{ slug: string }>();
-  const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hasPublishedBlog, setHasPublishedBlog] = useState(false);
   const { mode, setTheme } = usePanelTheme("doctylia-patient-theme");
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   useEffect(() => {
     if (!profile?.id) { setHasPublishedBlog(false); return; }
@@ -69,112 +55,111 @@ const Navbar = () => {
     { label: "Contact", target: "contact", show: isContactActive },
   ].filter((l) => l.show);
 
+  const docName = profile?.full_name ? `Dr. ${profile.full_name}` : "Dr. Rajkumar Prajapati";
+  const docSpec = profile?.specialization || "General Physician";
+  const avatarSrc = profile?.profile_photo_url || DEFAULT_AVATAR;
+
+  const toggleTheme = () => {
+    setTheme(mode === "dark" ? "light" : "dark");
+  };
+
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-card/90 backdrop-blur-md shadow-sm border-b border-border" : "bg-transparent border-b border-transparent"}`}>
-      <div className="container mx-auto flex items-center justify-between py-3.5 px-[5px] md:px-4">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {profile?.profile_photo_url ? (
-            <img src={profile.profile_photo_url} alt={profile.full_name} className="w-10 h-10 rounded-full object-cover ring-2 ring-royal/70 ring-offset-2 ring-offset-background shrink-0" />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-royal/10 flex items-center justify-center font-heading font-bold text-royal ring-2 ring-royal/20 shrink-0">
-              {profile?.full_name?.charAt(0) || "D"}
-            </div>
-          )}
-          <div className="flex flex-col justify-center leading-tight min-w-0">
-            <span className="font-heading font-bold text-foreground text-lg leading-tight truncate">
-              Dr. {profile?.full_name || "Doctor"}
-            </span>
-            {profile?.specialization && (
-              <span className="text-xs text-text-gray leading-tight truncate">
-                {profile.specialization}
-              </span>
-            )}
+    <header className="sticky top-0 z-50 bg-white dark:bg-card shadow-sm px-4 py-3 border-b border-border/40">
+      <div className="container mx-auto flex items-center justify-between">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={scrollToTop}>
+          <img
+            src={avatarSrc}
+            alt={docName}
+            className="w-10 h-10 rounded-full object-cover shrink-0"
+          />
+          <div>
+            <h1 className="text-sm font-semibold text-text-dark dark:text-foreground leading-tight">
+              {docName}
+            </h1>
+            <p className="text-xs text-text-muted dark:text-muted-foreground">{docSpec}</p>
           </div>
         </div>
 
-        <div className="hidden lg:flex items-center gap-7">
-          <button onClick={scrollToTop} className="text-sm font-semibold text-royal transition-colors">
+        {/* Desktop links */}
+        <div className="hidden lg:flex items-center gap-6">
+          <button onClick={scrollToTop} className="text-sm font-semibold text-primary-600 hover:text-primary-500 transition-colors">
             Home
           </button>
-          {navLinks.slice(0, 2).map((l) => (
-            <button key={l.label} onClick={() => scrollTo(l.target)} className="text-sm font-medium text-foreground/80 hover:text-royal transition-colors">
+          {navLinks.map((l) => (
+            <button key={l.label} onClick={() => scrollTo(l.target)} className="text-sm font-medium text-text-dark dark:text-foreground hover:text-primary-600 transition-colors">
               {l.label}
             </button>
           ))}
           {showBlogLink && (
-            <Link to={`/dr/${slug}/blog`} className="text-sm font-medium text-foreground/80 hover:text-royal transition-colors">
+            <Link to={`/dr/${slug}/blog`} className="text-sm font-medium text-text-dark dark:text-foreground hover:text-primary-600 transition-colors">
               Blog
             </Link>
           )}
-          {navLinks.slice(2).map((l) => (
-            <button key={l.label} onClick={() => scrollTo(l.target)} className="text-sm font-medium text-foreground/80 hover:text-royal transition-colors">
-              {l.label}
-            </button>
-          ))}
           {slug && (
-            <Link to={`/dr/${slug}/manage`} className="text-sm font-medium text-foreground/80 hover:text-royal transition-colors">
+            <Link to={`/dr/${slug}/manage`} className="text-sm font-medium text-text-dark dark:text-foreground hover:text-primary-600 transition-colors">
               My Appointment
             </Link>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 text-text-muted">
           {settings?.whatsapp_number && (
-            <a href={whatsappUrl} target="_blank" rel="noreferrer" className="w-9 h-9 rounded-full bg-success flex items-center justify-center text-primary-foreground hover:opacity-90 transition shadow-sm">
-              <MessageCircle size={18} />
+            <a href={whatsappUrl} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-success flex items-center justify-center text-white hover:opacity-90 transition shadow-sm">
+              <MessageCircle size={16} />
             </a>
           )}
-          <ThemeToggle mode={mode} onChange={setTheme} />
-          <Button size="sm" variant="cta" className="hidden sm:flex font-heading font-semibold" onClick={() => scrollTo("booking")}>
+          <button
+            aria-label="Dark Mode Toggle"
+            onClick={toggleTheme}
+            className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-muted text-text-muted dark:text-foreground transition-colors"
+          >
+            {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <Button size="sm" variant="cta" className="hidden sm:flex font-heading font-semibold text-xs py-2 px-4 rounded-lg bg-primary-500 hover:bg-primary-600 text-white" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>
-          <Link to="/staff-login" className="hidden sm:block">
-            <Button size="sm" variant="outline" className="font-heading font-semibold">
-              Staff Login
-            </Button>
-          </Link>
-          <button className="lg:hidden p-2 rounded-lg hover:bg-secondary transition-colors" onClick={() => setMobileOpen(!mobileOpen)}>
-            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+          <button
+            aria-label="Menu"
+            className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-muted text-text-muted dark:text-foreground transition-colors"
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
 
       {mobileOpen && (
-        <div className="lg:hidden bg-card/95 backdrop-blur-md shadow-lg border-t border-border px-4 pb-4">
-          <button onClick={scrollToTop} className="block w-full text-left py-3 text-royal font-semibold border-b border-border">
+        <div className="mt-3 pt-3 border-t border-border/40 space-y-2 bg-white dark:bg-card px-2 pb-2">
+          <button onClick={scrollToTop} className="block w-full text-left py-2 text-primary-600 font-semibold border-b border-border/30">
             Home
           </button>
-          {navLinks.slice(0, 2).map((l) => (
-            <button key={l.label} onClick={() => scrollTo(l.target)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border last:border-0">
+          {navLinks.map((l) => (
+            <button key={l.label} onClick={() => scrollTo(l.target)} className="block w-full text-left py-2 text-text-dark dark:text-foreground font-medium border-b border-border/30">
               {l.label}
             </button>
           ))}
           {showBlogLink && (
-            <Link to={`/dr/${slug}/blog`} onClick={() => setMobileOpen(false)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border">
+            <Link to={`/dr/${slug}/blog`} onClick={() => setMobileOpen(false)} className="block w-full text-left py-2 text-text-dark dark:text-foreground font-medium border-b border-border/30">
               Blog
             </Link>
           )}
-          {navLinks.slice(2).map((l) => (
-            <button key={l.label} onClick={() => scrollTo(l.target)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border last:border-0">
-              {l.label}
-            </button>
-          ))}
           {slug && (
-            <Link to={`/dr/${slug}/manage`} onClick={() => setMobileOpen(false)} className="block w-full text-left py-3 text-foreground font-medium border-b border-border">
+            <Link to={`/dr/${slug}/manage`} onClick={() => setMobileOpen(false)} className="block w-full text-left py-2 text-text-dark dark:text-foreground font-medium border-b border-border/30">
               My Appointment
             </Link>
           )}
-          <Button variant="cta" className="w-full mt-3 font-heading" onClick={() => scrollTo("booking")}>
+          <button
+            onClick={() => scrollTo("booking")}
+            className="w-full mt-2 bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold py-2.5 rounded-lg shadow-sm"
+          >
             Book Appointment
-          </Button>
-          <Link to="/staff-login" onClick={() => setMobileOpen(false)}>
-            <Button variant="outline" className="w-full mt-2 font-heading">
-              Staff Login
-            </Button>
+          </button>
+          <Link to="/staff-login" onClick={() => setMobileOpen(false)} className="block mt-2 text-center text-xs text-text-muted hover:underline">
+            Staff Login
           </Link>
         </div>
       )}
-    </nav>
+    </header>
   );
 };
 

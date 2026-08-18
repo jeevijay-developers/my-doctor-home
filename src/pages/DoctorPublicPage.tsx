@@ -113,9 +113,6 @@ const DoctorPageContent = () => {
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       <Navbar />
-      {/* Hero card intentionally shares the exact same background color as
-          the About the Doctor card (falls back to "secondary" — About's own
-          default — on the rare doctor who has hidden the About section). */}
       <HeroBanner cardColor={aboutColor ?? "secondary"} />
       {showAbout && (
         <AnimatedSection><SectionCard><AboutSection cardColor={aboutColor} /></SectionCard></AnimatedSection>
