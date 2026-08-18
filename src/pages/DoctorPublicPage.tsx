@@ -111,7 +111,7 @@ const DoctorPageContent = () => {
   const clinicDetailsColor = showClinicDetails ? nextCardColor() : undefined;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    <div className="min-h-screen bg-secondary/30 dark:bg-black">
       <Navbar />
       {/* Hero card intentionally shares the exact same background color as
           the About the Doctor card (falls back to "secondary" — About's own

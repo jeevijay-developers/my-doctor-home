@@ -115,7 +115,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
     : "grid-cols-2 sm:grid-cols-4";
 
   return (
-    <section className="relative pt-24 pb-0 md:pt-32 md:pb-0 overflow-hidden bg-white dark:bg-black">
+    <section className="relative pt-[72px] pb-0 md:pt-[78px] md:pb-0 overflow-hidden bg-secondary/30 dark:bg-black">
       <div className="px-[5px] md:px-5 relative z-10">
         <motion.div id="hero-card" {...fadeUp(0)} className={`relative flex flex-col justify-center rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] overflow-hidden border border-border/60 shadow-xl sm:shadow-2xl ${cardColorClass(cardColor)}`}>
           <div className="relative z-10 px-[5px] py-5 sm:py-10 md:px-12 md:py-14">
@@ -220,7 +220,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
             staying white — text switches to the theme-adaptive tokens only
             in Dark Mode too, so it stays legible against that darker card. */}
         {settings.show_quick_stats !== false && stats.length > 0 && (
-          <motion.div {...fadeUp(0.1)} className={`relative rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] overflow-hidden bg-white ${cardColor === "secondary" ? "dark:bg-secondary" : "dark:bg-card"} border border-border/60 shadow-xl sm:shadow-2xl mt-8 md:mt-12`}>
+          <motion.div {...fadeUp(0.1)} className={`relative rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] overflow-hidden bg-white ${cardColor === "secondary" ? "dark:bg-secondary" : "dark:bg-card"} border border-border/60 border-b-0 shadow-xl sm:shadow-2xl mt-8 md:mt-12`}>
             <div className={`grid ${statsGridCols} divide-x divide-y sm:divide-y-0 divide-border`}>
               {stats.map((s, i) => {
                 const IconComp = getStatIconComponent(s.icon);
