@@ -33,7 +33,7 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/dr/${profile.slug}`
     : "192.168.29.92:8080/dr/rajkumar-prajapati";
 
-  const mapsQuery = [profile?.clinic_name, profile?.address, profile?.city].filter(Boolean).join(", ") || "xyz, Kota";
+  const mapsQuery = [profile?.clinic_name, profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ") || "xyz, Kota";
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
 
   const scheduleList = workingHours && workingHours.length > 0

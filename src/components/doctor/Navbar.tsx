@@ -118,6 +118,9 @@ const Navbar = () => {
           <Button size="sm" variant="cta" className="hidden sm:flex font-heading font-semibold text-xs py-2 px-4 rounded-lg bg-primary-500 hover:bg-primary-600 text-white" onClick={() => scrollTo("booking")}>
             Book Appointment
           </Button>
+          <Button asChild size="sm" variant="cta" className="hidden sm:flex font-heading font-semibold text-xs py-2 px-4 rounded-lg bg-primary-500 hover:bg-primary-600 text-white">
+            <Link to="/staff-login">Staff Login</Link>
+          </Button>
           <button
             aria-label="Menu"
             className="lg:hidden p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-muted text-text-muted dark:text-foreground transition-colors"
@@ -154,7 +157,11 @@ const Navbar = () => {
           >
             Book Appointment
           </button>
-          <Link to="/staff-login" onClick={() => setMobileOpen(false)} className="block mt-2 text-center text-xs text-text-muted hover:underline">
+          <Link
+            to="/staff-login"
+            onClick={() => setMobileOpen(false)}
+            className="block w-full mt-2 bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold py-2.5 rounded-lg shadow-sm text-center"
+          >
             Staff Login
           </Link>
         </div>

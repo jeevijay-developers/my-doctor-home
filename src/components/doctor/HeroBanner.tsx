@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { getStatIconComponent, resolveStatValue, type QuickStatItem } from "@/lib/quickStats";
+import { formatClinicLocation } from "@/lib/formatClinicLocation";
 
 const DEFAULT_DOCTOR_PORTRAIT = "https://lh3.googleusercontent.com/aida-public/AB6AXuBaAxypuIOMq0rygPBq5vywZP1dfJ8xcEGY74WwCmuBwEwPNgMea0BOa5jpwiv_BDHBupYNlFSJP3lI0XDOGxNJjNZMuRsBAct6SGXuHO9DnZpaGSv4rhxr5t5xhMCklDyVhP4730ynnEfBhDkPR4JvfX-yoxdx5wV9NYRvXIAh0P_Izb2W-YEYu46QkkOzW21QvIrvLCWlLK8t5zpwYUKMbedNFIeLudodNYxsU5q10SozV7MmPgCh";
 
@@ -50,9 +51,9 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : "5.0";
 
-  const locationValue = [profile?.address, profile?.city].filter(Boolean).join(", ") || profile?.clinic_name || null;
+  const locationValue = formatClinicLocation(profile?.address, profile?.city, profile?.state) || profile?.clinic_name || null;
   const hoursSummary = summarizeHours(workingHours || []);
-  const mapsQuery = [profile?.clinic_name, profile?.address, profile?.city].filter(Boolean).join(", ");
+  const mapsQuery = [profile?.clinic_name, profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ");
   const directionsUrl = mapsQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}` : null;
 
   const headlineLine1 = settings?.hero_headline_line1 || "Trusted Care for";

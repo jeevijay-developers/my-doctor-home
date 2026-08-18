@@ -19,6 +19,7 @@ import {
   isValidUpi, upiErrorMessage,
 } from "@/lib/bankDetails";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { INDIAN_STATES } from "@/lib/formatClinicLocation";
 import { usePaymentMode } from "@/hooks/usePaymentMode";
 import TestModeBadge from "@/components/shared/TestModeBadge";
 import type { Tables } from "@/integrations/supabase/types";
@@ -38,7 +39,7 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     full_name: "", specialization: "", qualifications: "", experience_years: 0,
-    phone: "", clinic_name: "", city: "", address: "",
+    phone: "", clinic_name: "", city: "", state: "", address: "",
     consultation_fee: 0, gstin: "", gst_registered: false,
     registration_number: "", clinic_email: "",
   });
@@ -67,6 +68,7 @@ const ProfilePage = () => {
         phone: profile.phone || "",
         clinic_name: profile.clinic_name || "",
         city: profile.city || "",
+        state: profile.state || "",
         address: profile.address || "",
         consultation_fee: (profile as any).consultation_fee || 0,
         gstin: (profile as any).gstin || "",
@@ -358,6 +360,17 @@ const ProfilePage = () => {
             <div className="space-y-1.5">
               <Label>City</Label>
               <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="h-10" />
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>State</Label>
+              <Select value={form.state} onValueChange={(v) => setForm({ ...form, state: v })}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Select State" /></SelectTrigger>
+                <SelectContent>
+                  {INDIAN_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="space-y-1.5">
