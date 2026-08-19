@@ -61,7 +61,7 @@ Rules:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gemini-3.7-flash",
+          model: "gemini-3.6-flash",
           system_instruction: systemPrompt,
           input: `Write a health blog article about: "${topic}". Return a JSON object with keys: title, excerpt (1-2 sentences), content (full article in markdown), category (one of: General Health, Heart Health, Diabetes, Skin Care, Mental Health, Nutrition, Fitness, Women's Health, Children's Health, Prevention).`,
           response_format: {

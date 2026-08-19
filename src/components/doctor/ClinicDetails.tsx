@@ -48,7 +48,7 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   return (
     <section id="contact" className={`relative py-10 md:py-24 overflow-hidden ${cardColorClass(cardColor)}`}>
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-[5px] md:px-4 relative z-10">
         <h2 className="font-heading font-bold text-xl md:text-4xl text-foreground text-center mb-6 md:mb-12">
           Clinic Details & Contact
         </h2>

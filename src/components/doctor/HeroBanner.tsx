@@ -203,7 +203,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
       {/* DESKTOP VIEW (hidden md:block) — Original desktop card layout */}
       <div className="hidden md:block">
         <section className="relative pt-4 pb-0 md:pt-6 md:pb-0 overflow-hidden bg-secondary/30 dark:bg-black">
-          <div className="px-[5px] md:px-5 relative z-10">
+          <div className="px-0 relative z-10">
             <motion.div id="hero-card" {...fadeUp(0)} className={`relative flex flex-col justify-center rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-border/60 shadow-xl sm:shadow-2xl ${cardColorClass(cardColor)}`}>
               <div className="relative z-10 px-[5px] py-8 sm:py-14 md:px-12 md:py-20">
                 <div className="flex items-center justify-center gap-2 sm:gap-6 lg:gap-[200px]">
