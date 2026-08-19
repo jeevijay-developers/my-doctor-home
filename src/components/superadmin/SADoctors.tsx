@@ -113,6 +113,7 @@ const SADoctors = () => {
     if (messageTarget.type === "single") {
       const { error } = await supabase.from("notifications" as any).insert({
         doctor_id: messageTarget.id,
+        recipient_user_id: messageTarget.id,
         source_type: "direct_message",
         title: messageSubject.trim(),
         message: messageBody.trim(),
@@ -126,6 +127,7 @@ const SADoctors = () => {
       // the per-doctor read/unread state, and fine at this doctor count.
       const recipients = activeDoctors.map((d) => ({
         doctor_id: d.id,
+        recipient_user_id: d.id,
         source_type: "broadcast",
         title: messageSubject.trim(),
         message: messageBody.trim(),

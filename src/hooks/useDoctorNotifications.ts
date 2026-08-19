@@ -15,30 +15,37 @@ export type DoctorNotification = {
 // table is "notifications" (see the 2026-08-13 migration), a doctor-facing
 // in-app inbox distinct from notification_logs (patient-facing WhatsApp/SMS
 // delivery log, no read/unread state).
-export function useDoctorNotifications(doctorId: string | undefined) {
+//
+// Keyed by recipient_user_id (the actual logged-in person — doctor OR a
+// specific staff member), NOT doctor_id: a staff member's own auth uid is
+// never equal to doctor_id, so filtering by doctor_id would silently show a
+// staff session zero notifications, even ones addressed to them. Callers
+// must pass the real auth user id (useProfile().authUserId), not
+// profile.id (which is deliberately the doctor's id for staff sessions).
+export function useDoctorNotifications(recipientUserId: string | undefined) {
   const [notifications, setNotifications] = useState<DoctorNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Expiry/cap warnings (trial_warning, cap_warning, plan_warning) are
   // inserted server-side by SECURITY DEFINER cron functions — never
-  // client-side. A doctor's own session has no INSERT policy on this
-  // table (by design: doctors only read/mark-read their own notifications,
-  // never write them), and mirroring that logic here would duplicate the
-  // cron's dedup/eligibility rules in a second place that drifts out of
-  // sync with it.
+  // client-side. A recipient's own session has no INSERT policy on this
+  // table (by design: recipients only read/mark-read their own
+  // notifications, never write them), and mirroring that logic here would
+  // duplicate the cron's dedup/eligibility rules in a second place that
+  // drifts out of sync with it.
   const refresh = useCallback(async () => {
-    if (!doctorId) { setNotifications([]); setLoading(false); return; }
+    if (!recipientUserId) { setNotifications([]); setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from("notifications" as any)
       .select("id, source_type, title, message, ticket_id, is_read, created_at")
-      .eq("doctor_id", doctorId)
+      .eq("recipient_user_id", recipientUserId)
       .order("created_at", { ascending: false })
       .limit(30);
     if (error) console.error("Failed to load notifications:", error.message);
     setNotifications((data as unknown as DoctorNotification[]) ?? []);
     setLoading(false);
-  }, [doctorId]);
+  }, [recipientUserId]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

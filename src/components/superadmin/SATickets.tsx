@@ -26,6 +26,24 @@ const CATEGORY_LABEL: Record<string, string> = {
   billing: "Billing", staff: "Staff Management", settings: "Settings", account: "Account / Login", other: "Other",
 };
 
+// A ticket was staff-submitted when submitted_by_user_id differs from
+// doctor_id (the doctor's own auth id always equals their own doctor_id).
+// Pre-migration tickets have submitted_by_user_id backfilled to doctor_id,
+// so they correctly fall through to the "doctor" case here.
+type TicketWithSubmitter = {
+  doctor_id: string;
+  submitted_by_user_id: string | null;
+  submitted_by_name: string | null;
+  profiles?: { full_name?: string | null; clinic_name?: string | null } | null;
+};
+const submitterInfo = (r: TicketWithSubmitter) => {
+  const isStaffSubmission = !!r.submitted_by_user_id && r.submitted_by_user_id !== r.doctor_id;
+  return {
+    isStaffSubmission,
+    name: isStaffSubmission ? (r.submitted_by_name || "Staff member") : (r.profiles?.full_name || r.submitted_by_name),
+  };
+};
+
 const SATickets = () => {
   const [rows, setRows] = useState<any[]>([]);
   const [statusF, setStatusF] = useState("all");
@@ -68,8 +86,13 @@ const SATickets = () => {
     const patch = { reply: reply.trim(), replied_at: new Date().toISOString(), replied_by: user?.id ?? null };
     const { error } = await supabase.from("support_tickets").update(patch as any).eq("id", open.id);
     if (error) { setSendingReply(false); return toast({ title: "Failed", description: error.message, variant: "destructive" }); }
+    // Address the notification to whoever actually submitted the ticket
+    // (doctor or a specific staff member), not always the doctor — see
+    // the 2026-08-19 migration. Falls back to doctor_id for any pre-migration
+    // ticket that somehow has no submitted_by_user_id.
     await supabase.from("notifications" as any).insert({
       doctor_id: open.doctor_id,
+      recipient_user_id: open.submitted_by_user_id ?? open.doctor_id,
       source_type: "ticket_reply",
       title: `Re: ${open.subject}`,
       message: reply.trim(),
@@ -180,7 +203,7 @@ const SATickets = () => {
               <tr>
                 {selectMode && <th className="p-3 w-10"></th>}
                 <th className="text-left p-3">Subject</th>
-                <th className="text-left p-3">Doctor</th>
+                <th className="text-left p-3">Submitted by</th>
                 <th className="text-left p-3">Category</th>
                 <th className="text-left p-3">Priority</th>
                 <th className="text-left p-3">Status</th>
@@ -190,6 +213,7 @@ const SATickets = () => {
             <tbody>
               {filtered.map((r) => {
                 const isSelected = selectedIds.has(r.id);
+                const submitter = submitterInfo(r);
                 return (
                   <tr
                     key={r.id}
@@ -202,7 +226,17 @@ const SATickets = () => {
                       </td>
                     )}
                     <td className="p-3 font-medium">{r.subject}</td>
-                    <td className="p-3 text-xs">{r.profiles?.full_name}<div className="text-muted-foreground">{r.profiles?.clinic_name}</div></td>
+                    <td className="p-3 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {submitter.name}
+                        {submitter.isStaffSubmission && <Badge variant="outline" className="text-[9px] px-1.5 py-0">Staff</Badge>}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {submitter.isStaffSubmission
+                          ? `${r.profiles?.full_name || "Doctor"}${r.profiles?.clinic_name ? ` · ${r.profiles.clinic_name}` : ""}`
+                          : r.profiles?.clinic_name || ""}
+                      </div>
+                    </td>
                     <td className="p-3 text-xs text-muted-foreground">{r.category ? CATEGORY_LABEL[r.category] || r.category : "—"}</td>
                     <td className="p-3"><Badge variant="outline">{r.priority}</Badge></td>
                     <td className="p-3"><Badge>{r.status}</Badge></td>
@@ -223,6 +257,7 @@ const SATickets = () => {
         ) : (
           filtered.map((r) => {
             const isSelected = selectedIds.has(r.id);
+            const submitter = submitterInfo(r);
             return (
               <Card
                 key={r.id}
@@ -237,8 +272,14 @@ const SATickets = () => {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-foreground truncate">{r.subject}</div>
-                    <div className="text-xs text-muted-foreground truncate mt-0.5">
-                      {r.profiles?.full_name}{r.profiles?.clinic_name ? ` · ${r.profiles.clinic_name}` : ""}
+                    <div className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1.5">
+                      <span className="truncate">
+                        {submitter.name}
+                        {submitter.isStaffSubmission && (r.profiles?.full_name || r.profiles?.clinic_name)
+                          ? ` · ${r.profiles?.full_name || ""}${r.profiles?.clinic_name ? ` · ${r.profiles.clinic_name}` : ""}`
+                          : (!submitter.isStaffSubmission && r.profiles?.clinic_name ? ` · ${r.profiles.clinic_name}` : "")}
+                      </span>
+                      {submitter.isStaffSubmission && <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0">Staff</Badge>}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mt-2">
                       {r.category && <Badge variant="outline" className="text-[10px]">{CATEGORY_LABEL[r.category] || r.category}</Badge>}
@@ -259,6 +300,21 @@ const SATickets = () => {
           {open && (
             <>
               <DialogHeader><DialogTitle>{open.subject}</DialogTitle></DialogHeader>
+              <div className="text-xs text-muted-foreground -mt-2 flex items-center gap-1.5 flex-wrap">
+                {(() => {
+                  const submitter = submitterInfo(open);
+                  return (
+                    <>
+                      <span>
+                        {submitter.name}
+                        {submitter.isStaffSubmission && ` · ${open.profiles?.full_name || "Doctor"}${open.profiles?.clinic_name ? ` · ${open.profiles.clinic_name}` : ""}`}
+                        {!submitter.isStaffSubmission && open.profiles?.clinic_name ? ` · ${open.profiles.clinic_name}` : ""}
+                      </span>
+                      {submitter.isStaffSubmission && <Badge variant="outline" className="text-[9px] px-1.5 py-0">Staff</Badge>}
+                    </>
+                  );
+                })()}
+              </div>
               {open.category && (
                 <div><Badge variant="outline" className="text-xs">{CATEGORY_LABEL[open.category] || open.category}</Badge></div>
               )}
@@ -287,7 +343,7 @@ const SATickets = () => {
                 </div>
               </div>
               <div className="border-t pt-3">
-                <label className="text-xs font-medium">Reply to doctor</label>
+                <label className="text-xs font-medium">Reply to {submitterInfo(open).isStaffSubmission ? submitterInfo(open).name : "doctor"}</label>
                 {open.reply && (
                   <div className="bg-secondary rounded-lg p-3 mt-1.5 mb-2 text-sm">
                     <p className="whitespace-pre-wrap">{open.reply}</p>

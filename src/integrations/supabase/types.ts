@@ -572,6 +572,7 @@ export type Database = {
           id: string
           is_read: boolean
           message: string
+          recipient_user_id: string
           sender_id: string | null
           source_type: string
           ticket_id: string | null
@@ -583,6 +584,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message: string
+          recipient_user_id: string
           sender_id?: string | null
           source_type: string
           ticket_id?: string | null
@@ -594,6 +596,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message?: string
+          recipient_user_id?: string
           sender_id?: string | null
           source_type?: string
           ticket_id?: string | null
@@ -1975,6 +1978,8 @@ export type Database = {
           reply: string | null
           status: string
           subject: string
+          submitted_by_name: string
+          submitted_by_user_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1992,6 +1997,8 @@ export type Database = {
           reply?: string | null
           status?: string
           subject: string
+          submitted_by_name?: string
+          submitted_by_user_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2009,6 +2016,8 @@ export type Database = {
           reply?: string | null
           status?: string
           subject?: string
+          submitted_by_name?: string
+          submitted_by_user_id?: string | null
           updated_at?: string
         }
         Relationships: [

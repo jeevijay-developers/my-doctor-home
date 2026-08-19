@@ -51,7 +51,7 @@ const pageTitles: Record<string, string> = {
 };
 
 const AdminLayout = ({ children }: { children: ReactNode }) => {
-  const { profile, isStaff, staffName } = useProfile();
+  const { profile, isStaff, staffName, authUserId } = useProfile();
   const location = useLocation();
   const navigate = useNavigate();
   const pageTitle = location.pathname.startsWith("/admin/patients/")
@@ -61,7 +61,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   const banner = typeof settings.announcement_banner === "string" ? settings.announcement_banner : "";
   const { mode, setTheme } = usePanelTheme("doctylia-admin-theme");
 
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useDoctorNotifications(profile?.id);
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useDoctorNotifications(authUserId ?? undefined);
   const trialStatus = useTrialStatus();
   const graceRemaining = trialStatus.accessLevel === "grace" ? formatGraceRemaining(trialStatus.graceEndsAt) : null;
 

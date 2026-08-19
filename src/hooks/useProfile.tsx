@@ -26,6 +26,11 @@ export type ProfileState = {
   staffPermissions: Permissions;
   staffName: string | null;
   can: (key: PermissionKey) => boolean;
+  // The actual logged-in auth user's own id — unlike `profile.id`, this is
+  // NEVER swapped to the doctor's id for a staff session. Needed anywhere
+  // that must address "this specific person" (e.g. support tickets,
+  // notifications) rather than "this clinic".
+  authUserId: string | null;
 };
 
 // The actual fetch + local state, shared by both the context provider below
@@ -39,9 +44,11 @@ function useProfileState(enabled: boolean): ProfileState {
   const [isStaff, setIsStaff] = useState(false);
   const [staffPermissions, setStaffPermissions] = useState<Permissions>({});
   const [staffName, setStaffName] = useState<string | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
   const fetchProfile = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    setAuthUserId(user?.id ?? null);
     if (!user) { setLoading(false); return; }
 
     const { data: ownProfile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
@@ -84,7 +91,7 @@ function useProfileState(enabled: boolean): ProfileState {
   // exclusively to restrict staff, never the doctor's own account.
   const can = useCallback((key: PermissionKey) => !isStaff || staffPermissions[key] === true, [isStaff, staffPermissions]);
 
-  return { profile, loading, setProfile, refetch: fetchProfile, isStaff, staffPermissions, staffName, can };
+  return { profile, loading, setProfile, refetch: fetchProfile, isStaff, staffPermissions, staffName, can, authUserId };
 }
 
 const ProfileContext = createContext<ProfileState | null>(null);
