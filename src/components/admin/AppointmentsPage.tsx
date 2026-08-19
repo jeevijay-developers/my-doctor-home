@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
-import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Trash2, X, Calendar as CalendarIcon } from "lucide-react";
+import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Trash2, X, Calendar as CalendarIcon, MoreVertical } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -40,6 +41,22 @@ const statusConfig: Record<string, { bg: string; dot: string; label: string }> =
   no_show: { bg: "bg-muted text-muted-foreground border-l-muted-foreground", dot: "bg-muted-foreground", label: "No Show" },
 };
 
+// Every status can be corrected to any other status (no permanent lock) — a
+// doctor can fix a mis-click (e.g. Completed when it should've been No Show)
+// at any time. Statuses below are "final" only in the sense that leaving one
+// asks for confirmation first, since Completed already has an invoice/revenue
+// entry generated for it (see ensureInvoiceForAppointment). Decision: status
+// correction only ever updates the appointment row itself — an invoice already
+// generated at completion time is intentionally left untouched (historical
+// fact), matching how invoices already survive appointment deletion.
+const FINAL_STATUSES = new Set(["completed", "no_show", "cancelled"]);
+const STATUS_ACTIONS: Record<string, { label: string; tone: string; requiresCancelPermission?: boolean }> = {
+  pending: { label: "Reopen as Pending", tone: "bg-warning text-warning-foreground hover:bg-warning/90" },
+  completed: { label: "Complete", tone: "bg-royal text-white hover:bg-royal/90" },
+  no_show: { label: "No Show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
+  cancelled: { label: "Cancel", tone: "bg-destructive text-white hover:bg-destructive/90", requiresCancelPermission: true },
+};
+
 const AppointmentsPage = () => {
   const { profile, isStaff, can } = useProfile();
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
@@ -67,6 +84,7 @@ const AppointmentsPage = () => {
   const [bulkConfirmText, setBulkConfirmText] = useState("");
   const [viewing, setViewing] = useState<Appointment | null>(null);
   const [slotConflict, setSlotConflict] = useState<{ taken: number; cap: number; time: string } | null>(null);
+  const [confirmingChange, setConfirmingChange] = useState<{ appointment: Appointment; nextStatus: string } | null>(null);
 
   // Keep detail view in sync with the latest data after mutations
   useEffect(() => {
@@ -220,6 +238,25 @@ const AppointmentsPage = () => {
     }
     load();
     toast.success(`Marked ${status.replace("_", " ")}`);
+  };
+
+  // Shared by both the card kebab menu and the detail panel so the two
+  // entry points never diverge — both list every other valid status as an
+  // available action, filtered to what this user is allowed to do.
+  const getStatusOptions = (currentStatus: string) =>
+    Object.keys(STATUS_ACTIONS)
+      .filter((s) => s !== currentStatus)
+      .filter((s) => (STATUS_ACTIONS[s].requiresCancelPermission ? (can("appointments.edit") || can("appointments.cancel")) : can("appointments.edit")))
+      .map((s) => ({ next: s, ...STATUS_ACTIONS[s] }));
+
+  // Leaving a final state needs a confirmation step since Completed already
+  // has an invoice generated for it (see FINAL_STATUSES comment above).
+  const requestStatusChange = (appt: Appointment, nextStatus: string) => {
+    if (FINAL_STATUSES.has(appt.status)) {
+      setConfirmingChange({ appointment: appt, nextStatus });
+    } else {
+      updateStatus(appt.id, nextStatus);
+    }
   };
 
   const deleteAppointment = async (id: string) => {
@@ -622,6 +659,29 @@ const AppointmentsPage = () => {
                         </Badge>
                       )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
+                      {!selectMode && getStatusOptions(a.status).length > 0 && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={`Change status for ${a.patient_name}`}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {getStatusOptions(a.status).map((o) => (
+                                <DropdownMenuItem key={o.next} onClick={() => requestStatusChange(a, o.next)}>
+                                  {o.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
                     </div>
                     {!selectMode && a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
                       <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
@@ -643,24 +703,7 @@ const AppointmentsPage = () => {
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           {viewing && (() => {
             const sc = statusConfig[viewing.status] || statusConfig.pending;
-            const transitions: Record<string, { label: string; next: string; tone: string }[]> = {
-              pending: [
-                { label: "Complete", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
-                { label: "No Show", next: "no_show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
-                { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
-              ],
-              confirmed: [
-                { label: "Complete", next: "completed", tone: "bg-royal text-white hover:bg-royal/90" },
-                { label: "No Show", next: "no_show", tone: "bg-muted-foreground text-white hover:bg-muted-foreground/90" },
-                { label: "Cancel", next: "cancelled", tone: "bg-destructive text-white hover:bg-destructive/90" },
-              ],
-              completed: [],
-              no_show: [],
-              cancelled: [],
-            };
-            const options = (transitions[viewing.status] ?? []).filter((o) =>
-              o.next === "cancelled" ? (can("appointments.edit") || can("appointments.cancel")) : can("appointments.edit")
-            );
+            const options = getStatusOptions(viewing.status);
             return (
               <>
                 <SheetHeader>
@@ -694,14 +737,14 @@ const AppointmentsPage = () => {
                             key={o.next}
                             size="sm"
                             className={`h-9 text-xs ${o.tone}`}
-                            onClick={() => updateStatus(viewing.id, o.next)}
+                            onClick={() => requestStatusChange(viewing, o.next)}
                           >
                             {o.label}
                           </Button>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">This appointment is in a final state. No further status changes are available.</p>
+                      <p className="text-xs text-muted-foreground">You don't have permission to change this appointment's status.</p>
                     )}
                   </div>
 
@@ -797,6 +840,33 @@ const AppointmentsPage = () => {
               onClick={() => { if (deletingId) { deleteAppointment(deletingId); setDeletingId(null); } }}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Status-change confirmation when leaving a final state */}
+      <AlertDialog open={!!confirmingChange} onOpenChange={(o) => !o && setConfirmingChange(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Change status from {confirmingChange && (statusConfig[confirmingChange.appointment.status]?.label ?? confirmingChange.appointment.status)}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmingChange?.appointment.status === "completed"
+                ? "This appointment is marked Completed and may already have an invoice counted in your revenue. Changing its status now will NOT delete or modify that invoice — it stays as a historical record. Are you sure you want to change the status?"
+                : "This appointment is already marked as a final status. Are you sure you want to change it?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmingChange(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmingChange) updateStatus(confirmingChange.appointment.id, confirmingChange.nextStatus);
+                setConfirmingChange(null);
+              }}
+            >
+              Yes, change status
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

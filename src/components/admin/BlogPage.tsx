@@ -182,6 +182,8 @@ const BlogPage = () => {
   const generateWithAI = async () => {
     if (!aiTopic.trim()) return;
     setAiLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45_000);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-blog-writer`, {
@@ -191,6 +193,7 @@ const BlogPage = () => {
           Authorization: `Bearer ${sessionData.session?.access_token}`,
         },
         body: JSON.stringify({ topic: aiTopic, doctorName: profile?.full_name, specialization: profile?.specialization }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -201,6 +204,8 @@ const BlogPage = () => {
           toast({ title: "AI credits exhausted", description: "Please add credits to continue.", variant: "destructive" });
         } else if (res.status === 403) {
           toast({ title: "Premium feature", description: errData.error || "Upgrade to Premium to use AI Blog Writer.", variant: "destructive" });
+        } else if (res.status === 502 || res.status === 504) {
+          toast({ title: "AI generation unavailable", description: errData.error || "Please try again shortly.", variant: "destructive" });
         } else {
           toast({ title: "AI generation failed", description: errData.error || "Try again later.", variant: "destructive" });
         }
@@ -208,6 +213,10 @@ const BlogPage = () => {
       }
 
       const data = await res.json();
+      if (!data.content) {
+        toast({ title: "AI generation failed", description: "No content was returned. Please try again.", variant: "destructive" });
+        return;
+      }
       setForm({
         ...form,
         title: data.title || aiTopic,
@@ -217,9 +226,15 @@ const BlogPage = () => {
       });
       setAiTopic("");
       toast({ title: "AI draft generated! Review and publish." });
-    } catch {
-      toast({ title: "AI generation failed", variant: "destructive" });
+    } catch (err) {
+      const isTimeout = err instanceof DOMException && err.name === "AbortError";
+      toast({
+        title: "AI generation failed",
+        description: isTimeout ? "The request timed out. Please try again." : "Please check your connection and try again.",
+        variant: "destructive",
+      });
     } finally {
+      clearTimeout(timeoutId);
       setAiLoading(false);
     }
   };

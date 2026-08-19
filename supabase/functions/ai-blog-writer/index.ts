@@ -34,8 +34,8 @@ serve(async (req) => {
     }
 
     const { topic, doctorName, specialization } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const systemPrompt = `You are a medical content writer for an Indian doctor's website. Write professional, patient-friendly health articles. The doctor is ${doctorName || "a doctor"}, specializing in ${specialization || "general medicine"}.
 
@@ -48,70 +48,113 @@ Rules:
 - Keep articles between 800-1200 words
 - Be warm and reassuring in tone`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Write a health blog article about: "${topic}". Return a JSON object with keys: title, excerpt (1-2 sentences), content (full article in markdown), category (one of: General Health, Heart Health, Diabetes, Skin Care, Mental Health, Nutrition, Fitness, Women's Health, Children's Health, Prevention).` },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "create_blog_post",
-              description: "Create a structured blog post",
-              parameters: {
-                type: "object",
-                properties: {
-                  title: { type: "string", description: "Article title" },
-                  excerpt: { type: "string", description: "1-2 sentence summary" },
-                  content: { type: "string", description: "Full article content in markdown" },
-                  category: { type: "string", description: "Article category" },
-                },
-                required: ["title", "excerpt", "content", "category"],
-                additionalProperties: false,
+    const GEMINI_TIMEOUT_MS = 40_000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": GEMINI_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gemini-3.7-flash",
+          system_instruction: systemPrompt,
+          input: `Write a health blog article about: "${topic}". Return a JSON object with keys: title, excerpt (1-2 sentences), content (full article in markdown), category (one of: General Health, Heart Health, Diabetes, Skin Care, Mental Health, Nutrition, Fitness, Women's Health, Children's Health, Prevention).`,
+          response_format: {
+            type: "text",
+            mime_type: "application/json",
+            schema: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "Article title" },
+                excerpt: { type: "string", description: "1-2 sentence summary" },
+                content: { type: "string", description: "Full article content in markdown" },
+                category: { type: "string", description: "Article category" },
               },
+              required: ["title", "excerpt", "content", "category"],
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "create_blog_post" } },
-      }),
-    });
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      const isTimeout = fetchErr instanceof Error && fetchErr.name === "AbortError";
+      console.error("ai-blog-writer: Gemini request failed", isTimeout ? "timed out" : fetchErr);
+      return new Response(JSON.stringify({
+        error: isTimeout
+          ? "AI generation timed out. Please try again."
+          : "AI generation is temporarily unavailable. Please try again shortly.",
+      }), {
+        status: isTimeout ? 504 : 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const status = response.status;
       const text = await response.text();
-      console.error("AI gateway error:", status, text);
-      return new Response(JSON.stringify({ error: "AI generation failed" }), {
+      console.error("Gemini API error:", status, text);
+      const isTransientProviderIssue = status === 429 || status === 402 || status >= 500
+        || /quota|billing|high demand|overloaded|try again later/i.test(text);
+      return new Response(JSON.stringify({
+        error: isTransientProviderIssue
+          ? "AI generation is temporarily unavailable. Please try again shortly."
+          : "AI generation failed. Please try again.",
+      }), {
         status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-
-    if (toolCall?.function?.arguments) {
-      const article = JSON.parse(toolCall.function.arguments);
-      return new Response(JSON.stringify(article), {
+    let data: {
+      output_text?: string;
+      steps?: Array<{ type: string; content?: Array<{ type: string; text?: string }> }>;
+    };
+    try {
+      data = await response.json();
+    } catch (parseErr) {
+      console.error("ai-blog-writer: failed to parse Gemini response as JSON", parseErr);
+      return new Response(JSON.stringify({ error: "AI generation failed. Please try again." }), {
+        status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fallback: try to extract from content
-    const content = data.choices?.[0]?.message?.content || "";
-    return new Response(JSON.stringify({
-      title: topic,
-      excerpt: "",
-      content,
-      category: "General Health",
-    }), {
+    const outputText = data.output_text;
+    let article: { title?: string; excerpt?: string; content?: string; category?: string } | undefined;
+
+    if (outputText) {
+      try {
+        article = JSON.parse(outputText);
+      } catch (parseErr) {
+        console.error("ai-blog-writer: failed to parse Gemini output_text as JSON", parseErr, outputText);
+      }
+    }
+
+    if (!article) {
+      // Fallback: try to extract from the raw steps content
+      const content = data.steps?.find((s: { type: string }) => s.type === "model_output")
+        ?.content?.find((c: { type: string }) => c.type === "text")?.text;
+      if (content) {
+        article = { title: topic, excerpt: "", content, category: "General Health" };
+      }
+    }
+
+    if (!article?.content) {
+      console.error("ai-blog-writer: unexpected Gemini response shape", JSON.stringify(data));
+      return new Response(JSON.stringify({ error: "AI generation failed — no content was returned. Please try again." }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify(article), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
