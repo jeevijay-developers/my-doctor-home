@@ -198,16 +198,17 @@ const BlogPage = () => {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+        const message = errData.error || errData.message || errData.details || "Try again later.";
         if (res.status === 429) {
-          toast({ title: "Rate limit exceeded", description: "Please try again in a moment.", variant: "destructive" });
+          toast({ title: "Rate limit exceeded", description: message, variant: "destructive" });
         } else if (res.status === 402) {
-          toast({ title: "AI credits exhausted", description: "Please add credits to continue.", variant: "destructive" });
+          toast({ title: "AI credits exhausted", description: message, variant: "destructive" });
         } else if (res.status === 403) {
-          toast({ title: "Premium feature", description: errData.error || "Upgrade to Premium to use AI Blog Writer.", variant: "destructive" });
+          toast({ title: "Premium feature", description: message, variant: "destructive" });
         } else if (res.status === 502 || res.status === 504) {
-          toast({ title: "AI generation unavailable", description: errData.error || "Please try again shortly.", variant: "destructive" });
+          toast({ title: "AI generation unavailable", description: message, variant: "destructive" });
         } else {
-          toast({ title: "AI generation failed", description: errData.error || "Try again later.", variant: "destructive" });
+          toast({ title: "AI generation failed", description: message, variant: "destructive" });
         }
         return;
       }
