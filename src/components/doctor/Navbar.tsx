@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Menu, X, Moon, Sun, MessageCircle } from "lucide-react";
+import { Menu, X, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,9 +41,7 @@ const Navbar = () => {
     setMobileOpen(false);
   };
 
-  const whatsappUrl = settings?.whatsapp_number
-    ? `https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(settings.whatsapp_message || "")}`
-    : "#";
+
 
   const showBlogLink = hasPublishedBlog && slug && settings?.show_blog === true;
 
@@ -112,11 +110,7 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-3 text-text-muted">
-          {settings?.whatsapp_number && (
-            <a href={whatsappUrl} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-success flex items-center justify-center text-white hover:opacity-90 transition shadow-sm">
-              <MessageCircle size={16} />
-            </a>
-          )}
+
           <button
             aria-label="Dark Mode Toggle"
             onClick={toggleTheme}

@@ -1,4 +1,5 @@
-import { Facebook, Instagram, Youtube, Linkedin, MessageCircle, Phone, MapPin } from "lucide-react";
+import { Facebook, Instagram, Youtube, Linkedin, Phone, MapPin } from "lucide-react";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { scrollToSection } from "@/lib/scrollToSection";
 
@@ -186,8 +187,9 @@ const Footer = () => {
 
       {whatsappUrl && (
         <a href={whatsappUrl} target="_blank" rel="noreferrer"
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-success shadow-xl flex items-center justify-center hover:scale-110 transition-transform">
-          <MessageCircle size={26} className="text-white" />
+          aria-label="Chat on WhatsApp"
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full drop-shadow-xl hover:scale-110 transition-transform flex items-center justify-center">
+          <WhatsAppIcon className="w-14 h-14" />
         </a>
       )}
     </>

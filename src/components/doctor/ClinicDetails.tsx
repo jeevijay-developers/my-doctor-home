@@ -1,4 +1,5 @@
 import { MapPin, Phone, Clock, Globe } from "lucide-react";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
@@ -172,9 +173,10 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
             </InfoRow>
 
             {settings?.whatsapp_number && (
-              <Button variant="outline" className="border-success text-success rounded-full mt-4 h-10 px-4 text-sm" asChild>
+              <Button variant="outline" className="border-success text-success hover:bg-success/10 rounded-full mt-4 h-10 px-4 text-sm inline-flex items-center gap-2" asChild>
                 <a href={`https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer">
-                  Chat on WhatsApp
+                  <WhatsAppIcon className="w-4 h-4" />
+                  <span>Chat on WhatsApp</span>
                 </a>
               </Button>
             )}
