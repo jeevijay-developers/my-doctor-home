@@ -3,12 +3,13 @@ import { useDoctorData } from "@/contexts/DoctorContext";
 import { Button } from "@/components/ui/button";
 import AnimatedItem from "@/components/landing/AnimatedItem";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
+import { scrollToSection } from "@/lib/scrollToSection";
 
 const DEFAULT_ABOUT_PHOTO = "https://lh3.googleusercontent.com/aida-public/AB6AXuA-b7rGJhpL90sVuTofZP2204Pf-uKvpds6_Qsr5bgoGyLgeU3Y9Q0Z6iXz_wgoaLbang5HXII_X0d8ZmmB0NDrOJD5R3YsosCbHdn1RYbyIbDXmR3hdzuTbqmCGmYmfjvrMlzhmToDKKa-JoUytz5CLGb9g6afrEdzliot52hZEfE6jht0NcSCwp_eUVrqYK_l5AZWirOYLvZKaQ_XwWt_QWEHukPRVdENr85rOY-VaJXV0XdnF4zu";
 
 const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
   const { profile } = useDoctorData();
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const scrollTo = (id: string) => scrollToSection(id);
 
   const qualLine = [profile?.qualifications, profile?.specialization].filter(Boolean).join(" - ") || "MBBS MD - General Physician";
   const expText = profile?.experience_years ? `${profile.experience_years}+ Years of Clinical Experience` : "20+ Years of Clinical Experience";

@@ -654,7 +654,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                   onClick={() => { setType(t.k); setStep(2); }}
                   className={`rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all ${
                     isSelected
-                      ? "border-2 border-primary-500 bg-primary-50/50 dark:bg-primary-900/30"
+                      ? "border-2 border-primary-500 bg-primary-50/50 dark:bg-transparent dark:border-green-500"
                       : "border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                   }`}
                 >

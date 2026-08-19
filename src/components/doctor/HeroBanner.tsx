@@ -1,9 +1,11 @@
-import { Clock, MapPin, Calendar, Phone, Navigation, Star, Users, Award, ThumbsUp, Headset } from "lucide-react";
+import { Clock, MapPin, Calendar, Phone, Navigation, Users, Award, ThumbsUp, Headset } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { getStatIconComponent, resolveStatValue, type QuickStatItem } from "@/lib/quickStats";
+import { formatClinicLocation } from "@/lib/formatClinicLocation";
+import { scrollToSection } from "@/lib/scrollToSection";
 
 const DEFAULT_DOCTOR_PORTRAIT = "https://lh3.googleusercontent.com/aida-public/AB6AXuBaAxypuIOMq0rygPBq5vywZP1dfJ8xcEGY74WwCmuBwEwPNgMea0BOa5jpwiv_BDHBupYNlFSJP3lI0XDOGxNJjNZMuRsBAct6SGXuHO9DnZpaGSv4rhxr5t5xhMCklDyVhP4730ynnEfBhDkPR4JvfX-yoxdx5wV9NYRvXIAh0P_Izb2W-YEYu46QkkOzW21QvIrvLCWlLK8t5zpwYUKMbedNFIeLudodNYxsU5q10SozV7MmPgCh";
 
@@ -38,7 +40,7 @@ const summarizeHours = (workingHours: { day_of_week: number; is_open: boolean; s
 const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
   const { profile, reviews, settings, workingHours } = useDoctorData();
   const reduce = useReducedMotion();
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const scrollTo = (id: string) => scrollToSection(id);
 
   const fadeUp = (delay = 0) => ({
     initial: reduce ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 },
@@ -50,9 +52,15 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : "5.0";
 
-  const locationValue = [profile?.address, profile?.city].filter(Boolean).join(", ") || profile?.clinic_name || null;
+  const heroPhotoSrc = settings?.hero_photo_url || profile?.profile_photo_url || null;
+  const heroStatText = settings?.hero_stat_text?.trim() || `${avgRating} Rating`;
+  const heroStatIconName = settings?.hero_stat_icon || "Star";
+  const HeroStatIcon = getStatIconComponent(heroStatIconName);
+  const heroStatIconFill = heroStatIconName === "Star" ? "currentColor" : "none";
+
+  const locationValue = formatClinicLocation(profile?.address, profile?.city, profile?.state) || profile?.clinic_name || null;
   const hoursSummary = summarizeHours(workingHours || []);
-  const mapsQuery = [profile?.clinic_name, profile?.address, profile?.city].filter(Boolean).join(", ");
+  const mapsQuery = [profile?.clinic_name, profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ");
   const directionsUrl = mapsQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}` : null;
 
   const headlineLine1 = settings?.hero_headline_line1 || "Trusted Care for";
@@ -154,10 +162,10 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                 <img
                   alt={`Dr. ${profile?.full_name || "Rajkumar"} Portrait`}
                   className="w-full h-full object-cover rounded-xl bg-gray-100 dark:bg-gray-700"
-                  src={profile?.profile_photo_url || DEFAULT_DOCTOR_PORTRAIT}
+                  src={heroPhotoSrc || DEFAULT_DOCTOR_PORTRAIT}
                 />
                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-yellow-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border-2 border-white dark:border-gray-800 shadow-sm whitespace-nowrap">
-                  <Star size={10} className="fill-current" /> {avgRating} Rating
+                  <HeroStatIcon size={10} fill={heroStatIconFill} /> {heroStatText}
                 </div>
               </div>
             </div>
@@ -194,10 +202,10 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
 
       {/* DESKTOP VIEW (hidden md:block) — Original desktop card layout */}
       <div className="hidden md:block">
-        <section className="relative pt-[72px] pb-0 md:pt-[78px] md:pb-0 overflow-hidden bg-secondary/30 dark:bg-black">
+        <section className="relative pt-4 pb-0 md:pt-6 md:pb-0 overflow-hidden bg-secondary/30 dark:bg-black">
           <div className="px-[5px] md:px-5 relative z-10">
             <motion.div id="hero-card" {...fadeUp(0)} className={`relative flex flex-col justify-center rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-border/60 shadow-xl sm:shadow-2xl ${cardColorClass(cardColor)}`}>
-              <div className="relative z-10 px-[5px] py-5 sm:py-10 md:px-12 md:py-14">
+              <div className="relative z-10 px-[5px] py-8 sm:py-14 md:px-12 md:py-20">
                 <div className="flex items-center justify-center gap-2 sm:gap-6 lg:gap-[200px]">
                   <div className="space-y-1.5 sm:space-y-4 lg:space-y-6 min-w-0">
                     <motion.h1 {...fadeUp(0.08)} className="font-heading font-extrabold text-sm sm:text-3xl md:text-4xl lg:text-[52px] leading-tight text-foreground">
@@ -265,8 +273,8 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                     <div className="relative">
                       <div className="absolute -inset-1.5 sm:-inset-4 rounded-2xl sm:rounded-[2.5rem] bg-gradient-to-br from-royal/15 via-teal/10 to-transparent -z-10" />
                       <div className="w-[100px] h-[112px] sm:w-56 sm:h-64 md:w-80 md:h-96 rounded-xl sm:rounded-[2rem] overflow-hidden shadow-xl border-2 sm:border-4 border-border bg-card flex items-center justify-center">
-                        {profile?.profile_photo_url ? (
-                          <img src={profile.profile_photo_url} alt={`Dr. ${profile.full_name}`} className="w-full h-full object-contain" />
+                        {heroPhotoSrc ? (
+                          <img src={heroPhotoSrc} alt={`Dr. ${profile?.full_name}`} className="w-full h-full object-contain" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-xl sm:text-6xl font-heading font-bold text-royal/30">
                             {profile?.full_name?.charAt(0) || "D"}
@@ -275,8 +283,8 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                       </div>
                       {showHeroStatBadge && (
                         <div className="absolute -bottom-2 sm:-bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-0.5 sm:gap-1.5 px-1.5 py-0.5 sm:px-4 sm:py-2 rounded-pill bg-card border border-border shadow-lg whitespace-nowrap">
-                          <Star className="h-2 w-2 sm:h-3.5 sm:w-3.5 text-yellow-400" fill="currentColor" />
-                          <span className="text-[6px] sm:text-sm font-heading font-bold text-yellow-400">{avgRating} Rating</span>
+                          <HeroStatIcon className="h-2 w-2 sm:h-3.5 sm:w-3.5 text-yellow-400" fill={heroStatIconFill} />
+                          <span className="text-[6px] sm:text-sm font-heading font-bold text-yellow-400">{heroStatText}</span>
                         </div>
                       )}
                     </div>

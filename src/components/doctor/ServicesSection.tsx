@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/carousel";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { scrollToSection } from "@/lib/scrollToSection";
 
 const CAROUSEL_THRESHOLD = 3;
 const DESCRIPTION_TRUNCATE_LENGTH = 140;
@@ -79,7 +80,7 @@ const DesktopServiceCard = ({ s, onBook, onSeeMore }: { s: any; onBook: () => vo
 
 const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { services } = useDoctorData();
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const scrollTo = (id: string) => scrollToSection(id);
 
   const [api, setApi] = useState<CarouselApi>();
   const [selected, setSelected] = useState(0);

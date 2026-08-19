@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Settings, Crown, Shield, Download, Trash2, UserCircle, CalendarClock, RotateCcw } from "lucide-react";
+import { Settings, Crown, Shield, Trash2, UserCircle, CalendarClock, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -21,7 +21,6 @@ import ProfilePage from "./ProfilePage";
 
 const SettingsPage = () => {
   const { profile, isStaff } = useProfile();
-  const [exporting, setExporting] = useState(false);
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
 
@@ -77,36 +76,6 @@ const SettingsPage = () => {
       toast.error("Failed to reactivate: " + (e?.message || "Unknown error"));
     } finally {
       setReactivating(false);
-    }
-  };
-
-  const exportAllData = async () => {
-    if (!profile) return;
-    setExporting(true);
-    try {
-      const doctorId = profile.id;
-      const tables = [
-        "services", "packages", "working_hours", "appointments",
-        "patients", "reviews", "blog_posts", "invoices", "website_settings",
-      ] as const;
-      const results: Record<string, any> = { profile };
-      for (const t of tables) {
-        const { data } = await (supabase.from(t as any) as any).select("*").eq("doctor_id", doctorId);
-        results[t] = data || [];
-      }
-      const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const safeName = (profile.full_name || "doctor").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-      a.download = `doctylia-full-export-${safeName}-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("Data export downloaded");
-    } catch (e: any) {
-      toast.error("Export failed: " + (e?.message || "unknown error"));
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -341,18 +310,6 @@ const SettingsPage = () => {
 
         <TabsContent value="account">
           <div className="space-y-6">
-            <Card className="border-border/60 shadow-none">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-royal" /> Export Data</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">Download a full JSON snapshot of your profile, patients, appointments, invoices, blog and website data.</p>
-                <Button variant="outline" onClick={exportAllData} disabled={exporting}>
-                  <Download className="h-4 w-4 mr-2" /> {exporting ? "Preparing…" : "Export All Data"}
-                </Button>
-              </CardContent>
-            </Card>
-
             <Card className="border-destructive/30 shadow-none">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-destructive"><Trash2 className="h-5 w-5" /> Danger Zone</CardTitle>
