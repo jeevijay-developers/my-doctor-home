@@ -19,7 +19,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import FontFamily from "@tiptap/extension-font-family";
 import Youtube from "@tiptap/extension-youtube";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code, Superscript as SupIcon,
@@ -64,6 +64,7 @@ const Divider = () => <div className="w-px h-6 bg-border mx-1" />;
 
 const RichTextEditor = ({ value, onChange, placeholder }: Props) => {
   const [fullscreen, setFullscreen] = useState(false);
+  const lastExternalValue = useRef(value);
 
   const editor = useEditor({
     extensions: [
@@ -94,6 +95,16 @@ const RichTextEditor = ({ value, onChange, placeholder }: Props) => {
       },
     },
   });
+
+  // Sync externally-set content (e.g. AI generation) into the editor
+  useEffect(() => {
+    if (!editor) return;
+    // Only update when the parent value truly changed from outside (not from user typing)
+    if (value !== lastExternalValue.current && value !== editor.getHTML()) {
+      editor.commands.setContent(value || "", false);
+    }
+    lastExternalValue.current = value;
+  }, [value, editor]);
 
   const setLink = useCallback(() => {
     if (!editor) return;
