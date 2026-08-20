@@ -8,6 +8,7 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import doctyliaLogo from "@/assets/doctylia-logo.png";
+import { getClinicMapsUrl } from "@/lib/clinicLocation";
 
 type Props = {
   open: boolean;
@@ -51,13 +52,14 @@ const PaymentSlip = ({
   const clinicAddr = profile?.clinic_address || profile?.address || profile?.city || "";
   const clinicPhone = profile?.clinic_phone || profile?.phone || "";
   const websiteLabel = doctorUrl.replace(/^https?:\/\//, "");
+  const locationUrl = getClinicMapsUrl(profile) || doctorUrl;
 
   useEffect(() => {
     if (!open) return;
-    QRCode.toDataURL(doctorUrl, {
+    QRCode.toDataURL(locationUrl, {
       margin: 1, width: 400, color: { dark: TEAL_DARK, light: "#FFFFFF" },
     }).then(setQrDataUrl).catch(() => setQrDataUrl(""));
-  }, [open, doctorUrl]);
+  }, [open, locationUrl]);
 
   const handlePrint = () => {
     document.body.classList.add("printing-slip");

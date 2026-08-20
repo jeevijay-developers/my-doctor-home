@@ -3,6 +3,7 @@ import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
+import { getClinicMapsQuery, getClinicMapsUrl } from "@/lib/clinicLocation";
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -34,8 +35,8 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/dr/${profile.slug}`
     : "192.168.29.92:8080/dr/rajkumar-prajapati";
 
-  const mapsQuery = [profile?.clinic_name, profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ") || "xyz, Kota";
-  const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
+  const mapsQuery = getClinicMapsQuery(profile, "xyz, Kota");
+  const directionsUrl = getClinicMapsUrl(profile, "xyz, Kota");
 
   const scheduleList = workingHours && workingHours.length > 0
     ? workingHours.map((wh: any) => {
