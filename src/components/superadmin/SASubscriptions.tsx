@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -361,10 +362,7 @@ const SASubscriptions = () => {
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1.5">
-                        <Input
-                          type="number"
-                          min={0}
-                          step="1"
+                        <AmountInput
                           className="h-8 w-24"
                           placeholder={hasCustom ? String(r.custom_plan_price) : `${livePrices[tier] ?? 0}`}
                           value={prices[r.id] ?? ""}

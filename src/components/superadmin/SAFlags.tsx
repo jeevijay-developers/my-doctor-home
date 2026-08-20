@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { DigitsInput } from "@/components/ui/digits-input";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
@@ -129,7 +131,7 @@ const SAFlags = () => {
       <Card>
         <CardHeader><CardTitle className="text-base">Default Trial Days</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          <Input type="number" min={1} value={trialDays} onChange={(e) => setTrialDays(Number(e.target.value))} className="max-w-[120px]" />
+          <DigitsInput maxLength={4} value={trialDays} onChange={(e) => setTrialDays(e.target.value === "" ? 0 : Number(e.target.value))} className="max-w-[120px]" />
           <p className="text-xs text-muted-foreground">Note: this is displayed/tracked here, but the DB default is fixed at 7 days. Changing the actual trial length for new signups requires a follow-up migration.</p>
           <Button size="sm" onClick={() => save("default_trial_days", trialDays, "update_trial_days")}>Save</Button>
         </CardContent>
@@ -156,11 +158,8 @@ const SAFlags = () => {
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
-                <Input
+                <AmountInput
                   id="pro-price-input"
-                  type="number"
-                  min={1}
-                  step={1}
                   className="pl-7"
                   value={proInput}
                   onChange={(e) => setProInput(e.target.value)}
@@ -177,11 +176,8 @@ const SAFlags = () => {
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
-                <Input
+                <AmountInput
                   id="premium-price-input"
-                  type="number"
-                  min={1}
-                  step={1}
                   className="pl-7"
                   value={premiumInput}
                   onChange={(e) => setPremiumInput(e.target.value)}

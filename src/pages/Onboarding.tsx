@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
+import { DigitsInput } from "@/components/ui/digits-input";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -229,11 +232,11 @@ const Onboarding = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div className="space-y-2">
                         <Label>Years of Experience <span className="text-destructive">*</span></Label>
-                        <Input type="number" min="0" value={form.experience_years} onChange={(e) => update("experience_years", e.target.value)} placeholder="15" className="h-11" />
+                        <DigitsInput maxLength={2} value={form.experience_years} onChange={(e) => update("experience_years", e.target.value)} placeholder="15" className="h-11" />
                       </div>
                       <div className="space-y-2">
                         <Label>Consultation Fee (₹) <span className="text-destructive">*</span></Label>
-                        <Input type="number" min="0" value={form.consultation_fee} onChange={(e) => update("consultation_fee", e.target.value)} placeholder="500" className="h-11" />
+                        <AmountInput value={form.consultation_fee} onChange={(e) => update("consultation_fee", e.target.value)} placeholder="500" className="h-11" />
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -272,7 +275,7 @@ const Onboarding = () => {
                       </div>
                       <div className="space-y-2">
                         <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone Number <span className="text-destructive">*</span></Label>
-                        <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+91 98765 43210" className="h-11" />
+                        <FormattedPhoneInput value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+91 98765 43210" className="h-11" />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

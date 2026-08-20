@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { CheckCircle2, XCircle, ChevronLeft, Video, Users, Clock, FileText, Building2, Receipt } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DigitsInput } from "@/components/ui/digits-input";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, isSameDay } from "date-fns";
@@ -99,6 +100,8 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const [slipOpen, setSlipOpen] = useState(false);
   const [paymentSlipOpen, setPaymentSlipOpen] = useState(false);
   const [mockCheckoutOpen, setMockCheckoutOpen] = useState(false);
+  // True while the async slot re-validation fires on time-slot selection
+  const [checkingSlot, setCheckingSlot] = useState(false);
 
   useEffect(() => { if (confirmed) setSlipOpen(true); }, [confirmed]);
 
@@ -262,10 +265,55 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     setTimeout(downloadPaymentSlip, 350);
   };
 
+  // Called when the patient taps a time-slot on step 4. We do an instant
+  // isFull() check against the live cached counts first, then fire a fresh
+  // refresh() to pull the very latest state from the DB before advancing —
+  // this catches any booking that completed in the last 8 s polling window.
+  //
+  // IMPORTANT: after await refresh(), we use the freshCounts map returned
+  // directly from the call rather than calling isFull() again — isFull() reads
+  // the React `counts` state which is updated asynchronously and would still
+  // hold the stale value at the point we check it (classic stale-closure bug).
+  const selectTimeSlot = async (slot: string) => {
+    if (checkingSlot) return;
+
+    // Instant guard from live cached counts.
+    if (isFull(slot)) {
+      toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+      refresh();
+      return;
+    }
+
+    // Fire a fresh DB query to catch bookings that happened between polls.
+    setCheckingSlot(true);
+    const freshCounts = await refresh();
+    setCheckingSlot(false);
+
+    // Re-check against the freshly returned map — NOT isFull() (stale closure).
+    if ((freshCounts[slot] || 0) >= maxPerSlot) {
+      toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+      return;
+    }
+
+    // Slot still available — advance the wizard.
+    setSelectedTime(slot);
+    setStep(5);
+  };
+
   // Step 5 "Continue" for online-payment doctors — just moves to the Review
   // Booking Summary step. Nothing is written to the database here.
+  // Also re-validates the slot so a race between step 4 selection and step 5
+  // Continue is caught before the patient proceeds to payment.
   const proceedToReview = () => {
     if (!validatePatientDetails()) return;
+    // Defense-in-depth: re-check from cached counts before advancing.
+    if (selectedTime && isFull(selectedTime)) {
+      toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+      setStep(4);
+      setSelectedTime("");
+      refresh();
+      return;
+    }
     setStep(6);
   };
 
@@ -717,25 +765,37 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {timeSlots.map((t) => {
               const full = isFull(t);
+              const isChecking = checkingSlot && selectedTime === t;
               return (
                 <button
                   key={t}
-                  disabled={full}
-                  onClick={() => { setSelectedTime(t); setStep(5); }}
+                  disabled={full || checkingSlot}
+                  onClick={() => selectTimeSlot(t)}
                   className={`py-3 rounded-lg border-2 text-sm font-medium transition-all relative ${
                     full
                       ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                      : isChecking
+                      ? "border-royal bg-royal/20 text-foreground cursor-wait"
                       : selectedTime === t
                       ? "border-royal bg-royal text-primary-foreground"
                       : "border-border text-foreground hover:border-royal"
                   }`}
                 >
-                  {t}
-                  {full ? (
-                    <span className="block text-[9px] mt-0.5 font-semibold uppercase text-destructive">Full</span>
-                  ) : maxPerSlot > 1 ? (
-                    <span className="block text-[9px] mt-0.5 opacity-70">{bookedIn(t)}/{maxPerSlot}</span>
-                  ) : null}
+                  {isChecking ? (
+                    <>
+                      <span className="block">{t}</span>
+                      <span className="block text-[9px] mt-0.5 opacity-70 animate-pulse">Checking…</span>
+                    </>
+                  ) : (
+                    <>
+                      {t}
+                      {full ? (
+                        <span className="block text-[9px] mt-0.5 font-semibold uppercase text-destructive">Full</span>
+                      ) : maxPerSlot > 1 ? (
+                        <span className="block text-[9px] mt-0.5 opacity-70">{bookedIn(t)}/{maxPerSlot}</span>
+                      ) : null}
+                    </>
+                  )}
                 </button>
               );
             })}
@@ -752,7 +812,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
             <div className="flex items-center gap-2">
               <span className="px-3 py-3 rounded-lg border border-border bg-secondary text-sm text-foreground">+91</span>
-              <input type="tel" inputMode="numeric" maxLength={13} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
+              <DigitsInput maxLength={10} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
                 className="flex-1 px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
             </div>
             {phone && !isValidIndianPhone(phone) && (
@@ -761,7 +821,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
             <input type="email" placeholder="Email (optional — for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
             <div className="grid grid-cols-2 gap-3">
-              <input type="number" min="0" max="120" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
+              <DigitsInput maxLength={3} placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
                 className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
               <select value={gender} onChange={(e) => setGender(e.target.value)}
                 className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal">

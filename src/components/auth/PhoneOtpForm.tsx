@@ -4,6 +4,8 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DigitsInput } from "@/components/ui/digits-input";
+import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useTurnstile } from "./useTurnstile";
@@ -135,12 +137,11 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
         </p>
         <div>
           <Label htmlFor="otp">6-digit code</Label>
-          <Input
+          <DigitsInput
             id="otp"
-            inputMode="numeric"
             maxLength={6}
             value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => setOtp(e.target.value)}
             placeholder="123456"
             required
             className="h-11 tracking-widest text-center"
@@ -185,9 +186,8 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
       )}
       <div>
         <Label htmlFor="phoneNumber">Phone Number</Label>
-        <Input
+        <FormattedPhoneInput
           id="phoneNumber"
-          type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="+91 98765 43210"

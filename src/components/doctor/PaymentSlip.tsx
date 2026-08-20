@@ -176,15 +176,27 @@ const PaymentSlip = ({
                   {/* Divider */}
                   <div className="w-12 h-[3px] rounded-full mt-2 mb-4" style={{ backgroundColor: TEAL }} aria-hidden />
 
-                  <div className="text-[11px] font-medium text-center mb-1.5" style={{ color: "#6b7280" }}>
-                    Amount Paid
-                  </div>
-                  <div
-                    className="border-[2px] rounded-full px-8 py-2.5 text-center mb-5 min-w-[200px]"
-                    style={{ borderColor: TEAL }}
-                  >
-                    <div className="font-heading font-extrabold text-[28px] leading-none flex items-center justify-center gap-0.5" style={{ color: TEAL_DARK }}>
-                      <IndianRupee className="h-6 w-6" />{amount}
+                  {/* Amount box */}
+                  <div className="flex flex-col items-center justify-center mb-5 w-full">
+                    <div className="text-[11.5px] font-medium text-center mb-2" style={{ color: "#6b7280" }}>
+                      Amount Paid
+                    </div>
+                    <div
+                      className="border-[2px] rounded-full w-[220px] h-[50px] flex items-center justify-center text-center mx-auto"
+                      style={{ borderColor: TEAL, padding: 0, boxSizing: "border-box" }}
+                    >
+                      <div
+                        className="font-heading font-extrabold text-[26px] text-center w-full flex items-center justify-center gap-0.5"
+                        style={{
+                          color: TEAL_DARK,
+                          lineHeight: "46px",
+                          letterSpacing: "0.03em",
+                          margin: 0,
+                          padding: 0,
+                        }}
+                      >
+                        <IndianRupee className="h-5 w-5" />{amount}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -10,6 +10,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DigitsInput } from "@/components/ui/digits-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
@@ -300,7 +301,7 @@ const CheckupReminderTab = ({ patientId, doctorId, onChange }: { patientId: stri
               {form.frequency === "custom" && (
                 <div className="space-y-1.5">
                   <Label>Custom Interval (days)</Label>
-                  <Input type="number" min={1} value={form.custom_interval_days} onChange={(e) => setForm({ ...form, custom_interval_days: e.target.value })} className="h-10" />
+                  <DigitsInput maxLength={4} value={form.custom_interval_days} onChange={(e) => setForm({ ...form, custom_interval_days: e.target.value })} className="h-10" />
                 </div>
               )}
               <div className="space-y-1.5">
@@ -309,7 +310,7 @@ const CheckupReminderTab = ({ patientId, doctorId, onChange }: { patientId: stri
               </div>
               <div className="space-y-1.5">
                 <Label>Reminder Before (days)</Label>
-                <Input type="number" min={0} value={form.reminder_before_days} onChange={(e) => setForm({ ...form, reminder_before_days: e.target.value })} className="h-10" />
+                <DigitsInput maxLength={4} value={form.reminder_before_days} onChange={(e) => setForm({ ...form, reminder_before_days: e.target.value })} className="h-10" />
               </div>
             </div>
 

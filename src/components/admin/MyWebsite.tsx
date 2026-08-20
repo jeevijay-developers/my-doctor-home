@@ -5,6 +5,9 @@ import { useProfile } from "@/hooks/useProfile";
 import { Globe, ExternalLink, Copy, Monitor, Smartphone, Tablet, Save, Plus, Trash2, GripVertical, Clock, Pin, EyeOff, Eye, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DigitsInput } from "@/components/ui/digits-input";
+import { AmountInput } from "@/components/ui/amount-input";
+import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -575,7 +578,7 @@ const MyWebsite = () => {
                     <Input placeholder="Service name" value={s.name} onChange={(e) => updateService(i, "name", e.target.value)} />
                     <Input placeholder="Description" value={s.description} onChange={(e) => updateService(i, "description", e.target.value)} />
                     <div className="grid grid-cols-3 gap-2">
-                      <div><Label className="text-xs">Price ₹</Label><Input type="number" min={0} placeholder="0" value={s.price || ""} onChange={(e) => updateService(i, "price", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
+                      <div><Label className="text-xs">Price ₹</Label><AmountInput placeholder="0" value={s.price || ""} onChange={(e) => updateService(i, "price", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
                       <div>
                         <Label className="text-xs">Type</Label>
                         <Select value={s.type} onValueChange={(v) => updateService(i, "type", v)}>
@@ -583,7 +586,7 @@ const MyWebsite = () => {
                           <SelectContent><SelectItem value="clinic">Clinic</SelectItem><SelectItem value="online">Online</SelectItem><SelectItem value="both">Both</SelectItem></SelectContent>
                         </Select>
                       </div>
-                      <div><Label className="text-xs">Duration</Label><Input type="number" min={1} placeholder="0" value={s.duration || ""} onChange={(e) => updateService(i, "duration", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
+                      <div><Label className="text-xs">Duration</Label><DigitsInput maxLength={3} placeholder="0" value={s.duration || ""} onChange={(e) => updateService(i, "duration", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
                     </div>
                   </div>
                 ))}
@@ -653,7 +656,7 @@ const MyWebsite = () => {
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><Label>Fee ₹</Label><Input type="number" min={0} value={settings.online_fee || 500} onChange={(e) => updateSetting("online_fee", Number(e.target.value))} /></div>
+                  <div><Label>Fee ₹</Label><AmountInput value={settings.online_fee || 500} onChange={(e) => updateSetting("online_fee", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
                   <div>
                     <Label>Duration</Label>
                     <Select value={String(settings.online_duration || 30)} onValueChange={(v) => updateSetting("online_duration", Number(v))}>
@@ -703,10 +706,8 @@ const MyWebsite = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Advance Booking (days)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={365}
+                    <DigitsInput
+                      maxLength={3}
                       value={settings.booking_advance_days ?? 7}
                       onChange={(e) => updateSetting("booking_advance_days", e.target.value === "" ? "" : Number(e.target.value))}
                       className="h-10"
@@ -715,10 +716,8 @@ const MyWebsite = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Max Bookings per Slot</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={50}
+                    <DigitsInput
+                      maxLength={2}
                       value={settings.max_per_slot ?? 1}
                       onChange={(e) => updateSetting("max_per_slot", e.target.value === "" ? "" : Number(e.target.value))}
                       className="h-10"
@@ -728,8 +727,8 @@ const MyWebsite = () => {
                 </div>
                 <div>
                   <Label>Patient Cancel/Reschedule Cutoff (hours)</Label>
-                  <Input type="number" min={0} value={(settings as any).cancellation_cutoff_hours ?? 2}
-                    onChange={(e) => updateSetting("cancellation_cutoff_hours" as any, Number(e.target.value))} />
+                  <DigitsInput maxLength={3} value={(settings as any).cancellation_cutoff_hours ?? 2}
+                    onChange={(e) => updateSetting("cancellation_cutoff_hours" as any, e.target.value === "" ? 0 : Number(e.target.value))} />
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Patients can't cancel or reschedule within this many hours before their appointment.
                   </p>
@@ -852,7 +851,7 @@ const MyWebsite = () => {
               <AccordionContent className="space-y-3 pb-4">
                 <div><Label>SEO Title</Label><Input value={settings.seo_title || ""} onChange={(e) => updateSetting("seo_title", e.target.value)} placeholder="Dr. Name — Specialization" /></div>
                 <div><Label>SEO Description</Label><Textarea value={settings.seo_description || ""} onChange={(e) => updateSetting("seo_description", e.target.value)} rows={2} placeholder="Your page description for Google..." /></div>
-                <div><Label>WhatsApp Number</Label><Input value={settings.whatsapp_number || ""} onChange={(e) => updateSetting("whatsapp_number", e.target.value)} placeholder="+919XXXXXXXX" /></div>
+                <div><Label>WhatsApp Number</Label><FormattedPhoneInput value={settings.whatsapp_number || ""} onChange={(e) => updateSetting("whatsapp_number", e.target.value)} placeholder="+919XXXXXXXX" /></div>
                 <div><Label>WhatsApp Pre-fill Message</Label><Input value={settings.whatsapp_message || ""} onChange={(e) => updateSetting("whatsapp_message", e.target.value)} /></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>Facebook</Label><Input value={settings.social_facebook || ""} onChange={(e) => updateSetting("social_facebook", e.target.value)} placeholder="URL" /></div>

@@ -5,6 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
  * Reusable hook that returns booked-slot counts and helpers so callers can
  * decide whether a given time_slot is full. It polls every 8s and refreshes
  * on realtime `appointments` changes for the given doctor+date.
+ *
+ * refresh() returns the fresh counts map so callers can check it directly
+ * without relying on React state (which updates asynchronously and would give
+ * a stale value if read immediately after await refresh() — the classic
+ * stale-closure bug).
  */
 export const useSlotAvailability = (
   doctorId: string | null | undefined,
@@ -13,8 +18,8 @@ export const useSlotAvailability = (
 ) => {
   const [counts, setCounts] = useState<Record<string, number>>({});
 
-  const refresh = useCallback(async () => {
-    if (!doctorId || !date) return;
+  const refresh = useCallback(async (): Promise<Record<string, number>> => {
+    if (!doctorId || !date) return {};
     const { data } = await (supabase as any).rpc("get_slot_counts", {
       _doctor_id: doctorId,
       _date: date,
@@ -24,6 +29,7 @@ export const useSlotAvailability = (
       map[r.time_slot] = r.booked;
     });
     setCounts(map);
+    return map; // callers can read this directly — no stale closure
   }, [doctorId, date]);
 
   useEffect(() => {

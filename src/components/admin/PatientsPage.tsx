@@ -5,6 +5,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { Users, Plus, Search, Mail, Calendar as CalendarIcon, Activity, Download, Trash2, X, FileHeart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { DigitsInput } from "@/components/ui/digits-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -207,7 +209,7 @@ const PatientsPage = () => {
               </div>
               <div className="space-y-1.5">
                 <Label>Phone *</Label>
-                <Input value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+                <PhoneInput value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
                 {newPatient.phone && !isValidIndianPhone(newPatient.phone) && (
                   <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
                 )}
@@ -219,7 +221,7 @@ const PatientsPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Age</Label>
-                  <Input type="number" min={0} max={120} value={newPatient.age} onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })} className="h-10" />
+                  <DigitsInput maxLength={3} value={newPatient.age} onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Gender</Label>
