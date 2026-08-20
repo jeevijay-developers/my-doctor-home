@@ -23,6 +23,14 @@ describe("planFeatures", () => {
     const normalDoc = { plan_tier: "pro", custom_plan_price: null };
     expect(getDoctorTierPrice("pro", normalDoc)).toBe(1499);
     expect(getDoctorTierPrice("premium", normalDoc)).toBe(3999);
+
+    // With custom dynamic default prices passed in
+    const dynamicDefaults = { free: 0, pro: 1799, premium: 4499 };
+    expect(getDoctorTierPrice("pro", normalDoc, dynamicDefaults)).toBe(1799);
+    expect(getDoctorTierPrice("premium", normalDoc, dynamicDefaults)).toBe(4499);
+    // Custom doctor override still takes precedence over dynamic defaults
+    expect(getDoctorTierPrice("premium", premiumDoc, dynamicDefaults)).toBe(9000);
+    expect(getDoctorTierPrice("pro", premiumDoc, dynamicDefaults)).toBe(1799);
   });
 
   it("hasNoActivePlan is true only for expired and cancelled", () => {
@@ -46,11 +54,11 @@ describe("planFeatures", () => {
     expect(premium).toContain("Staff roles & access");
   });
 
-  it("trial: premium is current via trial, basic has no CTA", () => {
+  it("trial: premium is current via trial, both show subscription CTAs", () => {
     const { basic, premium } = getSubscriptionCardStates("trial", "free", true);
     expect(premium.isCurrent).toBe(true);
-    expect(premium.showCta).toBe(false);
-    expect(basic.showCta).toBe(false);
+    expect(premium.showCta).toBe(true);
+    expect(basic.showCta).toBe(true);
   });
 
   it("active premium tier: premium current with renewal CTA, basic shows schedule CTA", () => {

@@ -15,12 +15,15 @@ import {
 import { toast } from "sonner";
 import { differenceInDays, format } from "date-fns";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
+import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, getDoctorTierPrice, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP, hasNoActivePlan } from "@/lib/planFeatures";
 import ProfilePage from "./ProfilePage";
 
 const SettingsPage = () => {
   const { profile, isStaff } = useProfile();
+  const { proPrice: liveProPrice, premiumPrice: livePremiumPrice } = usePlanPrices();
+  const livePrices = planPricesToRecord({ proPrice: liveProPrice, premiumPrice: livePremiumPrice });
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
 
@@ -230,10 +233,10 @@ const SettingsPage = () => {
               )}
 
               {(() => {
-                const proPrice = getDoctorTierPrice("pro", profile);
-                const premiumPrice = getDoctorTierPrice("premium", profile);
-                const hasProCustom = profile?.custom_plan_price != null && proPrice !== TIER_PRICES.pro;
-                const hasPremiumCustom = profile?.custom_plan_price != null && premiumPrice !== TIER_PRICES.premium;
+                const proPrice = getDoctorTierPrice("pro", profile, livePrices);
+                const premiumPrice = getDoctorTierPrice("premium", profile, livePrices);
+                const hasProCustom = profile?.custom_plan_price != null && proPrice !== livePrices.pro;
+                const hasPremiumCustom = profile?.custom_plan_price != null && premiumPrice !== livePrices.premium;
 
                 return (
                   <div className="grid sm:grid-cols-2 gap-4">

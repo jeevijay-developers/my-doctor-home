@@ -15,16 +15,17 @@ export const TIER_PRICES: Record<string, number> = DEFAULT_PLAN_PRICES;
 
 export function getDoctorTierPrice(
   tier: "pro" | "premium",
-  profile?: { plan_tier?: string | null; custom_plan_price?: number | null } | null
+  profile?: { plan_tier?: string | null; custom_plan_price?: number | null } | null,
+  defaultPrices: Record<string, number> = TIER_PRICES,
 ): number {
   if (!profile || profile.custom_plan_price == null) {
-    return TIER_PRICES[tier] ?? 0;
+    return defaultPrices[tier] ?? 0;
   }
   const currentTier = profile.plan_tier || "pro";
   if (currentTier === tier || ((currentTier === "free" || currentTier === "trial") && tier === "pro")) {
     return Number(profile.custom_plan_price);
   }
-  return TIER_PRICES[tier] ?? 0;
+  return defaultPrices[tier] ?? 0;
 }
 
 // Fallback shown when appointmentsCap is 0 — either usePlanAccess is still loading,

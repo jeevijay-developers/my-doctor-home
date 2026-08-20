@@ -13,11 +13,14 @@ vi.mock("@/hooks/usePlanAccess", () => ({ usePlanAccess: vi.fn() }));
 vi.mock("@/lib/invoicePdf", () => ({ generateInvoicePDF: vi.fn() }));
 
 vi.mock("@/integrations/supabase/client", () => {
-  const chain = (resolved: any): any => ({
-    select: () => chain(resolved),
-    eq: () => chain(resolved),
-    order: () => Promise.resolve(resolved),
-  });
+  const chain = (resolved: any): any => {
+    const promise = Promise.resolve(resolved);
+    return Object.assign(promise, {
+      select: () => chain(resolved),
+      eq: () => chain(resolved),
+      order: () => Promise.resolve(resolved),
+    });
+  };
   return {
     supabase: {
       from: vi.fn((table: string) => {

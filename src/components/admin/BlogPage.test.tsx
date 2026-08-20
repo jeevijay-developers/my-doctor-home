@@ -5,7 +5,7 @@ import BlogPage from "./BlogPage";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 
 vi.mock("@/hooks/useProfile", () => ({
-  useProfile: () => ({ profile: { id: "doctor-1", full_name: "Dr. Test", specialization: "Cardiology" } }),
+  useProfile: () => ({ profile: { id: "doctor-1", full_name: "Dr. Test", specialization: "Cardiology" }, can: () => true }),
 }));
 
 vi.mock("@/hooks/usePlanAccess", () => ({ usePlanAccess: vi.fn() }));
@@ -22,6 +22,9 @@ vi.mock("@/integrations/supabase/client", () => ({
         }),
       }),
     }),
+    functions: {
+      invoke: vi.fn().mockResolvedValue({ data: { mode: "mock" }, error: null }),
+    },
   },
 }));
 
@@ -61,7 +64,7 @@ describe("BlogPage - AI Blog Writer gating", () => {
       </MemoryRouter>
     );
     fireEvent.click(await screen.findByRole("button", { name: /new blog post|new post/i }));
-    expect(await screen.findByRole("button", { name: /request upgrade/i })).toBeInTheDocument();
+    expect(await screen.findByText(/generate patient-friendly health articles/i)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/top 10 tips/i)).not.toBeInTheDocument();
   });
 
@@ -74,6 +77,6 @@ describe("BlogPage - AI Blog Writer gating", () => {
     );
     fireEvent.click(await screen.findByRole("button", { name: /new blog post|new post/i }));
     expect(await screen.findByPlaceholderText(/top 10 tips/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /request upgrade/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /upgrade to premium|request upgrade/i })).not.toBeInTheDocument();
   });
 });

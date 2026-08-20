@@ -91,7 +91,7 @@ const RichTextEditor = ({ value, onChange, placeholder }: Props) => {
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
-        class: "prose prose-slate max-w-none focus:outline-none min-h-[400px] px-4 py-3",
+        class: "prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[400px] px-4 py-3 text-foreground dark:text-foreground",
       },
     },
   });
@@ -271,8 +271,8 @@ const RichTextEditor = ({ value, onChange, placeholder }: Props) => {
         </div>
       )}
 
-      <div className={cn("overflow-y-auto", fullscreen ? "flex-1" : "max-h-[60vh]")}>
-        <EditorContent editor={editor} />
+      <div className={cn("overflow-y-auto bg-card text-foreground", fullscreen ? "flex-1" : "max-h-[60vh]")}>
+        <EditorContent editor={editor} className="text-foreground" />
       </div>
 
       <div className="flex items-center justify-between px-3 py-1.5 border-t border-border bg-secondary/30 text-xs text-muted-foreground">

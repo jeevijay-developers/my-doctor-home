@@ -15,11 +15,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-// DEFAULT_PLAN_PRICES in src/components/superadmin/SASubscriptions.tsx is a
-// frontend-only TS constant with no DB backing, so this Deno function (which
-// can't import from src/) carries its own copy — same duplication pattern
-// already used for staffPermissions.ts. Never trust a client-supplied amount.
-const TIER_PRICES: Record<string, number> = { pro: 1499, premium: 3999 };
+// Fallback prices in case platform_settings does not have keys seeded yet.
+const FALLBACK_TIER_PRICES: Record<string, number> = { pro: 1499, premium: 3999 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -41,6 +38,21 @@ Deno.serve(async (req) => {
   const targetTier = body?.target_tier;
   if (targetTier !== "pro" && targetTier !== "premium") {
     return json(400, { error: "target_tier must be 'pro' or 'premium'" });
+  }
+
+  // Fetch dynamic default prices from platform_settings
+  const { data: pricingRows } = await admin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", ["pro_default_price", "premium_default_price"]);
+
+  const tierPrices: Record<string, number> = { ...FALLBACK_TIER_PRICES };
+  for (const row of pricingRows ?? []) {
+    if (row.key === "pro_default_price" && row.value != null) {
+      tierPrices.pro = Number(row.value);
+    } else if (row.key === "premium_default_price" && row.value != null) {
+      tierPrices.premium = Number(row.value);
+    }
   }
 
   // Resolve the caller to a doctor: either they ARE the doctor (uid matches
@@ -66,7 +78,7 @@ Deno.serve(async (req) => {
     customPrice = doctorProfile.custom_plan_price != null ? Number(doctorProfile.custom_plan_price) : null;
   }
 
-  let amountRupees = TIER_PRICES[targetTier];
+  let amountRupees = tierPrices[targetTier];
   if (customPrice != null && (fromTier === targetTier || ((fromTier === "free" || fromTier === "trial") && targetTier === "pro"))) {
     amountRupees = customPrice;
   }

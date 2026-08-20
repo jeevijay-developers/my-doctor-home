@@ -16,8 +16,8 @@ const prescription = {
 describe("PrescriptionSlip", () => {
   it("renders doctor, patient info, diagnosis and medications", () => {
     render(<PrescriptionSlip open onClose={() => {}} profile={profile} prescription={prescription} onDownload={() => {}} />);
-    expect(screen.getByText(/Dr\. Test Doctor/)).toBeInTheDocument();
-    expect(screen.getByText("MBBS, MD")).toBeInTheDocument();
+    expect(screen.getAllByText(/Dr\. Test Doctor/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/MBBS, MD/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("John Doe")).toBeInTheDocument();
     expect(screen.getByText("34")).toBeInTheDocument();
     expect(screen.getByText("male")).toBeInTheDocument();
