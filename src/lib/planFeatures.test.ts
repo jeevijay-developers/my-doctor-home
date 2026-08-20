@@ -43,6 +43,10 @@ describe("planFeatures", () => {
   it("getTierFeatures includes the live cap for pro, omits it for premium", () => {
     const basic = getTierFeatures("pro", 100);
     expect(basic.some((f) => f.includes("100"))).toBe(true);
+    expect(basic).toContain("AI blog writer");
+    expect(basic).toContain("Billing & invoices");
+    expect(basic.indexOf("AI blog writer")).toBeGreaterThan(basic.indexOf("Basic analytics"));
+    expect(basic.indexOf("Billing & invoices")).toBeGreaterThan(basic.indexOf("AI blog writer"));
     expect(basic).not.toContain("Online consultation");
 
     const premium = getTierFeatures("premium", 100);

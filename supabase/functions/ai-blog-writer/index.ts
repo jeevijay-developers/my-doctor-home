@@ -25,9 +25,12 @@ serve(async (req) => {
       });
     }
 
-    const { data: isPremium } = await admin.rpc("doctor_has_premium_access", { _doctor_id: doctorId });
-    if (!isPremium) {
-      return new Response(JSON.stringify({ error: "AI Blog Writer is a Premium-only feature" }), {
+    const { data: allowed } = await admin.rpc("doctor_has_feature", {
+      _doctor_id: doctorId,
+      _feature_key: "ai_blog_writer",
+    });
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: "AI Blog Writer is not available on this plan" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

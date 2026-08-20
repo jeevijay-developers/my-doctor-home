@@ -18,6 +18,8 @@ const PricingSection = () => {
         "Online appointment booking",
         "Up to 100 appointments/month",
         "Basic analytics",
+        "AI blog writer",
+        "Billing & invoices",
       ],
       popular: false,
     },

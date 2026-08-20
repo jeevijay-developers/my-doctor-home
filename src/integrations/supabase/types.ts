@@ -254,6 +254,57 @@ export type Database = {
           },
         ]
       }
+      doctor_feature_overrides: {
+        Row: {
+          doctor_id: string
+          enabled: boolean
+          expires_at: string | null
+          feature_key: string
+          granted_at: string
+          granted_by: string
+          id: string
+          reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          doctor_id: string
+          enabled: boolean
+          expires_at?: string | null
+          feature_key: string
+          granted_at?: string
+          granted_by: string
+          id?: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          doctor_id?: string
+          enabled?: boolean
+          expires_at?: string | null
+          feature_key?: string
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_feature_overrides_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_feature_overrides_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "features"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       doctor_ledger: {
         Row: {
           appointment_id: string
@@ -385,6 +436,30 @@ export type Database = {
           name?: string
           phone?: string | null
           status?: string
+        }
+        Relationships: []
+      }
+      features: {
+        Row: {
+          default_min_tier: string
+          description: string
+          key: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          default_min_tier?: string
+          description: string
+          key: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          default_min_tier?: string
+          description?: string
+          key?: string
+          label?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -2265,6 +2340,10 @@ export type Database = {
         Args: { _doctor_id: string; _phone: string; _token: string }
         Returns: Json
       }
+      doctor_has_feature: {
+        Args: { _doctor_id: string; _feature_key: string }
+        Returns: boolean
+      }
       doctor_has_premium_access: {
         Args: { _doctor_id: string }
         Returns: boolean
@@ -2297,6 +2376,23 @@ export type Database = {
           is_premium: boolean
         }[]
       }
+      get_doctor_feature_access: {
+        Args: { _doctor_id: string }
+        Returns: {
+          default_min_tier: string
+          description: string
+          effective_enabled: boolean
+          feature_key: string
+          included_by_plan: boolean
+          label: string
+          override_active: boolean
+          override_enabled: boolean
+          override_expires_at: string
+          override_granted_at: string
+          override_granted_by: string
+          override_reason: string
+        }[]
+      }
       get_doctor_plan_details: {
         Args: { _doctor_id: string }
         Returns: {
@@ -2305,6 +2401,13 @@ export type Database = {
         }[]
       }
       get_doctor_plan_status: { Args: { _doctor_id: string }; Returns: string }
+      get_public_feature_flags: {
+        Args: { _doctor_id: string }
+        Returns: {
+          effective_enabled: boolean
+          feature_key: string
+        }[]
+      }
       get_queue_position: { Args: { _appointment_id: string }; Returns: number }
       get_slot_counts: {
         Args: { _date: string; _doctor_id: string }

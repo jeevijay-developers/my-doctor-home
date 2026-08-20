@@ -11,7 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import RichTextEditor from "./RichTextEditor";
-import { usePlanAccess } from "@/hooks/usePlanAccess";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { FEATURE_KEYS } from "@/lib/features";
 import LockedFeatureCard from "./LockedFeatureCard";
 
 type BlogPost = {
@@ -37,7 +38,8 @@ const MAX_IMAGE_MB = 5;
 
 const BlogPage = () => {
   const { profile, can } = useProfile();
-  const { isPremium } = usePlanAccess();
+  const { hasFeature } = useFeatureAccess();
+  const isPremium = hasFeature(FEATURE_KEYS.AI_BLOG_WRITER);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<BlogPost | null>(null);
@@ -367,7 +369,7 @@ const BlogPage = () => {
             ) : (
               <LockedFeatureCard
                 featureName="AI Blog Writer"
-                description="Generate patient-friendly health articles with AI in seconds. Available on Premium."
+                description="Generate patient-friendly health articles with AI in seconds. Available on Pro and Premium."
               />
             )}
 

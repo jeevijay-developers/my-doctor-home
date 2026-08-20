@@ -56,6 +56,8 @@ export function getTierFeatures(tier: "pro" | "premium", cap: number): string[] 
     "Online appointment booking",
     `Up to ${cap} appointments/month`,
     "Basic analytics",
+    "AI blog writer",
+    "Billing & invoices",
   ];
 }
 
