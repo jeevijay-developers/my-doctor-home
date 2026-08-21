@@ -95,7 +95,7 @@ const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => 
 
   return (
     <section id="blog" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(60,131,252,0.12),transparent_72%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 " />
       <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
         <div className="mx-auto max-w-2xl text-center">
           <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em]" style={{ color: PRIMARY }}>Doctor-Written Insights</p>

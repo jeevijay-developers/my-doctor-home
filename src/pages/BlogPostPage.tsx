@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
 import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
+import Footer from "@/components/doctor/Footer";
 import type { Tables } from "@/integrations/supabase/types";
 
 type BlogPost = Tables<"blog_posts">;
@@ -143,7 +144,8 @@ const BlogPostPage = () => {
   const publishedDate = post.published_at || post.created_at;
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-gray-950">
+    <>
+      <main className="min-h-screen bg-slate-50 dark:bg-gray-950">
       <header className="relative overflow-hidden border-b border-blue-100 bg-white dark:border-blue-950 dark:bg-gray-950">
         <div className="absolute left-1/2 top-0 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-blue-100/60 blur-3xl dark:bg-blue-950/30" />
         <div className="relative mx-auto max-w-5xl px-5 pb-10 pt-7 sm:px-8 sm:pb-14 lg:px-10">
@@ -223,8 +225,10 @@ const BlogPostPage = () => {
             </Link>
           </footer>
         </div>
-      </div>
-    </main>
+        </div>
+      </main>
+      <Footer profileOverride={doctor} />
+    </>
   );
 };
 

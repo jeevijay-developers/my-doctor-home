@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { DoctorProvider, useDoctorData } from "@/contexts/DoctorContext";
 import Navbar from "@/components/doctor/Navbar";
 import HeroBanner from "@/components/doctor/HeroBanner";
@@ -13,9 +14,11 @@ import ContactQueryForm from "@/components/doctor/ContactQueryForm";
 import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 import SectionCard from "@/components/doctor/SectionCard";
+import { scrollToSection } from "@/lib/scrollToSection";
 
 const DoctorPageContent = () => {
   const { profile, settings, loading, services, reviews, gallery } = useDoctorData();
+  const { hash } = useLocation();
 
 
   useEffect(() => {
@@ -45,6 +48,13 @@ const DoctorPageContent = () => {
     };
   }, [profile?.display_name]);
 
+
+  useEffect(() => {
+    if (loading || !profile || !hash) return;
+    const target = decodeURIComponent(hash.slice(1));
+    const frame = window.requestAnimationFrame(() => scrollToSection(target));
+    return () => window.cancelAnimationFrame(frame);
+  }, [hash, loading, profile]);
 
   if (loading) {
     return (

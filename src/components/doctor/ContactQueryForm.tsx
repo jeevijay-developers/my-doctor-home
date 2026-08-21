@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Clock3, Loader2, Mail, MessageSquare, Send, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,27 +11,22 @@ import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/l
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { toast } from "sonner";
 
-const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-// Lightweight "get in touch" form, separate from the booking flow — a
-// visitor doesn't have to be booking an appointment to reach the doctor.
 const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { profile } = useDoctorData();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
-  // Honeypot: real visitors never see or fill this field (visually hidden,
-  // off the tab order). A bot that fills every input trips it; we just
-  // pretend to succeed rather than tipping it off.
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const reset = () => { setName(""); setPhone(""); setEmail(""); setMessage(""); setWebsite(""); };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!profile?.id) return;
 
     if (!name.trim()) { toast.error("Please enter your name."); return; }
@@ -41,7 +36,6 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
     if (!message.trim()) { toast.error("Please enter your message."); return; }
 
     if (website.trim()) {
-      // Honeypot tripped — silently "succeed" without writing anything.
       setSubmitted(true);
       reset();
       return;
@@ -58,11 +52,8 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
     setSubmitting(false);
 
     if (error) {
-      if (error.message?.includes("PATIENT_QUERY_RATE_LIMITED")) {
-        toast.error("Please wait a moment before sending another message.");
-      } else {
-        toast.error("Couldn't send your message. Please try again.");
-      }
+      if (error.message?.includes("PATIENT_QUERY_RATE_LIMITED")) toast.error("Please wait a moment before sending another message.");
+      else toast.error("Couldn't send your message. Please try again.");
       return;
     }
 
@@ -70,67 +61,75 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
     reset();
   };
 
+  const fieldClass = "h-12 rounded-xl border-slate-200 bg-slate-50/70 px-4 shadow-none transition focus-visible:border-[#3C83FC] focus-visible:ring-[#3C83FC]/20 dark:border-gray-700 dark:bg-gray-950/60";
+
   return (
-    <section className={`relative py-10 md:py-24 overflow-hidden ${cardColorClass(cardColor)}`}>
-      <div className="container mx-auto px-4 relative z-10">
-        <h2 className="font-heading font-bold text-xl md:text-4xl text-foreground text-center mb-2 md:mb-3">
-          Get in Touch
-        </h2>
-        <p className="text-sm md:text-base text-muted-foreground text-center mb-6 md:mb-10 max-w-lg mx-auto">
-          Have a question that isn't about booking an appointment? Send a message and the clinic will get back to you.
-        </p>
+    <section className={`relative overflow-hidden py-14 md:py-24 ${cardColorClass(cardColor)}`}>
+      <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+        <div className="mx-auto mb-9 max-w-3xl text-center md:mb-12">
+          <span className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#3C83FC]"><MessageSquare className="h-4 w-4" /> Contact the clinic</span>
+          <h2 className="mt-3 font-heading text-3xl font-black tracking-tight text-[#092b50] dark:text-white md:text-5xl">Have a Question?</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400 md:text-base">Send a message to the clinic team and they will contact you using the details you provide.</p>
+        </div>
 
-        <div className="max-w-lg mx-auto rounded-2xl border border-border bg-white dark:bg-gray-800 shadow-sm p-5 md:p-8">
-          {submitted ? (
-            <div className="text-center py-8">
-              <CheckCircle2 className="h-10 w-10 text-success mx-auto mb-3" />
-              <h3 className="font-heading font-semibold text-lg text-foreground mb-1">Message sent</h3>
-              <p className="text-sm text-muted-foreground mb-5">Thanks for reaching out — the clinic will get back to you soon.</p>
-              <Button variant="outline" onClick={() => setSubmitted(false)}>Send another message</Button>
+        <div className="mx-auto grid max-w-5xl overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-[0_18px_55px_rgba(15,43,80,0.1)] dark:border-blue-900/60 dark:bg-gray-900 lg:grid-cols-[0.78fr_1.22fr]">
+          <div className="relative overflow-hidden bg-gradient-to-br from-[#092b50] via-[#155ba5] to-[#3C83FC] p-7 text-white sm:p-9">
+            <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-white/10 blur-2xl" />
+            <div className="relative">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur"><Mail className="h-6 w-6" /></span>
+              <h3 className="mt-6 font-heading text-2xl font-black">We're here to help</h3>
+              <p className="mt-3 text-sm leading-7 text-blue-100">Use this form for general questions. For urgent medical concerns, contact local emergency services.</p>
+
+              <div className="mt-8 space-y-5">
+                <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10"><Clock3 className="h-4 w-4" /></span><div><p className="text-sm font-extrabold">Clinic response</p><p className="mt-1 text-xs leading-5 text-blue-100">The clinic will respond as soon as possible during working hours.</p></div></div>
+                <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10"><ShieldCheck className="h-4 w-4" /></span><div><p className="text-sm font-extrabold">Your details are protected</p><p className="mt-1 text-xs leading-5 text-blue-100">Your contact information is shared only with this clinic.</p></div></div>
+              </div>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="query-name">Name *</Label>
-                <Input id="query-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" className="h-10" />
-              </div>
+          </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="query-phone">Phone *</Label>
-                  <DigitsInput id="query-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile number" maxLength={10} required className="h-10" />
+          <div className="p-5 sm:p-8 lg:p-10">
+            {submitted ? (
+              <div className="flex min-h-[430px] flex-col items-center justify-center text-center" role="status" aria-live="polite">
+                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300"><CheckCircle2 className="h-8 w-8" /></span>
+                <h3 className="mt-5 font-heading text-2xl font-black text-[#092b50] dark:text-white">Message sent successfully</h3>
+                <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500 dark:text-slate-400">Thank you for reaching out. The clinic team will contact you soon.</p>
+                <Button type="button" variant="outline" onClick={() => setSubmitted(false)} className="mt-7 h-11 rounded-xl border-blue-200 px-5 font-bold text-[#3C83FC] hover:bg-blue-50 dark:border-blue-900 dark:hover:bg-blue-950/30">Send Another Message</Button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="query-name" className="font-bold text-[#092b50] dark:text-white">Full Name <span className="text-red-500">*</span></Label>
+                    <Input id="query-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Enter your full name" autoComplete="name" disabled={submitting} className={fieldClass} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="query-phone" className="font-bold text-[#092b50] dark:text-white">Phone Number <span className="text-red-500">*</span></Label>
+                    <DigitsInput id="query-phone" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="10-digit mobile number" maxLength={10} autoComplete="tel" required disabled={submitting} className={fieldClass} />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="query-email">Email</Label>
-                  <Input id="query-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="h-10" />
+
+                <div className="space-y-2">
+                  <Label htmlFor="query-email" className="font-bold text-[#092b50] dark:text-white">Email Address <span className="font-normal text-slate-400">(optional)</span></Label>
+                  <Input id="query-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" disabled={submitting} className={fieldClass} />
                 </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground -mt-2">A phone number is required so the clinic can reach you.</p>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="query-message">Message *</Label>
-                <Textarea id="query-message" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="What would you like to ask?" rows={4} />
-              </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3"><Label htmlFor="query-message" className="font-bold text-[#092b50] dark:text-white">Your Message <span className="text-red-500">*</span></Label><span className="text-xs text-slate-400">{message.length}/1000</span></div>
+                  <Textarea id="query-message" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="How can the clinic help you?" rows={6} maxLength={1000} disabled={submitting} className="resize-none rounded-xl border-slate-200 bg-slate-50/70 px-4 py-3 shadow-none transition focus-visible:border-[#3C83FC] focus-visible:ring-[#3C83FC]/20 dark:border-gray-700 dark:bg-gray-950/60" />
+                </div>
 
-              {/* Honeypot — hidden from real visitors via CSS + aria, not just display:none, and off the tab order. */}
-              <div className="absolute -left-[9999px] top-0 opacity-0" aria-hidden="true">
-                <label htmlFor="query-website">Website</label>
-                <input
-                  id="query-website"
-                  name="website"
-                  type="text"
-                  tabIndex={-1}
-                  autoComplete="off"
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                />
-              </div>
+                <div className="absolute -left-[9999px] top-0 opacity-0" aria-hidden="true">
+                  <label htmlFor="query-website">Website</label>
+                  <input id="query-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
+                </div>
 
-              <Button type="submit" disabled={submitting} className="w-full bg-royal hover:bg-royal/90">
-                {submitting ? "Sending..." : <><Send className="h-4 w-4 mr-1.5" /> Send Message</>}
-              </Button>
-            </form>
-          )}
+                <Button type="submit" disabled={submitting} className="h-12 w-full rounded-xl bg-[#3C83FC] text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] transition hover:-translate-y-0.5 hover:bg-blue-500 disabled:translate-y-0">
+                  {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending Message…</> : <><Send className="mr-2 h-4 w-4" /> Send Message</>}
+                </Button>
+                <p className="text-center text-xs leading-5 text-slate-400">A phone number is required so the clinic can respond to your message.</p>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     </section>

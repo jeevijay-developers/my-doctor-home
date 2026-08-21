@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock3, Tag, User } from "lu
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
+import Footer from "@/components/doctor/Footer";
 import type { Tables } from "@/integrations/supabase/types";
 
 type BlogPost = Tables<"blog_posts">;
@@ -116,7 +117,8 @@ const BlogListPage = () => {
   const doctorName = displayDoctorName(doctor);
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-gray-950">
+    <>
+      <main className="min-h-screen bg-slate-50 dark:bg-gray-950">
       <header className="relative isolate overflow-hidden bg-gradient-to-br from-[#071f3b] via-[#0b3f78] to-[#3C83FC] text-white">
         <div className="absolute -right-20 -top-28 h-80 w-80 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-cyan-300/15 blur-3xl" />
@@ -222,8 +224,10 @@ const BlogListPage = () => {
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">New health guidance will appear here when it is published.</p>
           </div>
         )}
-      </section>
-    </main>
+        </section>
+      </main>
+      <Footer profileOverride={doctor} />
+    </>
   );
 };
 

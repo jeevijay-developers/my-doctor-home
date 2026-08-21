@@ -1,195 +1,188 @@
-import { Facebook, Instagram, Youtube, Linkedin, Phone, MapPin } from "lucide-react";
+import { Link, useLocation, useParams } from "react-router-dom";
+import { ArrowRight, CalendarDays, ChevronRight, Facebook, HeartPulse, Instagram, Linkedin, MapPin, Phone, Youtube } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { scrollToSection } from "@/lib/scrollToSection";
+import type { Tables } from "@/integrations/supabase/types";
 
-const DEFAULT_SERVICES = ["abc", "xdvzdfvdf", "mmmm", "99999"];
+type Profile = Tables<"profiles">;
 
-const Footer = () => {
-  const { profile, settings, services, gallery } = useDoctorData();
-  const scrollTo = (id: string) => scrollToSection(id);
+type FooterProps = {
+  profileOverride?: Profile | null;
+};
+
+const doctorDisplayName = (profile: Profile | null) => {
+  const name = (profile?.display_name || profile?.full_name || "Doctor").trim();
+  return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
+};
+
+const Footer = ({ profileOverride }: FooterProps) => {
+  const doctorData = useDoctorData();
+  const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
+  const profile = profileOverride ?? doctorData.profile;
+  const settings = profileOverride ? null : doctorData.settings;
+  const services = profileOverride ? [] : doctorData.services;
+  const gallery = profileOverride ? [] : doctorData.gallery;
+  const doctorName = doctorDisplayName(profile);
+  const doctorBasePath = `/dr/${slug || profile?.slug || ""}`;
+  const isDoctorHome = location.pathname === doctorBasePath;
+  const isArticleRoute = location.pathname.includes("/blog");
+  const phone = profile?.clinic_phone || profile?.phone || "";
+  const address = [profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ");
+  const clinicLine = [profile?.clinic_name, profile?.city].filter(Boolean).join(", ");
 
   const whatsappUrl = settings?.whatsapp_number
     ? `https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(settings.whatsapp_message || "")}`
     : null;
 
   const socialLinks = [
-    { icon: Facebook, url: settings?.social_facebook },
-    { icon: Instagram, url: settings?.social_instagram },
-    { icon: Youtube, url: settings?.social_youtube },
-    { icon: Linkedin, url: settings?.social_linkedin },
-  ].filter((s) => s.url);
-
-  const isServicesActive = settings?.show_services !== false && (services?.length || 0) > 0;
-  const isAboutActive = settings?.show_about !== false;
-  const isGalleryActive = settings?.show_gallery === true && (gallery?.length || 0) > 0;
-  const isReviewsActive = settings?.show_reviews !== false;
-  const isContactActive = settings?.show_clinic_details !== false;
+    { label: "Facebook", icon: Facebook, url: settings?.social_facebook },
+    { label: "Instagram", icon: Instagram, url: settings?.social_instagram },
+    { label: "YouTube", icon: Youtube, url: settings?.social_youtube },
+    { label: "LinkedIn", icon: Linkedin, url: settings?.social_linkedin },
+  ].filter((item) => Boolean(item.url));
 
   const quickLinks = [
-    { label: "About", target: "about", show: isAboutActive },
-    { label: "Services", target: "services", show: isServicesActive },
-    { label: "Gallery", target: "gallery", show: isGalleryActive },
-    { label: "Reviews", target: "reviews", show: isReviewsActive },
-    { label: "Contact", target: "contact", show: isContactActive },
-  ].filter((l) => l.show);
+    { label: "About", target: "about", show: settings?.show_about !== false },
+    { label: "Medical Services", target: "services", show: settings?.show_services !== false && (services.length > 0 || isArticleRoute) },
+    { label: "Our Clinic", target: "gallery", show: settings?.show_gallery === true && gallery.length > 0 },
+    { label: "Patient Reviews", target: "reviews", show: settings?.show_reviews !== false },
+    { label: "Contact", target: "contact", show: settings?.show_clinic_details !== false },
+  ].filter((item) => item.show);
 
-  const docName = profile?.full_name ? `Dr. ${profile.full_name}` : "Dr. Rajkumar Prajapati";
-  const docSpec = profile?.specialization || "General Physician";
-  const docQual = profile?.qualifications || "MBBS MD";
-  const clinicLoc = [profile?.clinic_name || "Sunrise", profile?.city || "Kota"].filter(Boolean).join(", ");
-  const addressText = [profile?.address, profile?.city].filter(Boolean).join(", ") || "xyz, Kota";
-  const phoneText = profile?.phone || "9752430783";
-
-  const serviceNames = services && services.length > 0
-    ? services.slice(0, 4).map((s: any) => s.name?.trim() || "Consultation")
-    : DEFAULT_SERVICES;
+  const sectionLink = (target: string) => `${doctorBasePath}#${target}`;
+  const handleSectionClick = (event: React.MouseEvent<HTMLAnchorElement>, target: string) => {
+    if (!isDoctorHome) return;
+    event.preventDefault();
+    scrollToSection(target);
+  };
 
   return (
     <>
-      {/* MOBILE VIEW (md:hidden) */}
-      <div className="md:hidden">
-        <footer className="bg-surface-light dark:bg-gray-950 pt-6">
-          <div className="wave-bg text-white px-6 pt-10 pb-6 mt-6">
-            <div className="grid grid-cols-2 gap-8 mb-8">
-              <div>
-                <h4 className="font-bold text-lg mb-1">{docName}</h4>
-                <p className="text-[10px] text-blue-100 mb-4 opacity-90 leading-relaxed">
-                  {docSpec} - {docQual}<br />
-                  {clinicLoc}
-                </p>
-                <h5 className="font-semibold text-sm mb-2 mt-4">Services</h5>
-                <ul className="space-y-1.5 text-xs text-blue-100 opacity-90">
-                  {serviceNames.map((sName, i) => (
-                    <li key={i}>
-                      <button onClick={() => scrollTo("services")} className="hover:text-white transition-colors text-left">
-                        {sName}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+      <footer className="relative overflow-hidden bg-[#061b33] text-white">
+        <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#3C83FC]/15 blur-3xl" />
+        <div className="absolute -bottom-48 left-1/4 h-96 w-96 rounded-full bg-cyan-400/10 blur-3xl" />
 
-              <div>
-                <h5 className="font-semibold text-sm mb-3">Quick Links</h5>
-                <ul className="space-y-2 text-xs text-blue-100 opacity-90 mb-6">
-                  <li><button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="hover:text-white">Home</button></li>
-                  <li><button onClick={() => scrollTo("about")} className="hover:text-white">About</button></li>
-                  <li><button onClick={() => scrollTo("services")} className="hover:text-white">Services</button></li>
-                  <li><button onClick={() => scrollTo("gallery")} className="hover:text-white">Gallery</button></li>
-                  <li><button onClick={() => scrollTo("reviews")} className="hover:text-white">Reviews</button></li>
-                  <li><button onClick={() => scrollTo("contact")} className="hover:text-white">Contact</button></li>
-                </ul>
-                <h5 className="font-semibold text-sm mb-3">Contact Info</h5>
-                <div className="space-y-2 text-xs text-blue-100 opacity-90">
-                  <p className="flex items-center gap-2">
-                    <Phone size={12} className="shrink-0" /> {phoneText}
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <MapPin size={12} className="shrink-0" /> {addressText}
-                  </p>
-                </div>
-              </div>
+        <div className="relative mx-auto max-w-7xl px-5 pb-8 pt-10 sm:px-8 sm:pt-14 lg:px-10">
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-r from-[#155ba5] to-[#3C83FC] p-6 shadow-[0_20px_55px_rgba(0,0,0,0.2)] sm:p-8 lg:flex lg:items-center lg:justify-between lg:gap-10">
+            <div className="max-w-2xl">
+              <span className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.18em] text-blue-100">
+                <HeartPulse className="h-4 w-4" /> Compassionate medical care
+              </span>
+              <h2 className="mt-3 font-heading text-2xl font-black leading-tight sm:text-3xl">Your health deserves expert attention.</h2>
+              <p className="mt-2 text-sm leading-6 text-blue-50 sm:text-base">Book a consultation with {doctorName} and take the next step toward better health.</p>
             </div>
-
-            <div className="border-t border-blue-400/30 pt-6 text-center text-[10px] text-blue-100 opacity-80 space-y-2">
-              <p>© {new Date().getFullYear()} {docName}. All Rights Reserved.</p>
-              <p>Powered by Doctylia</p>
-              <p>For educational purposes only. Consult your doctor.</p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row lg:mt-0 lg:shrink-0">
+              <Link
+                to={sectionLink("booking")}
+                onClick={(event) => handleSectionClick(event, "booking")}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-extrabold text-[#0b3765] shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-50"
+              >
+                <CalendarDays className="h-4 w-4 text-[#3C83FC]" /> Book Appointment
+              </Link>
+              {phone && (
+                <a href={`tel:${phone}`} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/10 px-5 py-3 text-sm font-extrabold text-white backdrop-blur transition hover:bg-white/20">
+                  <Phone className="h-4 w-4" /> Call Clinic
+                </a>
+              )}
             </div>
           </div>
-        </footer>
-      </div>
 
-      {/* DESKTOP VIEW (hidden md:block) */}
-      <div className="hidden md:block">
-        <footer className="relative bg-primary text-primary-foreground py-12">
-          <svg
-            className="absolute -top-px left-0 w-full h-10 md:h-14"
-            viewBox="0 0 1440 60"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M0,32 C240,64 480,0 720,20 C960,40 1200,8 1440,28 L1440,0 L0,0 Z"
-              className="fill-background"
-            />
-          </svg>
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-6 sm:gap-8">
-              <div className="space-y-6 md:space-y-0 md:contents min-w-0">
-                <div className="min-w-0 md:order-1">
-                  <h3 className="font-heading font-bold text-lg sm:text-xl mb-2 break-words">Dr. {profile?.full_name || "Doctor"}</h3>
-                  <p className="text-sm opacity-80 break-words">{profile?.specialization} · {profile?.qualifications}</p>
-                  {profile?.clinic_name && <p className="text-sm opacity-80 mt-1 break-words">{profile.clinic_name}{profile.city ? `, ${profile.city}` : ""}</p>}
-                  {socialLinks.length > 0 && (
-                    <div className="flex flex-wrap gap-2.5 mt-4">
-                      {socialLinks.map(({ icon: Icon, url }, i) => (
-                        <a key={i} href={url} target="_blank" rel="noreferrer" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors">
-                          <Icon size={16} />
-                        </a>
-                      ))}
-                    </div>
+          <div className={`grid gap-10 py-12 sm:grid-cols-2 ${services.length > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+            <div className="sm:col-span-2 lg:col-span-1">
+              <Link to={doctorBasePath} className="inline-flex items-center gap-3">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-lg">
+                  {profile?.profile_photo_url ? (
+                    <img src={profile.profile_photo_url} alt={doctorName} className="h-full w-full object-cover" loading="lazy" />
+                  ) : (
+                    <HeartPulse className="h-7 w-7 text-[#3C83FC]" />
                   )}
+                </span>
+                <span>
+                  <span className="block font-heading text-lg font-extrabold leading-tight">{doctorName}</span>
+                  <span className="mt-1 block text-xs font-medium text-blue-200">{profile?.specialization || "Medical Professional"}</span>
+                </span>
+              </Link>
+              {profile?.qualifications && <p className="mt-4 max-w-xs text-sm leading-6 text-slate-300">{profile.qualifications}</p>}
+              {clinicLine && <p className="mt-1 max-w-xs text-sm leading-6 text-slate-400">{clinicLine}</p>}
+              {socialLinks.length > 0 && (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {socialLinks.map(({ label, icon: Icon, url }) => (
+                    <a key={label} href={url || undefined} target="_blank" rel="noreferrer" aria-label={`Visit ${label}`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-blue-100 transition hover:-translate-y-0.5 hover:border-[#3C83FC] hover:bg-[#3C83FC] hover:text-white">
+                      <Icon className="h-4 w-4" />
+                    </a>
+                  ))}
                 </div>
-
-                {isServicesActive && services.length > 0 && (
-                  <div className="min-w-0 md:order-3">
-                    <h4 className="font-heading font-semibold mb-3">Services</h4>
-                    <div className="space-y-2 text-sm opacity-80">
-                      {services.slice(0, 5).map((s: any) => (
-                        <button key={s.id} onClick={() => scrollTo("services")} className="block text-left hover:opacity-100 transition-opacity truncate max-w-full">
-                          {s.name?.trim() || "Consultation"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-6 md:space-y-0 md:contents min-w-0">
-                <div className="min-w-0 md:order-2">
-                  <h4 className="font-heading font-semibold mb-3">Quick Links</h4>
-                  <div className="space-y-2 text-sm opacity-80">
-                    <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="block hover:opacity-100 transition-opacity text-left">Home</button>
-                    {quickLinks.map((l) => (
-                      <button key={l.label} onClick={() => scrollTo(l.target)} className="block hover:opacity-100 transition-opacity text-left">{l.label}</button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="min-w-0 md:order-4">
-                  <h4 className="font-heading font-semibold mb-3">Contact Info</h4>
-                  <div className="space-y-2.5 text-sm opacity-80">
-                    {profile?.phone && (
-                      <a href={`tel:${profile.phone}`} className="flex items-center gap-2 hover:opacity-100 transition-opacity min-w-0 break-all">
-                        <Phone size={14} className="shrink-0" /> <span className="truncate">{profile.phone}</span>
-                      </a>
-                    )}
-                    {profile?.address && (
-                      <p className="flex items-start gap-2 min-w-0 break-words">
-                        <MapPin size={14} className="shrink-0 mt-0.5" />
-                        <span>{profile.address}{profile.city ? `, ${profile.city}` : ""}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
-            <div className="border-t border-primary-foreground/10 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
-              <p className="text-xs opacity-60">© {new Date().getFullYear()} Dr. {profile?.full_name}. All Rights Reserved.</p>
-              <p className="text-xs opacity-40">Powered by Doctylia</p>
-              <p className="text-xs opacity-40">For educational purposes only. Consult your doctor.</p>
+
+            <div>
+              <h3 className="font-heading text-sm font-extrabold uppercase tracking-[0.12em] text-white">Explore</h3>
+              <nav className="mt-5 space-y-3" aria-label="Footer navigation">
+                <Link to={doctorBasePath} onClick={() => { if (isDoctorHome) window.scrollTo({ top: 0, behavior: "smooth" }); }} className="group flex items-center gap-2 text-sm text-slate-300 transition hover:text-white">
+                  <ChevronRight className="h-4 w-4 text-[#3C83FC] transition-transform group-hover:translate-x-0.5" /> Home
+                </Link>
+                {quickLinks.map((item) => (
+                  <Link key={item.target} to={sectionLink(item.target)} onClick={(event) => handleSectionClick(event, item.target)} className="group flex items-center gap-2 text-sm text-slate-300 transition hover:text-white">
+                    <ChevronRight className="h-4 w-4 text-[#3C83FC] transition-transform group-hover:translate-x-0.5" /> {item.label}
+                  </Link>
+                ))}
+                {(settings?.show_blog || isArticleRoute) && (
+                  <Link to={`${doctorBasePath}/blog`} className="group flex items-center gap-2 text-sm text-slate-300 transition hover:text-white">
+                    <ChevronRight className="h-4 w-4 text-[#3C83FC] transition-transform group-hover:translate-x-0.5" /> Health Articles
+                  </Link>
+                )}
+              </nav>
+            </div>
+
+            {services.length > 0 && (
+              <div>
+                <h3 className="font-heading text-sm font-extrabold uppercase tracking-[0.12em] text-white">Medical Services</h3>
+                <div className="mt-5 space-y-3">
+                  {services.slice(0, 5).map((service) => (
+                    <Link key={service.id} to={sectionLink("services")} onClick={(event) => handleSectionClick(event, "services")} className="group flex items-start gap-2 text-sm leading-5 text-slate-300 transition hover:text-white">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#3C83FC]" />
+                      <span>{service.name?.trim() || "Consultation"}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h3 className="font-heading text-sm font-extrabold uppercase tracking-[0.12em] text-white">Clinic Contact</h3>
+              <div className="mt-5 space-y-4 text-sm text-slate-300">
+                {phone && (
+                  <a href={`tel:${phone}`} className="group flex items-start gap-3 transition hover:text-white">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3C83FC]/15 text-[#79aaff] transition group-hover:bg-[#3C83FC] group-hover:text-white"><Phone className="h-4 w-4" /></span>
+                    <span className="pt-2 break-all">{phone}</span>
+                  </a>
+                )}
+                {address && (
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`} target="_blank" rel="noreferrer" className="group flex items-start gap-3 transition hover:text-white">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3C83FC]/15 text-[#79aaff] transition group-hover:bg-[#3C83FC] group-hover:text-white"><MapPin className="h-4 w-4" /></span>
+                    <span className="pt-1 leading-6">{address}</span>
+                  </a>
+                )}
+                {!phone && !address && <p className="leading-6 text-slate-400">Visit the doctor profile for current clinic information.</p>}
+              </div>
             </div>
           </div>
-        </footer>
-      </div>
+
+          <div className="border-t border-white/10 pt-7">
+            <div className="flex flex-col items-center justify-between gap-4 text-center text-xs text-slate-400 md:flex-row md:text-left">
+              <p>© {new Date().getFullYear()} {doctorName}. All rights reserved.</p>
+              <Link to="/" className="inline-flex items-center gap-1.5 font-semibold text-blue-200 transition hover:text-white">Powered by Doctylia <ArrowRight className="h-3.5 w-3.5" /></Link>
+              <p>Health information is educational and does not replace medical advice.</p>
+            </div>
+          </div>
+        </div>
+      </footer>
 
       {whatsappUrl && (
-        <a href={whatsappUrl} target="_blank" rel="noreferrer"
-          aria-label="Chat on WhatsApp"
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full drop-shadow-xl hover:scale-110 transition-transform flex items-center justify-center">
-          <WhatsAppIcon className="w-14 h-14" />
+        <a href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Chat with the clinic on WhatsApp" className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full drop-shadow-xl transition duration-300 hover:-translate-y-1 hover:scale-105 sm:bottom-6 sm:right-6">
+          <WhatsAppIcon className="h-14 w-14" />
         </a>
       )}
     </>
