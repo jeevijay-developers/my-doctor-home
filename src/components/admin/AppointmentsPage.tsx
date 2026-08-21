@@ -25,6 +25,14 @@ import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/l
 import { ensureInvoiceForAppointment } from "@/lib/invoiceGeneration";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
+import { defaultAppointmentAmount } from "@/lib/appointmentAmount";
+
+// Escapes characters that would otherwise break PostgREST's .or() filter
+// string syntax (commas/parens are filter-list separators, % and _ are
+// ilike wildcards) when a raw search term is interpolated into it.
+const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
 type Appointment = {
   id: string; patient_name: string; patient_phone: string; patient_age: number | null;
@@ -66,17 +74,27 @@ const AppointmentsPage = () => {
   const writeDisabled = trialAccessLevel === "grace";
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({ total: 0, pending: 0, completed: 0, cancelled: 0 });
   const [statusFilter, setStatusFilter] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dateFilterActive, setDateFilterActive] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
-  const [newAppt, setNewAppt] = useState({
+  const blankNewAppt = () => ({
     patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic",
-    date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0,
+    date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00",
+    amount: defaultAppointmentAmount(profile?.consultation_fee),
     status: "pending",
   });
+  const [newAppt, setNewAppt] = useState(blankNewAppt);
+  const handleNewOpenChange = (open: boolean) => {
+    setShowNew(open);
+    if (open) setNewAppt(blankNewAppt());
+  };
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [rescheduleForm, setRescheduleForm] = useState({ date: "", time_slot: "" });
@@ -116,62 +134,84 @@ const AppointmentsPage = () => {
     load();
   };
 
-  const load = async () => {
+  // BUG-006: Auto-mark past pending/confirmed appointments as no_show. Runs
+  // as its own unconditional update against the whole table (not just the
+  // current page) so overdue appointments on other pages still get flagged
+  // even though the list itself is now paginated.
+  const expireOverdueAppointments = async () => {
     if (!profile) return;
-    let q = supabase.from("appointments").select("*").eq("doctor_id", profile.id).order("date", { ascending: false }).order("time_slot");
-    if (statusFilter !== "all") q = q.eq("status", statusFilter as any);
-    if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
-    const { data } = await q;
-    const rows = (data || []) as Appointment[];
-
-    // BUG-006: Auto-mark past pending/confirmed appointments as no_show
     const now = new Date();
-    const expired = rows.filter(
-      (a) =>
-        (a.status === "pending" || a.status === "confirmed") &&
-        new Date(`${a.date}T${a.time_slot}`) < now
-    );
-    if (expired.length) {
-      await supabase
-        .from("appointments")
-        .update({ status: "no_show" as any })
-        .in("id", expired.map((e) => e.id));
-      expired.forEach((e) => (e.status = "no_show"));
-    }
-
-    // BUG-007: Rank so cancelled / no_show sit at the bottom
-    const rank = (s: string) =>
-      s === "cancelled" ? 3 : s === "no_show" ? 2 : s === "completed" ? 1 : 0;
-    rows.sort((a, b) => {
-      const r = rank(a.status) - rank(b.status);
-      if (r !== 0) return r;
-      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-      return a.time_slot < b.time_slot ? -1 : 1;
-    });
-    setAppointments(rows);
+    const todayStr = format(now, "yyyy-MM-dd");
+    const nowTime = format(now, "HH:mm");
+    await supabase
+      .from("appointments")
+      .update({ status: "no_show" as any })
+      .eq("doctor_id", profile.id)
+      .in("status", ["pending", "confirmed"])
+      .or(`date.lt.${todayStr},and(date.eq.${todayStr},time_slot.lt.${nowTime})`);
   };
 
-  useEffect(() => { load(); }, [profile, statusFilter, selectedDate, dateFilterActive]);
+  const load = async () => {
+    if (!profile) return;
+    await expireOverdueAppointments();
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    let q = supabase.from("appointments").select("*", { count: "exact" }).eq("doctor_id", profile.id);
+    if (statusFilter !== "all") q = q.eq("status", statusFilter as any);
+    if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
+    const term = sanitizeSearchTerm(debouncedSearch);
+    if (term) q = q.or(`patient_name.ilike.%${term}%,service_name.ilike.%${term}%`);
+    q = q.order("date", { ascending: false }).order("time_slot").range(from, to);
+    const { data, count } = await q;
+    setAppointments((data || []) as Appointment[]);
+    setTotalCount(count ?? 0);
+  };
+
+  const loadStatusCounts = async () => {
+    if (!profile) return;
+    const base = () => {
+      let q = supabase.from("appointments").select("*", { count: "exact", head: true }).eq("doctor_id", profile.id);
+      if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
+      return q;
+    };
+    const [{ count: total }, { count: pending }, { count: completed }, { count: cancelled }] = await Promise.all([
+      base(),
+      base().in("status", ["pending", "confirmed"]),
+      base().eq("status", "completed"),
+      base().eq("status", "cancelled"),
+    ]);
+    setStatusCounts({ total: total ?? 0, pending: pending ?? 0, completed: completed ?? 0, cancelled: cancelled ?? 0 });
+  };
+
+  // Reset to page 1 whenever the result set changes shape underneath the pager.
+  useEffect(() => { setPage(1); }, [statusFilter, selectedDate, dateFilterActive, debouncedSearch]);
+
+  useEffect(() => { load(); }, [profile, statusFilter, selectedDate, dateFilterActive, debouncedSearch, page]);
+  useEffect(() => { loadStatusCounts(); }, [profile, selectedDate, dateFilterActive]);
+
+  // If the current page no longer exists (e.g. after deleting the last row
+  // on it), step back to the last valid page.
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    if (page > totalPages) setPage(totalPages);
+  }, [totalCount, page]);
+
+  // Load distinct dates that have any appointments (for calendar dot indicators)
+  const loadDatesWithAppointments = async () => {
+    if (!profile) return;
+    const { data } = await supabase.from("appointments").select("date").eq("doctor_id", profile.id);
+    setDatesWithAppointments(new Set((data || []).map((r: any) => r.date)));
+  };
+
+  useEffect(() => { loadDatesWithAppointments(); }, [profile]);
 
   useEffect(() => {
     if (!profile) return;
     const channel = supabase.channel("appointments-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => { load(); loadStatusCounts(); loadDatesWithAppointments(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
-
-  // Load distinct dates that have any appointments (for calendar dot indicators)
-  useEffect(() => {
-    if (!profile) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from("appointments").select("date").eq("doctor_id", profile.id);
-      if (cancelled) return;
-      setDatesWithAppointments(new Set((data || []).map((r: any) => r.date)));
-    })();
-    return () => { cancelled = true; };
-  }, [profile, appointments.length]);
 
   const upsertPatientForCompletion = async (appt: Appointment) => {
     if (!profile || !appt.patient_phone) return;
@@ -341,25 +381,15 @@ const AppointmentsPage = () => {
 
     setShowNew(false);
     setSlotConflict(null);
-    setNewAppt({ patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic", date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00", amount: 0, status: "pending" });
+    setNewAppt(blankNewAppt());
     load();
     toast.success("Appointment added");
   };
 
 
-  const filtered = appointments.filter((a) =>
-    a.patient_name.toLowerCase().includes(search.toLowerCase()) ||
-    a.service_name.toLowerCase().includes(search.toLowerCase())
-  );
-
-
-  // Status summary counts
-  const statusCounts = {
-    total: appointments.length,
-    pending: appointments.filter(a => a.status === "pending" || a.status === "confirmed").length,
-    completed: appointments.filter(a => a.status === "completed").length,
-    cancelled: appointments.filter(a => a.status === "cancelled").length,
-  };
+  // Search, status and date filtering now happen server-side in load(), so
+  // the current page's rows are already the filtered/paginated result set.
+  const filtered = appointments;
 
   const allTimeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
@@ -385,7 +415,7 @@ const AppointmentsPage = () => {
           <CalendarCheck className="h-6 w-6 text-royal" /> Appointments
         </h1>
         {can("appointments.create") && (
-        <Dialog open={showNew} onOpenChange={setShowNew}>
+        <Dialog open={showNew} onOpenChange={handleNewOpenChange}>
           <DialogTrigger asChild>
             <Button
               className="bg-royal hover:bg-royal/90"
@@ -554,9 +584,9 @@ const AppointmentsPage = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground">
             {selectMode ? (
-              <span>{selectedIds.size} of {filtered.length} selected</span>
+              <span>{selectedIds.size} of {filtered.length} selected on this page</span>
             ) : (
-              <span>{filtered.length} appointment{filtered.length === 1 ? "" : "s"}</span>
+              <span>{totalCount} appointment{totalCount === 1 ? "" : "s"}{totalCount > filtered.length ? ` · page ${page}` : ""}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -570,7 +600,7 @@ const AppointmentsPage = () => {
                   else setSelectedIds(new Set(filtered.map((a) => a.id)));
                 }}
               >
-                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
+                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length} on this page`}
               </Button>
             )}
             {!isStaff && (
@@ -698,6 +728,10 @@ const AppointmentsPage = () => {
             );
           })}
         </div>
+      )}
+
+      {filtered.length > 0 && (
+        <PaginationBar page={page} totalCount={totalCount} onPageChange={setPage} />
       )}
 
       {/* Appointment Detail Sheet */}

@@ -99,7 +99,7 @@ const PricingSection = () => {
                     className={`w-full ${p.popular ? "bg-royal hover:bg-royal/90 text-white shadow-md shadow-royal/20" : ""}`}
                     variant={p.popular ? "default" : "outline"}
                   >
-                    Start Free Trial
+                    Upgrade
                   </Button>
                 </Link>
               </div>

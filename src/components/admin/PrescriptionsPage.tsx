@@ -27,6 +27,10 @@ import PrescriptionSlip, { PrescriptionSlipData, VisitSummary, VitalsSummary } f
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { parseMedicineItems } from "@/lib/prescriptionMedicines";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
+
+const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
 type Prescription = {
   id: string; doctor_id: string; patient_id: string | null; patient_name: string;
@@ -60,6 +64,9 @@ const PrescriptionsPage = () => {
   const writeDisabled = trialAccessLevel === "grace";
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [showNew, setShowNew] = useState(false);
   const [patients, setPatients] = useState<{ id: string; name: string; phone: string; gender: string | null }[]>([]);
   const [form, setForm] = useState(emptyForm);
@@ -78,12 +85,15 @@ const PrescriptionsPage = () => {
 
   const load = async () => {
     if (!profile) return;
-    const { data } = await supabase
-      .from("prescriptions")
-      .select("*")
-      .eq("doctor_id", profile.id)
-      .order("date", { ascending: false });
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    let q = supabase.from("prescriptions").select("*", { count: "exact" }).eq("doctor_id", profile.id);
+    const term = sanitizeSearchTerm(debouncedSearch);
+    if (term) q = q.or(`patient_name.ilike.%${term}%,diagnosis.ilike.%${term}%`);
+    q = q.order("date", { ascending: false }).range(from, to);
+    const { data, count } = await q;
     setPrescriptions((data || []) as Prescription[]);
+    setTotalCount(count ?? 0);
   };
 
   const loadPatients = async () => {
@@ -99,7 +109,16 @@ const PrescriptionsPage = () => {
     setPatients((data || []).map(({ id, name, phone, gender }) => ({ id, name, phone, gender })));
   };
 
-  useEffect(() => { load(); loadPatients(); }, [profile]);
+  // Reset to page 1 whenever the search term changes underneath the pager.
+  useEffect(() => { setPage(1); }, [debouncedSearch]);
+
+  useEffect(() => { load(); }, [profile, debouncedSearch, page]);
+  useEffect(() => { loadPatients(); }, [profile]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    if (page > totalPages) setPage(totalPages);
+  }, [totalCount, page]);
 
   const openSlip = async (rx: Prescription) => {
     let gender: string | null = null;
@@ -267,10 +286,9 @@ const PrescriptionsPage = () => {
     load();
   };
 
-  const filtered = prescriptions.filter(p =>
-    p.patient_name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.diagnosis || "").toLowerCase().includes(search.toLowerCase())
-  );
+  // Search now happens server-side in load(), so the current page's rows
+  // are already the filtered/paginated result set.
+  const filtered = prescriptions;
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">
@@ -279,7 +297,7 @@ const PrescriptionsPage = () => {
           <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
             <FileText className="h-6 w-6 text-ai-purple" /> Prescriptions
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{prescriptions.length} total records</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{totalCount} total records</p>
         </div>
         {can("prescriptions.create") && (
         <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); else setForm(emptyForm); }}>
@@ -358,9 +376,9 @@ const PrescriptionsPage = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground">
             {selectMode ? (
-              <span>{selectedIds.size} of {filtered.length} selected</span>
+              <span>{selectedIds.size} of {filtered.length} selected on this page</span>
             ) : (
-              <span>{filtered.length} prescription{filtered.length === 1 ? "" : "s"}</span>
+              <span>{filtered.length} prescription{filtered.length === 1 ? "" : "s"} on this page</span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -374,7 +392,7 @@ const PrescriptionsPage = () => {
                   else setSelectedIds(new Set(filtered.map((p) => p.id)));
                 }}
               >
-                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
+                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length} on this page`}
               </Button>
             )}
             {!isStaff && (

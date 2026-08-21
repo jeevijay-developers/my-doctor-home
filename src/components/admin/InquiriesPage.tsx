@@ -96,7 +96,6 @@ const InquiriesPage = () => {
                   <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <th className="px-4 py-3">Name</th>
                     <th className="px-4 py-3">Contact</th>
-                    <th className="px-4 py-3">Message</th>
                     <th className="px-4 py-3 hidden lg:table-cell whitespace-nowrap">Submitted</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
@@ -129,9 +128,6 @@ const InquiriesPage = () => {
                           {q.phone && <div className="flex items-center gap-1 text-xs"><Phone className="h-3 w-3" /> {q.phone}</div>}
                           {q.email && <div className="flex items-center gap-1 text-xs"><AtSign className="h-3 w-3" /> {q.email}</div>}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground max-w-xs">
-                        <p className="truncate">{q.message}</p>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
                         {new Date(q.created_at).toLocaleDateString()}
@@ -176,7 +172,6 @@ const InquiriesPage = () => {
                     </div>
                     <Badge variant="secondary" className={`text-[10px] capitalize flex-shrink-0 ${STATUS_STYLE[q.status]}`}>{q.status}</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{q.message}</p>
                   <div className="flex items-center justify-between pt-1">
                     <div className="space-y-0.5">
                       {q.phone && <div className="flex items-center gap-1 text-xs text-muted-foreground"><Phone className="h-3 w-3" /> {q.phone}</div>}

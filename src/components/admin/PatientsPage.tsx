@@ -22,6 +22,10 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
+
+const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
 type Patient = {
   id: string; name: string; phone: string; email: string | null;
@@ -36,11 +40,15 @@ const PatientsPage = () => {
   const writeDisabled = trialAccessLevel === "grace";
   const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dateFilterActive, setDateFilterActive] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
+  const [datesWithVisits, setDatesWithVisits] = useState<Set<string>>(new Set());
   const [newPatient, setNewPatient] = useState({ name: "", phone: "", email: "", age: "", gender: "" });
   const [deleting, setDeleting] = useState<Patient | null>(null);
 
@@ -88,16 +96,42 @@ const PatientsPage = () => {
 
   const load = async () => {
     if (!profile) return;
-    const { data } = await supabase.from("patients").select("*").eq("doctor_id", profile.id).order("last_visit", { ascending: false });
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    let q = supabase.from("patients").select("*", { count: "exact" }).eq("doctor_id", profile.id);
+    if (dateFilterActive) q = q.eq("last_visit", format(selectedDate, "yyyy-MM-dd"));
+    const term = sanitizeSearchTerm(debouncedSearch);
+    if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%`);
+    q = q.order("last_visit", { ascending: false }).range(from, to);
+    const { data, count } = await q;
     setPatients((data || []) as Patient[]);
+    setTotalCount(count ?? 0);
   };
 
-  useEffect(() => { load(); }, [profile]);
+  // Distinct visit dates for the calendar dot indicators — a separate,
+  // unpaginated query since the loaded `patients` page no longer holds the
+  // full set of records.
+  const loadDatesWithVisits = async () => {
+    if (!profile) return;
+    const { data } = await supabase.from("patients").select("last_visit").eq("doctor_id", profile.id).not("last_visit", "is", null);
+    setDatesWithVisits(new Set((data || []).map((r: any) => r.last_visit).filter(Boolean)));
+  };
+
+  // Reset to page 1 whenever the result set changes shape underneath the pager.
+  useEffect(() => { setPage(1); }, [selectedDate, dateFilterActive, debouncedSearch]);
+
+  useEffect(() => { load(); }, [profile, selectedDate, dateFilterActive, debouncedSearch, page]);
+  useEffect(() => { loadDatesWithVisits(); }, [profile]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    if (page > totalPages) setPage(totalPages);
+  }, [totalCount, page]);
 
   useEffect(() => {
     if (!profile) return;
     const channel = supabase.channel(`patients-${profile.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` }, () => { load(); loadDatesWithVisits(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
@@ -125,8 +159,13 @@ const PatientsPage = () => {
     setSelected(p);
   };
 
-  const exportPatients = () => {
-    if (!patients.length) { toast.info("No patients to export"); return; }
+  // Export always covers every patient (not just the current page), so it
+  // fetches independently of the paginated `patients` state.
+  const exportPatients = async () => {
+    if (!profile) return;
+    const { data } = await supabase.from("patients").select("*").eq("doctor_id", profile.id).order("last_visit", { ascending: false });
+    const rows = (data || []) as Patient[];
+    if (!rows.length) { toast.info("No patients to export"); return; }
     // Force Excel to treat a value as text (prevents scientific notation on
     // phone numbers and prevents dates from collapsing to "#######").
     const asText = (v: string | number | null | undefined) => {
@@ -141,7 +180,7 @@ const PatientsPage = () => {
       return y && m && day ? `${day}/${m}/${y}` : d;
     };
     const headers = ["Name", "Phone", "Email", "Age", "Gender", "First Visit", "Last Visit", "Total Visits", "Notes"];
-    const rows = patients.map((p) => [
+    const csvRows = rows.map((p) => [
       `"${p.name.replace(/"/g, '""')}"`,
       asText(p.phone),
       p.email ? `"${p.email.replace(/"/g, '""')}"` : "",
@@ -152,31 +191,19 @@ const PatientsPage = () => {
       p.total_visits,
       p.notes ? `"${p.notes.replace(/"/g, '""')}"` : "",
     ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = [headers.join(","), ...csvRows.map((r) => r.join(","))].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = `patients-${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success(`Exported ${patients.length} patients to CSV`);
+    toast.success(`Exported ${rows.length} patients to CSV`);
   };
 
-  // NOTE: previously filtered out patients with total_visits === 0, intended to hide
-  // "booked but not completed" patients. Removed 2026-08: no code path actually creates
-  // a patients row before a real visit/manual-add happens, so that case never occurred —
-  // the check only ever hid legitimately-added patients. If a "pending/pre-registered
-  // patient" concept is added later, give it its own explicit status field — don't
-  // reuse total_visits as a proxy for it.
-  // last_visit is stored as a plain "yyyy-MM-dd" date (no time/timezone), so
-  // comparing it against the calendar's picked day is a direct string match
-  // — no Date parsing of last_visit needed, and no timezone-rollover risk.
-  const datesWithVisits = new Set(patients.map((p) => p.last_visit).filter((d): d is string => !!d));
-
-  const filtered = patients.filter((p) =>
-    (p.name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)) &&
-    (!dateFilterActive || p.last_visit === format(selectedDate, "yyyy-MM-dd"))
-  );
+  // Search and the date filter now happen server-side in load(), so the
+  // current page's rows are already the filtered/paginated result set.
+  const filtered = patients;
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">
@@ -185,10 +212,10 @@ const PatientsPage = () => {
           <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
             <Users className="h-6 w-6 text-teal" /> Patients
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{search || dateFilterActive ? `${filtered.length} of ${patients.length} patients match your filters` : `${patients.length} patient${patients.length === 1 ? "" : "s"}`}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{search || dateFilterActive ? `${totalCount} patient${totalCount === 1 ? "" : "s"} match your filters` : `${totalCount} patient${totalCount === 1 ? "" : "s"}`}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={exportPatients} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
+          <Button variant="outline" onClick={() => exportPatients()} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
           {can("patients.add") && (
           <Dialog open={showNew} onOpenChange={setShowNew}>
             <DialogTrigger asChild>
@@ -310,9 +337,9 @@ const PatientsPage = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground">
             {selectMode ? (
-              <span>{selectedIds.size} of {filtered.length} selected</span>
+              <span>{selectedIds.size} of {filtered.length} selected on this page</span>
             ) : (
-              <span>{filtered.length} patient{filtered.length === 1 ? "" : "s"}</span>
+              <span>{filtered.length} patient{filtered.length === 1 ? "" : "s"} on this page</span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -326,7 +353,7 @@ const PatientsPage = () => {
                   else setSelectedIds(new Set(filtered.map((p) => p.id)));
                 }}
               >
-                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length}`}
+                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length} on this page`}
               </Button>
             )}
             {!isStaff && (
@@ -490,6 +517,9 @@ const PatientsPage = () => {
         </>
       )}
 
+      {filtered.length > 0 && (
+        <PaginationBar page={page} totalCount={totalCount} onPageChange={setPage} />
+      )}
 
       {/* Patient Detail Sheet */}
       <Sheet open={!!selected} onOpenChange={() => setSelected(null)}>
