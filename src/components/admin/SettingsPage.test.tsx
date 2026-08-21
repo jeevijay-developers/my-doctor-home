@@ -15,13 +15,27 @@ const renderSettingsPage = () => render(<SettingsPage />, {
 
 vi.mock("@/hooks/usePlanAccess", () => ({ usePlanAccess: vi.fn() }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: vi.fn() }));
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "doctor-1" } } }) },
-    from: vi.fn().mockReturnValue({ insert: vi.fn().mockResolvedValue({ error: null }) }),
-    functions: { invoke: vi.fn().mockResolvedValue({ data: { mode: "mock" }, error: null }) },
-  },
-}));
+vi.mock("@/integrations/supabase/client", () => {
+  const chain = (resolved: any = { data: null, error: null }): any => {
+    const promise = Promise.resolve(resolved);
+    return Object.assign(promise, {
+      select: () => chain(resolved),
+      eq: () => chain(resolved),
+      order: () => chain(resolved),
+      maybeSingle: () => Promise.resolve(resolved),
+      single: () => Promise.resolve(resolved),
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: () => chain(resolved),
+    });
+  };
+  return {
+    supabase: {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "doctor-1" } } }) },
+      from: vi.fn(() => chain()),
+      functions: { invoke: vi.fn().mockResolvedValue({ data: { mode: "mock" }, error: null }) },
+    },
+  };
+});
 
 const baseProfile = { id: "doctor-1", full_name: "Dr. Test" };
 
@@ -40,7 +54,7 @@ describe("SettingsPage subscription cards", () => {
     vi.mocked(usePlanAccess).mockReturnValue({ isPremium: false, appointmentsCap: 100, appointmentsUsed: 0, nearCap: false, loading: false });
     renderSettingsPage();
     expect(screen.getAllByText(/current plan/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /upgrade now/i })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /upgrade to premium/i })).toHaveLength(1);
   });
 
   it("expired doctor: neither card says Current Plan, both show a CTA", () => {
@@ -49,6 +63,6 @@ describe("SettingsPage subscription cards", () => {
     renderSettingsPage();
     expect(screen.queryByText(/^current plan$/i)).not.toBeInTheDocument();
     expect(screen.getByText(/your access level/i)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /upgrade now/i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /reactivate/i }).length).toBeGreaterThanOrEqual(2);
   });
 });

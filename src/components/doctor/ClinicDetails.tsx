@@ -1,7 +1,9 @@
 import { MapPin, Phone, Clock, Globe } from "lucide-react";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
+import { getClinicMapsQuery, getClinicMapsUrl } from "@/lib/clinicLocation";
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -33,8 +35,8 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/dr/${profile.slug}`
     : "192.168.29.92:8080/dr/rajkumar-prajapati";
 
-  const mapsQuery = [profile?.clinic_name, profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ") || "xyz, Kota";
-  const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
+  const mapsQuery = getClinicMapsQuery(profile, "xyz, Kota");
+  const directionsUrl = getClinicMapsUrl(profile, "xyz, Kota");
 
   const scheduleList = workingHours && workingHours.length > 0
     ? workingHours.map((wh: any) => {
@@ -172,9 +174,10 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
             </InfoRow>
 
             {settings?.whatsapp_number && (
-              <Button variant="outline" className="border-success text-success rounded-full mt-4 h-10 px-4 text-sm" asChild>
+              <Button variant="outline" className="border-success text-success hover:bg-success/10 rounded-full mt-4 h-10 px-4 text-sm inline-flex items-center gap-2" asChild>
                 <a href={`https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer">
-                  Chat on WhatsApp
+                  <WhatsAppIcon className="w-4 h-4" />
+                  <span>Chat on WhatsApp</span>
                 </a>
               </Button>
             )}

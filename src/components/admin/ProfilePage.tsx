@@ -5,6 +5,9 @@ import { User, MapPin, Upload, UserCircle, ArrowRight, CheckCircle2, Circle, Lan
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { DigitsInput } from "@/components/ui/digits-input";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -297,19 +300,19 @@ const ProfilePage = () => {
             </div>
             <div className="space-y-1.5">
               <Label>Years of Experience</Label>
-              <Input type="number" min={0} value={form.experience_years} onChange={(e) => setForm({ ...form, experience_years: Number(e.target.value) })} className="h-10" />
+              <DigitsInput maxLength={2} value={String(form.experience_years ?? "")} onChange={(e) => setForm({ ...form, experience_years: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+              <PhoneInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
               {form.phone && !isValidIndianPhone(form.phone) && (
                 <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
               )}
             </div>
             <div className="space-y-1.5">
               <Label>Default Consultation Fee (₹)</Label>
-              <Input type="number" min={0} value={form.consultation_fee}
-                onChange={(e) => setForm({ ...form, consultation_fee: Number(e.target.value) })}
+              <AmountInput value={form.consultation_fee === 0 ? "" : form.consultation_fee}
+                onChange={(e) => setForm({ ...form, consultation_fee: e.target.value === "" ? 0 : Number(e.target.value) })}
                 placeholder="500" className="h-10" />
               <p className="text-[11px] text-muted-foreground">Used as a fallback when a service doesn't set its own price.</p>
             </div>
@@ -444,7 +447,7 @@ const ProfilePage = () => {
                 <>
                   <div className="space-y-1.5">
                     <Label>Account Number</Label>
-                    <Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="e.g. 000123456789" className="h-10" />
+                    <DigitsInput maxLength={20} value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="e.g. 000123456789" className="h-10" />
                     {accountNumber && !isValidAccountNumber(accountNumber) && (
                       <p className="text-[11px] text-destructive">{accountNumberErrorMessage}</p>
                     )}

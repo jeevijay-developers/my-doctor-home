@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { loadRazorpayCheckout } from "@/lib/razorpayCheckout";
 import { TIER_LABELS, TIER_PRICES, hasNoActivePlan, getTierFeatures, getDoctorTierPrice, DEFAULT_APPOINTMENT_CAP } from "@/lib/planFeatures";
+import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
 import MockCheckoutModal from "@/components/doctor/MockCheckoutModal";
 import TestModeBadge from "@/components/shared/TestModeBadge";
 import { formatDistanceToNow, parseISO } from "date-fns";
@@ -26,6 +27,8 @@ const UpgradeCheckoutDialog = ({
   const { profile } = useProfile();
   const { appointmentsCap } = usePlanAccess();
   const { isMock } = usePaymentMode();
+  const { proPrice, premiumPrice } = usePlanPrices();
+  const livePrices = planPricesToRecord({ proPrice, premiumPrice });
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
@@ -35,7 +38,7 @@ const UpgradeCheckoutDialog = ({
   const noActivePlan = hasNoActivePlan(fromStatus);
   const toLabel = TIER_LABELS[targetTier];
   const features = getTierFeatures(targetTier, appointmentsCap || DEFAULT_APPOINTMENT_CAP);
-  const price = getDoctorTierPrice(targetTier, profile);
+  const price = getDoctorTierPrice(targetTier, profile, livePrices);
 
   // Check if plan will be scheduled or activated immediately
   const planEnd = profile?.plan_end ? parseISO(profile.plan_end) : null;

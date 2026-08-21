@@ -23,6 +23,14 @@ describe("planFeatures", () => {
     const normalDoc = { plan_tier: "pro", custom_plan_price: null };
     expect(getDoctorTierPrice("pro", normalDoc)).toBe(1499);
     expect(getDoctorTierPrice("premium", normalDoc)).toBe(3999);
+
+    // With custom dynamic default prices passed in
+    const dynamicDefaults = { free: 0, pro: 1799, premium: 4499 };
+    expect(getDoctorTierPrice("pro", normalDoc, dynamicDefaults)).toBe(1799);
+    expect(getDoctorTierPrice("premium", normalDoc, dynamicDefaults)).toBe(4499);
+    // Custom doctor override still takes precedence over dynamic defaults
+    expect(getDoctorTierPrice("premium", premiumDoc, dynamicDefaults)).toBe(9000);
+    expect(getDoctorTierPrice("pro", premiumDoc, dynamicDefaults)).toBe(1799);
   });
 
   it("hasNoActivePlan is true only for expired and cancelled", () => {
@@ -35,22 +43,27 @@ describe("planFeatures", () => {
   it("getTierFeatures includes the live cap for pro, omits it for premium", () => {
     const basic = getTierFeatures("pro", 100);
     expect(basic.some((f) => f.includes("100"))).toBe(true);
+    expect(basic).toContain("AI blog writer");
+    expect(basic).toContain("Billing & invoices");
+    expect(basic.indexOf("AI blog writer")).toBeGreaterThan(basic.indexOf("Basic analytics"));
+    expect(basic.indexOf("Billing & invoices")).toBeGreaterThan(basic.indexOf("AI blog writer"));
     expect(basic).not.toContain("Online consultation");
 
     const premium = getTierFeatures("premium", 100);
     expect(premium).toContain("All features included in Pro plan");
     expect(premium).toContain("Online consultation");
-    expect(premium).toContain("Billing & invoices");
-    expect(premium).toContain("AI blog writer");
     expect(premium).toContain("Regular checkup alert");
     expect(premium).toContain("Staff roles & access");
+    // Already covered by "All features included in Pro plan" — not repeated
+    expect(premium).not.toContain("Billing & invoices");
+    expect(premium).not.toContain("AI blog writer");
   });
 
-  it("trial: premium is current via trial, basic has no CTA", () => {
+  it("trial: premium is current via trial, both show subscription CTAs", () => {
     const { basic, premium } = getSubscriptionCardStates("trial", "free", true);
     expect(premium.isCurrent).toBe(true);
-    expect(premium.showCta).toBe(false);
-    expect(basic.showCta).toBe(false);
+    expect(premium.showCta).toBe(true);
+    expect(basic.showCta).toBe(true);
   });
 
   it("active premium tier: premium current with renewal CTA, basic shows schedule CTA", () => {

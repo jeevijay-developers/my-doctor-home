@@ -54,9 +54,7 @@ const Navbar = () => {
     setMobileOpen(false);
   };
 
-  const whatsappUrl = settings?.whatsapp_number
-    ? `https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(settings.whatsapp_message || "")}`
-    : "#";
+
 
   const showBlogLink = hasPublishedBlog && slug && settings?.show_blog === true;
   const isServicesActive = settings?.show_services !== false && (services?.length || 0) > 0;

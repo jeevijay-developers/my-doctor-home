@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Globe, CalendarCheck, CreditCard, Users, Brain, Video, MessageCircle, BarChart3 } from "lucide-react";
+import { Globe, CalendarCheck, CreditCard, Users, Brain, Video, BarChart3 } from "lucide-react";
+import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import featureWebsite from "@/assets/feature-website.png";
 import featureAppointments from "@/assets/feature-appointments.png";
@@ -18,7 +19,7 @@ const features = [
   { icon: Users, title: "Patient Records", desc: "Digital patient history, prescriptions & reports — find any record in 2 seconds.", color: "bg-ai-purple/10 text-ai-purple", img: featurePatients, bg: "bg-gradient-to-br from-ai-purple/5 to-royal/5" },
   { icon: Brain, title: "AI Blog Writer", desc: "AI writes SEO health articles for your website — attract 3x more patients from Google.", color: "bg-spark/10 text-spark", img: featureAiBlog, bg: "bg-gradient-to-br from-spark/10 to-teal/5" },
   { icon: Video, title: "Online Consultation", desc: "Earn extra ₹20,000+/month with video consultations — no app download needed.", color: "bg-teal/10 text-teal", img: featureConsultation, bg: "bg-gradient-to-br from-teal/5 to-royal/5" },
-  { icon: MessageCircle, title: "WhatsApp Integration", desc: "Auto reminders, confirmations & follow-ups — 80% fewer missed appointments.", color: "bg-success/10 text-success", img: featureWhatsapp, bg: "bg-gradient-to-br from-success/5 to-teal/5" },
+  { icon: WhatsAppIcon, title: "WhatsApp Integration", desc: "Auto reminders, confirmations & follow-ups — 80% fewer missed appointments.", color: "bg-success/10 text-success", img: featureWhatsapp, bg: "bg-gradient-to-br from-success/5 to-teal/5" },
   { icon: BarChart3, title: "Analytics Dashboard", desc: "Track revenue, patients & growth in real-time — make data-driven decisions.", color: "bg-royal/10 text-royal", img: featureAnalytics, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
 ];
 

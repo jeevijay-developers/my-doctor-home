@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { LifeBuoy, Plus } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
 
 type Ticket = {
   id: string;
@@ -58,6 +59,7 @@ const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(CATEGORY_OPTIO
 // viewing an individual ticket's detail are card/dialog overlays on top of
 // it, same as the original ContactSupportDialog.
 const SupportPage = () => {
+  const { profile, isStaff, staffName, authUserId } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
   const ticketIdFromUrl = searchParams.get("ticket");
 
@@ -74,15 +76,19 @@ const SupportPage = () => {
   const [category, setCategory] = useState("other");
   const [busy, setBusy] = useState(false);
 
-  const loadTickets = async () => {
+  // Staff see only the tickets they personally submitted (submitted_by_user_id);
+  // a doctor sees every ticket under their clinic (doctor_id), including
+  // ones their staff raised — matching what each role's RLS policy actually
+  // permits. authUserId is the real logged-in person's own id, which for a
+  // doctor session already equals their own doctor_id.
+  const loadTickets = useCallback(async () => {
+    if (!authUserId) return;
     setLoadingTickets(true);
     setLoadError(null);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoadingTickets(false); return; }
     const { data, error } = await supabase
       .from("support_tickets")
       .select("id, subject, description, status, priority, category, reply, replied_at, created_at")
-      .eq("doctor_id", user.id)
+      .eq(isStaff ? "submitted_by_user_id" : "doctor_id", authUserId)
       .order("created_at", { ascending: false });
     if (error) {
       setLoadError(error.message);
@@ -91,9 +97,9 @@ const SupportPage = () => {
     }
     setTickets((data as unknown as Ticket[]) ?? []);
     setLoadingTickets(false);
-  };
+  }, [authUserId, isStaff]);
 
-  useEffect(() => { loadTickets(); }, []);
+  useEffect(() => { loadTickets(); }, [loadTickets]);
 
   // Resolve the "?ticket=" deep link (from the notification bell) to the
   // actual row once tickets have loaded, opening it in the same detail
@@ -124,12 +130,13 @@ const SupportPage = () => {
   };
 
   const submit = async () => {
-    if (!subject.trim()) return;
+    if (!subject.trim() || !profile || !authUserId) return;
     setBusy(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setBusy(false); return; }
     const { error } = await supabase.from("support_tickets").insert({
-      doctor_id: user.id, subject, description, priority, category,
+      doctor_id: profile.id,
+      submitted_by_user_id: authUserId,
+      submitted_by_name: (isStaff ? staffName : profile.full_name) || "",
+      subject, description, priority, category,
     });
     setBusy(false);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });

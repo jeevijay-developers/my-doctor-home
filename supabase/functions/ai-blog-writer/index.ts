@@ -25,9 +25,12 @@ serve(async (req) => {
       });
     }
 
-    const { data: isPremium } = await admin.rpc("doctor_has_premium_access", { _doctor_id: doctorId });
-    if (!isPremium) {
-      return new Response(JSON.stringify({ error: "AI Blog Writer is a Premium-only feature" }), {
+    const { data: allowed } = await admin.rpc("doctor_has_feature", {
+      _doctor_id: doctorId,
+      _feature_key: "ai_blog_writer",
+    });
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: "AI Blog Writer is not available on this plan" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -58,7 +61,7 @@ Rules:
     const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
     // Active Gemini models for this API key
-    const modelCandidates = ["gemini-3.7-flash", "gemini-3.1-flash-tts-preview"];
+    const modelCandidates = ["gemini-2.5-flash", "gemini-2.0-flash"];
     const attempts: Array<{ model: string; status: number; text: string }> = [];
     let geminiData: any = null;
 

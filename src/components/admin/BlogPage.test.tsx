@@ -2,13 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import BlogPage from "./BlogPage";
-import { usePlanAccess } from "@/hooks/usePlanAccess";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
 vi.mock("@/hooks/useProfile", () => ({
-  useProfile: () => ({ profile: { id: "doctor-1", full_name: "Dr. Test", specialization: "Cardiology" } }),
+  useProfile: () => ({ profile: { id: "doctor-1", full_name: "Dr. Test", specialization: "Cardiology" }, can: () => true }),
 }));
 
-vi.mock("@/hooks/usePlanAccess", () => ({ usePlanAccess: vi.fn() }));
+vi.mock("@/hooks/useFeatureAccess", () => ({ useFeatureAccess: vi.fn() }));
+
+// LockedFeatureCard (rendered when the feature is locked) nests
+// UpgradeCheckoutDialog, which independently calls the real usePlanAccess —
+// mock it too so that path doesn't hit supabase.rpc.
+vi.mock("@/hooks/usePlanAccess", () => ({
+  usePlanAccess: () => ({ isPremium: false, appointmentsCap: 100, appointmentsUsed: 0, nearCap: false, loading: false }),
+}));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -22,6 +29,9 @@ vi.mock("@/integrations/supabase/client", () => ({
         }),
       }),
     }),
+    functions: {
+      invoke: vi.fn().mockResolvedValue({ data: { mode: "mock" }, error: null }),
+    },
   },
 }));
 
@@ -33,7 +43,7 @@ global.fetch = vi.fn().mockResolvedValue({
 describe("BlogPage - AI writer auth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: true, loading: false, appointmentsUsed: 0, appointmentsCap: 0, nearCap: false });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, loading: false, rows: [], refetch: vi.fn() });
   });
 
   it("sends the doctor's real session access_token as the bearer, not the anon key", async () => {
@@ -54,19 +64,19 @@ describe("BlogPage - AI writer auth", () => {
 
 describe("BlogPage - AI Blog Writer gating", () => {
   it("shows LockedFeatureCard instead of the AI writer inputs for a Basic-tier doctor", async () => {
-    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: false, loading: false, appointmentsUsed: 0, appointmentsCap: 0, nearCap: false });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, loading: false, rows: [], refetch: vi.fn() });
     render(
       <MemoryRouter>
         <BlogPage />
       </MemoryRouter>
     );
     fireEvent.click(await screen.findByRole("button", { name: /new blog post|new post/i }));
-    expect(await screen.findByRole("button", { name: /request upgrade/i })).toBeInTheDocument();
+    expect(await screen.findByText(/generate patient-friendly health articles/i)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/top 10 tips/i)).not.toBeInTheDocument();
   });
 
   it("shows the real AI writer inputs for a Premium doctor", async () => {
-    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: true, loading: false, appointmentsUsed: 0, appointmentsCap: 0, nearCap: false });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, loading: false, rows: [], refetch: vi.fn() });
     render(
       <MemoryRouter>
         <BlogPage />
@@ -74,6 +84,6 @@ describe("BlogPage - AI Blog Writer gating", () => {
     );
     fireEvent.click(await screen.findByRole("button", { name: /new blog post|new post/i }));
     expect(await screen.findByPlaceholderText(/top 10 tips/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /request upgrade/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /upgrade to premium|request upgrade/i })).not.toBeInTheDocument();
   });
 });

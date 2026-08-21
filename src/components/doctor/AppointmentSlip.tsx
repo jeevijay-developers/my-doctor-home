@@ -8,6 +8,7 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import doctyliaLogo from "@/assets/doctylia-logo.png";
+import { getClinicMapsUrl } from "@/lib/clinicLocation";
 
 type Props = {
   open: boolean;
@@ -51,16 +52,17 @@ const AppointmentSlip = ({
   const clinicAddr = profile?.clinic_address || profile?.address || profile?.city || "";
   const clinicPhone = profile?.clinic_phone || profile?.phone || "";
   const websiteLabel = doctorUrl.replace(/^https?:\/\//, "");
+  const locationUrl = getClinicMapsUrl(profile) || doctorUrl;
 
   const statusIsConfirmed = forceConfirmed ?? Boolean(settings?.auto_confirm);
   const statusLabel = statusIsConfirmed ? "Confirmed" : "Pending";
 
   useEffect(() => {
     if (!open) return;
-    QRCode.toDataURL(doctorUrl, {
+    QRCode.toDataURL(locationUrl, {
       margin: 1, width: 400, color: { dark: TEAL_DARK, light: "#FFFFFF" },
     }).then(setQrDataUrl).catch(() => setQrDataUrl(""));
-  }, [open, doctorUrl]);
+  }, [open, locationUrl]);
 
   const handlePrint = () => {
     document.body.classList.add("printing-slip");
@@ -187,14 +189,35 @@ const AppointmentSlip = ({
                   <div className="w-12 h-[3px] rounded-full mt-2 mb-4" style={{ backgroundColor: TEAL }} aria-hidden />
 
                   {/* Token box */}
-                  <div className="text-[11px] font-medium text-center mb-1.5" style={{ color: "#6b7280" }}>
-                    Token Number
-                  </div>
-                  <div
-                    className="border-[2px] rounded-full px-8 py-2.5 text-center mb-5 min-w-[200px]"
-                    style={{ borderColor: TEAL }}
-                  >
-                    <div className="font-heading font-extrabold text-[28px] leading-none" style={{ color: TEAL_DARK }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", marginBottom: "20px" }}>
+                    <div style={{ fontSize: "11.5px", fontWeight: 500, textAlign: "center", marginBottom: "6px", color: "#6b7280" }}>
+                      Token Number
+                    </div>
+                    {/*
+                      lineHeight === containerHeight - (2 × borderWidth) is the classic,
+                      html2canvas-safe single-line vertical centering trick.
+                      52px height - 2px top border - 2px bottom border = 48px line-height.
+                    */}
+                    <div
+                      style={{
+                        borderWidth: "2px",
+                        borderStyle: "solid",
+                        borderColor: TEAL,
+                        borderRadius: "9999px",
+                        width: "220px",
+                        height: "52px",
+                        lineHeight: "48px",
+                        boxSizing: "border-box",
+                        margin: "0 auto",
+                        textAlign: "center",
+                        fontSize: "26px",
+                        fontWeight: 800,
+                        letterSpacing: "0.03em",
+                        color: TEAL_DARK,
+                        fontFamily: "inherit",
+                        overflow: "hidden",
+                      }}
+                    >
                       #{token}
                     </div>
                   </div>

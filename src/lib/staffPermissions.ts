@@ -11,7 +11,8 @@ export type PermissionKey =
   | "blog.view" | "blog.create" | "blog.edit" | "blog.delete"
   | "billing.view" | "billing.manage"
   | "profile.view" | "profile.edit"
-  | "staff.view" | "staff.create" | "staff.edit" | "staff.disable";
+  | "staff.view" | "staff.create" | "staff.edit" | "staff.disable"
+  | "inquiries.view" | "inquiries.manage";
 
 export type Permissions = Partial<Record<PermissionKey, boolean>>;
 
@@ -71,6 +72,10 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     { key: "staff.edit", label: "Edit Staff" },
     { key: "staff.disable", label: "Disable Staff" },
   ]},
+  { key: "inquiries", label: "Inquiries", permissions: [
+    { key: "inquiries.view", label: "View Inquiries" },
+    { key: "inquiries.manage", label: "Manage Inquiries" },
+  ]},
 ];
 
 // Route (pathname prefix) → permission required to enter it. Checked at both
@@ -90,6 +95,7 @@ export const ROUTE_PERMISSIONS: { prefix: string; permission: PermissionKey }[] 
   { prefix: "/admin/billing", permission: "billing.view" },
   { prefix: "/admin/settings", permission: "profile.view" },
   { prefix: "/admin/staff", permission: "staff.view" },
+  { prefix: "/admin/inquiries", permission: "inquiries.view" },
 ];
 
 export const permissionForPath = (pathname: string): PermissionKey | null => {

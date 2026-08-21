@@ -1,6 +1,9 @@
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { DEFAULT_PLAN_PRICES } from "@/components/superadmin/SASubscriptions";
 
+// When live DB prices are available, callers should pass them as the second
+// argument.  The static fallback keeps tests and legacy call sites working.
+
 export type PaymentTxnStatus = "created" | "authorized" | "captured" | "failed" | "refunded";
 export type PaymentStatusBucket = "Paid" | "Pending" | "Failed" | "Refunded";
 
@@ -53,7 +56,10 @@ export interface SubscriberProfile {
   custom_plan_price: number | null;
 }
 
-export const computeEstimatedMRR = (profiles: SubscriberProfile[]): number =>
+export const computeEstimatedMRR = (
+  profiles: SubscriberProfile[],
+  defaultPrices: Record<string, number> = DEFAULT_PLAN_PRICES,
+): number =>
   profiles
     .filter((p) => p.plan_status === "active" && (p.plan_tier === "pro" || p.plan_tier === "premium"))
-    .reduce((sum, p) => sum + (p.custom_plan_price ?? DEFAULT_PLAN_PRICES[p.plan_tier || "free"] ?? 0), 0);
+    .reduce((sum, p) => sum + (p.custom_plan_price ?? defaultPrices[p.plan_tier || "free"] ?? 0), 0);

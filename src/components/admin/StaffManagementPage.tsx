@@ -19,7 +19,8 @@ import {
 import { toast } from "sonner";
 import { PERMISSION_MODULES, type PermissionKey, type Permissions } from "@/lib/staffPermissions";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
-import { usePlanAccess } from "@/hooks/usePlanAccess";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { FEATURE_KEYS } from "@/lib/features";
 import LockedFeatureCard from "./LockedFeatureCard";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 
@@ -33,7 +34,8 @@ const emptyForm = { staff_name: "", username: "", password: "", confirm_password
 
 const StaffManagementPage = () => {
   const { profile, isStaff, can } = useProfile();
-  const { isPremium, loading: planLoading } = usePlanAccess();
+  const { hasFeature, loading: planLoading } = useFeatureAccess();
+  const isPremium = hasFeature(FEATURE_KEYS.STAFF_MANAGEMENT);
   const { accessLevel: trialAccessLevel } = useTrialStatus();
   const writeDisabled = trialAccessLevel === "grace";
   const [staff, setStaff] = useState<StaffRow[]>([]);

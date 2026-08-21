@@ -9,10 +9,19 @@ export const usePaymentMode = () => {
 
   useEffect(() => {
     let cancelled = false;
-    supabase.functions.invoke("get-payment-mode").then(({ data }) => {
-      if (!cancelled && (data?.mode === "mock" || data?.mode === "live")) setMode(data.mode);
-    });
-    return () => { cancelled = true; };
+    try {
+      const res = supabase?.functions?.invoke?.("get-payment-mode");
+      if (res && typeof res.then === "function") {
+        res
+          .then(({ data }: any) => {
+            if (!cancelled && (data?.mode === "mock" || data?.mode === "live")) setMode(data.mode);
+          })
+          .catch(() => {});
+      }
+    } catch {}
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return { mode, isMock: mode === "mock" };

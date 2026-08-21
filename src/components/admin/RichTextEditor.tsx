@@ -19,7 +19,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import FontFamily from "@tiptap/extension-font-family";
 import Youtube from "@tiptap/extension-youtube";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code, Superscript as SupIcon,
@@ -64,6 +64,7 @@ const Divider = () => <div className="w-px h-6 bg-border mx-1" />;
 
 const RichTextEditor = ({ value, onChange, placeholder }: Props) => {
   const [fullscreen, setFullscreen] = useState(false);
+  const lastExternalValue = useRef(value);
 
   const editor = useEditor({
     extensions: [
@@ -90,7 +91,7 @@ const RichTextEditor = ({ value, onChange, placeholder }: Props) => {
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
-        class: "prose prose-slate max-w-none focus:outline-none min-h-[400px] px-4 py-3",
+        class: "prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[400px] px-4 py-3 text-foreground dark:text-foreground",
       },
     },
   });
@@ -267,8 +268,8 @@ const RichTextEditor = ({ value, onChange, placeholder }: Props) => {
         </div>
       )}
 
-      <div className={cn("overflow-y-auto", fullscreen ? "flex-1" : "max-h-[60vh]")}>
-        <EditorContent editor={editor} />
+      <div className={cn("overflow-y-auto bg-card text-foreground", fullscreen ? "flex-1" : "max-h-[60vh]")}>
+        <EditorContent editor={editor} className="text-foreground" />
       </div>
 
       <div className="flex items-center justify-between px-3 py-1.5 border-t border-border bg-secondary/30 text-xs text-muted-foreground">

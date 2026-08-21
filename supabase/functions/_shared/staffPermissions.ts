@@ -12,6 +12,7 @@ export const STAFF_PERMISSION_KEYS = [
   "billing.view", "billing.manage",
   "profile.view", "profile.edit",
   "staff.view", "staff.create", "staff.edit", "staff.disable",
+  "inquiries.view", "inquiries.manage",
 ] as const;
 
 const KEY_SET = new Set<string>(STAFF_PERMISSION_KEYS);

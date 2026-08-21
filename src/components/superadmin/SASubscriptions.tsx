@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,20 +16,26 @@ import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
 import { Search, RotateCcw, Save, Trash2, X } from "lucide-react";
 import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
+import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
 
 // Default plan prices (INR / month). Single source of truth for default pricing.
+// Kept as a static export so existing importers (subscriptionRevenue.ts,
+// planFeatures.ts) can still reference it as a fallback constant while they
+// transition to reading from the DB via usePlanPrices.
 export const DEFAULT_PLAN_PRICES: Record<string, number> = {
   free: 0,
   pro: 1499,
   premium: 3999,
 };
 
-export const getEffectivePlanPrice = (profile: { plan_tier?: string | null; custom_plan_price?: number | null }) => {
+export const getEffectivePlanPrice = (profile: { plan_tier?: string | null; custom_plan_price?: number | null }, defaultPrices: Record<string, number> = DEFAULT_PLAN_PRICES) => {
   if (profile.custom_plan_price != null) return Number(profile.custom_plan_price);
-  return DEFAULT_PLAN_PRICES[profile.plan_tier || "free"] ?? 0;
+  return defaultPrices[profile.plan_tier || "free"] ?? 0;
 };
 
 const SASubscriptions = () => {
+  const { proPrice, premiumPrice } = usePlanPrices();
+  const livePrices = planPricesToRecord({ proPrice, premiumPrice });
   const [rows, setRows] = useState<any[]>([]);
   const [dates, setDates] = useState<Record<string, string>>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
@@ -225,7 +232,7 @@ const SASubscriptions = () => {
             <CardContent className="p-4">
               <div className="text-xs uppercase text-muted-foreground">{t}</div>
               <div className="text-2xl font-bold text-primary">{tierCounts[t]}</div>
-              <div className="text-xs text-muted-foreground mt-1">Default ₹{DEFAULT_PLAN_PRICES[t]}</div>
+              <div className="text-xs text-muted-foreground mt-1">Default ₹{livePrices[t] ?? 0}</div>
             </CardContent>
           </Card>
         ))}
@@ -355,12 +362,9 @@ const SASubscriptions = () => {
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1.5">
-                        <Input
-                          type="number"
-                          min={0}
-                          step="1"
+                        <AmountInput
                           className="h-8 w-24"
-                          placeholder={hasCustom ? String(r.custom_plan_price) : `${DEFAULT_PLAN_PRICES[tier]}`}
+                          placeholder={hasCustom ? String(r.custom_plan_price) : `${livePrices[tier] ?? 0}`}
                           value={prices[r.id] ?? ""}
                           onChange={(e) => setPrices((x) => ({ ...x, [r.id]: e.target.value }))}
                         />

@@ -250,7 +250,7 @@ const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload }: 
                 R<span className="align-sub text-2xl">x</span>
               </div>
               <div className="mt-5 relative">
-                {prescription.medicines.length > 0 ? (
+                {(prescription.medicines?.length ?? 0) > 0 ? (
                   <div className="space-y-4">
                     {prescription.medicines.map((m, i) => (
                       <div key={i} data-prescription-slip-row>

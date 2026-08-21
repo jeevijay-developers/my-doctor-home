@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import RichTextEditor from "./RichTextEditor";
-import { usePlanAccess } from "@/hooks/usePlanAccess";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { FEATURE_KEYS } from "@/lib/features";
 import LockedFeatureCard from "./LockedFeatureCard";
 
 type BlogPost = {
@@ -37,7 +39,8 @@ const MAX_IMAGE_MB = 5;
 
 const BlogPage = () => {
   const { profile, can } = useProfile();
-  const { isPremium } = usePlanAccess();
+  const { hasFeature } = useFeatureAccess();
+  const isPremium = hasFeature(FEATURE_KEYS.AI_BLOG_WRITER);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<BlogPost | null>(null);
@@ -45,6 +48,7 @@ const BlogPage = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
+  const [deleting, setDeleting] = useState<BlogPost | null>(null);
   const [form, setForm] = useState({
     title: "", excerpt: "", content: "", category: "", is_published: false,
     featured_image_url: "" as string | null,
@@ -166,6 +170,12 @@ const BlogPage = () => {
     await supabase.from("blog_posts").delete().eq("id", id);
     toast({ title: "Post deleted" });
     load();
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    await deletePost(deleting.id);
+    setDeleting(null);
   };
 
   const togglePublish = async (post: BlogPost) => {
@@ -324,7 +334,7 @@ const BlogPage = () => {
                   </Button>
                 )}
                 {can("blog.delete") && (
-                  <Button size="sm" variant="ghost" className="text-xs h-8 text-destructive" onClick={() => deletePost(post.id)}>
+                  <Button size="sm" variant="ghost" className="text-xs h-8 text-destructive" onClick={() => setDeleting(post)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 )}
@@ -367,7 +377,7 @@ const BlogPage = () => {
             ) : (
               <LockedFeatureCard
                 featureName="AI Blog Writer"
-                description="Generate patient-friendly health articles with AI in seconds. Available on Premium."
+                description="Generate patient-friendly health articles with AI in seconds. Available on Pro and Premium."
               />
             )}
 
@@ -439,6 +449,24 @@ const BlogPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes <strong>{deleting?.title}</strong> and cannot be undone.
+              {deleting?.is_published && " It will also come down from your public blog immediately."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

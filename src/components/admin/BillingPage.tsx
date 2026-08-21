@@ -18,7 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { generateInvoicePDF, type InvoicePayload } from "@/lib/invoicePdf";
-import { usePlanAccess } from "@/hooks/usePlanAccess";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { FEATURE_KEYS } from "@/lib/features";
 import LockedFeatureCard from "./LockedFeatureCard";
 
 type Invoice = {
@@ -38,7 +39,10 @@ type Invoice = {
 
 const BillingPage = () => {
   const { profile } = useProfile();
-  const { isPremium, loading: planLoading } = usePlanAccess();
+  // Effective access (plan default + any active Superadmin override), not
+  // raw plan tier — see FEATURE_KEYS.BILLING_INVOICES.
+  const { hasFeature, loading: planLoading } = useFeatureAccess();
+  const isPremium = hasFeature(FEATURE_KEYS.BILLING_INVOICES);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filter, setFilter] = useState("all");
@@ -274,7 +278,7 @@ const BillingPage = () => {
       <div className="max-w-6xl mx-auto">
         <LockedFeatureCard
           featureName="Billing & Invoices"
-          description="Track revenue, auto-generate GST invoices, and export transactions. Available on Premium."
+          description="Track revenue, auto-generate GST invoices, and export transactions. Available on Pro and Premium."
         />
       </div>
     );

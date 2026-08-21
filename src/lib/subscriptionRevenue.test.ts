@@ -46,4 +46,13 @@ describe("computeEstimatedMRR", () => {
     ];
     expect(computeEstimatedMRR(profiles)).toBe(1499 + 2999);
   });
+
+  it("uses provided custom defaultPrices if passed", () => {
+    const profiles = [
+      { plan_status: "active", plan_tier: "pro", custom_plan_price: null },
+      { plan_status: "active", plan_tier: "premium", custom_plan_price: null },
+    ];
+    const customDefaults = { free: 0, pro: 1999, premium: 4999 };
+    expect(computeEstimatedMRR(profiles, customDefaults)).toBe(1999 + 4999);
+  });
 });

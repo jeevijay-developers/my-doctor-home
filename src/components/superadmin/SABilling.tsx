@@ -17,6 +17,7 @@ import {
   type PaymentTxnStatus,
   type PaymentStatusBucket,
 } from "@/lib/subscriptionRevenue";
+import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
 
 interface UpgradePaymentRow {
   id: string;
@@ -47,6 +48,7 @@ const BADGE_CLASS: Record<PaymentStatusBucket, string> = {
 };
 
 const SABilling = () => {
+  const { proPrice, premiumPrice } = usePlanPrices();
   const [payments, setPayments] = useState<UpgradePaymentRow[]>([]);
   const [subscribers, setSubscribers] = useState<SubscriberProfileRow[]>([]);
   const [filter, setFilter] = useState<StatusFilter>("all");
@@ -86,7 +88,7 @@ const SABilling = () => {
   }, []);
 
   const totals = computeRevenueTotals(payments);
-  const estimatedMRR = computeEstimatedMRR(subscribers);
+  const estimatedMRR = computeEstimatedMRR(subscribers, planPricesToRecord({ proPrice, premiumPrice }));
 
   const statCards = [
     { label: "Today's Subscription Revenue", value: `₹${totals.today.toLocaleString("en-IN")}`, icon: Calendar, gradient: "from-royal to-teal" },

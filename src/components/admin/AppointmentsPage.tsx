@@ -8,6 +8,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -403,7 +405,7 @@ const AppointmentsPage = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone *</Label>
-                  <Input value={newAppt.patient_phone} inputMode="numeric" maxLength={13} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="Phone number" className="h-10" />
+                  <PhoneInput value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="Phone number" className="h-10" />
                   {newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone) && (
                     <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
                   )}
@@ -437,7 +439,7 @@ const AppointmentsPage = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Amount (₹)</Label>
-                  <Input type="number" min={0} placeholder="0" value={newAppt.amount === 0 ? "" : newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
+                  <AmountInput placeholder="0" value={newAppt.amount === 0 ? "" : newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
                 </div>
               </div>
               <Button onClick={() => addAppointment()} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>

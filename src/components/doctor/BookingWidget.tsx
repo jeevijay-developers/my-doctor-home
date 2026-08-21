@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { CheckCircle2, XCircle, ChevronLeft, Video, Users, Clock, FileText, Building2, Receipt } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DigitsInput } from "@/components/ui/digits-input";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, isSameDay } from "date-fns";
@@ -10,6 +11,7 @@ import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
+import { FEATURE_KEYS } from "@/lib/features";
 import { usePaymentMode } from "@/hooks/usePaymentMode";
 import TestModeBadge from "@/components/shared/TestModeBadge";
 import { loadRazorpayCheckout } from "@/lib/razorpayCheckout";
@@ -73,7 +75,7 @@ type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string
 const STEP_LABELS = ["Consultation Type", "Select Service", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
 
 const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
-  const { profile, services, settings, workingHours, isPremium } = useDoctorData();
+  const { profile, services, settings, workingHours, isPremium, hasFeature } = useDoctorData();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [step, setStep] = useState(1);
   const [type, setType] = useState<"clinic" | "online">("clinic");
@@ -99,6 +101,8 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const [slipOpen, setSlipOpen] = useState(false);
   const [paymentSlipOpen, setPaymentSlipOpen] = useState(false);
   const [mockCheckoutOpen, setMockCheckoutOpen] = useState(false);
+  // True while the async slot re-validation fires on time-slot selection
+  const [checkingSlot, setCheckingSlot] = useState(false);
 
   useEffect(() => { if (confirmed) setSlipOpen(true); }, [confirmed]);
 
@@ -128,7 +132,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   const consultationTypes = [
     { k: "clinic" as const, label: "Clinic Visit", Icon: Building2 },
-    ...(isPremium ? [{ k: "online" as const, label: "Online", Icon: Video }] : []),
+    ...(hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION) ? [{ k: "online" as const, label: "Online", Icon: Video }] : []),
   ];
 
   const filteredServices = services.filter((s) =>
@@ -262,10 +266,55 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     setTimeout(downloadPaymentSlip, 350);
   };
 
+  // Called when the patient taps a time-slot on step 4. We do an instant
+  // isFull() check against the live cached counts first, then fire a fresh
+  // refresh() to pull the very latest state from the DB before advancing —
+  // this catches any booking that completed in the last 8 s polling window.
+  //
+  // IMPORTANT: after await refresh(), we use the freshCounts map returned
+  // directly from the call rather than calling isFull() again — isFull() reads
+  // the React `counts` state which is updated asynchronously and would still
+  // hold the stale value at the point we check it (classic stale-closure bug).
+  const selectTimeSlot = async (slot: string) => {
+    if (checkingSlot) return;
+
+    // Instant guard from live cached counts.
+    if (isFull(slot)) {
+      toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+      refresh();
+      return;
+    }
+
+    // Fire a fresh DB query to catch bookings that happened between polls.
+    setCheckingSlot(true);
+    const freshCounts = await refresh();
+    setCheckingSlot(false);
+
+    // Re-check against the freshly returned map — NOT isFull() (stale closure).
+    if ((freshCounts[slot] || 0) >= maxPerSlot) {
+      toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+      return;
+    }
+
+    // Slot still available — advance the wizard.
+    setSelectedTime(slot);
+    setStep(5);
+  };
+
   // Step 5 "Continue" for online-payment doctors — just moves to the Review
   // Booking Summary step. Nothing is written to the database here.
+  // Also re-validates the slot so a race between step 4 selection and step 5
+  // Continue is caught before the patient proceeds to payment.
   const proceedToReview = () => {
     if (!validatePatientDetails()) return;
+    // Defense-in-depth: re-check from cached counts before advancing.
+    if (selectedTime && isFull(selectedTime)) {
+      toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+      setStep(4);
+      setSelectedTime("");
+      refresh();
+      return;
+    }
     setStep(6);
   };
 
@@ -724,25 +773,37 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {timeSlots.map((t) => {
               const full = isFull(t);
+              const isChecking = checkingSlot && selectedTime === t;
               return (
                 <button
                   key={t}
-                  disabled={full}
-                  onClick={() => { setSelectedTime(t); setStep(5); }}
+                  disabled={full || checkingSlot}
+                  onClick={() => selectTimeSlot(t)}
                   className={`py-3 rounded-lg border-2 text-sm font-medium transition-all relative ${
                     full
                       ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                      : isChecking
+                      ? "border-royal bg-royal/20 text-foreground cursor-wait"
                       : selectedTime === t
                       ? "border-primary-500 bg-primary-500 text-white shadow-sm"
                       : "border-slate-200 bg-white text-foreground hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"
                   }`}
                 >
-                  {t}
-                  {full ? (
-                    <span className="block text-[9px] mt-0.5 font-semibold uppercase text-destructive">Full</span>
-                  ) : maxPerSlot > 1 ? (
-                    <span className="block text-[9px] mt-0.5 opacity-70">{bookedIn(t)}/{maxPerSlot}</span>
-                  ) : null}
+                  {isChecking ? (
+                    <>
+                      <span className="block">{t}</span>
+                      <span className="block text-[9px] mt-0.5 opacity-70 animate-pulse">Checking…</span>
+                    </>
+                  ) : (
+                    <>
+                      {t}
+                      {full ? (
+                        <span className="block text-[9px] mt-0.5 font-semibold uppercase text-destructive">Full</span>
+                      ) : maxPerSlot > 1 ? (
+                        <span className="block text-[9px] mt-0.5 opacity-70">{bookedIn(t)}/{maxPerSlot}</span>
+                      ) : null}
+                    </>
+                  )}
                 </button>
               );
             })}
