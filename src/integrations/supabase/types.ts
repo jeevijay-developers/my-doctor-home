@@ -1172,6 +1172,47 @@ export type Database = {
           },
         ]
       }
+      patient_queries: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          email: string | null
+          id: string
+          message: string
+          name: string
+          phone: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          email?: string | null
+          id?: string
+          message: string
+          name: string
+          phone?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          email?: string | null
+          id?: string
+          message?: string
+          name?: string
+          phone?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_queries_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_surgeries: {
         Row: {
           created_at: string

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCog, LifeBuoy } from "lucide-react";
+import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCog, LifeBuoy, Mail } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; per
   { title: "Patients", url: "/admin/patients", icon: Users, permission: "patients.view" },
   { title: "Prescriptions", url: "/admin/prescriptions", icon: ClipboardList, permission: "prescriptions.view" },
   { title: "Reviews", url: "/admin/reviews", icon: MessageSquare, permission: "reviews.view" },
+  { title: "Inquiries", url: "/admin/inquiries", icon: Mail, permission: "inquiries.view" },
   { title: "Blog", url: "/admin/blog", icon: FileText, permission: "blog.view" },
   { title: "Billing", url: "/admin/billing", icon: CreditCard, permission: "billing.view" },
   { title: "Staff Management", url: "/admin/staff", icon: UserCog, permission: "staff.view" },

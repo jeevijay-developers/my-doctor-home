@@ -9,6 +9,7 @@ import BookingWidget from "@/components/doctor/BookingWidget";
 import ReviewsSection from "@/components/doctor/ReviewsSection";
 import BlogPreview from "@/components/doctor/BlogPreview";
 import ClinicDetails from "@/components/doctor/ClinicDetails";
+import ContactQueryForm from "@/components/doctor/ContactQueryForm";
 import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 import SectionCard from "@/components/doctor/SectionCard";
@@ -109,6 +110,7 @@ const DoctorPageContent = () => {
   const reviewsColor = showReviews ? nextCardColor() : undefined;
   const blogColor = showBlog ? nextCardColor() : undefined;
   const clinicDetailsColor = showClinicDetails ? nextCardColor() : undefined;
+  const queryFormColor = nextCardColor(); // always rendered, right after Clinic Details
 
   return (
     <div className="min-h-screen bg-secondary/30 dark:bg-black">
@@ -133,6 +135,7 @@ const DoctorPageContent = () => {
       {showClinicDetails && (
         <AnimatedSection><SectionCard><ClinicDetails cardColor={clinicDetailsColor} /></SectionCard></AnimatedSection>
       )}
+      <AnimatedSection><SectionCard><ContactQueryForm cardColor={queryFormColor} /></SectionCard></AnimatedSection>
       <Footer />
     </div>
   );

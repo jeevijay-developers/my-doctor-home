@@ -18,7 +18,8 @@ import ProfilePage from "@/components/admin/ProfilePage";
 import LockedFeatureCard from "@/components/admin/LockedFeatureCard";
 import { toast } from "@/hooks/use-toast";
 import { Star } from "lucide-react";
-import { usePlanAccess } from "@/hooks/usePlanAccess";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { FEATURE_KEYS } from "@/lib/features";
 import { DEFAULT_QUICK_STATS, AVAILABLE_STAT_ICONS, QuickStatItem } from "@/lib/quickStats";
 
 type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
@@ -32,7 +33,8 @@ const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 const MyWebsite = () => {
   const nav = useNavigate();
   const { profile, isStaff, can } = useProfile();
-  const { isPremium } = usePlanAccess();
+  const { hasFeature } = useFeatureAccess();
+  const isPremium = hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION);
   // This page is route-gated only on "View My Website" (website.view), so a
   // staff member with just that checkbox reaches it — but everything below
   // (services, hours, gallery, settings) writes through website.edit /

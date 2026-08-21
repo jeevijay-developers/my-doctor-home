@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
 import { Link } from "react-router-dom";
-import { ExternalLink, MessageSquarePlus, Radio, Trash2, X } from "lucide-react";
+import { ExternalLink, KeyRound, MessageSquarePlus, Radio, Trash2, X } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
 
@@ -65,9 +65,21 @@ const SADoctors = () => {
   const [messageBody, setMessageBody] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [pendingPlansMap, setPendingPlansMap] = useState<Record<string, any>>({});
+  const [overriddenDoctorIds, setOverriddenDoctorIds] = useState<Set<string>>(new Set());
 
   const load = () => {
     supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => setRows(data ?? []));
+  };
+
+  const loadOverrides = () => {
+    supabase
+      .from("doctor_feature_overrides")
+      .select("doctor_id, expires_at")
+      .then(({ data }) => {
+        const now = Date.now();
+        const active = (data || []).filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now);
+        setOverriddenDoctorIds(new Set(active.map((r) => r.doctor_id)));
+      });
   };
 
   const loadPendingPlans = () => {
@@ -83,7 +95,7 @@ const SADoctors = () => {
       });
   };
 
-  useEffect(() => { load(); loadPendingPlans(); }, []);
+  useEffect(() => { load(); loadPendingPlans(); loadOverrides(); }, []);
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -273,7 +285,19 @@ const SADoctors = () => {
                     <td className="p-3">{r.clinic_name || "—"}</td>
                     <td className="p-3">{r.city || "—"}</td>
                     <td className="p-3">
-                      <Badge>{r.plan_tier || "free"}</Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge>{r.plan_tier || "free"}</Badge>
+                        {overriddenDoctorIds.has(r.id) && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] bg-amber-500/10 border-amber-500/30 text-amber-700">
+                                <KeyRound className="h-2.5 w-2.5 mr-1" /> Overrides
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>Has an active per-feature access override</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                       {pendingPlansMap[r.id] && (
                         <div className="mt-1">
                           <Badge variant="outline" className="bg-royal/5 border-royal/30 text-[10px] text-royal font-medium">
@@ -349,9 +373,14 @@ const SADoctors = () => {
                           {r.full_name || "—"}
                         </Link>
                       )}
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
                         <PlanStatusBadge row={r} />
                         <Badge>{r.plan_tier || "free"}</Badge>
+                        {overriddenDoctorIds.has(r.id) && (
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 border-amber-500/30 text-amber-700">
+                            <KeyRound className="h-2.5 w-2.5 mr-1" /> Overrides
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">{r.specialization || "—"}</div>

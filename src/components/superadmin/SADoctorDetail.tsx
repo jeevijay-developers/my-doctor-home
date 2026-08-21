@@ -13,6 +13,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
 import { ArrowLeft, Ban, RotateCcw, CalendarPlus } from "lucide-react";
+import SAFeatureAccess from "./SAFeatureAccess";
 
 const TIER_LABELS: Record<string, string> = { free: "Free", pro: "Pro", premium: "Premium" };
 
@@ -140,6 +141,8 @@ const SADoctorDetail = () => {
           </div>
         </CardContent>
       </Card>
+
+      <SAFeatureAccess doctorId={id!} />
 
       <AlertDialog open={pendingTier !== null} onOpenChange={(open) => !open && setPendingTier(null)}>
         <AlertDialogContent>

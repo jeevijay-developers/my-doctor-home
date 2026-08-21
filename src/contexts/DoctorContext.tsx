@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -11,12 +11,16 @@ type DoctorData = {
   settings: any;
   workingHours: any[];
   isPremium: boolean;
+  // Per-feature effective access (plan default + any active Superadmin
+  // override) — e.g. hasFeature("online_consultation"). Falls back to false
+  // for an unknown key or before the flags have loaded.
+  hasFeature: (key: string) => boolean;
   loading: boolean;
 };
 
 const DoctorContext = createContext<DoctorData>({
   profile: null, services: [], packages: [], reviews: [], gallery: [],
-  settings: {}, workingHours: [], isPremium: false, loading: true,
+  settings: {}, workingHours: [], isPremium: false, hasFeature: () => false, loading: true,
 });
 
 export const useDoctorData = () => useContext(DoctorContext);
@@ -25,14 +29,24 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [data, setData] = useState<DoctorData>({
+  const [data, setData] = useState<Omit<DoctorData, "hasFeature">>({
     profile: null, services: [], packages: [], reviews: [], gallery: [],
     settings: {}, workingHours: [], isPremium: false, loading: true,
   });
+  const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});
+
+  const hasFeature = useCallback((key: string) => featureFlags[key] ?? false, [featureFlags]);
 
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
+    let featureChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    const loadFeatureFlags = async (doctorId: string) => {
+      const { data: flags } = await supabase.rpc("get_public_feature_flags", { _doctor_id: doctorId });
+      if (cancelled) return;
+      setFeatureFlags(Object.fromEntries((flags || []).map((f: any) => [f.feature_key, f.effective_enabled === true])));
+    };
 
     const load = async () => {
       const { data: profile } = await supabase
@@ -85,6 +99,16 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
         isPremium: premiumRes.data === true,
         loading: false,
       });
+
+      await loadFeatureFlags(id);
+      featureChannel = supabase
+        .channel(`doctor-feature-overrides-${id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "doctor_feature_overrides", filter: `doctor_id=eq.${id}` },
+          () => loadFeatureFlags(id)
+        )
+        .subscribe();
     };
 
     load();
@@ -115,9 +139,10 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
+      if (featureChannel) supabase.removeChannel(featureChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  return <DoctorContext.Provider value={data}>{children}</DoctorContext.Provider>;
+  return <DoctorContext.Provider value={{ ...data, hasFeature }}>{children}</DoctorContext.Provider>;
 };

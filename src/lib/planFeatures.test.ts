@@ -52,10 +52,11 @@ describe("planFeatures", () => {
     const premium = getTierFeatures("premium", 100);
     expect(premium).toContain("All features included in Pro plan");
     expect(premium).toContain("Online consultation");
-    expect(premium).toContain("Billing & invoices");
-    expect(premium).toContain("AI blog writer");
     expect(premium).toContain("Regular checkup alert");
     expect(premium).toContain("Staff roles & access");
+    // Already covered by "All features included in Pro plan" — not repeated
+    expect(premium).not.toContain("Billing & invoices");
+    expect(premium).not.toContain("AI blog writer");
   });
 
   it("trial: premium is current via trial, both show subscription CTAs", () => {

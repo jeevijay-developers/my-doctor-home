@@ -44,8 +44,6 @@ export function getTierFeatures(tier: "pro" | "premium", cap: number): string[] 
       `All features included in ${TIER_LABELS.pro} plan`,
       "Unlimited appointments",
       "Online consultation",
-      "AI blog writer",
-      "Billing & invoices",
       "Patient records",
       "Regular checkup alert",
       "Staff roles & access",

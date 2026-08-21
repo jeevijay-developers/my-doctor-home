@@ -11,6 +11,7 @@ import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
+import { FEATURE_KEYS } from "@/lib/features";
 import { usePaymentMode } from "@/hooks/usePaymentMode";
 import TestModeBadge from "@/components/shared/TestModeBadge";
 import { loadRazorpayCheckout } from "@/lib/razorpayCheckout";
@@ -74,7 +75,7 @@ type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string
 const STEP_LABELS = ["Consultation Type", "Select Service", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
 
 const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
-  const { profile, services, settings, workingHours, isPremium } = useDoctorData();
+  const { profile, services, settings, workingHours, isPremium, hasFeature } = useDoctorData();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [step, setStep] = useState(1);
   const [type, setType] = useState<"clinic" | "online">("clinic");
@@ -131,7 +132,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   const consultationTypes = [
     { k: "clinic" as const, label: "Clinic Visit", Icon: Building2 },
-    ...(isPremium ? [{ k: "online" as const, label: "Online", Icon: Video }] : []),
+    ...(hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION) ? [{ k: "online" as const, label: "Online", Icon: Video }] : []),
   ];
 
   const filteredServices = services.filter((s) =>

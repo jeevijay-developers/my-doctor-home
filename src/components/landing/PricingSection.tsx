@@ -29,10 +29,9 @@ const PricingSection = () => {
       period: "/month",
       desc: "For growing practices that need everything",
       features: [
+        "Everything in Pro, plus:",
         "Unlimited appointments",
         "Online consultation",
-        "AI blog writer",
-        "Billing & invoices",
         "Patient records",
         "Regular checkup alert",
         "Staff roles & access",

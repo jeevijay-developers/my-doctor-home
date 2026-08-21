@@ -61,7 +61,7 @@ Rules:
     const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
     // Active Gemini models for this API key
-    const modelCandidates = ["gemini-3.7-flash", "gemini-3.1-flash-tts-preview"];
+    const modelCandidates = ["gemini-2.5-flash", "gemini-2.0-flash"];
     const attempts: Array<{ model: string; status: number; text: string }> = [];
     let geminiData: any = null;
 

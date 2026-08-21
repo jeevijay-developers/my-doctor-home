@@ -48,6 +48,7 @@ const pageTitles: Record<string, string> = {
   "/admin/settings": "Settings",
   "/admin/staff": "Staff Management",
   "/admin/support": "Support",
+  "/admin/inquiries": "Inquiries",
 };
 
 const AdminLayout = ({ children }: { children: ReactNode }) => {
