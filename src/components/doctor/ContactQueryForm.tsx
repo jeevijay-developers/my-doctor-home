@@ -35,8 +35,8 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
     if (!profile?.id) return;
 
     if (!name.trim()) { toast.error("Please enter your name."); return; }
-    if (!phone.trim() && !email.trim()) { toast.error("Please provide a phone number or email so the doctor can reach you."); return; }
-    if (phone.trim() && !isValidIndianPhone(phone)) { toast.error(phoneErrorMessage); return; }
+    if (!phone.trim()) { toast.error("Please enter your phone number."); return; }
+    if (!isValidIndianPhone(phone)) { toast.error(phoneErrorMessage); return; }
     if (email.trim() && !isValidEmail(email)) { toast.error("Enter a valid email or leave it blank."); return; }
     if (!message.trim()) { toast.error("Please enter your message."); return; }
 
@@ -51,7 +51,7 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
     const { error } = await supabase.from("patient_queries").insert({
       doctor_id: profile.id,
       name: name.trim(),
-      phone: phone.trim() ? normalizeIndianPhone(phone) : null,
+      phone: normalizeIndianPhone(phone),
       email: email.trim() || null,
       message: message.trim(),
     });
@@ -97,15 +97,15 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="query-phone">Phone</Label>
-                  <DigitsInput id="query-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile number" maxLength={10} className="h-10" />
+                  <Label htmlFor="query-phone">Phone *</Label>
+                  <DigitsInput id="query-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile number" maxLength={10} required className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="query-email">Email</Label>
                   <Input id="query-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="h-10" />
                 </div>
               </div>
-              <p className="text-[11px] text-muted-foreground -mt-2">Provide at least one so the clinic can reach you.</p>
+              <p className="text-[11px] text-muted-foreground -mt-2">A phone number is required so the clinic can reach you.</p>
 
               <div className="space-y-1.5">
                 <Label htmlFor="query-message">Message *</Label>
