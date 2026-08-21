@@ -50,10 +50,17 @@ Deno.serve(async (req) => {
   const password = String(body?.password || "");
   if (!username || !password) return json(400, { error: INVALID });
 
-  const { data: staffRows } = await admin.from("staff_members").select("id, doctor_id, staff_name, username, status, permissions").order("created_at");
-  const staff = (staffRows || []).find((r) => r.username.toLowerCase() === username.toLowerCase());
-  if (!staff) {
-    console.error("staff-login: no staff_members row for username", { username });
+  // Query for the staff member by username case-insensitively. Previously
+  // we fetched all rows and searched client-side which can miss matches if
+  // the result set is paginated/limited. Use an indexed ilike lookup and
+  // maybeSingle() to resolve exactly one row efficiently.
+  const { data: staff, error: staffErr } = await admin
+    .from("staff_members")
+    .select("id, doctor_id, staff_name, username, status, permissions")
+    .ilike("username", username)
+    .maybeSingle();
+  if (staffErr || !staff) {
+    console.error("staff-login: no staff_members row for username", { username, error: staffErr?.message });
     return json(401, { error: INVALID });
   }
   if (staff.status !== "active") {
