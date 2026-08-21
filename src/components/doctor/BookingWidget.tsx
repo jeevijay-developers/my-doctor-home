@@ -417,7 +417,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
       name: profile?.clinic_name || (profile?.full_name ? `Dr. ${profile.full_name}` : "Doctylia"),
       description: selectedService?.name,
       prefill: { name, contact: normalizeIndianPhone(phone), email: email || undefined },
-      theme: { color: "#1e3a8a" },
+      theme: { color: "#3C83FC" },
       handler: (response: CheckoutResponse) => handleCheckoutResult(order, response),
       modal: { ondismiss: handleCheckoutDismiss },
     });
@@ -620,46 +620,53 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   const renderStepForm = () => (
     <>
-      <div className="mb-6 text-left">
-        <p className="text-[10px] font-semibold text-primary-600 dark:text-primary-400 mb-2">
-          Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
-        </p>
-        <div className="flex gap-1">
-          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
-            <div
-              key={s}
-              className={`h-1 rounded-full flex-1 transition-colors ${
-                s <= step ? "bg-primary-500" : "bg-gray-100 dark:bg-gray-700"
-              }`}
-            />
-          ))}
+      <div className="mb-8 text-left">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-primary-500">
+              Step {step} of {totalSteps}
+            </p>
+            <p className="mt-1 text-sm font-bold text-[#092b50] dark:text-white">
+              {STEP_LABELS[step - 1]}
+            </p>
+          </div>
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-primary-500 dark:bg-blue-950/40">
+            {Math.round((step / totalSteps) * 100)}%
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-gray-800">
+          <div
+            className="h-full rounded-full bg-primary-500 shadow-[0_0_12px_rgba(60,131,252,0.35)] transition-[width] duration-500 ease-out"
+            style={{ width: `${(step / totalSteps) * 100}%` }}
+          />
         </div>
       </div>
-
       {step > 1 && (
-        <button onClick={() => setStep(step - 1)} className="flex items-center gap-1 text-xs text-primary-600 mb-4 hover:underline">
+        <button onClick={() => setStep(step - 1)} className="mb-5 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-primary-500 transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/30">
           <ChevronLeft size={16} /> Back
         </button>
       )}
 
       {step === 1 && (
         <div className="text-left">
-          <h3 className="text-sm font-bold text-text-dark dark:text-foreground mb-4">Select Consultation Type</h3>
-          <div className={`grid gap-3 ${consultationTypes.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+          <h3 className="mb-4 font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Consultation Type</h3>
+          <div className={`grid gap-4 ${consultationTypes.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
             {consultationTypes.map((t) => {
               const isSelected = type === t.k;
               return (
                 <button
                   key={t.k}
                   onClick={() => { setType(t.k); setStep(2); }}
-                  className={`rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all ${
+                  className={`group relative min-h-[132px] rounded-2xl p-5 flex flex-col items-center justify-center gap-3 transition-all duration-300 ${
                     isSelected
-                      ? "border-2 border-primary-500 bg-primary-50/50 dark:bg-transparent dark:border-green-500"
-                      : "border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                      ? "border-2 border-primary-500 bg-blue-50/80 shadow-[0_12px_28px_rgba(60,131,252,0.14)] dark:bg-blue-950/25"
+                      : "border border-slate-200 bg-white hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-800"
                   }`}
                 >
-                  <t.Icon className={`text-xl ${isSelected ? "text-primary-500" : "text-text-muted dark:text-gray-400"}`} size={24} />
-                  <span className={`text-sm ${isSelected ? "font-semibold text-primary-600 dark:text-primary-400" : "font-medium text-text-dark dark:text-gray-200"}`}>
+                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-colors ${isSelected ? "bg-primary-500 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-primary-500 dark:bg-gray-800"}`}>
+                    <t.Icon size={24} />
+                  </span>
+                  <span className={`text-sm ${isSelected ? "font-extrabold text-primary-600 dark:text-primary-400" : "font-semibold text-text-dark dark:text-gray-200"}`}>
                     {t.label}
                   </span>
                 </button>
@@ -671,16 +678,16 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
       {step === 2 && (
         <div className="space-y-4 text-left">
-          <h3 className="font-heading font-semibold text-lg text-foreground">Select Service</h3>
+          <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Service</h3>
           <div className="space-y-2">
             {availableServices.map((s) => (
               <button key={s.id} onClick={() => { setSelectedService(s); setStep(3); }}
-                className={`w-full p-4 rounded-xl border-2 text-left flex justify-between items-center transition-all ${selectedService?.id === s.id ? "border-royal bg-royal/5" : "border-border hover:border-royal/50"}`}>
+                className={`w-full rounded-2xl border-2 p-4 text-left flex justify-between items-center gap-3 transition-all ${selectedService?.id === s.id ? "border-primary-500 bg-blue-50/70 shadow-sm dark:bg-blue-950/20" : "border-slate-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"}`}>
                 <div>
                   <span className="font-medium text-foreground">{s.name}</span>
                   {s.duration && <span className="text-xs text-text-gray ml-2">{s.duration} min</span>}
                 </div>
-                <span className="font-heading font-bold text-royal">₹{s.price}</span>
+                <span className="font-heading font-extrabold text-primary-500">₹{s.price}</span>
               </button>
             ))}
             {availableServices.length === 0 && <p className="text-muted-foreground text-sm">No services available for this type.</p>}
@@ -690,7 +697,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
       {step === 3 && (
         <div className="space-y-4 text-left">
-          <h3 className="font-heading font-semibold text-lg text-foreground">Select Date</h3>
+          <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Date</h3>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {days.map((d, i) => {
               const dow = d.getDay();
@@ -698,7 +705,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               const closed = !dwh?.is_open;
               return (
                 <button key={i} disabled={closed} onClick={() => { setSelectedDate(d); setStep(4); }}
-                  className={`flex-shrink-0 w-20 py-3 rounded-xl border-2 text-center transition-all ${closed ? "opacity-40 cursor-not-allowed border-border" : selectedDate?.getTime() === d.getTime() ? "border-royal bg-royal/5" : "border-border hover:border-royal/50"}`}>
+                  className={`flex-shrink-0 w-20 rounded-2xl border-2 py-3 text-center transition-all ${closed ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-45 dark:border-gray-800 dark:bg-gray-900" : selectedDate?.getTime() === d.getTime() ? "border-primary-500 bg-blue-50 shadow-sm dark:bg-blue-950/25" : "border-slate-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"}`}>
                   <p className="text-xs text-text-gray">{format(d, "EEE")}</p>
                   <p className="font-heading font-bold text-lg text-foreground">{d.getDate()}</p>
                   <p className="text-xs text-text-gray">{format(d, "MMM")}</p>
@@ -712,7 +719,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
       {step === 4 && (
         <div className="space-y-4 text-left">
-          <h3 className="font-heading font-semibold text-lg text-foreground">Select Time Slot</h3>
+          <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Time Slot</h3>
           <p className="text-xs text-muted-foreground">Live availability — full slots update automatically.</p>
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {timeSlots.map((t) => {
@@ -726,8 +733,8 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                     full
                       ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-60"
                       : selectedTime === t
-                      ? "border-royal bg-royal text-primary-foreground"
-                      : "border-border text-foreground hover:border-royal"
+                      ? "border-primary-500 bg-primary-500 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-foreground hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"
                   }`}
                 >
                   {t}
@@ -746,33 +753,33 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
       {step === 5 && (
         <div className="space-y-4 text-left">
-          <h3 className="font-heading font-semibold text-lg text-foreground">Patient Details</h3>
+          <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Patient Details</h3>
           <div className="space-y-3">
             <input type="text" placeholder="Full Name *" value={name} onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
             <div className="flex items-center gap-2">
               <span className="px-3 py-3 rounded-lg border border-border bg-secondary text-sm text-foreground">+91</span>
               <input type="tel" inputMode="numeric" maxLength={13} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
-                className="flex-1 px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
             </div>
             {phone && !isValidIndianPhone(phone) && (
               <p className="text-[11px] text-destructive -mt-1">{phoneErrorMessage}</p>
             )}
             <input type="email" placeholder="Email (optional — for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
             <div className="grid grid-cols-2 gap-3">
               <input type="number" min="0" max="120" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
-                className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal" />
+                className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
               <select value={gender} onChange={(e) => setGender(e.target.value)}
-                className="px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal">
+                className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950">
                 <option value="" disabled hidden>Gender *</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
               </select>
             </div>
             <textarea placeholder="Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-royal resize-none" />
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950 resize-none" />
           </div>
 
-          <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 space-y-2 text-sm">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 space-y-2 text-sm dark:border-blue-900 dark:bg-blue-950/20">
             <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="text-foreground font-medium">{selectedService?.name}</span></div>
             <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="text-foreground font-medium">{selectedDate && format(selectedDate, "d MMM")}</span></div>
             <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="text-foreground font-medium">{selectedTime}</span></div>
@@ -788,12 +795,12 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           </p>
 
           {wantsOnlinePayment ? (
-            <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
+            <Button variant="cta" className="w-full rounded-xl bg-primary-500 py-6 font-heading text-lg font-bold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] hover:bg-primary-600"
               disabled={!name || !phone || !age || !gender} onClick={proceedToReview}>
               Continue
             </Button>
           ) : (
-            <Button variant="cta" className="w-full font-heading font-semibold text-lg py-6"
+            <Button variant="cta" className="w-full rounded-xl bg-primary-500 py-6 font-heading text-lg font-bold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] hover:bg-primary-600"
               disabled={!name || !phone || !age || !gender || submitting} onClick={submitBooking}>
               {submitting ? "Booking..." : `Book Appointment — ₹${selectedService?.price}`}
             </Button>
@@ -808,7 +815,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           </h3>
           <p className="text-xs text-muted-foreground">Please review your details before payment.</p>
 
-          <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 space-y-4 text-sm">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 space-y-4 text-sm dark:border-blue-900 dark:bg-blue-950/20">
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Appointment Details</p>
               <div className="space-y-1.5">
@@ -862,53 +869,36 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   return (
     <>
-      {/* MOBILE VIEW (md:hidden) — Untouched */}
-      <div className="md:hidden">
-        <section id="booking" className="py-10 px-4 max-w-2xl mx-auto my-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-            <h2 className="text-xl md:text-2xl font-bold text-text-dark dark:text-foreground mb-1">Book an Appointment</h2>
-            <p className="text-xs text-text-muted dark:text-muted-foreground mb-4">Select your preference and book in under 2 minutes</p>
+      <section id="booking" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 " />
+        <div className="pointer-events-none absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/15" />
+
+        <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em] text-primary-500">
+              Easy Online Booking
+            </p>
+            <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
+              Book an <span className="text-primary-500">Appointment</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
+              Select your preference and reserve your consultation in under two minutes.
+            </p>
             {profile?.slug && (
               <a
                 href={`/dr/${profile.slug}/manage`}
-                className="text-xs text-primary-500 font-medium hover:underline inline-block mb-8"
+                className="mt-4 inline-flex rounded-full border border-blue-100 bg-white px-4 py-2 text-xs font-bold text-primary-500 shadow-sm transition-colors hover:bg-blue-50 dark:border-blue-900 dark:bg-gray-900 dark:hover:bg-blue-950/30"
               >
                 Already booked? Manage your appointment →
               </a>
             )}
+          </div>
+
+          <div className="mx-auto mt-8 max-w-2xl rounded-[1.75rem] border border-blue-100 bg-white p-5 shadow-[0_20px_50px_-22px_rgba(15,43,80,0.30)] dark:border-blue-900/60 dark:bg-gray-900 sm:mt-10 sm:p-8">
             {renderStepForm()}
           </div>
-        </section>
-      </div>
-
-      {/* DESKTOP VIEW (hidden md:block) — Matching Patient Reviews styling */}
-      <div className="hidden md:block">
-        <section id="booking-desktop" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-          <div className="container mx-auto px-[5px] md:px-4 text-center">
-            <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground mb-2">
-              Book an Appointment
-            </h2>
-            <p className="text-text-gray mb-2">
-              Select your preference and book in under 2 minutes
-            </p>
-            {profile?.slug && (
-              <div className="mb-10">
-                <a
-                  href={`/dr/${profile.slug}/manage`}
-                  className="text-sm font-medium text-royal hover:underline inline-block"
-                >
-                  Already booked? Manage your appointment →
-                </a>
-              </div>
-            )}
-
-            <div className="bg-card border border-border shadow-xl rounded-2xl p-6 md:p-8 max-w-2xl mx-auto text-left">
-              {renderStepForm()}
-            </div>
-          </div>
-        </section>
-      </div>
-
+        </div>
+      </section>
       {cachedOrder?.mode === "mock" && (
         <MockCheckoutModal
           open={mockCheckoutOpen}

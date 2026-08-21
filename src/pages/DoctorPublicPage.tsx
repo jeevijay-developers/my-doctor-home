@@ -12,15 +12,10 @@ import ClinicDetails from "@/components/doctor/ClinicDetails";
 import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 import SectionCard from "@/components/doctor/SectionCard";
-import { useMatchHeight } from "@/hooks/useMatchHeight";
 
 const DoctorPageContent = () => {
   const { profile, settings, loading, services, reviews, gallery } = useDoctorData();
 
-  // Hero and About cards naturally differ in height since their content
-  // (bio length, working-hours summary, bullet count, etc.) varies per
-  // doctor — this keeps them visually aligned regardless.
-  useMatchHeight("hero-card", "about");
 
   useEffect(() => {
     if (!profile?.display_name) return;
@@ -80,7 +75,7 @@ const DoctorPageContent = () => {
     );
   }
 
-  // Alternating card colors: Color A ("secondary") = About the Doctor card,
+  // Alternating card colors follow the visible section order below.
   // Color B ("card") = Patient Review testimonial card. The Stats card
   // (rendered inside HeroBanner) is always slot 1 (B) when shown, hardcoded
   // in HeroBanner.tsx itself since its position never varies. Everything
@@ -102,8 +97,8 @@ const DoctorPageContent = () => {
   const showBlog = Boolean(settings.show_blog);
   const showClinicDetails = settings.show_clinic_details !== false;
 
-  const aboutColor = showAbout ? nextCardColor() : undefined;
   const servicesColor = showServices ? nextCardColor() : undefined;
+  const aboutColor = showAbout ? nextCardColor() : undefined;
   const galleryColor = showGallery ? nextCardColor() : undefined;
   const bookingColor = nextCardColor(); // always rendered
   const reviewsColor = showReviews ? nextCardColor() : undefined;
@@ -113,12 +108,12 @@ const DoctorPageContent = () => {
   return (
     <div className="min-h-screen bg-secondary/30 dark:bg-black">
       <Navbar />
-      <HeroBanner cardColor={aboutColor ?? "secondary"} />
-      {showAbout && (
-        <AnimatedSection><SectionCard><AboutSection cardColor={aboutColor} /></SectionCard></AnimatedSection>
-      )}
+      <HeroBanner cardColor={servicesColor ?? aboutColor ?? "secondary"} />
       {showServices && (
         <AnimatedSection><SectionCard><ServicesSection cardColor={servicesColor} /></SectionCard></AnimatedSection>
+      )}
+      {showAbout && (
+        <AnimatedSection><SectionCard><AboutSection cardColor={aboutColor} /></SectionCard></AnimatedSection>
       )}
       {showGallery && (
         <AnimatedSection><SectionCard><GallerySection cardColor={galleryColor} /></SectionCard></AnimatedSection>

@@ -1,291 +1,224 @@
 import { useEffect, useState } from "react";
-import { Heart, Clock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowUpRight, Clock, HeartPulse, Laptop, MapPin, Stethoscope } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import AnimatedItem from "@/components/landing/AnimatedItem";
-import {
-  Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
-} from "@/components/ui/carousel";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { scrollToSection } from "@/lib/scrollToSection";
+import type { Tables } from "@/integrations/supabase/types";
+import {
+  Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi,
+} from "@/components/ui/carousel";
 
-const CAROUSEL_THRESHOLD = 3;
+const PRIMARY = "#3C83FC";
 const DESCRIPTION_TRUNCATE_LENGTH = 140;
+type Service = Tables<"services">;
 
-const typeColor: Record<string, string> = {
-  clinic: "bg-royal/10 text-royal",
-  online: "bg-teal/10 text-teal",
-  both: "bg-primary/10 text-primary",
+const formatPrice = (price: number) => new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+}).format(price);
+
+const getServiceType = (type: string) => {
+  if (type === "online") return { label: "Online", Icon: Laptop };
+  if (type === "both") return { label: "Clinic & Online", Icon: Stethoscope };
+  return { label: "At Clinic", Icon: MapPin };
 };
 
-const DEFAULT_SERVICES = [
-  {
-    id: "s1",
-    name: "abc",
-    description: "bca",
-    type: "clinic",
-    duration: 30,
-    price: 500,
-  },
-  {
-    id: "s2",
-    name: "xdv...",
-    description: "General Consultation and Checkup",
-    type: "clinic",
-    duration: 30,
-    price: 500,
-  },
-];
-
-const DesktopServiceCard = ({ s, onBook, onSeeMore }: { s: any; onBook: () => void; onSeeMore: () => void }) => {
-  const isLong = (s.description?.length || 0) > DESCRIPTION_TRUNCATE_LENGTH;
+const ServiceCard = ({ service, index, onBook, onSeeMore }: {
+  service: Service;
+  index: number;
+  onBook: () => void;
+  onSeeMore: () => void;
+}) => {
+  const type = getServiceType(service.type);
+  const isLongDescription = (service.description?.length || 0) > DESCRIPTION_TRUNCATE_LENGTH;
 
   return (
-    <div className="hover-lift w-full h-full bg-card border border-border shadow-sm rounded-2xl py-6 px-[5px] md:px-6 flex flex-col justify-between">
-      <div>
-        <div className="w-14 h-14 rounded-2xl bg-royal/10 flex items-center justify-center mb-4">
-          <Heart size={24} className="text-royal" />
-        </div>
-        <h3 className="font-heading font-semibold text-foreground text-lg break-words md:break-normal">{s.name?.trim() || "Consultation"}</h3>
-        {s.description && (
-          <div>
-            <p className="text-sm text-text-gray mt-1 line-clamp-3">{s.description}</p>
-            {isLong && (
-              <button
-                type="button"
-                onClick={onSeeMore}
-                className="text-xs font-medium text-royal hover:underline mt-1 inline-block"
-              >
-                See more
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+    <AnimatedItem index={index} className="h-full">
+      <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white p-5 shadow-[0_10px_30px_rgba(15,43,80,0.07)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_18px_38px_rgba(60,131,252,0.14)] dark:border-blue-900/60 dark:bg-gray-900 dark:hover:border-blue-700 sm:p-6">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-blue-50 transition-transform duration-500 group-hover:scale-125 dark:bg-blue-950/30" />
 
-      <div className="mt-4">
-        <div className="flex items-center flex-wrap md:flex-nowrap gap-2 mb-3">
-          <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${typeColor[s.type] || "bg-royal/10 text-royal"}`}>{s.type}</span>
-          <span className="text-xs text-text-gray">{s.duration} mins</span>
+        <div className="relative flex items-start justify-between gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-950/40" style={{ color: PRIMARY }}>
+            <HeartPulse className="h-6 w-6" strokeWidth={2} />
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/80 px-2.5 py-1 text-[11px] font-bold text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+            <type.Icon className="h-3 w-3" />
+            {type.label}
+          </span>
         </div>
-        <p className="font-heading font-extrabold text-2xl text-royal mb-4">₹{s.price?.toLocaleString()}</p>
-        <Button variant="cta" className="w-full font-heading font-semibold" onClick={onBook}>
-          Book Now
-        </Button>
-      </div>
-    </div>
+
+        <div className="relative mt-5 flex-1">
+          <h3 className="font-heading text-lg font-extrabold leading-snug text-[#092b50] dark:text-white sm:text-xl">
+            {service.name?.trim() || "Consultation"}
+          </h3>
+          {service.description && (
+            <>
+              <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                {service.description}
+              </p>
+              {isLongDescription && (
+                <button type="button" onClick={onSeeMore} className="mt-1.5 text-xs font-bold hover:underline" style={{ color: PRIMARY }}>
+                  View details
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="relative mt-6 border-t border-blue-50 pt-4 dark:border-blue-950">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Consultation fee</span>
+              <span className="mt-1 block font-heading text-2xl font-extrabold text-[#092b50] dark:text-white">
+                {formatPrice(service.price)}
+              </span>
+            </div>
+            <span className="mb-1 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <Clock className="h-4 w-4" style={{ color: PRIMARY }} />
+              {service.duration || 30} min
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onBook}
+            className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold text-white shadow-[0_8px_20px_rgba(60,131,252,0.22)] transition-all hover:brightness-95 active:scale-[0.98]"
+            style={{ backgroundColor: PRIMARY }}
+          >
+            Book This Service
+            <ArrowUpRight className="h-4 w-4" />
+          </button>
+        </div>
+      </article>
+    </AnimatedItem>
   );
 };
 
 const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { services } = useDoctorData();
-  const scrollTo = (id: string) => scrollToSection(id);
+  const [activeService, setActiveService] = useState<Service | null>(null);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [selectedService, setSelectedService] = useState(0);
 
-  const [api, setApi] = useState<CarouselApi>();
-  const [selected, setSelected] = useState(0);
-  const [activeService, setActiveService] = useState<any | null>(null);
-  const [activeMobileDot, setActiveMobileDot] = useState(0);
-
-  const displayServices = services && services.length > 0 ? services : DEFAULT_SERVICES;
-  const useCarouselLayout = services.length > CAROUSEL_THRESHOLD;
+  const bookService = () => scrollToSection("booking");
 
   useEffect(() => {
-    if (!api) return;
-    const onSelect = () => setSelected(api.selectedScrollSnap());
-    onSelect();
-    api.on("select", onSelect);
-    api.on("reInit", onSelect);
-    return () => { api.off("select", onSelect); };
-  }, [api]);
+    if (!carouselApi) return;
+    const updateSelected = () => setSelectedService(carouselApi.selectedScrollSnap());
+    updateSelected();
+    carouselApi.on("select", updateSelected);
+    carouselApi.on("reInit", updateSelected);
+    return () => {
+      carouselApi.off("select", updateSelected);
+      carouselApi.off("reInit", updateSelected);
+    };
+  }, [carouselApi]);
 
   return (
     <>
-      {/* MOBILE VIEW (md:hidden) */}
-      <div className="md:hidden">
-        <section id="services" className="py-10 bg-pattern rounded-3xl my-4">
-          <div className="text-center px-4 mb-6">
-            <h2 className="text-2xl font-bold text-text-dark dark:text-foreground mb-2">Medical Services</h2>
-            <p className="text-xs text-text-muted dark:text-muted-foreground">
-              Transparent pricing. Book instantly. No hidden charges.
+      <section id="services" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(60,131,252,0.12),transparent_70%)]" />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.08] dark:opacity-[0.06]"
+          style={{
+            backgroundImage: "radial-gradient(#3C83FC 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+            maskImage: "linear-gradient(to bottom, black, transparent 70%)",
+            WebkitMaskImage: "linear-gradient(to bottom, black, transparent 70%)",
+          }}
+        />
+
+        <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em]" style={{ color: PRIMARY }}>
+              Our Expertise
+            </p>
+            <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
+              Medical <span style={{ color: PRIMARY }}>Services</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
+              Professional care with transparent pricing, clear consultation times, and instant appointment booking.
             </p>
           </div>
 
-          <div
-            className="flex overflow-x-auto hide-scrollbar px-4 gap-4 pb-6 snap-x justify-start"
-            onScroll={(e) => {
-              const target = e.currentTarget;
-              const scrollPos = target.scrollLeft;
-              const cardWidth = 280;
-              const index = Math.round(scrollPos / cardWidth);
-              setActiveMobileDot(Math.min(index, displayServices.length - 1));
-            }}
+          <Carousel
+            setApi={setCarouselApi}
+            opts={{ align: "start", loop: services.length > 3 }}
+            className="mx-auto mt-9 max-w-6xl sm:mt-12"
           >
-            {displayServices.map((s: any, idx: number) => {
-              const serviceName = s.name?.trim() || "Consultation";
-              const serviceDesc = s.description || "";
-              const serviceType = s.type ? String(s.type).charAt(0).toUpperCase() + String(s.type).slice(1) : "Clinic";
-              const serviceDuration = s.duration || 30;
-              const servicePrice = s.price ?? 500;
+            <CarouselContent className="-ml-4 pb-2">
+              {(services as Service[]).map((service, index) => (
+                <CarouselItem key={service.id} className="basis-[88%] pl-4 sm:basis-1/2 lg:basis-1/3">
+                  <ServiceCard
+                    service={service}
+                    index={index}
+                    onBook={bookService}
+                    onSeeMore={() => setActiveService(service)}
+                  />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
 
-              return (
-                <div
-                  key={s.id || idx}
-                  className="min-w-[260px] max-w-[280px] bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 snap-center shrink-0 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="w-10 h-10 rounded-full bg-primary-50 dark:bg-primary-900/40 flex items-center justify-center text-primary-500 mb-4">
-                      <Heart size={20} />
-                    </div>
-                    <h3 className="text-lg font-bold text-text-dark dark:text-foreground mb-1 truncate">
-                      {serviceName}
-                    </h3>
-                    <p className="text-xs text-text-muted dark:text-muted-foreground mb-4 line-clamp-2 min-h-[32px]">
-                      {serviceDesc}
-                    </p>
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="bg-primary-50 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 text-[10px] font-medium px-2 py-0.5 rounded border border-primary-100 dark:border-primary-800">
-                        {serviceType}
-                      </span>
-                      <span className="text-xs text-text-muted dark:text-muted-foreground flex items-center gap-1">
-                        <Clock size={12} /> {serviceDuration} mins
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-4">
-                      <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                        ₹{servicePrice.toLocaleString()}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => scrollTo("booking")}
-                      className="w-full bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold py-2.5 rounded-lg shadow-sm transition-colors"
-                    >
-                      Book Now
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex justify-center gap-1.5 mt-2">
-            {displayServices.map((_, i) => (
-              <div
-                key={i}
-                className={`transition-all duration-300 ${
-                  i === activeMobileDot ? "w-4 h-1.5 rounded-full bg-primary-500" : "w-1.5 h-1.5 rounded-full bg-primary-200 dark:bg-gray-700"
-                }`}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
-
-      {/* DESKTOP VIEW (hidden md:block) */}
-      <div className="hidden md:block">
-        <section id="services-desktop" className={`relative py-16 md:py-24 overflow-hidden ${cardColorClass(cardColor)}`}>
-          <div
-            className="absolute inset-0 opacity-[0.16] dark:opacity-[0.12] pointer-events-none"
-            style={{
-              backgroundImage: `radial-gradient(hsl(var(--pattern-line)) 1px, transparent 1px)`,
-              backgroundSize: "20px 20px",
-              maskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
-              WebkitMaskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
-            }}
-          />
-          <div className="container mx-auto px-[5px] md:px-4 relative z-10">
-            <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground text-center mb-4">Medical Services</h2>
-            <p className="text-text-gray text-center mb-12 max-w-lg mx-auto">Transparent pricing. Book instantly. No hidden charges.</p>
-
-            {services.length === 0 ? null : !useCarouselLayout ? (
-              <div
-                className={
-                  services.length === 1
-                    ? "flex justify-center"
-                    : "grid grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto"
-                }
-              >
-                {services.map((s, i) => (
-                  <AnimatedItem key={s.id} index={i} className={`h-full ${services.length === 1 ? "w-full max-w-[340px]" : ""}`}>
-                    <DesktopServiceCard s={s} onBook={() => scrollTo("booking")} onSeeMore={() => setActiveService(s)} />
-                  </AnimatedItem>
+            <div className="mt-7 flex items-center justify-center gap-4">
+              <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+              <div className="flex items-center gap-1.5">
+                {(services as Service[]).map((service, index) => (
+                  <button
+                    key={service.id}
+                    type="button"
+                    aria-label={`Go to service ${index + 1}`}
+                    onClick={() => carouselApi?.scrollTo(index)}
+                    className={`h-2 rounded-full transition-all duration-300 ${selectedService === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
+                    style={selectedService === index ? { backgroundColor: PRIMARY } : undefined}
+                  />
                 ))}
               </div>
-            ) : (
-              <div className="max-w-5xl mx-auto">
-                <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="px-2">
-                  <CarouselContent className="-ml-4 sm:-ml-6">
-                    {services.map((s) => (
-                      <CarouselItem key={s.id} className="pl-4 sm:pl-6 basis-1/2 lg:basis-1/3">
-                        <DesktopServiceCard s={s} onBook={() => scrollTo("booking")} onSeeMore={() => setActiveService(s)} />
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious className="inline-flex left-1 md:left-2 lg:-left-12 border-border bg-card" />
-                  <CarouselNext className="inline-flex right-1 md:right-2 lg:-right-12 border-border bg-card" />
-                </Carousel>
-                <div className="flex justify-center gap-2 mt-6">
-                  {services.map((s, i) => (
-                    <button
-                      key={s.id}
-                      aria-label={`Go to service ${i + 1}`}
-                      onClick={() => api?.scrollTo(i)}
-                      className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
+              <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+            </div>
+          </Carousel>
+        </div>
+      </section>
 
-      {/* Service Details Modal */}
-      <Dialog open={!!activeService} onOpenChange={(open) => !open && setActiveService(null)}>
-        <DialogContent className="max-w-lg p-6 bg-card border border-border rounded-2xl shadow-xl">
+      <Dialog open={Boolean(activeService)} onOpenChange={(open) => !open && setActiveService(null)}>
+        <DialogContent className="max-w-lg rounded-2xl border border-blue-100 bg-card p-6 shadow-xl dark:border-blue-900">
           {activeService && (
-            <div className="space-y-4">
-              <DialogHeader className="space-y-1">
-                <div className="w-12 h-12 rounded-xl bg-royal/10 flex items-center justify-center mb-2">
-                  <Heart size={22} className="text-royal" />
-                </div>
-                <DialogTitle className="font-heading font-bold text-xl text-foreground">
+            <div className="space-y-5">
+              <DialogHeader className="space-y-3 text-left">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-950/40" style={{ color: PRIMARY }}>
+                  <HeartPulse className="h-6 w-6" />
+                </span>
+                <DialogTitle className="font-heading text-xl font-extrabold text-[#092b50] dark:text-white">
                   {activeService.name?.trim() || "Consultation"}
                 </DialogTitle>
-                <div className="flex items-center gap-2 pt-1">
-                  <span className={`text-xs px-2 py-0.5 rounded-pill font-medium ${typeColor[activeService.type] || "bg-royal/10 text-royal"}`}>
-                    {activeService.type}
-                  </span>
-                  <span className="text-xs text-text-gray">{activeService.duration} mins</span>
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{getServiceType(activeService.type).label}</span>
+                  <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{activeService.duration || 30} min</span>
                 </div>
               </DialogHeader>
 
-              <div className="max-h-[50vh] overflow-y-auto pr-1">
-                <p className="text-sm text-text-gray whitespace-pre-line leading-relaxed">
-                  {activeService.description}
-                </p>
-              </div>
+              <p className="max-h-[45vh] overflow-y-auto whitespace-pre-line text-sm leading-7 text-slate-600 dark:text-slate-300">
+                {activeService.description}
+              </p>
 
-              <div className="pt-2 border-t border-border flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4 border-t border-blue-100 pt-4 dark:border-blue-900">
                 <div>
-                  <span className="text-xs text-text-gray block">Fee</span>
-                  <span className="font-heading font-extrabold text-2xl text-royal">
-                    ₹{activeService.price?.toLocaleString()}
-                  </span>
+                  <span className="block text-xs font-semibold text-slate-400">Consultation fee</span>
+                  <span className="font-heading text-2xl font-extrabold text-[#092b50] dark:text-white">{formatPrice(activeService.price)}</span>
                 </div>
-                <Button
-                  variant="cta"
-                  className="font-heading font-semibold px-6"
+                <button
+                  type="button"
+                  className="h-11 rounded-xl px-6 text-sm font-bold text-white"
+                  style={{ backgroundColor: PRIMARY }}
                   onClick={() => {
                     setActiveService(null);
-                    scrollTo("booking");
+                    requestAnimationFrame(bookService);
                   }}
                 >
                   Book Now
-                </Button>
+                </button>
               </div>
             </div>
           )}

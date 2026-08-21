@@ -12,5 +12,9 @@ export const scrollToSection = (id: string) => {
   const primary = document.getElementById(id);
   const desktop = document.getElementById(`${id}-desktop`);
   const target = isVisible(primary) ? primary : isVisible(desktop) ? desktop : primary || desktop;
-  target?.scrollIntoView({ behavior: "smooth" });
+  if (!target) return;
+
+  const navbarOffset = 80;
+  const top = target.getBoundingClientRect().top + window.scrollY - navbarOffset;
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
 };

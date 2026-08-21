@@ -398,7 +398,7 @@ const MyWebsite = () => {
 
                 <div className="p-3 rounded-lg bg-secondary space-y-2 border border-border/50">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs">Rating Badge (overlaps bottom of photo)</Label>
+                    <Label className="text-xs">Experience Badge (overlaps bottom of photo)</Label>
                     <Switch
                       checked={settings.show_hero_stat_badge ?? true}
                       onCheckedChange={(v) => updateSetting("show_hero_stat_badge", v)}
@@ -408,7 +408,7 @@ const MyWebsite = () => {
                   {(settings.show_hero_stat_badge ?? true) && (
                     <>
                       <Input
-                        placeholder="Leave blank to auto-show average rating (e.g. 5.0 Rating)"
+                        placeholder="Leave blank to use experience (e.g. 15+ Years)"
                         value={settings.hero_stat_text ?? ""}
                         onChange={(e) => updateSetting("hero_stat_text", e.target.value)}
                         disabled={!canEditWebsite}

@@ -1,62 +1,55 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ArrowRight, Calendar, Clock3, Tag } from "lucide-react";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import { Calendar, ArrowRight, Tag } from "lucide-react";
-import { format } from "date-fns";
-import AnimatedItem from "@/components/landing/AnimatedItem";
 import BlogImagePlaceholder from "./BlogImagePlaceholder";
 import {
-  Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi,
+  Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi,
 } from "@/components/ui/carousel";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
+import type { Tables } from "@/integrations/supabase/types";
 
-const CAROUSEL_THRESHOLD = 3;
+const PRIMARY = "#3C83FC";
 const PREVIEW_LIMIT = 12;
+type BlogPost = Tables<"blog_posts">;
 
-const DEFAULT_ARTICLES = [
-  {
-    id: "a1",
-    title: "rrrr",
-    published_at: "2026-08-06T00:00:00.000Z",
-    featured_image_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuCjMRZcQpuNZ8w9n1YPe7xXevqC-cA1-WmeEcw7iKf-IV17P1jv7DBtLv62EdhqrEb2THd0xjMOmyjJ_kcXkcncDTYb3v3cpzR3WYE1BmBl8JL3oIEz-b6yX3bPE0mUOOW3fdshJL6-YPn8Oo7TT93BOwkFCyWQ640xDlcZ7UbwaDqnNBx7ZEybrvzVlMf7xGx48_dVAtc1xCok0zGyOhU6LSBgk1XYI3Jg5smuY_Kk9IiJmeDSpFvC",
-  },
-  {
-    id: "a2",
-    title: "eee",
-    published_at: "2026-08-06T00:00:00.000Z",
-    featured_image_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuB-rFVm38AEyN421lOnRAmYEwjX1I0Qqa53LIT9mnOj9tnXDjkLXayS89ueGVX6NN6_mng0jPdwWcxz4fEjjZEl6dExKpa0JbCPCBbJbuseBU5iGqCiJBOyT0m9D1Cwr_1eqW2cNQKKSVQJP3oihZOrAoR20qwLKP21vK8WIZuyqcHAQK1QBv5s-39qk_o8ltDvbsdKHKwcDqHavFWbc02i6nQ4MnqUliMP7XzIjmZwaZ9MMBFRE6z2",
-  },
-];
+const readingTime = (content: string | null) => Math.max(1, Math.ceil((content || "").replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length / 200));
 
-const DesktopBlogCard = ({ post, slug }: { post: any; slug?: string }) => {
-  const dateVal = post.published_at || post.created_at;
+const ArticleCard = ({ post, slug }: { post: BlogPost; slug: string }) => {
+  const date = post.published_at || post.created_at;
+
   return (
-    <Link to={`/dr/${slug}/blog/${post.id}`}
-      className="hover-lift group bg-card rounded-2xl border border-border shadow-sm overflow-hidden w-full h-full flex flex-col">
-      <div className="relative">
+    <Link
+      to={`/dr/${slug}/blog/${post.id}`}
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-[0_10px_30px_rgba(15,43,80,0.07)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_18px_38px_rgba(60,131,252,0.15)] dark:border-blue-900/60 dark:bg-gray-900 dark:hover:border-blue-700"
+    >
+      <div className="relative aspect-[16/10] overflow-hidden bg-blue-50 dark:bg-gray-800">
         {post.featured_image_url ? (
-          <img src={post.featured_image_url} alt={post.title} className="w-full h-44 object-cover" decoding="async" />
+          <img src={post.featured_image_url} alt={post.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
         ) : (
-          <BlogImagePlaceholder className="h-44" />
+          <BlogImagePlaceholder className="h-full w-full" />
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#092b50]/35 via-transparent to-transparent" />
         {post.category && (
-          <span className="absolute top-3 left-3 inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-pill bg-card/90 backdrop-blur-sm text-royal font-semibold shadow-sm">
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/90 px-2.5 py-1 text-[11px] font-bold text-blue-700 shadow-sm backdrop-blur dark:border-white/10 dark:bg-gray-900/90 dark:text-blue-300">
             <Tag className="h-3 w-3" /> {post.category}
           </span>
         )}
       </div>
-      <div className="py-5 px-[5px] md:px-5 space-y-3 flex flex-col flex-1">
-        <h3 className="font-heading font-semibold text-foreground group-hover:text-royal transition-colors line-clamp-2">{post.title}</h3>
-        {post.excerpt && <p className="text-sm text-muted-foreground line-clamp-2">{post.excerpt}</p>}
-        {dateVal && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Calendar className="h-3 w-3" />
-            {format(new Date(dateVal), "MMM d, yyyy")}
-          </div>
-        )}
-        <span className="inline-flex items-center gap-1 text-sm text-royal font-semibold mt-auto pt-1 group-hover:underline">
-          Read More <ArrowRight className="h-3.5 w-3.5" />
+
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-400">
+          <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{format(new Date(date), "MMM d, yyyy")}</span>
+          <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{readingTime(post.content)} min read</span>
+        </div>
+        <h3 className="mt-3 line-clamp-2 font-heading text-lg font-extrabold leading-snug text-[#092b50] transition-colors group-hover:text-primary-500 dark:text-white sm:text-xl">
+          {post.title}
+        </h3>
+        {post.excerpt && <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{post.excerpt}</p>}
+        <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-primary-500">
+          Read Article <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
         </span>
       </div>
     </Link>
@@ -66,157 +59,84 @@ const DesktopBlogCard = ({ post, slug }: { post: any; slug?: string }) => {
 const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
   const { profile, settings } = useDoctorData();
   const { slug } = useParams<{ slug: string }>();
-  const [posts, setPosts] = useState<any[]>([]);
-  const [api, setApi] = useState<CarouselApi>();
-  const [selected, setSelected] = useState(0);
-  const [activeMobileDot, setActiveMobileDot] = useState(0);
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [selectedArticle, setSelectedArticle] = useState(0);
+  const [snapCount, setSnapCount] = useState(0);
 
   useEffect(() => {
     if (!profile) return;
+    setLoading(true);
     supabase.from("blog_posts").select("*").eq("doctor_id", profile.id).eq("is_published", true)
       .order("published_at", { ascending: false }).limit(PREVIEW_LIMIT)
-      .then(({ data }) => setPosts(data || []));
+      .then(({ data }) => {
+        setPosts((data || []) as BlogPost[]);
+        setLoading(false);
+      });
   }, [profile]);
 
-  const displayPosts = posts.length > 0 ? posts : DEFAULT_ARTICLES;
-  const useCarouselLayout = posts.length > CAROUSEL_THRESHOLD;
-
   useEffect(() => {
-    if (!api) return;
-    const onSelect = () => setSelected(api.selectedScrollSnap());
-    onSelect();
-    api.on("select", onSelect);
-    api.on("reInit", onSelect);
-    return () => { api.off("select", onSelect); };
-  }, [api]);
+    if (!carouselApi) return;
+    const updateCarousel = () => {
+      setSelectedArticle(carouselApi.selectedScrollSnap());
+      setSnapCount(carouselApi.scrollSnapList().length);
+    };
+    updateCarousel();
+    carouselApi.on("select", updateCarousel);
+    carouselApi.on("reInit", updateCarousel);
+    return () => {
+      carouselApi.off("select", updateCarousel);
+      carouselApi.off("reInit", updateCarousel);
+    };
+  }, [carouselApi]);
+
+  if (settings?.show_blog === false || loading || posts.length === 0 || !slug) return null;
 
   return (
-    <>
-      {/* MOBILE VIEW (md:hidden) */}
-      <div className="md:hidden">
-        <section id="blog" className="py-10 px-4 max-w-5xl mx-auto my-4">
-          <div className="flex justify-between items-end mb-6">
-            <h2 className="text-2xl font-bold text-text-dark dark:text-foreground">Health Articles</h2>
-            <Link
-              to={slug ? `/dr/${slug}/blog` : "#"}
-              className="text-xs text-primary-500 font-medium hover:underline flex items-center gap-1"
-            >
-              View All <ArrowRight size={12} />
-            </Link>
-          </div>
-
-          <div
-            className="flex overflow-x-auto hide-scrollbar gap-4 pb-6 snap-x justify-start"
-            onScroll={(e) => {
-              const target = e.currentTarget;
-              const scrollPos = target.scrollLeft;
-              const cardWidth = 280;
-              const index = Math.round(scrollPos / cardWidth);
-              setActiveMobileDot(Math.min(index, displayPosts.length - 1));
-            }}
-          >
-            {displayPosts.map((post: any, idx: number) => {
-              const dateVal = post.published_at || post.created_at;
-              const formattedDate = dateVal ? format(new Date(dateVal), "MMM d, yyyy") : "Aug 6, 2026";
-              const linkTarget = slug && post.id ? `/dr/${slug}/blog/${post.id}` : "#";
-
-              return (
-                <div
-                  key={post.id || idx}
-                  className="min-w-[260px] max-w-[280px] bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 snap-center shrink-0 flex flex-col justify-between"
-                >
-                  <div>
-                    <img
-                      alt={post.title}
-                      className="w-full h-32 object-cover bg-gray-200 dark:bg-gray-700"
-                      src={post.featured_image_url || DEFAULT_ARTICLES[0].featured_image_url}
-                      decoding="async"
-                    />
-                    <div className="p-4">
-                      <h3 className="font-bold text-text-dark dark:text-foreground text-sm mb-2 line-clamp-2">
-                        {post.title}
-                      </h3>
-                      <p className="text-[10px] text-text-muted dark:text-muted-foreground mb-3 flex items-center gap-1">
-                        <Calendar size={12} /> {formattedDate}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="px-4 pb-4">
-                    <Link
-                      to={linkTarget}
-                      className="text-xs text-primary-500 font-medium inline-flex items-center gap-1 hover:underline"
-                    >
-                      Read More <ArrowRight size={12} />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex justify-center gap-1.5 mt-2">
-            {displayPosts.map((_, i) => (
-              <div
-                key={i}
-                className={`transition-all duration-300 ${
-                  i === activeMobileDot ? "w-4 h-1.5 rounded-full bg-primary-500" : "w-1.5 h-1.5 rounded-full bg-primary-200 dark:bg-gray-700"
-                }`}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
-
-      {/* DESKTOP VIEW (hidden md:block) */}
-      {settings?.show_blog !== false && (
-        <div className="hidden md:block">
-          <section id="blog-desktop" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-            <div className="container mx-auto px-[5px] md:px-4">
-              <div className="flex items-center justify-center gap-6 mb-10">
-                <h2 className="font-heading font-bold text-3xl md:text-4xl text-foreground">Health Articles</h2>
-                <Link to={`/dr/${slug}/blog`} className="text-sm text-royal font-semibold flex items-center gap-1 hover:underline">
-                  View All <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-
-              {posts.length === 0 ? null : !useCarouselLayout ? (
-                <div className="flex flex-wrap justify-center gap-6">
-                  {posts.map((post, i) => (
-                    <AnimatedItem key={post.id} index={i} className="w-full sm:w-[340px]">
-                      <DesktopBlogCard post={post} slug={slug} />
-                    </AnimatedItem>
-                  ))}
-                </div>
-              ) : (
-                <div className="max-w-5xl mx-auto">
-                  <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="px-2">
-                    <CarouselContent className="-ml-4 sm:-ml-6">
-                      {posts.map((post) => (
-                        <CarouselItem key={post.id} className="pl-4 sm:pl-6 basis-1/2 lg:basis-1/3">
-                          <DesktopBlogCard post={post} slug={slug} />
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
-                    <CarouselPrevious className="inline-flex left-1 md:left-2 lg:-left-12 border-border bg-card" />
-                    <CarouselNext className="inline-flex right-1 md:right-2 lg:-right-12 border-border bg-card" />
-                  </Carousel>
-                  <div className="flex justify-center gap-2 mt-6">
-                    {posts.map((post, i) => (
-                      <button
-                        key={post.id}
-                        aria-label={`Go to article ${i + 1}`}
-                        onClick={() => api?.scrollTo(i)}
-                        className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
+    <section id="blog" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(60,131,252,0.12),transparent_72%)]" />
+      <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em]" style={{ color: PRIMARY }}>Doctor-Written Insights</p>
+          <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
+            Health <span style={{ color: PRIMARY }}>Articles</span>
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
+            Practical, trusted guidance to help you understand your health and make informed decisions.
+          </p>
         </div>
-      )}
-    </>
+
+        <Carousel setApi={setCarouselApi} opts={{ align: "start", loop: posts.length > 3 }} className="mx-auto mt-9 max-w-6xl sm:mt-12">
+          <CarouselContent className="-ml-4 pb-2">
+            {posts.map((post) => (
+              <CarouselItem key={post.id} className="basis-[90%] pl-4 sm:basis-1/2 lg:basis-1/3">
+                <ArticleCard post={post} slug={slug} />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+
+          <div className="mt-7 flex items-center justify-center gap-4">
+            <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: snapCount }, (_, index) => (
+                <button key={index} type="button" aria-label={`Go to article ${index + 1}`} onClick={() => carouselApi?.scrollTo(index)}
+                  className={`h-2 rounded-full transition-all duration-300 ${selectedArticle === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
+                  style={selectedArticle === index ? { backgroundColor: PRIMARY } : undefined}
+                />
+              ))}
+            </div>
+            <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+          </div>
+        </Carousel>
+
+        <div className="mt-8 text-center">
+          <Link to={`/dr/${slug}/blog`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-primary-500 bg-white px-6 text-sm font-bold text-primary-500 transition-all hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md dark:bg-gray-900 dark:hover:bg-blue-950/30">
+            View All Articles <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 };
 

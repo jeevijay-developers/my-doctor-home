@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 217 91% 60%;
+    --primary: 217.81 97.26% 61.18%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 214 45% 94%;
@@ -33,7 +33,7 @@
 
     --border: 214 28% 82%;
     --input: 214 28% 80%;
-    --ring: 217 91% 60%;
+    --ring: 217.81 97.26% 61.18%;
 
     --radius: 1rem;
 
@@ -42,7 +42,7 @@
 
     /* Doctylia Brand Colors (unchanged for status pills & badges) */
     --navy: 234 82% 24%;
-    --royal: 217 91% 60%;
+    --royal: 217.81 97.26% 61.18%;
     --teal: 187 85% 45%;
     --spark: 72 73% 55%;
     --success: 160 84% 39%;
@@ -86,7 +86,7 @@
     --popover: 222 28% 12%;
     --popover-foreground: 210 20% 96%;
 
-    --primary: 217 91% 62%;
+    --primary: 217.81 97.26% 61.18%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 222 24% 14%;
@@ -103,7 +103,7 @@
 
     --border: 222 20% 22%;
     --input: 222 20% 22%;
-    --ring: 217 91% 62%;
+    --ring: 217.81 97.26% 61.18%;
 
     --cloud-blue: 222 24% 16%;
     --text-gray: 220 12% 72%;

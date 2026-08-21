@@ -19,7 +19,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import FontFamily from "@tiptap/extension-font-family";
 import Youtube from "@tiptap/extension-youtube";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code, Superscript as SupIcon,
@@ -95,6 +95,13 @@ const RichTextEditor = ({ value, onChange, placeholder }: Props) => {
     },
   });
 
+  useEffect(() => {
+    if (!editor) return;
+    const nextContent = value || "";
+    if (editor.getHTML() !== nextContent) {
+      editor.commands.setContent(nextContent, { emitUpdate: false });
+    }
+  }, [editor, value]);
   const setLink = useCallback(() => {
     if (!editor) return;
     const previous = editor.getAttributes("link").href;
@@ -156,7 +163,7 @@ const RichTextEditor = ({ value, onChange, placeholder }: Props) => {
           </SelectContent>
         </Select>
 
-        <Select onValueChange={(v) => editor.chain().focus().setMark("textStyle", { fontSize: v } as any).run()}>
+        <Select onValueChange={(v) => editor.chain().focus().setMark("textStyle", { fontSize: v }).run()}>
           <SelectTrigger className="h-8 w-[80px] text-xs"><SelectValue placeholder="Size" /></SelectTrigger>
           <SelectContent>
             {SIZES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
