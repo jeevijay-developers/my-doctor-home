@@ -1,146 +1,106 @@
-import { User, CheckCircle2 } from "lucide-react";
+import { Check, User } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import { Button } from "@/components/ui/button";
 import AnimatedItem from "@/components/landing/AnimatedItem";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { scrollToSection } from "@/lib/scrollToSection";
 
-const DEFAULT_ABOUT_PHOTO = "https://lh3.googleusercontent.com/aida-public/AB6AXuA-b7rGJhpL90sVuTofZP2204Pf-uKvpds6_Qsr5bgoGyLgeU3Y9Q0Z6iXz_wgoaLbang5HXII_X0d8ZmmB0NDrOJD5R3YsosCbHdn1RYbyIbDXmR3hdzuTbqmCGmYmfjvrMlzhmToDKKa-JoUytz5CLGb9g6afrEdzliot52hZEfE6jht0NcSCwp_eUVrqYK_l5AZWirOYLvZKaQ_XwWt_QWEHukPRVdENr85rOY-VaJXV0XdnF4zu";
+const PRIMARY = "#3C83FC";
 
 const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
   const { profile } = useDoctorData();
-  const scrollTo = (id: string) => scrollToSection(id);
 
-  const qualLine = [profile?.qualifications, profile?.specialization].filter(Boolean).join(" - ") || "MBBS MD - General Physician";
-  const expText = profile?.experience_years ? `${profile.experience_years}+ Years of Clinical Experience` : "20+ Years of Clinical Experience";
-  const regText = profile?.registration_number ? `Reg. No.: ${profile.registration_number}` : "Reg. No.: MCI_3333";
+  const doctorName = profile?.full_name || "Doctor";
+  const specialization = profile?.specialization || "General Physician";
+  const qualifications = profile?.qualifications || "MBBS, MD";
+  const experience = profile?.experience_years
+    ? `${profile.experience_years}+ Years of Clinical Experience`
+    : "Experienced Medical Professional";
 
-  const bullets = [
-    qualLine,
-    expText,
-    "Expert in Preventive & General Healthcare",
-    "Chronic Disease Management",
+  const highlights = [
+    [qualifications, specialization].filter(Boolean).join(" - "),
+    experience,
+    `Expert care in ${specialization}`,
+    "Evidence-Based Treatment",
     "Patient-Centered Approach",
-    regText,
-  ];
+    profile?.registration_number ? `Reg. No.: ${profile.registration_number}` : null,
+  ].filter((item): item is string => Boolean(item));
 
-  const docName = profile?.full_name || "Rajkumar Prajapati";
-  const photoSrc = profile?.profile_photo_url || DEFAULT_ABOUT_PHOTO;
+  const photoSrc = profile?.profile_photo_url || null;
 
   return (
-    <>
-      {/* MOBILE VIEW (md:hidden) */}
-      <div className="md:hidden">
-        <section id="about" className="bg-primary-50 dark:bg-gray-900/80 py-8 px-4 relative overflow-hidden my-4 rounded-3xl">
-          <div className="absolute -right-10 top-0 w-32 h-32 bg-primary-100 dark:bg-primary-900/30 rounded-full opacity-50 blur-2xl pointer-events-none" />
-          <div className="absolute -left-10 bottom-0 w-32 h-32 bg-primary-100 dark:bg-primary-900/30 rounded-full opacity-50 blur-2xl pointer-events-none" />
-          
-          <div className="relative z-10 flex flex-col gap-6 items-start">
-            <div className="w-32 shrink-0 mx-auto">
-              <div className="bg-white dark:bg-gray-800 p-1 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <img
-                  alt="Doctor Profile"
-                  className="w-full h-auto rounded-xl object-cover bg-gray-100 dark:bg-gray-700"
-                  src={photoSrc}
-                />
-                <div className="text-center mt-2 pb-1">
-                  <p className="text-[10px] font-semibold text-text-dark dark:text-foreground">
-                    {profile?.specialization || "General Physician"}
+    <section id="about" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
+      <div className="pointer-events-none absolute -left-24 top-12 h-64 w-64 rounded-full bg-blue-100/50 blur-3xl dark:bg-blue-900/15" />
+      <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/15" />
+
+      <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
+        <div className="grid items-center gap-10 md:grid-cols-[minmax(280px,0.88fr)_minmax(0,1.12fr)] md:gap-14 lg:gap-20">
+          <AnimatedItem className="mx-auto w-full max-w-[430px]">
+            <div className="relative rounded-[1.75rem] border border-blue-100 bg-white p-3 shadow-[0_24px_50px_-24px_rgba(15,43,80,0.35)] dark:border-blue-900/60 dark:bg-gray-900 sm:p-4">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-blue-50 to-slate-100 dark:from-gray-800 dark:to-blue-950/30 sm:rounded-2xl">
+                {photoSrc ? (
+                  <img
+                    src={photoSrc}
+                    alt={`Dr. ${doctorName}`}
+                    className="h-full w-full object-cover object-top"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <User className="h-24 w-24 text-blue-200 dark:text-blue-800" strokeWidth={1.4} />
+                  </div>
+                )}
+
+                <div className="absolute bottom-3 left-3 right-3 rounded-2xl border border-white/80 bg-white/95 px-4 py-3 text-center shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-gray-900/95 sm:bottom-4 sm:left-4 sm:right-4 sm:py-4">
+                  <p className="truncate font-heading text-base font-extrabold text-[#092b50] dark:text-white sm:text-lg">
+                    {specialization}
                   </p>
-                  <p className="text-[8px] text-text-muted dark:text-muted-foreground">
-                    {profile?.qualifications || "MBBS, MD"}
+                  <p className="mt-0.5 truncate text-xs font-medium text-slate-500 dark:text-slate-400">
+                    {qualifications}
                   </p>
                 </div>
               </div>
             </div>
+          </AnimatedItem>
 
-            <div className="flex-1 w-full">
-              <p className="text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">
-                ABOUT THE DOCTOR
-              </p>
-              <h3 className="text-lg font-bold text-text-dark dark:text-foreground mb-2">
-                About <span className="text-primary-600 dark:text-primary-400">Dr. {docName}</span>
-              </h3>
-              <p className="text-xs text-text-muted dark:text-gray-300 leading-relaxed mb-4">
-                I believe in treating every patient with compassion, respect and personalized care. My goal is to help you achieve better health and a better life.
-              </p>
+          <AnimatedItem index={1} className="min-w-0">
+            <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em]" style={{ color: PRIMARY }}>
+              About the Doctor
+            </p>
 
-              <ul className="space-y-2">
-                {bullets.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-xs text-text-dark dark:text-gray-200">
-                    <CheckCircle2 size={14} className="text-primary-400 shrink-0 mt-0.5" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </section>
-      </div>
+            <h2 className="mt-3 font-heading text-3xl font-extrabold leading-tight tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
+              Meet <span style={{ color: PRIMARY }}>Dr. {doctorName}</span>
+            </h2>
 
-      {/* DESKTOP VIEW (hidden md:block) */}
-      <div className="hidden md:block">
-        <section id="about-desktop" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
-          <div className="absolute -top-16 -left-24 w-72 h-72 rounded-full bg-teal/10 dark:bg-teal/20 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-16 w-80 h-80 rounded-full bg-royal/10 dark:bg-royal/20 blur-3xl pointer-events-none" />
-          <div className="relative z-10 px-[5px] py-6 sm:py-10 md:px-12 md:py-14">
-            <div className="grid grid-cols-2 gap-2 sm:gap-8 lg:gap-12 items-center max-w-5xl mx-auto">
-              <AnimatedItem className="relative flex justify-center lg:justify-start">
-                <div className="relative">
-                  <div className="absolute -inset-1.5 sm:-inset-4 rounded-2xl sm:rounded-[2.5rem] bg-gradient-to-br from-teal/15 via-royal/10 to-transparent -z-10" />
-                  <div className="w-[100px] h-[100px] sm:w-56 sm:h-56 md:w-72 md:h-72 rounded-xl sm:rounded-[2rem] overflow-hidden shadow-xl border-2 sm:border-4 border-border bg-card flex items-center justify-center">
-                    {profile?.profile_photo_url ? (
-                      <img src={profile.profile_photo_url} alt={`Dr. ${profile.full_name}`} className="w-full h-full object-contain" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <User className="h-6 w-6 sm:h-20 sm:w-20 text-royal/30" />
-                      </div>
-                    )}
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300 sm:text-base sm:leading-8">
+              I believe in treating every patient with compassion, respect, and personalized care. My goal is to help you achieve better health, confidence, and quality of life through thoughtful, evidence-based treatment.
+            </p>
+
+            <div className="mt-7 grid gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
+              {highlights.map((highlight, index) => (
+                <AnimatedItem key={highlight} index={index + 2} staggerMs={55}>
+                  <div className="flex items-center gap-3 rounded-xl border border-transparent py-1.5 transition-colors hover:border-blue-100 hover:bg-blue-50/50 dark:hover:border-blue-900/60 dark:hover:bg-blue-950/20">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40" style={{ color: PRIMARY }}>
+                      <Check className="h-4 w-4" strokeWidth={2.5} />
+                    </span>
+                    <span className="text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100 sm:text-[15px]">
+                      {highlight}
+                    </span>
                   </div>
-                  {(profile?.specialization || profile?.qualifications) && (
-                    <div className="mt-1.5 sm:mt-3 rounded-lg sm:rounded-xl bg-card border border-border px-[5px] py-1 sm:py-2.5 md:px-4 text-center">
-                      {profile?.specialization && (
-                        <p className="text-foreground text-[7px] sm:text-sm font-heading font-semibold truncate">{profile.specialization}</p>
-                      )}
-                      {profile?.qualifications && (
-                        <p className="text-text-gray text-[6px] sm:text-xs truncate">{profile.qualifications}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </AnimatedItem>
-
-              <AnimatedItem index={1} className="space-y-1.5 sm:space-y-5 min-w-0">
-                <span className="text-[7px] sm:text-xs font-heading font-bold tracking-wider text-teal uppercase">About the Doctor</span>
-                <h2 className="font-heading font-bold text-xs sm:text-2xl md:text-3xl lg:text-4xl text-foreground leading-tight">
-                  About <span className="text-royal">Dr. {profile?.full_name || "Doctor"}</span>
-                </h2>
-                <p className="text-text-gray text-[8px] sm:text-base leading-snug sm:leading-relaxed">
-                  I believe in treating every patient with compassion, respect and personalized care. My goal is to help you achieve better health and a better life.
-                </p>
-                <div className="space-y-1 sm:space-y-3 pt-0.5 sm:pt-1">
-                  {bullets.map((text, i) => (
-                    <div key={i} className="flex items-center gap-1 sm:gap-3">
-                      <span className="w-3.5 h-3.5 sm:w-8 sm:h-8 rounded sm:rounded-lg bg-royal/10 flex items-center justify-center shrink-0">
-                        <CheckCircle2 className="h-2 w-2 sm:h-4 sm:w-4 text-teal" />
-                      </span>
-                      <p className="text-foreground font-medium text-[8px] sm:text-base">{text}</p>
-                    </div>
-                  ))}
-                </div>
-                <Button
-                  variant="cta-outline"
-                  className="hidden sm:inline-flex font-heading font-semibold h-7 px-2 text-[9px] sm:h-10 sm:px-6 sm:text-sm mt-1 sm:mt-2"
-                  onClick={() => scrollTo("services")}
-                >
-                  Know More About Me
-                </Button>
-              </AnimatedItem>
+                </AnimatedItem>
+              ))}
             </div>
-          </div>
-        </section>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection("services")}
+              className="mt-8 inline-flex h-11 items-center justify-center rounded-xl border-2 bg-transparent px-7 text-sm font-bold transition-all hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md dark:hover:bg-blue-950/30"
+              style={{ borderColor: PRIMARY, color: PRIMARY }}
+            >
+              Know More About Me
+            </button>
+          </AnimatedItem>
+        </div>
       </div>
-    </>
+    </section>
   );
 };
 
