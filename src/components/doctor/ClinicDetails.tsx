@@ -1,8 +1,9 @@
-import { Building2, CalendarClock, Clock3, ExternalLink, Globe, MapPin, Navigation, Phone, type LucideIcon } from "lucide-react";
+import { Building2, CalendarClock, Clock3, Globe, MapPin, Navigation, Phone, type LucideIcon } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { getClinicMapsQuery, getClinicMapsUrl } from "@/lib/clinicLocation";
+import { groupWorkingHours, formatDayRangeLabel } from "@/lib/workingHoursGrouping";
 import type { Tables } from "@/integrations/supabase/types";
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -40,10 +41,10 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const location = [profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ");
   const phone = profile?.phone || "";
   const email = profile?.clinic_email || "";
-  const websiteUrl = profile?.slug && typeof window !== "undefined" ? `${window.location.origin}/dr/${profile.slug}` : "";
   const mapsQuery = getClinicMapsQuery(profile);
   const directionsUrl = getClinicMapsUrl(profile);
   const schedule = [...((workingHours || []) as WorkingHour[])].sort((a, b) => a.day_of_week - b.day_of_week);
+  const scheduleGroups = groupWorkingHours(schedule);
   const today = new Date().getDay();
   const todayHours = schedule.find((item) => item.day_of_week === today);
   const whatsappUrl = settings?.whatsapp_number
@@ -102,11 +103,10 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               )}
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <div className="mt-5 grid gap-3">
               {location && <ContactCard icon={MapPin} label="Address">{location}</ContactCard>}
               {phone && <ContactCard icon={Phone} label="Phone"><a href={`tel:${phone}`} className="transition hover:text-[#3C83FC]">{phone}</a></ContactCard>}
               {email && <ContactCard icon={Globe} label="Email"><a href={`mailto:${email}`} className="break-all transition hover:text-[#3C83FC]">{email}</a></ContactCard>}
-              {websiteUrl && <ContactCard icon={Globe} label="Website"><a href={websiteUrl} className="inline-flex max-w-full items-center gap-1.5 text-[#3C83FC] transition hover:underline"><span className="truncate">{websiteUrl.replace(/^https?:\/\//, "")}</span><ExternalLink className="h-3.5 w-3.5 shrink-0" /></a></ContactCard>}
             </div>
 
             <div className="mt-6 rounded-2xl border border-blue-100 p-4 dark:border-blue-900/60 sm:p-5">
@@ -114,14 +114,17 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                 <p className="inline-flex items-center gap-2 font-heading text-sm font-extrabold text-[#092b50] dark:text-white"><CalendarClock className="h-4 w-4 text-[#3C83FC]" /> Consultation Hours</p>
                 {todayHours && <span className="text-xs font-semibold text-slate-400">Today: {formatSchedule(todayHours)}</span>}
               </div>
-              {schedule.length > 0 ? (
+              {scheduleGroups.length > 0 ? (
                 <div className="divide-y divide-slate-100 dark:divide-gray-800">
-                  {schedule.map((item) => (
-                    <div key={item.id} className={`flex items-center justify-between gap-4 py-2.5 text-xs sm:text-sm ${item.day_of_week === today ? "font-extrabold text-[#092b50] dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>
-                      <span>{dayNames[item.day_of_week] || "Day"}</span>
-                      <span className={`text-right ${item.is_open ? "" : "font-bold text-red-500"}`}>{formatSchedule(item)}</span>
-                    </div>
-                  ))}
+                  {scheduleGroups.map((group) => {
+                    const isToday = group.days.includes(today);
+                    return (
+                      <div key={group.days.join("-")} className={`flex items-center justify-between gap-4 py-2.5 text-xs sm:text-sm ${isToday ? "font-extrabold text-[#092b50] dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>
+                        <span>{formatDayRangeLabel(group.days, dayNames)}</span>
+                        <span className={`text-right ${group.sample.is_open ? "" : "font-bold text-red-500"}`}>{formatSchedule(group.sample)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="flex items-center gap-3 rounded-xl bg-blue-50 p-3 text-sm text-slate-600 dark:bg-blue-950/30 dark:text-slate-300">
