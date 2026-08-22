@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     if (dupeErr.code === "42P01") return json(500, { error: "Staff Management hasn't finished setting up on the server yet. Please try again shortly, or contact support." });
     return json(500, { error: "Could not verify username availability. Please try again." });
   }
-  if (dupe) return json(409, { error: "This Staff Login ID is already in use. Please choose another one." });
+  if (dupe) return json(409, { error: "This username is already in use. Please choose another one." });
 
   console.log("create-staff-account: creating auth user", { staff_name, username, status, permissionCount: Object.values(permissions).filter(Boolean).length });
 
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
   if (insertErr) {
     console.error("create-staff-account: staff_members insert failed", { code: insertErr.code, message: insertErr.message, details: insertErr.details, hint: insertErr.hint, doctorId, staffAuthId: newUser.user.id });
     await admin.auth.admin.deleteUser(newUser.user.id);
-    if (insertErr.code === "23505") return json(409, { error: "This Staff Login ID is already in use. Please choose another one." });
+    if (insertErr.code === "23505") return json(409, { error: "This username is already in use. Please choose another one." });
     if (insertErr.code === "23503") return json(400, { error: "Could not link this staff account to your doctor profile. Please refresh and try again." });
     if (insertErr.code === "23514" || insertErr.code === "22P02") return json(400, { error: "One of the submitted values isn't valid. Please check the form and try again." });
     if (insertErr.code === "42P01") return json(500, { error: "Staff Management hasn't finished setting up on the server yet. Please try again shortly, or contact support." });

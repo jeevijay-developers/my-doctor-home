@@ -19,7 +19,7 @@
 // exempts the service_role JWT from the captcha check (confirmed
 // empirically). Do not swap this back to an anon client without re-adding a
 // real captcha token, or every staff login will fail with a generic
-// "Invalid login ID or password" while the real cause (captcha_failed) is
+// "Invalid username or password" while the real cause (captcha_failed) is
 // silently swallowed below.
 //
 // Deliberately returns the SAME generic error to the CLIENT for "no such
@@ -34,7 +34,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-const INVALID = "Invalid login ID or password";
+const INVALID = "Invalid username or password";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

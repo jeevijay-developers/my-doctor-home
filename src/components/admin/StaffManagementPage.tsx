@@ -80,7 +80,7 @@ const StaffManagementPage = () => {
 
   const save = async () => {
     if (!form.staff_name.trim()) { toast.error("Staff name is required"); return; }
-    if (!form.username.trim()) { toast.error("Login ID / Username is required"); return; }
+    if (!form.username.trim()) { toast.error("Username is required"); return; }
 
     if (editingId) {
       setSaving(true);
@@ -220,7 +220,7 @@ const StaffManagementPage = () => {
                 <thead className="bg-secondary/60 border-b border-border">
                   <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <th className="px-4 py-3">Staff Name</th>
-                    <th className="px-4 py-3">Login ID</th>
+                    <th className="px-4 py-3">Username</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 hidden md:table-cell">Permissions</th>
                     <th className="px-4 py-3">Actions</th>
@@ -341,7 +341,7 @@ const StaffManagementPage = () => {
                 <Input value={form.staff_name} onChange={(e) => setForm({ ...form, staff_name: e.target.value })} className="h-10" />
               </div>
               <div className="space-y-1.5">
-                <Label>Staff Login ID / Username *</Label>
+                <Label>Username *</Label>
                 <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="e.g. reception1" className="h-10" />
               </div>
               {!editingId && (

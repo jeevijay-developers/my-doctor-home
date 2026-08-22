@@ -17,7 +17,7 @@ const StaffLogin = () => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!username.trim() || !password) { setError("Enter your login ID and password"); return; }
+    if (!username.trim() || !password) { setError("Enter your username and password"); return; }
 
     setLoading(true);
     const { data, error: fnError } = await supabase.functions.invoke("staff-login", {
@@ -25,7 +25,7 @@ const StaffLogin = () => {
     });
     if (fnError || !data?.session) {
       setLoading(false);
-      setError("Invalid login ID or password");
+      setError("Invalid username or password");
       return;
     }
 
@@ -49,12 +49,12 @@ const StaffLogin = () => {
             <ShieldCheck className="h-5.5 w-5.5 text-royal" />
           </div>
           <h1 className="font-heading font-bold text-xl text-primary">Staff Login</h1>
-          <p className="text-xs text-muted-foreground mt-1">Sign in with the login ID your clinic gave you</p>
+          <p className="text-xs text-muted-foreground mt-1">Sign in with the username your clinic gave you</p>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="staff-username">Login ID / Username</Label>
+            <Label htmlFor="staff-username">Username</Label>
             <Input
               id="staff-username"
               value={username}
