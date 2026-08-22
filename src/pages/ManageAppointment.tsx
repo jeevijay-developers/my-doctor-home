@@ -14,7 +14,7 @@ import VideoConsultationCard from "@/components/VideoConsultationCard";
 
 type Appt = {
   id: string; doctor_id: string; patient_name: string; patient_phone: string;
-  service_name: string; appointment_type: string; date: string; time_slot: string;
+  service_name: string; appointment_type: string; date: string; time_slot: string | null;
   status: string; token_number: string; amount: number; reschedule_count: number;
   chief_complaint: string | null; meeting_link: string | null; created_at: string;
 };
@@ -125,7 +125,7 @@ const ManageAppointment = () => {
   }, [appt?.id, doctor?.id]);
 
   const cutoffHours = settings?.cancellation_cutoff_hours ?? 2;
-  const apptTs = appt ? parseISO(`${appt.date}T${appt.time_slot}`) : null;
+  const apptTs = appt?.time_slot ? parseISO(`${appt.date}T${appt.time_slot}`) : null;
   const hoursUntil = apptTs ? differenceInHours(apptTs, new Date()) : 0;
   const tooClose = apptTs && hoursUntil < cutoffHours;
   const isChangeable = appt && (appt.status === "pending" || appt.status === "confirmed") && !tooClose;
@@ -226,7 +226,7 @@ const ManageAppointment = () => {
                   <div className="flex justify-between"><span className="text-text-gray">Patient</span><span className="font-medium">{appt.patient_name}</span></div>
                   <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="font-medium">{appt.service_name}</span></div>
                   <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="font-medium">{format(parseISO(appt.date), "EEE, d MMM yyyy")}</span></div>
-                  <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="font-medium">{appt.time_slot}</span></div>
+                  <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="font-medium">{appt.time_slot || "Walk-in"}</span></div>
                   <div className="flex justify-between items-center pt-1">
                     <span className="text-text-gray">Status</span>
                     <Badge variant="outline" className={`capitalize ${statusStyle(appt.status)}`}>{appt.status}</Badge>

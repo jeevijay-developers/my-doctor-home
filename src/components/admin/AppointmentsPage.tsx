@@ -14,8 +14,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +25,11 @@ import VideoConsultationCard from "@/components/VideoConsultationCard";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
+import DateFilter from "@/components/shared/DateFilter";
 import { defaultAppointmentAmount } from "@/lib/appointmentAmount";
+import { appointmentSerialNumber } from "@/lib/appointmentList";
+
+const WALK_IN_TIME = "walk-in";
 
 // Escapes characters that would otherwise break PostgREST's .or() filter
 // string syntax (commas/parens are filter-list separators, % and _ are
@@ -37,7 +39,7 @@ const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim(
 type Appointment = {
   id: string; patient_name: string; patient_phone: string; patient_age: number | null;
   patient_gender: string | null; patient_email: string | null; service_name: string; appointment_type: string;
-  date: string; time_slot: string; status: string; payment_status: string;
+  date: string; time_slot: string | null; status: string; payment_status: string;
   amount: number; token_number: string | null; chief_complaint: string | null; notes: string | null;
   reschedule_count?: number | null;
   zoom_meeting_id?: string | null;
@@ -81,12 +83,12 @@ const AppointmentsPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [dateFilterActive, setDateFilterActive] = useState(false);
+  const [dateFilterActive, setDateFilterActive] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
   const blankNewAppt = () => ({
     patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic",
-    date: format(new Date(), "yyyy-MM-dd"), time_slot: "09:00",
+    date: format(new Date(), "yyyy-MM-dd"), time_slot: WALK_IN_TIME,
     amount: defaultAppointmentAmount(profile?.consultation_fee),
     status: "pending",
   });
@@ -161,7 +163,11 @@ const AppointmentsPage = () => {
     if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`patient_name.ilike.%${term}%,service_name.ilike.%${term}%`);
-    q = q.order("date", { ascending: false }).order("time_slot").range(from, to);
+    q = q
+      .order("date", { ascending: true })
+      .order("sort_time", { ascending: true })
+      .order("created_at", { ascending: true })
+      .range(from, to);
     const { data, count } = await q;
     setAppointments((data || []) as Appointment[]);
     setTotalCount(count ?? 0);
@@ -314,11 +320,12 @@ const AppointmentsPage = () => {
 
   const openReschedule = (a: Appointment) => {
     setRescheduling(a);
-    setRescheduleForm({ date: a.date, time_slot: a.time_slot });
+    setRescheduleForm({ date: a.date, time_slot: a.time_slot ?? "" });
   };
 
   const submitReschedule = async () => {
     if (!rescheduling) return;
+    if (!rescheduleForm.time_slot) { toast.error("Please select a time slot"); return; }
     const { error } = await supabase.from("appointments").update({
       date: rescheduleForm.date, time_slot: rescheduleForm.time_slot,
       reschedule_count: (rescheduling.reschedule_count ?? 0) + 1,
@@ -337,15 +344,17 @@ const AppointmentsPage = () => {
   const addAppointment = async (bypassSlotCheck = false) => {
     if (!profile) return;
     if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
-    if (!newAppt.patient_phone.trim()) { toast.error("Phone number is required"); return; }
     if (!isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
     if (newAppt.amount < 0) { toast.error("Amount cannot be negative"); return; }
-    // Block past date / time
-    const apptTs = new Date(`${newAppt.date}T${newAppt.time_slot}`);
-    if (apptTs.getTime() < Date.now()) { toast.error("Cannot book an appointment for a past date or time slot."); return; }
+    const isWalkIn = newAppt.time_slot === WALK_IN_TIME;
+    // Block past date / time for scheduled appointments. Walk-ins have no scheduled time.
+    if (!isWalkIn) {
+      const apptTs = new Date(`${newAppt.date}T${newAppt.time_slot}`);
+      if (apptTs.getTime() < Date.now()) { toast.error("Cannot book an appointment for a past date or time slot."); return; }
+    }
     const normalizedPhone = normalizeIndianPhone(newAppt.patient_phone);
 
-    if (!bypassSlotCheck) {
+    if (!bypassSlotCheck && !isWalkIn) {
       const { data: settingsRow } = await supabase
         .from("website_settings").select("max_per_slot").eq("doctor_id", profile.id).single();
       const cap = (settingsRow as any)?.max_per_slot || 1;
@@ -360,10 +369,10 @@ const AppointmentsPage = () => {
     }
 
     const token = `T${Math.floor(Math.random() * 900) + 100}`;
-    const { status, ...rest } = newAppt;
+    const { status, time_slot, ...rest } = newAppt;
     const serviceName = rest.service_name.trim() || "Consultation";
     const { error } = await supabase.from("appointments").insert({
-      doctor_id: profile.id, ...rest, service_name: serviceName,
+      doctor_id: profile.id, ...rest, time_slot: isWalkIn ? null : time_slot, service_name: serviceName,
       appointment_type: "clinic",
       patient_phone: normalizedPhone,
       token_number: token, status: status as any, payment_status: "pending" as any,
@@ -394,9 +403,12 @@ const AppointmentsPage = () => {
   const allTimeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
   const todayStr = format(new Date(), "yyyy-MM-dd");
-  const timeSlots = newAppt.date === todayStr
-    ? allTimeSlots.filter((t) => new Date(`${todayStr}T${t}`).getTime() > Date.now())
-    : allTimeSlots;
+  const timeSlots = [
+    ...(newAppt.date === todayStr
+      ? allTimeSlots.filter((t) => new Date(`${todayStr}T${t}`).getTime() > Date.now())
+      : allTimeSlots),
+    WALK_IN_TIME,
+  ];
 
   // Auto-select first available slot when dialog opens or slot list changes
   useEffect(() => {
@@ -434,8 +446,8 @@ const AppointmentsPage = () => {
                   <Input placeholder="Full name" value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone *</Label>
-                  <PhoneInput value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="Phone number" className="h-10" />
+                  <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                  <PhoneInput value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="Phone number (optional)" className="h-10" />
                   {newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone) && (
                     <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
                   )}
@@ -455,7 +467,7 @@ const AppointmentsPage = () => {
                   <Select value={newAppt.time_slot} onValueChange={(v) => setNewAppt({ ...newAppt, time_slot: v })}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent className="max-h-[200px]">
-                      {timeSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      {timeSlots.map(t => <SelectItem key={t} value={t}>{t === WALK_IN_TIME ? "Walk-in" : t}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -490,59 +502,17 @@ const AppointmentsPage = () => {
         </div>
       )}
 
-      {/* Date filter */}
-      <Card className="border-border/60 shadow-none">
-        <CardContent className="p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 gap-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  {dateFilterActive ? format(selectedDate, "EEE, d MMM yyyy") : "Filter by date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={dateFilterActive ? selectedDate : undefined}
-                  onSelect={(d) => {
-                    if (!d) return;
-                    setSelectedDate(d);
-                    setDateFilterActive(true);
-                    setCalendarOpen(false);
-                  }}
-                  modifiers={{
-                    hasAppointments: (day) => datesWithAppointments.has(format(day, "yyyy-MM-dd")),
-                  }}
-                  modifiersClassNames={{
-                    hasAppointments:
-                      "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:rounded-full after:bg-royal",
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-
-            {dateFilterActive ? (
-              <>
-                <span className="text-xs text-muted-foreground">
-                  Showing: {format(selectedDate, "EEEE, d MMMM yyyy")}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1 text-xs text-royal"
-                  onClick={() => setDateFilterActive(false)}
-                >
-                  <X className="h-3 w-3" /> Clear
-                </Button>
-              </>
-            ) : (
-              <span className="text-xs text-muted-foreground">Showing all upcoming appointments</span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <DateFilter
+        selectedDate={selectedDate}
+        dateFilterActive={dateFilterActive}
+        calendarOpen={calendarOpen}
+        onCalendarOpenChange={setCalendarOpen}
+        onDateChange={(date) => { setSelectedDate(date); setDateFilterActive(true); setCalendarOpen(false); }}
+        onClear={() => setDateFilterActive(false)}
+        datesWithRecords={datesWithAppointments}
+        activeLabel="Showing"
+        inactiveLabel="Showing all upcoming appointments"
+      />
 
 
       {/* Status Summary */}
@@ -637,10 +607,11 @@ const AppointmentsPage = () => {
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map((a) => {
+          {filtered.map((a, index) => {
             const sc = statusConfig[a.status] || statusConfig.pending;
             const isSelected = selectedIds.has(a.id);
             const borderColor = sc.bg.split(" ").find((c) => c.startsWith("border-l-")) || "";
+            const serialNumber = appointmentSerialNumber(index, page, PAGE_SIZE);
             return (
               <Card
                 key={a.id}
@@ -652,6 +623,9 @@ const AppointmentsPage = () => {
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
+                      <span className="w-6 text-center text-xs font-semibold text-muted-foreground" aria-label={`Appointment ${serialNumber}`}>
+                        #{serialNumber}
+                      </span>
                       {selectMode && (
                         <Checkbox
                           checked={isSelected}
@@ -674,7 +648,7 @@ const AppointmentsPage = () => {
                         <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                           <span>{a.service_name}</span>
                           <span>·</span>
-                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{a.time_slot?.slice(0, 5)}</span>
+                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{a.time_slot ? a.time_slot.slice(0, 5) : "Walk-in"}</span>
                           <span>·</span>
                           <span>{a.date}</span>
                         </div>
@@ -788,7 +762,7 @@ const AppointmentsPage = () => {
                   <div className="grid grid-cols-2 gap-3">
                     {[
                       { label: "Date", value: viewing.date },
-                      { label: "Time", value: viewing.time_slot?.slice(0, 5) },
+                      { label: "Time", value: viewing.time_slot ? viewing.time_slot.slice(0, 5) : "Walk-in" },
                       { label: "Service", value: viewing.service_name },
                       { label: "Type", value: viewing.appointment_type },
                       { label: "Amount", value: `₹${viewing.amount}` },

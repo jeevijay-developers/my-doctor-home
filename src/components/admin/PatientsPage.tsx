@@ -13,8 +13,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -24,6 +22,7 @@ import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/l
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
+import DateFilter from "@/components/shared/DateFilter";
 
 const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
@@ -45,7 +44,7 @@ const PatientsPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [dateFilterActive, setDateFilterActive] = useState(false);
+  const [dateFilterActive, setDateFilterActive] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
   const [datesWithVisits, setDatesWithVisits] = useState<Set<string>>(new Set());
@@ -99,7 +98,13 @@ const PatientsPage = () => {
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
     let q = supabase.from("patients").select("*", { count: "exact" }).eq("doctor_id", profile.id);
-    if (dateFilterActive) q = q.eq("last_visit", format(selectedDate, "yyyy-MM-dd"));
+    if (dateFilterActive) {
+      const start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      q = q.gte("created_at", start.toISOString()).lt("created_at", end.toISOString());
+    }
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%`);
     q = q.order("last_visit", { ascending: false }).range(from, to);
@@ -113,8 +118,8 @@ const PatientsPage = () => {
   // full set of records.
   const loadDatesWithVisits = async () => {
     if (!profile) return;
-    const { data } = await supabase.from("patients").select("last_visit").eq("doctor_id", profile.id).not("last_visit", "is", null);
-    setDatesWithVisits(new Set((data || []).map((r: any) => r.last_visit).filter(Boolean)));
+    const { data } = await supabase.from("patients").select("created_at").eq("doctor_id", profile.id);
+    setDatesWithVisits(new Set((data || []).map((r: any) => format(new Date(r.created_at), "yyyy-MM-dd"))));
   };
 
   // Reset to page 1 whenever the result set changes shape underneath the pager.
@@ -270,60 +275,19 @@ const PatientsPage = () => {
         </div>
       </div>
 
-      {/* Date filter — filters to patients last seen on the picked day, same
-          Calendar-popover pattern as AppointmentsPage's "Filter by date". */}
-      <Card className="border-border/60 shadow-none">
-        <CardContent className="p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 gap-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  {dateFilterActive ? format(selectedDate, "EEE, d MMM yyyy") : "Filter by date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={dateFilterActive ? selectedDate : undefined}
-                  onSelect={(d) => {
-                    if (!d) return;
-                    setSelectedDate(d);
-                    setDateFilterActive(true);
-                    setCalendarOpen(false);
-                  }}
-                  modifiers={{
-                    hasVisits: (day) => datesWithVisits.has(format(day, "yyyy-MM-dd")),
-                  }}
-                  modifiersClassNames={{
-                    hasVisits:
-                      "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:rounded-full after:bg-teal",
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-
-            {dateFilterActive ? (
-              <>
-                <span className="text-xs text-muted-foreground">
-                  Showing patients last seen: {format(selectedDate, "EEEE, d MMMM yyyy")}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1 text-xs text-teal"
-                  onClick={() => setDateFilterActive(false)}
-                >
-                  <X className="h-3 w-3" /> Clear
-                </Button>
-              </>
-            ) : (
-              <span className="text-xs text-muted-foreground">Showing all patients</span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <DateFilter
+        selectedDate={selectedDate}
+        dateFilterActive={dateFilterActive}
+        calendarOpen={calendarOpen}
+        onCalendarOpenChange={setCalendarOpen}
+        onDateChange={(date) => { setSelectedDate(date); setDateFilterActive(true); setCalendarOpen(false); }}
+        onClear={() => setDateFilterActive(false)}
+        datesWithRecords={datesWithVisits}
+        markerClassName="after:bg-teal"
+        activeLabel="Showing patients registered"
+        inactiveLabel="Showing all patients"
+        clearClassName="text-teal"
+      />
 
       <div className={`flex flex-col sm:flex-row gap-3 transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
         <div className="relative flex-1 max-w-md">

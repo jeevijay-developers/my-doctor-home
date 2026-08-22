@@ -29,6 +29,7 @@ import { parseMedicineItems } from "@/lib/prescriptionMedicines";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
+import DateFilter from "@/components/shared/DateFilter";
 
 const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
@@ -67,6 +68,9 @@ const PrescriptionsPage = () => {
   const debouncedSearch = useDebouncedValue(search, 350);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [dateFilterActive, setDateFilterActive] = useState(true);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [patients, setPatients] = useState<{ id: string; name: string; phone: string; gender: string | null }[]>([]);
   const [form, setForm] = useState(emptyForm);
@@ -88,6 +92,7 @@ const PrescriptionsPage = () => {
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
     let q = supabase.from("prescriptions").select("*", { count: "exact" }).eq("doctor_id", profile.id);
+    if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`patient_name.ilike.%${term}%,diagnosis.ilike.%${term}%`);
     q = q.order("date", { ascending: false }).range(from, to);
@@ -110,9 +115,9 @@ const PrescriptionsPage = () => {
   };
 
   // Reset to page 1 whenever the search term changes underneath the pager.
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, selectedDate, dateFilterActive]);
 
-  useEffect(() => { load(); }, [profile, debouncedSearch, page]);
+  useEffect(() => { load(); }, [profile, debouncedSearch, selectedDate, dateFilterActive, page]);
   useEffect(() => { loadPatients(); }, [profile]);
 
   useEffect(() => {
@@ -363,6 +368,17 @@ const PrescriptionsPage = () => {
         </Dialog>
         )}
       </div>
+
+      <DateFilter
+        selectedDate={selectedDate}
+        dateFilterActive={dateFilterActive}
+        calendarOpen={calendarOpen}
+        onCalendarOpenChange={setCalendarOpen}
+        onDateChange={(date) => { setSelectedDate(date); setDateFilterActive(true); setCalendarOpen(false); }}
+        onClear={() => setDateFilterActive(false)}
+        activeLabel="Showing prescriptions"
+        inactiveLabel="Showing all prescriptions"
+      />
 
       <div className={`transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
         <div className="relative max-w-md">

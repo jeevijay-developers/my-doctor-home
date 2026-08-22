@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AppointmentsPage from "./AppointmentsPage";
 
 const { profileState } = vi.hoisted(() => ({
   profileState: { id: "doctor-1", consultation_fee: 500 as number | undefined },
 }));
+const orderCalls: Array<{ column: string; options?: { ascending?: boolean } }> = [];
 
 vi.mock("@/hooks/useProfile", () => ({
   useProfile: () => ({
@@ -36,7 +37,10 @@ vi.mock("@/integrations/supabase/client", () => {
       in: () => chain(resolved),
       or: () => chain(resolved),
       neq: () => chain(resolved),
-      order: () => chain(resolved),
+      order: (column: string, options?: { ascending?: boolean }) => {
+        orderCalls.push({ column, options });
+        return chain(resolved);
+      },
       range: () => Promise.resolve(resolved),
       update: () => chain(resolved),
     });
@@ -69,6 +73,27 @@ async function openNewAppointment() {
 describe("AppointmentsPage - amount autofill", () => {
   beforeEach(() => {
     profileState.consultation_fee = 500;
+    orderCalls.length = 0;
+  });
+
+  it("requests appointments in chronological order from the server", async () => {
+    render(
+      <MemoryRouter>
+        <AppointmentsPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(orderCalls).toEqual([
+      { column: "date", options: { ascending: true } },
+      { column: "sort_time", options: { ascending: true } },
+      { column: "created_at", options: { ascending: true } },
+    ]));
+  });
+
+  it("defaults the new appointment time slot to Walk-in", async () => {
+    await openNewAppointment();
+
+    expect(within(screen.getByRole("dialog")).getByRole("combobox")).toHaveTextContent("Walk-in");
   });
 
   it("pre-fills Amount with the doctor's default consultation fee when adding an appointment", async () => {
