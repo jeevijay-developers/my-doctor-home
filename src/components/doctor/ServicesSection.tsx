@@ -5,6 +5,7 @@ import AnimatedItem from "@/components/landing/AnimatedItem";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { scrollToSection } from "@/lib/scrollToSection";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
 import type { Tables } from "@/integrations/supabase/types";
 import {
   Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi,
@@ -12,6 +13,7 @@ import {
 
 const PRIMARY = "#3C83FC";
 const DESCRIPTION_TRUNCATE_LENGTH = 140;
+const CAROUSEL_THRESHOLD = 3;
 type Service = Tables<"services">;
 
 const formatPrice = (price: number) => new Intl.NumberFormat("en-IN", {
@@ -102,6 +104,8 @@ const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const [activeService, setActiveService] = useState<Service | null>(null);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [selectedService, setSelectedService] = useState(0);
+  const isDesktop = useIsDesktop();
+  const showCarousel = services.length === 0 || !isDesktop || services.length > CAROUSEL_THRESHOLD;
 
   const bookService = () => scrollToSection("booking");
 
@@ -144,41 +148,55 @@ const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
             </p>
           </div>
 
-          <Carousel
-            setApi={setCarouselApi}
-            opts={{ align: "start", loop: services.length > 3 }}
-            className="mx-auto mt-9 max-w-6xl sm:mt-12"
-          >
-            <CarouselContent className="-ml-4 pb-2">
-              {(services as Service[]).map((service, index) => (
-                <CarouselItem key={service.id} className="basis-[88%] pl-4 sm:basis-1/2 lg:basis-1/3">
-                  <ServiceCard
-                    service={service}
-                    index={index}
-                    onBook={bookService}
-                    onSeeMore={() => setActiveService(service)}
-                  />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-
-            <div className="mt-7 flex items-center justify-center gap-4">
-              <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-              <div className="flex items-center gap-1.5">
+          {showCarousel ? (
+            <Carousel
+              setApi={setCarouselApi}
+              opts={{ align: "start", loop: services.length > 3 }}
+              className="mx-auto mt-9 max-w-6xl sm:mt-12"
+            >
+              <CarouselContent className="-ml-4 pb-2">
                 {(services as Service[]).map((service, index) => (
-                  <button
-                    key={service.id}
-                    type="button"
-                    aria-label={`Go to service ${index + 1}`}
-                    onClick={() => carouselApi?.scrollTo(index)}
-                    className={`h-2 rounded-full transition-all duration-300 ${selectedService === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
-                    style={selectedService === index ? { backgroundColor: PRIMARY } : undefined}
-                  />
+                  <CarouselItem key={service.id} className="basis-[88%] pl-4 sm:basis-1/2 lg:basis-1/3">
+                    <ServiceCard
+                      service={service}
+                      index={index}
+                      onBook={bookService}
+                      onSeeMore={() => setActiveService(service)}
+                    />
+                  </CarouselItem>
                 ))}
+              </CarouselContent>
+
+              <div className="mt-7 flex items-center justify-center gap-4">
+                <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+                <div className="flex items-center gap-1.5">
+                  {(services as Service[]).map((service, index) => (
+                    <button
+                      key={service.id}
+                      type="button"
+                      aria-label={`Go to service ${index + 1}`}
+                      onClick={() => carouselApi?.scrollTo(index)}
+                      className={`h-2 rounded-full transition-all duration-300 ${selectedService === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
+                      style={selectedService === index ? { backgroundColor: PRIMARY } : undefined}
+                    />
+                  ))}
+                </div>
+                <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
               </div>
-              <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+            </Carousel>
+          ) : (
+            <div className="mx-auto mt-9 grid max-w-6xl gap-6 sm:mt-12 lg:grid-cols-3">
+              {(services as Service[]).map((service, index) => (
+                <ServiceCard
+                  key={service.id}
+                  service={service}
+                  index={index}
+                  onBook={bookService}
+                  onSeeMore={() => setActiveService(service)}
+                />
+              ))}
             </div>
-          </Carousel>
+          )}
         </div>
       </section>
 

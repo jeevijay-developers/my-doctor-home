@@ -11,9 +11,11 @@ import {
 } from "@/components/ui/carousel";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
 import type { Tables } from "@/integrations/supabase/types";
 
 const PRIMARY = "#3C83FC";
+const CAROUSEL_THRESHOLD = 2;
 type Review = Tables<"reviews">;
 
 const formatReviewDate = (date: string) => new Date(date).toLocaleDateString("en-IN", {
@@ -88,6 +90,8 @@ const ReviewsSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [selectedReview, setSelectedReview] = useState(0);
   const [snapCount, setSnapCount] = useState(0);
+  const isDesktop = useIsDesktop();
+  const showCarousel = patientReviews.length === 0 || !isDesktop || patientReviews.length > CAROUSEL_THRESHOLD;
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -162,36 +166,44 @@ const ReviewsSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         </div>
 
         {patientReviews.length > 0 ? (
-          <Carousel
-            setApi={setCarouselApi}
-            opts={{ align: "start", loop: patientReviews.length > 2 }}
-            className="mx-auto mt-9 max-w-5xl sm:mt-12"
-          >
-            <CarouselContent className="-ml-4 pb-2">
-              {patientReviews.map((review) => (
-                <CarouselItem key={review.id} className="basis-[94%] pl-4 md:basis-1/2">
-                  <ReviewCard review={review} />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-
-            <div className="mt-7 flex items-center justify-center gap-4">
-              <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-              <div className="flex items-center gap-1.5">
-                {Array.from({ length: snapCount }, (_, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    aria-label={`Go to review ${index + 1}`}
-                    onClick={() => carouselApi?.scrollTo(index)}
-                    className={`h-2 rounded-full transition-all duration-300 ${selectedReview === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
-                    style={selectedReview === index ? { backgroundColor: PRIMARY } : undefined}
-                  />
+          showCarousel ? (
+            <Carousel
+              setApi={setCarouselApi}
+              opts={{ align: "start", loop: patientReviews.length > 2 }}
+              className="mx-auto mt-9 max-w-5xl sm:mt-12"
+            >
+              <CarouselContent className="-ml-4 pb-2">
+                {patientReviews.map((review) => (
+                  <CarouselItem key={review.id} className="basis-[94%] pl-4 md:basis-1/2">
+                    <ReviewCard review={review} />
+                  </CarouselItem>
                 ))}
+              </CarouselContent>
+
+              <div className="mt-7 flex items-center justify-center gap-4">
+                <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+                <div className="flex items-center gap-1.5">
+                  {Array.from({ length: snapCount }, (_, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      aria-label={`Go to review ${index + 1}`}
+                      onClick={() => carouselApi?.scrollTo(index)}
+                      className={`h-2 rounded-full transition-all duration-300 ${selectedReview === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
+                      style={selectedReview === index ? { backgroundColor: PRIMARY } : undefined}
+                    />
+                  ))}
+                </div>
+                <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
               </div>
-              <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+            </Carousel>
+          ) : (
+            <div className="mx-auto mt-9 grid max-w-5xl gap-6 sm:mt-12 md:grid-cols-2">
+              {patientReviews.map((review) => (
+                <ReviewCard key={review.id} review={review} />
+              ))}
             </div>
-          </Carousel>
+          )
         ) : (
           <div className="mx-auto mt-9 max-w-xl rounded-2xl border border-dashed border-blue-200 bg-white/70 px-6 py-10 text-center dark:border-blue-800 dark:bg-gray-900/70">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-primary-500 dark:bg-blue-950/40">

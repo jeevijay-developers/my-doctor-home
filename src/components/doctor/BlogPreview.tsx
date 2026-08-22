@@ -9,10 +9,12 @@ import {
   Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi,
 } from "@/components/ui/carousel";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
 import type { Tables } from "@/integrations/supabase/types";
 
 const PRIMARY = "#3C83FC";
 const PREVIEW_LIMIT = 12;
+const CAROUSEL_THRESHOLD = 3;
 type BlogPost = Tables<"blog_posts">;
 
 const readingTime = (content: string | null) => Math.max(1, Math.ceil((content || "").replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length / 200));
@@ -64,6 +66,8 @@ const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => 
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [selectedArticle, setSelectedArticle] = useState(0);
   const [snapCount, setSnapCount] = useState(0);
+  const isDesktop = useIsDesktop();
+  const showCarousel = posts.length === 0 || !isDesktop || posts.length > CAROUSEL_THRESHOLD;
 
   useEffect(() => {
     if (!profile) return;
@@ -107,28 +111,36 @@ const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => 
           </p>
         </div>
 
-        <Carousel setApi={setCarouselApi} opts={{ align: "start", loop: posts.length > 3 }} className="mx-auto mt-9 max-w-6xl sm:mt-12">
-          <CarouselContent className="-ml-4 pb-2">
-            {posts.map((post) => (
-              <CarouselItem key={post.id} className="basis-[90%] pl-4 sm:basis-1/2 lg:basis-1/3">
-                <ArticleCard post={post} slug={slug} />
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-
-          <div className="mt-7 flex items-center justify-center gap-4">
-            <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-            <div className="flex items-center gap-1.5">
-              {Array.from({ length: snapCount }, (_, index) => (
-                <button key={index} type="button" aria-label={`Go to article ${index + 1}`} onClick={() => carouselApi?.scrollTo(index)}
-                  className={`h-2 rounded-full transition-all duration-300 ${selectedArticle === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
-                  style={selectedArticle === index ? { backgroundColor: PRIMARY } : undefined}
-                />
+        {showCarousel ? (
+          <Carousel setApi={setCarouselApi} opts={{ align: "start", loop: posts.length > 3 }} className="mx-auto mt-9 max-w-6xl sm:mt-12">
+            <CarouselContent className="-ml-4 pb-2">
+              {posts.map((post) => (
+                <CarouselItem key={post.id} className="basis-[90%] pl-4 sm:basis-1/2 lg:basis-1/3">
+                  <ArticleCard post={post} slug={slug} />
+                </CarouselItem>
               ))}
+            </CarouselContent>
+
+            <div className="mt-7 flex items-center justify-center gap-4">
+              <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: snapCount }, (_, index) => (
+                  <button key={index} type="button" aria-label={`Go to article ${index + 1}`} onClick={() => carouselApi?.scrollTo(index)}
+                    className={`h-2 rounded-full transition-all duration-300 ${selectedArticle === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
+                    style={selectedArticle === index ? { backgroundColor: PRIMARY } : undefined}
+                  />
+                ))}
+              </div>
+              <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
             </div>
-            <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+          </Carousel>
+        ) : (
+          <div className="mx-auto mt-9 grid max-w-6xl gap-6 sm:mt-12 lg:grid-cols-3">
+            {posts.map((post) => (
+              <ArticleCard key={post.id} post={post} slug={slug} />
+            ))}
           </div>
-        </Carousel>
+        )}
 
         <div className="mt-8 text-center">
           <Link to={`/dr/${slug}/blog`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-primary-500 bg-white px-6 text-sm font-bold text-primary-500 transition-all hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md dark:bg-gray-900 dark:hover:bg-blue-950/30">
