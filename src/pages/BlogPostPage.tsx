@@ -6,6 +6,7 @@ import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
 import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
 import Footer from "@/components/doctor/Footer";
+import { markdownToHtml } from "@/lib/markdown";
 import type { Tables } from "@/integrations/supabase/types";
 
 type BlogPost = Tables<"blog_posts">;
@@ -17,41 +18,6 @@ const readingTime = (content: string | null) =>
 const displayDoctorName = (doctor: Doctor) => {
   const name = (doctor.display_name || doctor.full_name || "Doctor").trim();
   return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
-};
-
-const plainTextToHtml = (content: string) => {
-  const lines = content.split("\n");
-  const html: string[] = [];
-  let listOpen = false;
-
-  lines.forEach((line) => {
-    const value = line.trim();
-    if (!value) {
-      if (listOpen) {
-        html.push("</ul>");
-        listOpen = false;
-      }
-      return;
-    }
-    if (value.startsWith("- ")) {
-      if (!listOpen) {
-        html.push("<ul>");
-        listOpen = true;
-      }
-      html.push(`<li>${value.slice(2)}</li>`);
-      return;
-    }
-    if (listOpen) {
-      html.push("</ul>");
-      listOpen = false;
-    }
-    if (value.startsWith("## ")) html.push(`<h3>${value.slice(3)}</h3>`);
-    else if (value.startsWith("# ")) html.push(`<h2>${value.slice(2)}</h2>`);
-    else html.push(`<p>${value}</p>`);
-  });
-
-  if (listOpen) html.push("</ul>");
-  return html.join("");
 };
 
 const BlogPostPage = () => {
@@ -107,7 +73,7 @@ const BlogPostPage = () => {
 
   const sanitizedContent = useMemo(() => {
     const content = post?.content || "";
-    const source = /<\/?[a-z][\s\S]*>/i.test(content) ? content : plainTextToHtml(content);
+    const source = /<\/?[a-z][\s\S]*>/i.test(content) ? content : markdownToHtml(content);
     return DOMPurify.sanitize(source, {
       ADD_TAGS: ["iframe"],
       ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling", "target"],

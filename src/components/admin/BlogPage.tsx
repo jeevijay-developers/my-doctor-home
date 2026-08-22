@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import RichTextEditor from "./RichTextEditor";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { FEATURE_KEYS } from "@/lib/features";
+import { markdownToHtml } from "@/lib/markdown";
 import LockedFeatureCard from "./LockedFeatureCard";
 
 type BlogPost = {
@@ -232,7 +233,7 @@ const BlogPage = () => {
         ...form,
         title: data.title || aiTopic,
         excerpt: data.excerpt || "",
-        content: data.content || "",
+        content: markdownToHtml(data.content),
         category: data.category || form.category,
       });
       setAiTopic("");

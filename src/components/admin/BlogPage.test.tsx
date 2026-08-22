@@ -4,6 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import BlogPage from "./BlogPage";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
+vi.mock("./RichTextEditor", () => ({
+  default: ({ value }: { value: string }) => <textarea aria-label="Content" value={value} readOnly />,
+}));
+
 vi.mock("@/hooks/useProfile", () => ({
   useProfile: () => ({ profile: { id: "doctor-1", full_name: "Dr. Test", specialization: "Cardiology" }, can: () => true }),
 }));
@@ -59,6 +63,32 @@ describe("BlogPage - AI writer auth", () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(options.headers.Authorization).toBe("Bearer real-doctor-jwt");
+  });
+
+  it("converts AI Markdown into HTML before passing it to the editor", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        title: "T",
+        excerpt: "E",
+        content: "## Heading\n\n**bold**",
+        category: "General Health",
+      }),
+    } as Response);
+
+    render(
+      <MemoryRouter>
+        <BlogPage />
+      </MemoryRouter>
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /new blog post|new post/i }));
+    fireEvent.change(screen.getByPlaceholderText(/top 10 tips/i), { target: { value: "Heart health" } });
+    fireEvent.click(screen.getByRole("button", { name: /generate/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Content")).toHaveValue("<h2>Heading</h2>\n<p><strong>bold</strong></p>\n");
+    });
+    expect(screen.getByLabelText("Content")).not.toHaveValue("## Heading\n\n**bold**");
   });
 });
 
