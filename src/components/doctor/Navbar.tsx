@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Menu, X, Moon, Sun, MessageCircle } from "lucide-react";
+import { Menu, X, Moon, Sun } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
@@ -121,11 +121,6 @@ const Navbar = () => {
           </nav>
 
           <div className="flex shrink-0 items-center gap-2 text-text-muted sm:gap-3">
-            {settings?.whatsapp_number && (
-              <a href={whatsappUrl} target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-success text-white shadow-sm transition hover:opacity-90">
-                <MessageCircle size={16} />
-              </a>
-            )}
             <button
               aria-label="Toggle dark mode"
               onClick={toggleTheme}
