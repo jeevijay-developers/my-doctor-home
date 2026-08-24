@@ -4,12 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
   CreditCard, TrendingUp, Calendar, IndianRupee, PieChart, Download,
-  FileText, Eye, Loader2,
+  FileText, Eye, Loader2, ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import PaymentStatusDonut, { type DonutSegment } from "@/components/shared/PaymentStatusDonut";
 import TestModeBadge from "@/components/shared/TestModeBadge";
-import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth } from "date-fns";
+import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth, addMonths, subMonths } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,8 @@ import { generateInvoicePDF, type InvoicePayload } from "@/lib/invoicePdf";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { FEATURE_KEYS } from "@/lib/features";
 import LockedFeatureCard from "./LockedFeatureCard";
+import DateFilter from "@/components/shared/DateFilter";
+import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 
 type Invoice = {
   id: string;
@@ -46,6 +48,15 @@ const BillingPage = () => {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filter, setFilter] = useState("all");
+  // Transactions list defaults to the current month; switching to Date
+  // narrows it to a single day instead. Mirrors the period-filter UX in
+  // AppointmentsPage (DateFilter + PaginationBar).
+  const [periodMode, setPeriodMode] = useState<"month" | "date">("month");
+  const [periodActive, setPeriodActive] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [page, setPage] = useState(1);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [generatingInvoices, setGeneratingInvoices] = useState(false);
 
@@ -129,6 +140,9 @@ const BillingPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointments.length, profile?.id]);
 
+  // Reset to page 1 whenever the filtered result set changes shape underneath the pager.
+  useEffect(() => { setPage(1); }, [filter, periodMode, periodActive, selectedMonth, selectedDate]);
+
   const today = format(new Date(), "yyyy-MM-dd");
   const weekStart = format(startOfWeek(new Date()), "yyyy-MM-dd");
   const weekEnd = format(endOfWeek(new Date()), "yyyy-MM-dd");
@@ -188,13 +202,26 @@ const BillingPage = () => {
     (a, b) => (b.date || "").localeCompare(a.date || "")
   );
 
-  const filtered = filter === "all" ? transactions : transactions.filter(t => t.payment_status === filter);
+  const statusFiltered = filter === "all" ? transactions : transactions.filter(t => t.payment_status === filter);
+
+  const monthStartStr = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
+  const monthEndStr = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
+  const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+  const filtered = !periodActive
+    ? statusFiltered
+    : periodMode === "month"
+    ? statusFiltered.filter(t => t.date >= monthStartStr && t.date <= monthEndStr)
+    : statusFiltered.filter(t => t.date === selectedDateStr);
+
+  const totalCount = filtered.length;
+  const pageStart = (page - 1) * PAGE_SIZE;
+  const paginated = filtered.slice(pageStart, pageStart + PAGE_SIZE);
 
   const paidCount = transactions.filter(t => t.payment_status === "paid").length;
   const pendingCount = transactions.filter(t => t.payment_status === "pending").length;
   const clinicCount = transactions.filter(t => t.payment_status === "pay_at_clinic").length;
   const refundedCount = transactions.filter(t => t.payment_status === "refunded").length;
-  const totalCount = transactions.length || 1;
+  const donutTotal = transactions.length || 1;
 
   const paymentColors: Record<string, { bg: string; text: string; label: string }> = {
     paid: { bg: "bg-success/10", text: "text-success", label: "Paid" },
@@ -327,40 +354,105 @@ const BillingPage = () => {
                 </div>
               </div>
 
-              {filtered.length === 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40 shrink-0">
+                  <Button
+                    type="button" size="sm" variant={periodMode === "month" ? "default" : "ghost"}
+                    className="h-8 px-3 text-xs"
+                    onClick={() => setPeriodMode("month")}
+                  >
+                    Month
+                  </Button>
+                  <Button
+                    type="button" size="sm" variant={periodMode === "date" ? "default" : "ghost"}
+                    className="h-8 px-3 text-xs"
+                    onClick={() => setPeriodMode("date")}
+                  >
+                    Date
+                  </Button>
+                </div>
+
+                {periodMode === "month" ? (
+                  <Card className="border-border/60 shadow-none">
+                    <CardContent className="p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {periodActive ? (
+                          <>
+                            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Previous month" onClick={() => setSelectedMonth((d) => subMonths(d, 1))}>
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="text-sm font-medium text-foreground w-28 text-center">{format(selectedMonth, "MMMM yyyy")}</span>
+                            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Next month" onClick={() => setSelectedMonth((d) => addMonths(d, 1))}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-royal" onClick={() => setPeriodActive(false)}>
+                              <X className="h-3 w-3" /> Clear
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-xs text-muted-foreground">Showing all transactions</span>
+                            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => { setSelectedMonth(new Date()); setPeriodActive(true); }}>
+                              This Month
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <DateFilter
+                    selectedDate={selectedDate}
+                    dateFilterActive={periodActive}
+                    calendarOpen={calendarOpen}
+                    onCalendarOpenChange={setCalendarOpen}
+                    onDateChange={(date) => { setSelectedDate(date); setPeriodActive(true); setCalendarOpen(false); }}
+                    onClear={() => setPeriodActive(false)}
+                    activeLabel="Showing"
+                    inactiveLabel="Showing all transactions"
+                  />
+                )}
+              </div>
+
+              {totalCount === 0 ? (
                 <Card className="border-border/60 shadow-none">
                   <CardContent className="py-16 text-center">
                     <CreditCard className="h-12 w-12 text-success/20 mx-auto mb-3" />
-                    <p className="text-muted-foreground font-medium">No transactions yet</p>
+                    <p className="text-muted-foreground font-medium">
+                      {transactions.length === 0 ? "No transactions yet" : "No transactions in this period"}
+                    </p>
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-2">
-                  {filtered.map((a) => {
-                    const pc = paymentColors[a.payment_status] || paymentColors.pending;
-                    return (
-                      <Card key={a.key} className="border-border/60 shadow-none hover:shadow-sm transition-shadow">
-                        <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-sm font-bold text-success flex-shrink-0">
-                              {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
+                <>
+                  <div className="space-y-2">
+                    {paginated.map((a) => {
+                      const pc = paymentColors[a.payment_status] || paymentColors.pending;
+                      return (
+                        <Card key={a.key} className="border-border/60 shadow-none hover:shadow-sm transition-shadow">
+                          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-sm font-bold text-success flex-shrink-0">
+                                {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
+                              </div>
+                              <div>
+                                <div className="font-medium text-foreground text-sm">{a.patient_name}</div>
+                                <div className="text-xs text-muted-foreground">{a.service_name} · {a.date}</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="font-medium text-foreground text-sm">{a.patient_name}</div>
-                              <div className="text-xs text-muted-foreground">{a.service_name} · {a.date}</div>
+                            <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-shrink-0">
+                              <Badge variant="outline" className={`text-[10px] ${pc.bg} ${pc.text}`}>{pc.label}</Badge>
+                              <Badge variant="outline" className={`text-[10px] capitalize ${statusColors[a.status] || ""}`}>{a.status}</Badge>
+                              {a.is_mock && <TestModeBadge />}
+                              <span className="font-heading font-bold text-foreground">₹{a.amount}</span>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-shrink-0">
-                            <Badge variant="outline" className={`text-[10px] ${pc.bg} ${pc.text}`}>{pc.label}</Badge>
-                            <Badge variant="outline" className={`text-[10px] capitalize ${statusColors[a.status] || ""}`}>{a.status}</Badge>
-                            {a.is_mock && <TestModeBadge />}
-                            <span className="font-heading font-bold text-foreground">₹{a.amount}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                  <PaginationBar page={page} totalCount={totalCount} onPageChange={setPage} />
+                </>
               )}
             </div>
 
@@ -372,7 +464,7 @@ const BillingPage = () => {
               </CardHeader>
               <CardContent>
                 <PaymentStatusDonut
-                  total={totalCount}
+                  total={donutTotal}
                   buckets={
                     [
                       { label: "Paid", count: paidCount, color: "hsl(var(--success))" },
