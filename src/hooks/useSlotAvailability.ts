@@ -14,7 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 export const useSlotAvailability = (
   doctorId: string | null | undefined,
   date: string | null | undefined,
-  maxPerSlot: number = 1
+  maxPerSlot: number = 1,
+  appointmentType: "clinic" | "online" = "clinic",
 ) => {
   const [counts, setCounts] = useState<Record<string, number>>({});
 
@@ -23,6 +24,7 @@ export const useSlotAvailability = (
     const { data } = await (supabase as any).rpc("get_slot_counts", {
       _doctor_id: doctorId,
       _date: date,
+      _appointment_type: appointmentType,
     });
     const map: Record<string, number> = {};
     (data || []).forEach((r: any) => {
@@ -30,7 +32,7 @@ export const useSlotAvailability = (
     });
     setCounts(map);
     return map; // callers can read this directly — no stale closure
-  }, [doctorId, date]);
+  }, [doctorId, date, appointmentType]);
 
   useEffect(() => {
     refresh();

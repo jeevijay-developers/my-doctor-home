@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { format, addDays, differenceInHours, parseISO, isSameDay } from "date-fns";
 import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight, BellRing } from "lucide-react";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
+import { effectiveAppointmentCapacity } from "@/lib/appointmentCapacity";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
 
 type Appt = {
@@ -130,11 +131,12 @@ const ManageAppointment = () => {
   const tooClose = apptTs && hoursUntil < cutoffHours;
   const isChangeable = appt && (appt.status === "pending" || appt.status === "confirmed") && !tooClose;
   const canReschedule = isChangeable && (appt?.reschedule_count ?? 0) < 2;
-  const maxPerSlot = settings?.max_per_slot || 1;
+  const clinicMaxPerSlot = (settings as any)?.clinic_max_per_slot ?? (settings as any)?.max_per_slot ?? 1;
+  const maxPerSlot = effectiveAppointmentCapacity((appt?.appointment_type as "clinic" | "online") || "clinic", clinicMaxPerSlot);
   const advanceDays = settings?.booking_advance_days || 7;
   const days = useMemo(() => Array.from({ length: advanceDays }, (_, i) => addDays(new Date(), i)), [advanceDays]);
   const newDateStr = newDate ? format(newDate, "yyyy-MM-dd") : null;
-  const { isFull, bookedIn } = useSlotAvailability(doctor?.id, newDateStr, maxPerSlot);
+  const { isFull, bookedIn } = useSlotAvailability(doctor?.id, newDateStr, maxPerSlot, (appt?.appointment_type as "clinic" | "online") || "clinic");
 
   const dow = newDate ? newDate.getDay() : -1;
   const wh = workingHours.find((h) => h.day_of_week === dow);

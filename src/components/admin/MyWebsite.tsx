@@ -113,6 +113,10 @@ const MyWebsite = () => {
       toast({ title: "Invalid slot limit", description: "Max bookings per slot must be between 1 and 50.", variant: "destructive" });
       return;
     }
+    if ((settings as any).clinic_max_per_slot != null && ((settings as any).clinic_max_per_slot < 1 || (settings as any).clinic_max_per_slot > 50)) {
+      toast({ title: "Invalid slot limit", description: "Clinic visits per slot must be between 1 and 50.", variant: "destructive" });
+      return;
+    }
     if (settings.cancellation_cutoff_hours != null && settings.cancellation_cutoff_hours < 0) {
       toast({ title: "Invalid cutoff hours", description: "Cancellation cutoff hours cannot be negative.", variant: "destructive" });
       return;
@@ -716,14 +720,14 @@ const MyWebsite = () => {
                     <p className="text-[11px] text-muted-foreground">How far ahead patients can book (1–365 days).</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Max Bookings per Slot</Label>
+                    <Label>Clinic Visits per Slot</Label>
                     <DigitsInput
                       maxLength={2}
-                      value={settings.max_per_slot ?? 1}
-                      onChange={(e) => updateSetting("max_per_slot", e.target.value === "" ? "" : Number(e.target.value))}
+                      value={(settings as any).clinic_max_per_slot ?? (settings as any).max_per_slot ?? 3}
+                      onChange={(e) => updateSetting("clinic_max_per_slot" as any, e.target.value === "" ? "" : Number(e.target.value))}
                       className="h-10"
                     />
-                    <p className="text-[11px] text-muted-foreground">Number of patients allowed in the same time slot.</p>
+                    <p className="text-[11px] text-muted-foreground">Number of Clinic Visit patients allowed in the same time slot. Online consultations always allow one patient.</p>
                   </div>
                 </div>
                 <div>

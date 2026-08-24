@@ -28,6 +28,7 @@ import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import DateFilter from "@/components/shared/DateFilter";
 import { defaultAppointmentAmount } from "@/lib/appointmentAmount";
 import { appointmentSerialNumber } from "@/lib/appointmentList";
+import { effectiveAppointmentCapacity } from "@/lib/appointmentCapacity";
 
 const WALK_IN_TIME = "walk-in";
 
@@ -344,7 +345,7 @@ const AppointmentsPage = () => {
   const addAppointment = async (bypassSlotCheck = false) => {
     if (!profile) return;
     if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
-    if (!isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
+    if (newAppt.patient_phone.trim() && !isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
     if (newAppt.amount < 0) { toast.error("Amount cannot be negative"); return; }
     const isWalkIn = newAppt.time_slot === WALK_IN_TIME;
     // Block past date / time for scheduled appointments. Walk-ins have no scheduled time.
@@ -356,11 +357,12 @@ const AppointmentsPage = () => {
 
     if (!bypassSlotCheck && !isWalkIn) {
       const { data: settingsRow } = await supabase
-        .from("website_settings").select("max_per_slot").eq("doctor_id", profile.id).single();
-      const cap = (settingsRow as any)?.max_per_slot || 1;
+        .from("website_settings").select("clinic_max_per_slot, max_per_slot").eq("doctor_id", profile.id).single();
+      const cap = effectiveAppointmentCapacity("clinic", (settingsRow as any)?.clinic_max_per_slot ?? (settingsRow as any)?.max_per_slot);
       const { count: taken } = await supabase
         .from("appointments").select("*", { count: "exact", head: true })
         .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
+        .eq("appointment_type", "clinic")
         .neq("status", "cancelled");
       if ((taken ?? 0) >= cap) {
         setSlotConflict({ taken: taken ?? 0, cap, time: newAppt.time_slot });
@@ -370,7 +372,7 @@ const AppointmentsPage = () => {
 
     const token = `T${Math.floor(Math.random() * 900) + 100}`;
     const { status, time_slot, ...rest } = newAppt;
-    const serviceName = rest.service_name.trim() || "Consultation";
+    const serviceName = rest.service_name.trim() || "Clinic Visit";
     const { error } = await supabase.from("appointments").insert({
       doctor_id: profile.id, ...rest, time_slot: isWalkIn ? null : time_slot, service_name: serviceName,
       appointment_type: "clinic",
@@ -455,7 +457,7 @@ const AppointmentsPage = () => {
               </div>
               <div className="space-y-1.5">
                 <Label>Service <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                <Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} placeholder="e.g. Consultation" className="h-10" />
+                <Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} placeholder="e.g. Clinic Visit" className="h-10" />
               </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -664,6 +666,11 @@ const AppointmentsPage = () => {
                           Rescheduled ({a.reschedule_count})
                         </Badge>
                       )}
+                      {!selectMode && a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
+                        <Badge variant="outline" className="text-[10px] bg-teal/10 text-teal border-teal/20">
+                          <Video className="h-3 w-3 mr-1" /> Video call
+                        </Badge>
+                      )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
                       {!selectMode && getStatusOptions(a.status).length > 0 && (
                         <div onClick={(e) => e.stopPropagation()}>
@@ -689,13 +696,6 @@ const AppointmentsPage = () => {
                         </div>
                       )}
                     </div>
-                    {!selectMode && a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
-                      <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
-                        <Badge variant="outline" className="text-[10px] bg-teal/10 text-teal border-teal/20">
-                          <Video className="h-3 w-3 mr-1" /> Video call
-                        </Badge>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>

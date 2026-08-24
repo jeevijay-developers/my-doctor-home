@@ -19,6 +19,7 @@ import AppointmentSlip from "./AppointmentSlip";
 import PaymentSlip from "./PaymentSlip";
 import MockCheckoutModal from "./MockCheckoutModal";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
+import { effectiveAppointmentCapacity } from "@/lib/appointmentCapacity";
 
 const getNextDays = (count: number) => {
   const days = [];
@@ -135,13 +136,19 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   ];
 
   // No service selection step anymore — every booking uses the doctor's
-  // Default Consultation Fee.
+  // Default Consultation Fee, and the appointment's service name just
+  // reflects the chosen consultation type.
   const consultationFee = profile?.consultation_fee ?? 500;
-  const selectedService = { name: "Consultation", price: consultationFee, duration: 15 };
+  const selectedService = {
+    name: type === "online" ? "Online Consultation" : "Clinic Visit",
+    price: consultationFee,
+    duration: 15,
+  };
 
-  const maxPerSlot = (settings as any)?.max_per_slot || 1;
+  const clinicMaxPerSlot = (settings as any)?.clinic_max_per_slot ?? (settings as any)?.max_per_slot ?? 1;
+  const maxPerSlot = effectiveAppointmentCapacity(type, clinicMaxPerSlot);
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
-  const { isFull, bookedIn, refresh } = useSlotAvailability(profile?.id, dateStr, maxPerSlot);
+  const { isFull, bookedIn, refresh } = useSlotAvailability(profile?.id, dateStr, maxPerSlot, type);
 
   const wantsOnlinePayment = Boolean(settings?.require_payment);
   const totalSteps = wantsOnlinePayment ? 5 : 4;
