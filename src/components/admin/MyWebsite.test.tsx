@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import MyWebsite from "./MyWebsite";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
@@ -31,6 +31,9 @@ vi.mock("@/integrations/supabase/client", () => {
         if (table === "website_settings") {
           return chain({ data: { id: "ws-1", doctor_id: "doctor-1", show_online_consultation: false } });
         }
+        if (table === "services") {
+          return chain({ data: [{ id: "service-1", name: "General Consultation", description: "Routine care", price: 500, type: "clinic", duration: 30, active: true, sort_order: 0 }] });
+        }
         return chain({ data: [] });
       }),
       functions: { invoke: vi.fn().mockResolvedValue({ data: { mode: "mock" }, error: null }) },
@@ -58,5 +61,21 @@ describe("MyWebsite - Online Consultation gating", () => {
     renderMyWebsite();
     await screen.findByText(/online consultation/i);
     expect(screen.queryByRole("button", { name: /upgrade now/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("MyWebsite - Services editor", () => {
+  it("keeps service identity fields without exposing the service price", async () => {
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, loading: false, rows: [], refetch: vi.fn() });
+    renderMyWebsite();
+
+    fireEvent.click(screen.getByRole("button", { name: "Services" }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.getByDisplayValue("General Consultation")).toBeInTheDocument();
+    expect(screen.getByText("Clinic")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("30")).toBeInTheDocument();
+    expect(screen.queryByText("Price ₹")).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue("500")).not.toBeInTheDocument();
   });
 });

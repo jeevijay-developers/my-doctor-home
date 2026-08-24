@@ -16,12 +16,6 @@ const DESCRIPTION_TRUNCATE_LENGTH = 140;
 const CAROUSEL_THRESHOLD = 3;
 type Service = Tables<"services">;
 
-const formatPrice = (price: number) => new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-}).format(price);
-
 const getServiceType = (type: string) => {
   if (type === "online") return { label: "Online", Icon: Laptop };
   if (type === "both") return { label: "Clinic & Online", Icon: Stethoscope };
@@ -71,14 +65,8 @@ const ServiceCard = ({ service, index, onBook, onSeeMore }: {
         </div>
 
         <div className="relative mt-6 border-t border-blue-50 pt-4 dark:border-blue-950">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400">Consultation fee</span>
-              <span className="mt-1 block font-heading text-2xl font-extrabold text-[#092b50] dark:text-white">
-                {formatPrice(service.price)}
-              </span>
-            </div>
-            <span className="mb-1 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
               <Clock className="h-4 w-4" style={{ color: PRIMARY }} />
               {service.duration || 30} min
             </span>
@@ -144,7 +132,7 @@ const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               Medical <span style={{ color: PRIMARY }}>Services</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
-              Professional care with transparent pricing, clear consultation times, and instant appointment booking.
+              Professional care with clear consultation times, flexible visit types, and instant appointment booking.
             </p>
           </div>
 
@@ -221,11 +209,7 @@ const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                 {activeService.description}
               </p>
 
-              <div className="flex items-center justify-between gap-4 border-t border-blue-100 pt-4 dark:border-blue-900">
-                <div>
-                  <span className="block text-xs font-semibold text-slate-400">Consultation fee</span>
-                  <span className="font-heading text-2xl font-extrabold text-[#092b50] dark:text-white">{formatPrice(activeService.price)}</span>
-                </div>
+              <div className="flex justify-end border-t border-blue-100 pt-4 dark:border-blue-900">
                 <button
                   type="button"
                   className="h-11 rounded-xl px-6 text-sm font-bold text-white"

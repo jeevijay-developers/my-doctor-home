@@ -579,8 +579,7 @@ const MyWebsite = () => {
                     </div>
                     <Input placeholder="Service name" value={s.name} onChange={(e) => updateService(i, "name", e.target.value)} />
                     <Input placeholder="Description" value={s.description} onChange={(e) => updateService(i, "description", e.target.value)} />
-                    <div className="grid grid-cols-3 gap-2">
-                      <div><Label className="text-xs">Price ₹</Label><AmountInput placeholder="0" value={s.price || ""} onChange={(e) => updateService(i, "price", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs">Type</Label>
                         <Select value={s.type} onValueChange={(v) => updateService(i, "type", v)}>
