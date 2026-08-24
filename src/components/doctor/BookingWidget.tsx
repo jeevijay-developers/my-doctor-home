@@ -72,14 +72,13 @@ type CachedOrder = {
 
 type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 
-const STEP_LABELS = ["Consultation Type", "Select Service", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
+const STEP_LABELS = ["Consultation Type", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
 
 const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
-  const { profile, services, settings, workingHours, isPremium, hasFeature } = useDoctorData();
+  const { profile, settings, workingHours, isPremium, hasFeature } = useDoctorData();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [step, setStep] = useState(1);
   const [type, setType] = useState<"clinic" | "online">("clinic");
-  const [selectedService, setSelectedService] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
   const [name, setName] = useState("");
@@ -106,11 +105,11 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   useEffect(() => { if (confirmed) setSlipOpen(true); }, [confirmed]);
 
-  // Any time the patient steps back before Review (to change service, date,
+  // Any time the patient steps back before Review (to change date,
   // time, or their own details), the previously cached Razorpay order no
   // longer matches what would be booked — drop it so the next "Pay Now"
   // creates a fresh order instead of silently booking stale details.
-  useEffect(() => { if (step < 6) setCachedOrder(null); }, [step]);
+  useEffect(() => { if (step < 5) setCachedOrder(null); }, [step]);
 
   const advanceDays = settings?.booking_advance_days || 7;
   const days = useMemo(() => getNextDays(advanceDays), [advanceDays]);
@@ -135,26 +134,17 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     ...(hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION) ? [{ k: "online" as const, label: "Online", Icon: Video }] : []),
   ];
 
-  const filteredServices = services.filter((s) =>
-    type === "online" ? s.type === "online" || s.type === "both" : s.type === "clinic" || s.type === "both"
-  );
-  // Fallback: if the doctor hasn't defined any matching service, offer a default
-  // consultation so patients can still book (clinic or online).
-  const defaultFee = (settings as any)?.default_consultation_fee || 500;
-  const availableServices = filteredServices.length > 0 ? filteredServices : [{
-    id: `default-${type}`,
-    name: type === "online" ? "Online Consultation" : "Clinic Consultation",
-    price: defaultFee,
-    duration: 15,
-    type,
-  }];
+  // No service selection step anymore — every booking uses the doctor's
+  // Default Consultation Fee.
+  const consultationFee = profile?.consultation_fee ?? 500;
+  const selectedService = { name: "Consultation", price: consultationFee, duration: 15 };
 
   const maxPerSlot = (settings as any)?.max_per_slot || 1;
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
   const { isFull, bookedIn, refresh } = useSlotAvailability(profile?.id, dateStr, maxPerSlot);
 
   const wantsOnlinePayment = Boolean(settings?.require_payment);
-  const totalSteps = wantsOnlinePayment ? 6 : 5;
+  const totalSteps = wantsOnlinePayment ? 5 : 4;
 
   const validatePatientDetails = () => {
     if (!name || !phone || !age || !gender) return false;
@@ -168,7 +158,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   // behaviour). Only used when the doctor has NOT turned on Require Online
   // Payment; the online-payment path below never calls this.
   const createAppointmentRow = async (): Promise<{ id: string; token: string } | null> => {
-    if (!profile || !selectedService || !selectedDate || !selectedTime) return null;
+    if (!profile || !selectedDate || !selectedTime) return null;
     if (!validatePatientDetails()) return null;
     const normalizedPhone = normalizeIndianPhone(phone);
     const tkn = `T${Math.floor(Math.random() * 900) + 100}`;
@@ -199,14 +189,14 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     if (error) {
       if (error.message?.includes("SLOT_FULL")) {
         toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
-        setStep(4);
+        setStep(3);
         setSelectedTime("");
         refresh();
         return null;
       }
       if (error.message?.includes("SLOT_IN_PAST")) {
         toast.error("That time has already passed — please pick a later slot.");
-        setStep(4); setSelectedTime(""); refresh();
+        setStep(3); setSelectedTime(""); refresh();
         return null;
       }
       toast.error("Booking failed. Please try again.");
@@ -244,7 +234,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   };
 
   const reset = () => {
-    setStep(1); setType("clinic"); setSelectedService(null); setSelectedDate(null);
+    setStep(1); setType("clinic"); setSelectedDate(null);
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setConfirmedPaymentStatus("pay_at_clinic"); setPaymentMeta(null);
     setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setMockCheckoutOpen(false);
@@ -298,24 +288,24 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
     // Slot still available — advance the wizard.
     setSelectedTime(slot);
-    setStep(5);
+    setStep(4);
   };
 
-  // Step 5 "Continue" for online-payment doctors — just moves to the Review
+  // Step 4 "Continue" for online-payment doctors — just moves to the Review
   // Booking Summary step. Nothing is written to the database here.
-  // Also re-validates the slot so a race between step 4 selection and step 5
+  // Also re-validates the slot so a race between step 3 selection and step 4
   // Continue is caught before the patient proceeds to payment.
   const proceedToReview = () => {
     if (!validatePatientDetails()) return;
     // Defense-in-depth: re-check from cached counts before advancing.
     if (selectedTime && isFull(selectedTime)) {
       toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
-      setStep(4);
+      setStep(3);
       setSelectedTime("");
       refresh();
       return;
     }
-    setStep(6);
+    setStep(5);
   };
 
   // Opens a Razorpay order for the current booking details (or reuses one
@@ -324,10 +314,10 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   // the pending booking payload.
   const ensureOrder = async (): Promise<CachedOrder | null> => {
     if (cachedOrder) return cachedOrder;
-    if (!profile || !selectedService || !selectedDate || !selectedTime) return null;
+    if (!profile || !selectedDate || !selectedTime) return null;
     if (isFull(selectedTime)) {
       toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
-      setStep(4); setSelectedTime(""); refresh();
+      setStep(3); setSelectedTime(""); refresh();
       return null;
     }
 
@@ -355,10 +345,10 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
       const message = await edgeFunctionErrorMessage(orderErr, "Online payment isn't available right now.");
       if (message.includes("SLOT_FULL")) {
         toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
-        setStep(4); setSelectedTime(""); refresh();
+        setStep(3); setSelectedTime(""); refresh();
       } else if (message.includes("SLOT_IN_PAST")) {
         toast.error("That time has already passed — please pick a later slot.");
-        setStep(4); setSelectedTime(""); refresh();
+        setStep(3); setSelectedTime(""); refresh();
       } else {
         toast.error("Online payment isn't active yet for this clinic.", { description: "Please contact the clinic to book, or try again shortly." });
       }
@@ -641,7 +631,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => { setPaymentFailed(false); setCachedOrder(null); setStep(5); }}
+                onClick={() => { setPaymentFailed(false); setCachedOrder(null); setStep(4); }}
               >
                 Edit Booking Details
               </Button>
@@ -727,25 +717,6 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
       {step === 2 && (
         <div className="space-y-4 text-left">
-          <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Service</h3>
-          <div className="space-y-2">
-            {availableServices.map((s) => (
-              <button key={s.id} onClick={() => { setSelectedService(s); setStep(3); }}
-                className={`w-full rounded-2xl border-2 p-4 text-left flex justify-between items-center gap-3 transition-all ${selectedService?.id === s.id ? "border-primary-500 bg-blue-50/70 shadow-sm dark:bg-blue-950/20" : "border-slate-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"}`}>
-                <div>
-                  <span className="font-medium text-foreground">{s.name}</span>
-                  {s.duration && <span className="text-xs text-text-gray ml-2">{s.duration} min</span>}
-                </div>
-                <span className="font-heading font-extrabold text-primary-500">₹{s.price}</span>
-              </button>
-            ))}
-            {availableServices.length === 0 && <p className="text-muted-foreground text-sm">No services available for this type.</p>}
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="space-y-4 text-left">
           <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Date</h3>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {days.map((d, i) => {
@@ -753,7 +724,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               const dwh = workingHours.find((h) => h.day_of_week === dow);
               const closed = !dwh?.is_open;
               return (
-                <button key={i} disabled={closed} onClick={() => { setSelectedDate(d); setStep(4); }}
+                <button key={i} disabled={closed} onClick={() => { setSelectedDate(d); setStep(3); }}
                   className={`flex-shrink-0 w-20 rounded-2xl border-2 py-3 text-center transition-all ${closed ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-45 dark:border-gray-800 dark:bg-gray-900" : selectedDate?.getTime() === d.getTime() ? "border-primary-500 bg-blue-50 shadow-sm dark:bg-blue-950/25" : "border-slate-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"}`}>
                   <p className="text-xs text-text-gray">{format(d, "EEE")}</p>
                   <p className="font-heading font-bold text-lg text-foreground">{d.getDate()}</p>
@@ -766,7 +737,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         </div>
       )}
 
-      {step === 4 && (
+      {step === 3 && (
         <div className="space-y-4 text-left">
           <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Time Slot</h3>
           <p className="text-xs text-muted-foreground">Live availability — full slots update automatically.</p>
@@ -812,7 +783,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         </div>
       )}
 
-      {step === 5 && (
+      {step === 4 && (
         <div className="space-y-4 text-left">
           <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Patient Details</h3>
           <div className="space-y-3">
@@ -841,7 +812,6 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           </div>
 
           <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 space-y-2 text-sm dark:border-blue-900 dark:bg-blue-950/20">
-            <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="text-foreground font-medium">{selectedService?.name}</span></div>
             <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="text-foreground font-medium">{selectedDate && format(selectedDate, "d MMM")}</span></div>
             <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="text-foreground font-medium">{selectedTime}</span></div>
             <hr className="border-border" />
@@ -869,7 +839,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         </div>
       )}
 
-      {step === 6 && wantsOnlinePayment && (
+      {step === 5 && wantsOnlinePayment && (
         <div className="space-y-4 text-left">
           <h3 className="font-heading font-semibold text-lg text-foreground flex items-center gap-2 flex-wrap">
             Review Booking Summary {paymentModeIsMock && <TestModeBadge />}
@@ -915,7 +885,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(5)}>
+            <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(4)}>
               Back
             </Button>
             <Button variant="cta" className="flex-[2] h-12 font-heading font-semibold text-lg"
