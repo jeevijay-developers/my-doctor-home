@@ -20,28 +20,13 @@ import PaymentSlip from "./PaymentSlip";
 import MockCheckoutModal from "./MockCheckoutModal";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { effectiveAppointmentCapacity } from "@/lib/appointmentCapacity";
+import { generateTimeSlots, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
 
 const getNextDays = (count: number) => {
   const days = [];
   const today = new Date();
   for (let i = 0; i < count; i++) days.push(addDays(today, i));
   return days;
-};
-
-const generateTimeSlots = (start: string | null, end: string | null) => {
-  if (!start || !end) return [];
-  const slots: string[] = [];
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  let current = sh * 60 + sm;
-  const endMin = eh * 60 + em;
-  while (current < endMin) {
-    const h = Math.floor(current / 60);
-    const m = current % 60;
-    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    current += 30;
-  }
-  return slots;
 };
 
 const SummaryRow = ({ label, value }: { label: string; value: string }) => (
@@ -117,9 +102,10 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   const dayOfWeek = selectedDate ? selectedDate.getDay() : -1;
   const wh = workingHours.find((h) => h.day_of_week === dayOfWeek);
+  const slotDuration = settings?.slot_duration_minutes || DEFAULT_SLOT_DURATION_MINUTES;
 
   const rawTimeSlots = wh?.is_open
-    ? [...generateTimeSlots(wh.start_time, wh.end_time), ...generateTimeSlots(wh.start_time_2, wh.end_time_2)]
+    ? [...generateTimeSlots(wh.start_time, wh.end_time, slotDuration), ...generateTimeSlots(wh.start_time_2, wh.end_time_2, slotDuration)]
     : [];
   // Hide time slots that are already in the past for today
   const timeSlots = selectedDate && isSameDay(selectedDate, new Date())

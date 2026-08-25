@@ -11,6 +11,7 @@ import { format, addDays, differenceInHours, parseISO, isSameDay } from "date-fn
 import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight, BellRing } from "lucide-react";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { effectiveAppointmentCapacity } from "@/lib/appointmentCapacity";
+import { generateTimeSlots, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
 
 type Appt = {
@@ -18,22 +19,6 @@ type Appt = {
   service_name: string; appointment_type: string; date: string; time_slot: string | null;
   status: string; token_number: string; amount: number; reschedule_count: number;
   chief_complaint: string | null; meeting_link: string | null; created_at: string;
-};
-
-const generateTimeSlots = (start: string | null, end: string | null) => {
-  if (!start || !end) return [] as string[];
-  const slots: string[] = [];
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  let current = sh * 60 + sm;
-  const endMin = eh * 60 + em;
-  while (current < endMin) {
-    const h = Math.floor(current / 60);
-    const m = current % 60;
-    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    current += 30;
-  }
-  return slots;
 };
 
 const ManageAppointment = () => {
@@ -140,8 +125,9 @@ const ManageAppointment = () => {
 
   const dow = newDate ? newDate.getDay() : -1;
   const wh = workingHours.find((h) => h.day_of_week === dow);
+  const slotDuration = settings?.slot_duration_minutes || DEFAULT_SLOT_DURATION_MINUTES;
   const rawSlots = wh?.is_open
-    ? [...generateTimeSlots(wh.start_time, wh.end_time), ...generateTimeSlots(wh.start_time_2, wh.end_time_2)]
+    ? [...generateTimeSlots(wh.start_time, wh.end_time, slotDuration), ...generateTimeSlots(wh.start_time_2, wh.end_time_2, slotDuration)]
     : [];
   const timeSlots = newDate && isSameDay(newDate, new Date())
     ? rawSlots.filter((t) => {

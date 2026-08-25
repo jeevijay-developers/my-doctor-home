@@ -21,6 +21,7 @@ import { Star } from "lucide-react";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { FEATURE_KEYS } from "@/lib/features";
 import { DEFAULT_QUICK_STATS, AVAILABLE_STAT_ICONS, QuickStatItem } from "@/lib/quickStats";
+import { SLOT_DURATION_OPTIONS, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
 
 type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
 
@@ -119,6 +120,10 @@ const MyWebsite = () => {
     }
     if (settings.cancellation_cutoff_hours != null && settings.cancellation_cutoff_hours < 0) {
       toast({ title: "Invalid cutoff hours", description: "Cancellation cutoff hours cannot be negative.", variant: "destructive" });
+      return;
+    }
+    if (settings.slot_duration_minutes != null && !(SLOT_DURATION_OPTIONS as readonly number[]).includes(settings.slot_duration_minutes)) {
+      toast({ title: "Invalid slot duration", description: "Choose a valid appointment slot duration.", variant: "destructive" });
       return;
     }
 
@@ -623,6 +628,24 @@ const MyWebsite = () => {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
+                <div className="p-3 rounded-lg bg-secondary space-y-1.5">
+                  <Label className="text-xs">Appointment Slot Duration</Label>
+                  <Select
+                    value={String(settings.slot_duration_minutes ?? DEFAULT_SLOT_DURATION_MINUTES)}
+                    onValueChange={(v) => updateSetting("slot_duration_minutes", Number(v))}
+                    disabled={!canEditWebsite}
+                  >
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SLOT_DURATION_OPTIONS.map((mins) => (
+                        <SelectItem key={mins} value={String(mins)}>{mins} minutes</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    How far apart patient appointment slots are on your booking page.
+                  </p>
+                </div>
                 {dayNames.map((day, idx) => {
                   const wh = workingHours.find((h) => h.day_of_week === idx);
                   if (!wh) return null;
