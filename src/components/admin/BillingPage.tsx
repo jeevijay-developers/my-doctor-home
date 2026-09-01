@@ -144,18 +144,48 @@ const BillingPage = () => {
   useEffect(() => { setPage(1); }, [filter, periodMode, periodActive, selectedMonth, selectedDate]);
 
   const today = format(new Date(), "yyyy-MM-dd");
-  const weekStart = format(startOfWeek(new Date()), "yyyy-MM-dd");
-  const weekEnd = format(endOfWeek(new Date()), "yyyy-MM-dd");
-  const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const monthEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
+  const selectedMonthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
+  const selectedMonthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
+  const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+  const isCurrentMonthSelected = format(selectedMonth, "yyyy-MM") === format(new Date(), "yyyy-MM");
+  const isTodaySelected = selectedDateStr === today;
+
+  // The three revenue cards track whatever period is active in the
+  // Transactions filter below: picking a Date pivots Day/Week/Month around
+  // that date, picking a Month pivots the Month card to it, and clearing the
+  // filter falls back to the real today/this-week/this-month.
+  const dateModeActive = periodActive && periodMode === "date";
+  const monthModeActive = periodActive && periodMode === "month";
+
+  const weekRefDate = dateModeActive ? selectedDate : new Date();
+  const weekStart = format(startOfWeek(weekRefDate), "yyyy-MM-dd");
+  const weekEnd = format(endOfWeek(weekRefDate), "yyyy-MM-dd");
+
+  const dayCardDate = dateModeActive ? selectedDateStr : today;
+  const dayCardLabel = dateModeActive && !isTodaySelected ? format(selectedDate, "d MMM yyyy") : "Today's Revenue";
+  const weekCardLabel = dateModeActive && !isTodaySelected ? `Week of ${format(startOfWeek(selectedDate), "d MMM")}` : "This Week";
+  const monthCardStart = monthModeActive ? selectedMonthStart : dateModeActive ? format(startOfMonth(selectedDate), "yyyy-MM-dd") : format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const monthCardEnd = monthModeActive ? selectedMonthEnd : dateModeActive ? format(endOfMonth(selectedDate), "yyyy-MM-dd") : format(endOfMonth(new Date()), "yyyy-MM-dd");
+  // Clearing the transactions filter ("Showing all transactions") drops the
+  // Month card's period bound entirely — it becomes a true all-time total
+  // rather than silently reverting to the real current month.
+  const monthCardLabel = !periodActive
+    ? "All Time"
+    : monthModeActive && !isCurrentMonthSelected
+    ? format(selectedMonth, "MMMM yyyy")
+    : dateModeActive && !isTodaySelected
+    ? format(selectedDate, "MMMM yyyy")
+    : "This Month";
 
   // Revenue totals are computed from the persisted invoices table (not from
   // live appointments), so deleting an appointment or patient later does NOT
   // retroactively reduce Revenue / Billing figures.
   const invoiceDate = (inv: Invoice) => (inv.created_at || "").slice(0, 10);
-  const todayRev = invoices.filter((i) => invoiceDate(i) === today).reduce((s, i) => s + Number(i.amount || 0), 0);
+  const todayRev = invoices.filter((i) => invoiceDate(i) === dayCardDate).reduce((s, i) => s + Number(i.amount || 0), 0);
   const weekRev = invoices.filter((i) => invoiceDate(i) >= weekStart && invoiceDate(i) <= weekEnd).reduce((s, i) => s + Number(i.amount || 0), 0);
-  const monthRev = invoices.filter((i) => invoiceDate(i) >= monthStart && invoiceDate(i) <= monthEnd).reduce((s, i) => s + Number(i.amount || 0), 0);
+  const monthRev = !periodActive
+    ? invoices.reduce((s, i) => s + Number(i.amount || 0), 0)
+    : invoices.filter((i) => invoiceDate(i) >= monthCardStart && invoiceDate(i) <= monthCardEnd).reduce((s, i) => s + Number(i.amount || 0), 0);
 
   // Persisted transaction rows are built from the invoices table (which
   // survives appointment/patient deletion via ON DELETE SET NULL). We then
@@ -202,15 +232,37 @@ const BillingPage = () => {
     (a, b) => (b.date || "").localeCompare(a.date || "")
   );
 
+  // The Month navigator can't go past the real current month, and can't go
+  // earlier than the doctor's very first transaction.
+  const currentMonthKey = format(new Date(), "yyyy-MM");
+  const selectedMonthKey = format(selectedMonth, "yyyy-MM");
+  const earliestTxDate = transactions.reduce((min, t) => (t.date && t.date < min ? t.date : min), today);
+  const earliestMonthKey = earliestTxDate.slice(0, 7);
+  const canGoPrevMonth = selectedMonthKey > earliestMonthKey;
+  const canGoNextMonth = selectedMonthKey < currentMonthKey;
+  const monthYearOptions = (() => {
+    const startYear = Number(earliestMonthKey.slice(0, 4));
+    const endYear = Number(currentMonthKey.slice(0, 4));
+    const years: number[] = [];
+    for (let y = endYear; y >= startYear; y--) years.push(y);
+    return years;
+  })();
+  const jumpToYear = (year: number) => {
+    setSelectedMonth((d) => {
+      const next = new Date(year, d.getMonth(), 1);
+      const nextKey = format(next, "yyyy-MM");
+      if (nextKey > currentMonthKey) return startOfMonth(new Date());
+      if (nextKey < earliestMonthKey) return new Date(Number(earliestMonthKey.slice(0, 4)), Number(earliestMonthKey.slice(5, 7)) - 1, 1);
+      return next;
+    });
+  };
+
   const statusFiltered = filter === "all" ? transactions : transactions.filter(t => t.payment_status === filter);
 
-  const monthStartStr = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
-  const monthEndStr = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
-  const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
   const filtered = !periodActive
     ? statusFiltered
     : periodMode === "month"
-    ? statusFiltered.filter(t => t.date >= monthStartStr && t.date <= monthEndStr)
+    ? statusFiltered.filter(t => t.date >= selectedMonthStart && t.date <= selectedMonthEnd)
     : statusFiltered.filter(t => t.date === selectedDateStr);
 
   const totalCount = filtered.length;
@@ -238,9 +290,9 @@ const BillingPage = () => {
   };
 
   const revenueCards = [
-    { label: "Today's Revenue", value: todayRev, icon: Calendar, gradient: "from-royal to-teal" },
-    { label: "This Week", value: weekRev, icon: TrendingUp, gradient: "from-teal to-success" },
-    { label: "This Month", value: monthRev, icon: IndianRupee, gradient: "from-success to-royal" },
+    { label: dayCardLabel, value: todayRev, icon: Calendar, gradient: "from-royal to-teal" },
+    { label: weekCardLabel, value: weekRev, icon: TrendingUp, gradient: "from-teal to-success" },
+    { label: monthCardLabel, value: monthRev, icon: IndianRupee, gradient: "from-success to-royal" },
   ];
 
   const exportTransactionsCSV = () => {
@@ -355,34 +407,57 @@ const BillingPage = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40 shrink-0">
-                  <Button
-                    type="button" size="sm" variant={periodMode === "month" ? "default" : "ghost"}
-                    className="h-8 px-3 text-xs"
-                    onClick={() => setPeriodMode("month")}
-                  >
-                    Month
-                  </Button>
-                  <Button
-                    type="button" size="sm" variant={periodMode === "date" ? "default" : "ghost"}
-                    className="h-8 px-3 text-xs"
-                    onClick={() => setPeriodMode("date")}
-                  >
-                    Date
-                  </Button>
-                </div>
+                <Card className="border-border/60 shadow-none">
+                  <CardContent className="p-2 flex items-center gap-2">
+                    <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40 shrink-0">
+                      <Button
+                        type="button" size="sm" variant={periodMode === "month" ? "default" : "ghost"}
+                        className="h-8 px-3 text-xs"
+                        onClick={() => setPeriodMode("month")}
+                      >
+                        Month
+                      </Button>
+                      <Button
+                        type="button" size="sm" variant={periodMode === "date" ? "default" : "ghost"}
+                        className="h-8 px-3 text-xs"
+                        onClick={() => setPeriodMode("date")}
+                      >
+                        Date
+                      </Button>
+                    </div>
+
+                    {periodMode === "month" && periodActive && (
+                      <Select value={String(selectedMonth.getFullYear())} onValueChange={(y) => jumpToYear(Number(y))}>
+                        <SelectTrigger className="h-8 w-[80px] text-xs font-medium"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {monthYearOptions.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {periodMode === "month" ? (
                   <Card className="border-border/60 shadow-none">
-                    <CardContent className="p-3">
-                      <div className="flex flex-wrap items-center gap-2">
+                    <CardContent className="p-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {periodActive ? (
                           <>
-                            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Previous month" onClick={() => setSelectedMonth((d) => subMonths(d, 1))}>
+                            <Button
+                              variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Previous month"
+                              disabled={!canGoPrevMonth}
+                              onClick={() => canGoPrevMonth && setSelectedMonth((d) => subMonths(d, 1))}
+                            >
                               <ChevronLeft className="h-4 w-4" />
                             </Button>
-                            <span className="text-sm font-medium text-foreground w-28 text-center">{format(selectedMonth, "MMMM yyyy")}</span>
-                            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Next month" onClick={() => setSelectedMonth((d) => addMonths(d, 1))}>
+                            <span className="text-sm font-semibold text-foreground whitespace-nowrap px-1 min-w-[6.5rem] text-center">
+                              {format(selectedMonth, "MMMM yyyy")}
+                            </span>
+                            <Button
+                              variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Next month"
+                              disabled={!canGoNextMonth}
+                              onClick={() => canGoNextMonth && setSelectedMonth((d) => addMonths(d, 1))}
+                            >
                               <ChevronRight className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-royal" onClick={() => setPeriodActive(false)}>
@@ -391,7 +466,7 @@ const BillingPage = () => {
                           </>
                         ) : (
                           <>
-                            <span className="text-xs text-muted-foreground">Showing all transactions</span>
+                            <span className="text-xs text-muted-foreground px-1">Showing all transactions</span>
                             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => { setSelectedMonth(new Date()); setPeriodActive(true); }}>
                               This Month
                             </Button>

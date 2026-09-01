@@ -220,7 +220,7 @@ const AppointmentsPage = () => {
   }, [profile]);
 
   const upsertPatientForCompletion = async (appt: Appointment) => {
-    if (!profile || !appt.patient_phone) return;
+    if (!profile) return;
     // Identify a patient by (phone + normalized name) so that two different
     // people sharing a mobile number remain distinct patient records. The
     // patient's UUID (patients.id) is the true identity; phone is contact info.

@@ -3,7 +3,10 @@
     "allow": [
       "PowerShell(py --version)",
       "PowerShell(python --version)",
-      "PowerShell(python3 --version)"
+      "PowerShell(python3 --version)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(npx vitest *)"
     ]
   }
 }
