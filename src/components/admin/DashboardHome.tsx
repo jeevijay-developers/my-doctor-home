@@ -30,7 +30,7 @@ const growthTips = [
 const DashboardHome = () => {
   const { profile } = useProfile();
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
-  const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, weekRevenue: 0, lastWeekAppts: 0 });
+  const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, pendingTodayCount: 0, weekRevenue: 0, lastWeekAppts: 0 });
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
   const [tipIndex, setTipIndex] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
@@ -60,15 +60,20 @@ const DashboardHome = () => {
       const revenue = (revRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const weekRevenue = (weekRevRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const todayData = todayRes.data || [];
+      // Today's Schedule only shows what's still outstanding — not yet
+      // completed, cancelled, or a no-show — so a doctor scanning it sees
+      // what actually needs their attention today.
+      const pendingToday = todayData.filter((a: any) => a.status === "pending" || a.status === "confirmed");
       setStats({
         appointments: apptRes.count || 0,
         patients: patRes.count || 0,
         revenue,
         todayCount: todayData.length,
+        pendingTodayCount: pendingToday.length,
         weekRevenue,
         lastWeekAppts: lastWeekRes.count || 0,
       });
-      setTodayAppointments(todayData.slice(0, 6));
+      setTodayAppointments(pendingToday.slice(0, 6));
 
       // Build a 30-day daily revenue series for the Monthly Revenue chart
       const buckets = new Map<string, number>();
@@ -142,10 +147,12 @@ const DashboardHome = () => {
 
 
 
+  // Matches the dot colors below and BillingPage's statusColors: completed
+  // is success (green), confirmed is royal (blue).
   const statusColor = (status: string) => {
     switch (status) {
-      case "confirmed": return "bg-success/10 text-success border-success/20";
-      case "completed": return "bg-royal/10 text-royal border-royal/20";
+      case "confirmed": return "bg-royal/10 text-royal border-royal/20";
+      case "completed": return "bg-success/10 text-success border-success/20";
       case "cancelled": return "bg-destructive/10 text-destructive border-destructive/20";
       default: return "bg-warning/10 text-warning border-warning/20";
     }
@@ -269,8 +276,8 @@ const DashboardHome = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg">Today's Schedule</CardTitle>
-                {stats.todayCount > 0 && (
-                  <Badge variant="secondary" className="text-xs font-semibold bg-royal/10 text-royal">{stats.todayCount}</Badge>
+                {stats.pendingTodayCount > 0 && (
+                  <Badge variant="secondary" className="text-xs font-semibold bg-royal/10 text-royal">{stats.pendingTodayCount}</Badge>
                 )}
               </div>
               <Link to="/admin/appointments" className="text-sm text-royal flex items-center gap-1 hover:underline font-medium">
@@ -284,7 +291,9 @@ const DashboardHome = () => {
                 <div className="w-16 h-16 rounded-2xl bg-royal/5 flex items-center justify-center mx-auto mb-3">
                   <CalendarCheck className="h-8 w-8 text-royal/30" />
                 </div>
-                <p className="text-muted-foreground text-sm font-medium">No appointments for today</p>
+                <p className="text-muted-foreground text-sm font-medium">
+                  {stats.todayCount > 0 ? "All of today's appointments are done" : "No appointments for today"}
+                </p>
                 <p className="text-muted-foreground/60 text-xs mt-1">Your upcoming bookings will appear here</p>
               </div>
             ) : (
