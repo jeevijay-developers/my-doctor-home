@@ -54,7 +54,7 @@ vi.mock("@/integrations/supabase/client", () => {
     supabase: {
       from: vi.fn((table: string) => {
         if (table === "appointments") return chain({ data: appointmentRows, count: appointmentRows.length });
-        if (table === "website_settings") return chain({ data: { max_per_slot: 1 }, count: null });
+        if (table === "website_settings") return chain({ data: {}, count: null });
         return chain({ data: [], count: 0 });
       }),
       channel: vi.fn(() => ({

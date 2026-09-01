@@ -19,8 +19,8 @@ import AppointmentSlip from "./AppointmentSlip";
 import PaymentSlip from "./PaymentSlip";
 import MockCheckoutModal from "./MockCheckoutModal";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
-import { effectiveAppointmentCapacity } from "@/lib/appointmentCapacity";
 import { generateTimeSlots, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const getNextDays = (count: number) => {
   const days = [];
@@ -59,6 +59,12 @@ type CachedOrder = {
 type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 
 const STEP_LABELS = ["Consultation Type", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
+
+const SLOT_PERIODS = [
+  { label: "Morning", startHour: 0, endHour: 12 },
+  { label: "Afternoon", startHour: 12, endHour: 17 },
+  { label: "Evening", startHour: 17, endHour: 24 },
+] as const;
 
 const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { profile, settings, workingHours, isPremium, hasFeature } = useDoctorData();
@@ -131,10 +137,16 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     duration: 15,
   };
 
-  const clinicMaxPerSlot = (settings as any)?.clinic_max_per_slot ?? (settings as any)?.max_per_slot ?? 1;
-  const maxPerSlot = effectiveAppointmentCapacity(type, clinicMaxPerSlot);
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
-  const { isFull, bookedIn, refresh } = useSlotAvailability(profile?.id, dateStr, maxPerSlot, type);
+  const { counts, isFull, refresh } = useSlotAvailability(profile?.id, dateStr, type);
+  const availableTimeSlots = timeSlots.filter((time) => (counts[time] || 0) < 1);
+  const availableSlotGroups = SLOT_PERIODS.map((period) => ({
+    ...period,
+    slots: availableTimeSlots.filter((time) => {
+      const hour = Number(time.split(":")[0]);
+      return hour >= period.startHour && hour < period.endHour;
+    }),
+  })).filter((period) => period.slots.length > 0);
 
   const wantsOnlinePayment = Boolean(settings?.require_payment);
   const totalSteps = wantsOnlinePayment ? 5 : 4;
@@ -274,7 +286,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     setCheckingSlot(false);
 
     // Re-check against the freshly returned map — NOT isFull() (stale closure).
-    if ((freshCounts[slot] || 0) >= maxPerSlot) {
+    if ((freshCounts[slot] || 0) >= 1) {
       toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
       return;
     }
@@ -733,46 +745,46 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
       {step === 3 && (
         <div className="space-y-4 text-left">
           <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Time Slot</h3>
-          <p className="text-xs text-muted-foreground">Live availability — full slots update automatically.</p>
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {timeSlots.map((t) => {
-              const full = isFull(t);
-              const isChecking = checkingSlot && selectedTime === t;
-              return (
-                <button
-                  key={t}
-                  disabled={full || checkingSlot}
-                  onClick={() => selectTimeSlot(t)}
-                  className={`py-3 rounded-lg border-2 text-sm font-medium transition-all relative ${
-                    full
-                      ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-60"
-                      : isChecking
-                      ? "border-royal bg-royal/20 text-foreground cursor-wait"
-                      : selectedTime === t
-                      ? "border-primary-500 bg-primary-500 text-white shadow-sm"
-                      : "border-slate-200 bg-white text-foreground hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"
-                  }`}
-                >
-                  {isChecking ? (
-                    <>
-                      <span className="block">{t}</span>
-                      <span className="block text-[9px] mt-0.5 opacity-70 animate-pulse">Checking…</span>
-                    </>
-                  ) : (
-                    <>
-                      {t}
-                      {full ? (
-                        <span className="block text-[9px] mt-0.5 font-semibold uppercase text-destructive">Full</span>
-                      ) : maxPerSlot > 1 ? (
-                        <span className="block text-[9px] mt-0.5 opacity-70">{bookedIn(t)}/{maxPerSlot}</span>
-                      ) : null}
-                    </>
-                  )}
-                </button>
-              );
-            })}
-            {timeSlots.length === 0 && <p className="text-muted-foreground text-sm col-span-full">No slots available for this date.</p>}
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Live availability updates automatically.</span>
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">{availableTimeSlots.length} available</span>
           </div>
+          {availableTimeSlots.length > 0 ? (
+            <ScrollArea className="h-80 rounded-xl border border-slate-200 bg-slate-50/60 pr-3 dark:border-gray-700 dark:bg-gray-900/40">
+              <div className="space-y-5 p-3">
+                {availableSlotGroups.map((period) => (
+                  <section key={period.label} aria-label={`${period.label} available slots`}>
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">{period.label}</p>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                      {period.slots.map((time) => {
+                        const isChecking = checkingSlot && selectedTime === time;
+                        return (
+                          <button
+                            key={time}
+                            disabled={checkingSlot}
+                            onClick={() => selectTimeSlot(time)}
+                            className={`rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
+                              isChecking
+                                ? "cursor-wait border-royal bg-royal/20 text-foreground"
+                                : selectedTime === time
+                                ? "border-primary-500 bg-primary-500 text-white shadow-sm"
+                                : "border-slate-200 bg-white text-foreground hover:border-blue-200 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-800"
+                            }`}
+                          >
+                            {isChecking ? <span className="animate-pulse">Checking…</span> : time}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              No time slots are available for this date. Please select another date.
+            </div>
+          )}
         </div>
       )}
 

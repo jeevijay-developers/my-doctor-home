@@ -32,11 +32,6 @@ type BookingPayload = {
   chief_complaint?: string | null;
 };
 
-function effectiveCapacity(appointmentType: BookingPayload["appointment_type"], clinicCapacity: number | null | undefined) {
-  if (appointmentType === "online") return 1;
-  return typeof clinicCapacity === "number" && clinicCapacity > 0 ? Math.floor(clinicCapacity) : 1;
-}
-
 function isValidBooking(b: Partial<BookingPayload>): b is BookingPayload {
   return Boolean(
     b.doctor_id && b.patient_name && b.patient_phone && b.service_name &&
@@ -71,15 +66,12 @@ Deno.serve(async (req) => {
 
   // Reject an already-full slot up front so we don't waste an order on it.
   // (The DB trigger re-checks this atomically at insert time in verify-razorpay-payment.)
-  const { data: ws } = await admin
-    .from("website_settings").select("clinic_max_per_slot, max_per_slot").eq("doctor_id", booking.doctor_id).maybeSingle();
-  const cap = effectiveCapacity(booking.appointment_type, ws?.clinic_max_per_slot ?? ws?.max_per_slot);
   const { count: taken } = await admin
     .from("appointments").select("id", { count: "exact", head: true })
     .eq("doctor_id", booking.doctor_id).eq("date", booking.date).eq("time_slot", booking.time_slot)
     .eq("appointment_type", booking.appointment_type)
     .neq("status", "cancelled");
-  if ((taken ?? 0) >= cap) return json(409, { error: "SLOT_FULL" });
+  if ((taken ?? 0) >= 1) return json(409, { error: "SLOT_FULL" });
 
   const hasLiveKeys = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
   const mode = resolvePaymentMode(hasLiveKeys);

@@ -28,7 +28,6 @@ import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import DateFilter from "@/components/shared/DateFilter";
 import { defaultAppointmentAmount } from "@/lib/appointmentAmount";
 import { appointmentSerialNumber } from "@/lib/appointmentList";
-import { effectiveAppointmentCapacity } from "@/lib/appointmentCapacity";
 
 const WALK_IN_TIME = "walk-in";
 
@@ -106,7 +105,7 @@ const AppointmentsPage = () => {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
   const [viewing, setViewing] = useState<Appointment | null>(null);
-  const [slotConflict, setSlotConflict] = useState<{ taken: number; cap: number; time: string } | null>(null);
+  const [slotConflict, setSlotConflict] = useState<{ time: string } | null>(null);
   const [confirmingChange, setConfirmingChange] = useState<{ appointment: Appointment; nextStatus: string } | null>(null);
 
   // Keep detail view in sync with the latest data after mutations
@@ -342,7 +341,7 @@ const AppointmentsPage = () => {
   };
 
 
-  const addAppointment = async (bypassSlotCheck = false) => {
+  const addAppointment = async () => {
     if (!profile) return;
     if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
     if (newAppt.patient_phone.trim() && !isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
@@ -355,17 +354,14 @@ const AppointmentsPage = () => {
     }
     const normalizedPhone = normalizeIndianPhone(newAppt.patient_phone);
 
-    if (!bypassSlotCheck && !isWalkIn) {
-      const { data: settingsRow } = await supabase
-        .from("website_settings").select("clinic_max_per_slot, max_per_slot").eq("doctor_id", profile.id).single();
-      const cap = effectiveAppointmentCapacity("clinic", (settingsRow as any)?.clinic_max_per_slot ?? (settingsRow as any)?.max_per_slot);
+    if (!isWalkIn) {
       const { count: taken } = await supabase
         .from("appointments").select("*", { count: "exact", head: true })
         .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
         .eq("appointment_type", "clinic")
         .neq("status", "cancelled");
-      if ((taken ?? 0) >= cap) {
-        setSlotConflict({ taken: taken ?? 0, cap, time: newAppt.time_slot });
+      if ((taken ?? 0) >= 1) {
+        setSlotConflict({ time: newAppt.time_slot });
         return;
       }
     }
@@ -882,7 +878,7 @@ const AppointmentsPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Double-booking confirmation */}
+      {/* Occupied-slot notice */}
       <AlertDialog open={!!slotConflict} onOpenChange={(o) => !o && setSlotConflict(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -891,16 +887,16 @@ const AppointmentsPage = () => {
             </div>
             <AlertDialogTitle className="text-center">Time Slot Already Booked</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              This time slot ({slotConflict?.time}) already has {slotConflict?.taken}/{slotConflict?.cap} appointment{(slotConflict?.taken ?? 0) === 1 ? "" : "s"} scheduled. Do you want to book another appointment at the same time anyway?
+              This time slot ({slotConflict?.time}) already has an appointment scheduled. Please choose another time.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => { setSlotConflict(null); addAppointment(true); }}
+              onClick={() => setSlotConflict(null)}
               className="bg-warning text-warning-foreground hover:bg-warning/90"
             >
-              Book Anyway
+              Choose Another Time
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -14,7 +14,6 @@ import { supabase } from "@/integrations/supabase/client";
 export const useSlotAvailability = (
   doctorId: string | null | undefined,
   date: string | null | undefined,
-  maxPerSlot: number = 1,
   appointmentType: "clinic" | "online" = "clinic",
 ) => {
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -52,8 +51,8 @@ export const useSlotAvailability = (
     };
   }, [doctorId, date, refresh]);
 
-  const isFull = (slot: string) => (counts[slot] || 0) >= maxPerSlot;
+  const isFull = (slot: string) => (counts[slot] || 0) >= 1;
   const bookedIn = (slot: string) => counts[slot] || 0;
 
-  return { counts, isFull, bookedIn, refresh, maxPerSlot };
+  return { counts, isFull, bookedIn, refresh };
 };

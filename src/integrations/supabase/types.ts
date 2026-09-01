@@ -2186,7 +2186,6 @@ export type Database = {
           hero_stat_icon: string
           hero_stat_text: string
           id: string
-          max_per_slot: number
           online_duration: number | null
           online_fee: number | null
           payment_gateway_enabled: boolean
@@ -2236,7 +2235,6 @@ export type Database = {
           hero_stat_icon?: string
           hero_stat_text?: string
           id?: string
-          max_per_slot?: number
           online_duration?: number | null
           online_fee?: number | null
           payment_gateway_enabled?: boolean
@@ -2286,7 +2284,6 @@ export type Database = {
           hero_stat_icon?: string
           hero_stat_text?: string
           id?: string
-          max_per_slot?: number
           online_duration?: number | null
           online_fee?: number | null
           payment_gateway_enabled?: boolean
