@@ -89,8 +89,8 @@ const Footer = ({ profileOverride }: FooterProps) => {
             </div>
           </div>
 
-          <div className={`grid gap-10 py-12 sm:grid-cols-2 ${services.length > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
-            <div className="sm:col-span-2 lg:col-span-1">
+          <div className={`grid grid-cols-2 gap-x-6 gap-y-8 py-10 sm:gap-x-8 sm:py-12 lg:gap-10 ${services.length > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+            <div className="col-span-2 lg:col-span-1">
               <Link to={doctorBasePath} className="inline-flex items-center gap-3">
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-lg">
                   {profile?.profile_photo_url ? (
@@ -150,17 +150,17 @@ const Footer = ({ profileOverride }: FooterProps) => {
               </div>
             )}
 
-            <div>
+            <div className="col-span-2 lg:col-span-1">
               <h3 className="font-heading text-sm font-extrabold uppercase tracking-[0.12em] text-white">Clinic Contact</h3>
-              <div className="mt-5 space-y-4 text-sm text-slate-300">
+              <div className="mt-5 flex flex-row flex-wrap gap-4 text-sm text-slate-300 lg:flex-col">
                 {phone && (
-                  <a href={`tel:${phone}`} className="group flex items-start gap-3 transition hover:text-white">
+                  <a href={`tel:${phone}`} className="group flex flex-1 min-w-[150px] items-start gap-3 transition hover:text-white lg:min-w-0 lg:flex-none">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3C83FC]/15 text-[#79aaff] transition group-hover:bg-[#3C83FC] group-hover:text-white"><Phone className="h-4 w-4" /></span>
                     <span className="pt-2 break-all">{phone}</span>
                   </a>
                 )}
                 {address && (
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`} target="_blank" rel="noreferrer" className="group flex items-start gap-3 transition hover:text-white">
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`} target="_blank" rel="noreferrer" className="group flex flex-1 min-w-[150px] items-start gap-3 transition hover:text-white lg:min-w-0 lg:flex-none">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3C83FC]/15 text-[#79aaff] transition group-hover:bg-[#3C83FC] group-hover:text-white"><MapPin className="h-4 w-4" /></span>
                     <span className="pt-1 leading-6">{address}</span>
                   </a>

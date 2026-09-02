@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import {
-  CalendarCheck, Users, CreditCard, Globe, Clock, ArrowRight,
+  CalendarCheck, Users, CreditCard, Star, Clock, ArrowRight,
   TrendingUp, Sparkles, ExternalLink, Copy, Eye, FileText,
   Stethoscope, AlertTriangle, X,
   Lightbulb, Send, Share2, IndianRupee
@@ -30,7 +30,7 @@ const growthTips = [
 const DashboardHome = () => {
   const { profile } = useProfile();
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
-  const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, pendingTodayCount: 0, weekRevenue: 0, lastWeekAppts: 0 });
+  const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, pendingTodayCount: 0, weekRevenue: 0, lastWeekAppts: 0, reviewCount: 0, avgRating: 0 });
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
   const [tipIndex, setTipIndex] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
@@ -56,7 +56,10 @@ const DashboardHome = () => {
       (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id).gte("created_at", `${weekAgo}T00:00:00`),
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo),
       (supabase.from("invoices" as any) as any).select("amount, created_at").eq("doctor_id", id).gte("created_at", `${thirtyDaysAgo}T00:00:00`),
-    ]).then(([apptRes, patRes, revRes, todayRes, weekRevRes, lastWeekRes, monthRevRes]) => {
+      // Overall review stats — every review regardless of visibility, same
+      // as ReviewsManagePage's own average, so the two numbers always match.
+      supabase.from("reviews").select("rating").eq("doctor_id", id),
+    ]).then(([apptRes, patRes, revRes, todayRes, weekRevRes, lastWeekRes, monthRevRes, reviewsRes]) => {
       const revenue = (revRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const weekRevenue = (weekRevRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const todayData = todayRes.data || [];
@@ -64,6 +67,8 @@ const DashboardHome = () => {
       // completed, cancelled, or a no-show — so a doctor scanning it sees
       // what actually needs their attention today.
       const pendingToday = todayData.filter((a: any) => a.status === "pending" || a.status === "confirmed");
+      const reviewRows = reviewsRes.data || [];
+      const avgRating = reviewRows.length > 0 ? reviewRows.reduce((s: number, r: any) => s + Number(r.rating || 0), 0) / reviewRows.length : 0;
       setStats({
         appointments: apptRes.count || 0,
         patients: patRes.count || 0,
@@ -72,6 +77,8 @@ const DashboardHome = () => {
         pendingTodayCount: pendingToday.length,
         weekRevenue,
         lastWeekAppts: lastWeekRes.count || 0,
+        reviewCount: reviewRows.length,
+        avgRating,
       });
       setTodayAppointments(pendingToday.slice(0, 6));
 
@@ -101,6 +108,7 @@ const DashboardHome = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
       .on("postgres_changes", { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
       .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
+      .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `doctor_id=eq.${profile.id}` }, () => loadDashboard())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -139,10 +147,16 @@ const DashboardHome = () => {
   };
 
   const statCards = [
-    { icon: CalendarCheck, label: "APPOINTMENTS", value: String(stats.appointments), bgClass: "bg-royal/15", iconClass: "text-royal", sub: `${stats.todayCount} today` },
-    { icon: Users, label: "PATIENTS", value: String(stats.patients), bgClass: "bg-pink/15", iconClass: "text-pink", sub: "All time" },
-    { icon: CreditCard, label: "REVENUE", value: `₹${stats.revenue.toLocaleString("en-IN")}`, bgClass: "bg-teal/15", iconClass: "text-teal", sub: "Paid appointments" },
-    { icon: Globe, label: "WEBSITE", value: profile?.onboarding_completed ? "Live" : "Draft", bgClass: "bg-orange/15", iconClass: "text-orange", sub: profile?.slug ? `/${profile.slug}` : "—" },
+    { icon: CalendarCheck, label: "APPOINTMENTS", value: String(stats.appointments), bgClass: "bg-royal/15", iconClass: "text-royal", sub: `${stats.todayCount} today`, to: "/admin/appointments" },
+    { icon: Users, label: "PATIENTS", value: String(stats.patients), bgClass: "bg-pink/15", iconClass: "text-pink", sub: "All time", to: "/admin/patients" },
+    { icon: CreditCard, label: "REVENUE", value: `₹${stats.revenue.toLocaleString("en-IN")}`, bgClass: "bg-teal/15", iconClass: "text-teal", sub: "Paid appointments", to: "/admin/billing" },
+    {
+      icon: Star, label: "REVIEWS",
+      value: stats.reviewCount > 0 ? stats.avgRating.toFixed(1) : "—",
+      bgClass: "bg-orange/15", iconClass: "text-orange",
+      sub: stats.reviewCount > 0 ? `${stats.reviewCount} review${stats.reviewCount === 1 ? "" : "s"}` : "No reviews yet",
+      to: "/admin/reviews",
+    },
   ];
 
 
@@ -230,19 +244,21 @@ const DashboardHome = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((s) => (
-          <Card key={s.label} className="border-0 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 bg-card">
-            <CardContent className="p-3 xl:p-4">
-              <div className="flex items-center gap-2.5 mb-2">
-                <div className={`w-9 h-9 rounded-xl ${s.bgClass} flex items-center justify-center flex-shrink-0`}>
-                  <s.icon className={`h-4 w-4 ${s.iconClass}`} />
+          <Link key={s.label} to={s.to} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal">
+            <Card className="border-0 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 bg-card cursor-pointer h-full">
+              <CardContent className="p-3 xl:p-4">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className={`w-9 h-9 rounded-xl ${s.bgClass} flex items-center justify-center flex-shrink-0`}>
+                    <s.icon className={`h-4 w-4 ${s.iconClass}`} />
+                  </div>
+                  {/* min-w-0 overrides the flex item's default min-width:auto so the unbreakable all-caps label can shrink/truncate instead of forcing the card wider */}
+                  <div className="text-[10px] font-semibold text-muted-foreground tracking-wider truncate min-w-0">{s.label}</div>
                 </div>
-                {/* min-w-0 overrides the flex item's default min-width:auto so the unbreakable all-caps label can shrink/truncate instead of forcing the card wider */}
-                <div className="text-[10px] font-semibold text-muted-foreground tracking-wider truncate min-w-0">{s.label}</div>
-              </div>
-              <div className="font-heading font-bold text-xl xl:text-2xl text-foreground leading-tight truncate">{s.value}</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{s.sub}</div>
-            </CardContent>
-          </Card>
+                <div className="font-heading font-bold text-xl xl:text-2xl text-foreground leading-tight truncate">{s.value}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{s.sub}</div>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
