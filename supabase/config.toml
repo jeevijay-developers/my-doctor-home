@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.get-notification-mode]
 verify_jwt = false
+
+[functions.mock-otp-login]
+verify_jwt = false

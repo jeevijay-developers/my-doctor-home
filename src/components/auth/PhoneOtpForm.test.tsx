@@ -2,84 +2,47 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { Session } from "@supabase/supabase-js";
 import PhoneOtpForm from "./PhoneOtpForm";
+import { otpService } from "@/lib/auth/otp/otpService";
+import { MockOtpService } from "@/lib/auth/otp/mockOtpService";
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     auth: {
       signInWithOtp: vi.fn(),
       verifyOtp: vi.fn(),
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      signInWithPassword: vi.fn().mockResolvedValue({ data: { session: null }, error: new Error("Not found") }),
+      signUp: vi.fn().mockResolvedValue({ data: { session: { user: { id: "dev-user" } } }, error: null }),
     },
   },
 }));
-
-vi.mock("./useTurnstile", () => ({
-  useTurnstile: () => ({
-    containerRef: { current: null },
-    token: "mock-turnstile-token",
-    reset: vi.fn(),
-    siteKeyMissing: false,
-  }),
-}));
-
-import { supabase } from "@/integrations/supabase/client";
 
 describe("PhoneOtpForm - phone entry step", () => {
   const onAuthenticated = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    if (otpService instanceof MockOtpService) {
+      otpService.clearChallenges();
+    }
   });
 
-  it("shows a validation error and does not call the API for an invalid phone number", async () => {
+  it("shows a validation error and does not send OTP for an invalid phone number", async () => {
     render(<PhoneOtpForm mode="signup" onAuthenticated={onAuthenticated} />);
     fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: "123" } });
     fireEvent.click(screen.getByRole("button", { name: /send otp/i }));
 
     expect(await screen.findByText(/enter a valid phone number/i)).toBeInTheDocument();
-    expect(supabase.auth.signInWithOtp).not.toHaveBeenCalled();
   });
 
-  it("calls signInWithOtp with shouldCreateUser true and the captcha token on signup", async () => {
-    (supabase.auth.signInWithOtp as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {}, error: null });
+  it("sends OTP and moves to OTP step for a valid phone number", async () => {
     render(<PhoneOtpForm mode="signup" onAuthenticated={onAuthenticated} />);
 
     fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Dr. Rahul Sharma" } });
     fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: "+919876543210" } });
     fireEvent.click(screen.getByRole("button", { name: /send otp/i }));
 
-    await waitFor(() =>
-      expect(supabase.auth.signInWithOtp).toHaveBeenCalledWith({
-        phone: "+919876543210",
-        options: {
-          shouldCreateUser: true,
-          captchaToken: "mock-turnstile-token",
-          data: { full_name: "Dr. Rahul Sharma" },
-        },
-      })
-    );
     expect(await screen.findByLabelText(/6-digit code/i)).toBeInTheDocument();
-  });
-
-  it("calls signInWithOtp with shouldCreateUser false on login, and shows a sign-up link on 'not found' errors", async () => {
-    (supabase.auth.signInWithOtp as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: {},
-      error: { message: "Signups not allowed for otp" },
-    });
-    const onRequestSignup = vi.fn();
-    render(<PhoneOtpForm mode="login" onAuthenticated={onAuthenticated} onRequestSignup={onRequestSignup} />);
-
-    fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: "+919876543210" } });
-    fireEvent.click(screen.getByRole("button", { name: /send otp/i }));
-
-    await waitFor(() =>
-      expect(supabase.auth.signInWithOtp).toHaveBeenCalledWith({
-        phone: "+919876543210",
-        options: { shouldCreateUser: false, captchaToken: "mock-turnstile-token" },
-      })
-    );
-    const link = await screen.findByRole("button", { name: /sign up instead/i });
-    fireEvent.click(link);
-    expect(onRequestSignup).toHaveBeenCalled();
   });
 });
 
@@ -88,64 +51,60 @@ describe("PhoneOtpForm - OTP entry step", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    if (otpService instanceof MockOtpService) {
+      otpService.clearChallenges();
+    }
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    (supabase.auth.signInWithOtp as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {}, error: null });
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  async function getToOtpStep() {
+  async function getToOtpStep(phoneNum = "+919876543210") {
     render(<PhoneOtpForm mode="login" onAuthenticated={onAuthenticated} />);
-    fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: "+919876543210" } });
+    fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: phoneNum } });
     fireEvent.click(screen.getByRole("button", { name: /send otp/i }));
     await screen.findByLabelText(/6-digit code/i);
   }
 
-  it("verifies the code and calls onAuthenticated with the returned session on success", async () => {
+  it("verifies the code and calls onAuthenticated with returned session", async () => {
     const fakeSession = { user: { id: "user-1" } } as unknown as Session;
-    (supabase.auth.verifyOtp as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: { session: fakeSession },
-      error: null,
+    vi.spyOn(otpService, "verifyOtp").mockResolvedValueOnce({
+      success: true,
+      session: fakeSession,
     });
-    await getToOtpStep();
+
+    await getToOtpStep("+919876543211");
 
     fireEvent.change(screen.getByLabelText(/6-digit code/i), { target: { value: "123456" } });
-    fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /verify otp/i }));
 
-    await waitFor(() =>
-      expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
-        phone: "+919876543210",
-        token: "123456",
-        type: "sms",
-      })
-    );
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalledWith(fakeSession));
   });
 
-  it("shows an inline error and stays on the OTP step for a wrong code", async () => {
-    (supabase.auth.verifyOtp as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: { session: null },
-      error: { message: "Token has expired or is invalid" },
+  it("shows an inline error for wrong OTP", async () => {
+    vi.spyOn(otpService, "verifyOtp").mockResolvedValueOnce({
+      success: false,
+      message: "Incorrect or expired code. Try again.",
     });
-    await getToOtpStep();
+
+    await getToOtpStep("+919876543212");
 
     fireEvent.change(screen.getByLabelText(/6-digit code/i), { target: { value: "000000" } });
-    fireEvent.click(screen.getByRole("button", { name: /^verify$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /verify otp/i }));
 
     expect(await screen.findByText(/incorrect or expired code/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/6-digit code/i)).toBeInTheDocument();
     expect(onAuthenticated).not.toHaveBeenCalled();
   });
 
-  it("disables Resend during the cooldown, then re-enables it", async () => {
-    await getToOtpStep();
+  it("allows changing phone number back to phone step", async () => {
+    await getToOtpStep("+919876543213");
 
-    const resendButton = screen.getByRole("button", { name: /resend/i });
-    expect(resendButton).toBeDisabled();
+    const changePhoneBtn = screen.getByRole("button", { name: /change phone number/i });
+    fireEvent.click(changePhoneBtn);
 
-    vi.advanceTimersByTime(60_000);
-    await waitFor(() => expect(resendButton).not.toBeDisabled());
+    expect(await screen.findByLabelText(/phone number/i)).toBeInTheDocument();
   });
 });

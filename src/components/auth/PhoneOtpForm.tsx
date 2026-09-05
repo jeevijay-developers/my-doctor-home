@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { DigitsInput } from "@/components/ui/digits-input";
 import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
-import { useTurnstile } from "./useTurnstile";
+import { otpService } from "@/lib/auth/otp/otpService";
 
 interface Props {
   mode: "login" | "signup";
@@ -16,16 +15,7 @@ interface Props {
   onRequestSignup?: () => void;
 }
 
-function isValidPhone(phone: string): boolean {
-  return /^\+?[1-9]\d{7,14}$/.test(phone.replace(/[\s-]/g, ""));
-}
-
-function parseRetryAfterSeconds(message: string): number | null {
-  const match = message.match(/after (\d+) seconds?/i);
-  return match ? parseInt(match[1], 10) : null;
-}
-
-const DEFAULT_COOLDOWN_SECONDS = 60;
+const DEFAULT_COOLDOWN_SECONDS = 30;
 
 export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }: Props) {
   const [step, setStep] = useState<"enter-phone" | "enter-otp">("enter-phone");
@@ -37,46 +27,23 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
-  const turnstile = useTurnstile();
 
   const sendOtp = async () => {
     setPhoneError(null);
     setShowSignupLink(false);
-    const cleaned = phone.replace(/[\s-]/g, "");
-
-    if (!isValidPhone(cleaned)) {
-      setPhoneError("Enter a valid phone number, e.g. +919876543210");
-      return;
-    }
-    if (!turnstile.token) {
-      setPhoneError(
-        turnstile.siteKeyMissing
-          ? "CAPTCHA verification is not configured yet."
-          : "Please complete the verification challenge."
-      );
-      return;
-    }
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: cleaned,
-        options:
-          mode === "signup"
-            ? { shouldCreateUser: true, captchaToken: turnstile.token, data: { full_name: fullName } }
-            : { shouldCreateUser: false, captchaToken: turnstile.token },
+      const res = await otpService.sendOtp({
+        phone,
+        mode,
+        fullName: mode === "signup" ? fullName : undefined,
       });
-      turnstile.reset();
 
-      if (error) {
-        const retrySeconds = parseRetryAfterSeconds(error.message);
-        if (retrySeconds !== null) {
-          setPhoneError(`Please wait ${retrySeconds}s before requesting another code.`);
-        } else if (mode === "login") {
-          setPhoneError("No account found with this phone number.");
+      if (!res.success) {
+        setPhoneError(res.message || "Failed to send OTP.");
+        if (res.showSignupLink) {
           setShowSignupLink(true);
-        } else {
-          setPhoneError(error.message);
         }
         return;
       }
@@ -98,23 +65,29 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
 
   const verifyOtp = async () => {
     setOtpError(null);
+    setShowSignupLink(false);
     if (!/^\d{6}$/.test(otp)) {
       setOtpError("Enter the 6-digit code.");
       return;
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: phone.replace(/[\s-]/g, ""),
-        token: otp,
-        type: "sms",
+      const res = await otpService.verifyOtp({
+        phone,
+        otp,
+        mode,
       });
-      if (error || !data.session) {
-        setOtpError("Incorrect or expired code. Try again.");
+
+      if (!res.success || !res.session) {
+        setOtpError(typeof res.message === "string" ? res.message : "Incorrect or expired code. Try again.");
         setOtp("");
+        if (res.showSignupLink) {
+          setShowSignupLink(true);
+        }
         return;
       }
-      onAuthenticated(data.session);
+
+      onAuthenticated(res.session);
     } catch (err) {
       toast.error((err as Error).message || "Something went wrong");
     } finally {
@@ -132,6 +105,11 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
   if (step === "enter-otp") {
     return (
       <div className="space-y-4">
+        {otpService.isMock && (
+          <div className="text-xs bg-amber-500/10 text-amber-600 border border-amber-500/20 px-2.5 py-1.5 rounded-md text-center font-medium">
+            Development OTP: 123456
+          </div>
+        )}
         <p className="text-sm text-muted-foreground">
           We sent a 6-digit code to <strong className="text-foreground">{phone}</strong>.
         </p>
@@ -147,6 +125,21 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
             className="h-11 tracking-widest text-center"
           />
           {otpError && <p className="text-xs text-destructive mt-1">{otpError}</p>}
+          {showSignupLink && (
+            <button
+              type="button"
+              className="text-xs text-royal font-medium hover:underline mt-1 block"
+              onClick={() => {
+                setStep("enter-phone");
+                setOtp("");
+                setOtpError(null);
+                setShowSignupLink(false);
+                onRequestSignup?.();
+              }}
+            >
+              Sign up instead
+            </button>
+          )}
         </div>
         <Button
           type="button"
@@ -155,22 +148,38 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
           className="w-full h-11 bg-royal hover:bg-royal/90 text-white font-semibold"
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-          Verify
+          Verify OTP
         </Button>
         <button
           type="button"
           onClick={resend}
           disabled={cooldownSeconds > 0 || loading}
-          className="text-xs text-muted-foreground hover:text-royal disabled:opacity-50 disabled:hover:text-muted-foreground w-full text-center"
+          className="text-xs text-muted-foreground hover:text-royal disabled:opacity-50 disabled:hover:text-muted-foreground w-full text-center block"
         >
           {cooldownSeconds > 0 ? `Resend OTP in ${cooldownSeconds}s` : "Resend OTP"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setStep("enter-phone");
+            setOtp("");
+            setOtpError(null);
+          }}
+          className="text-xs text-muted-foreground hover:text-foreground w-full text-center block pt-1"
+        >
+          Change phone number
         </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {otpService.isMock && (
+        <div className="text-xs bg-amber-500/10 text-amber-600 border border-amber-500/20 px-2.5 py-1.5 rounded-md text-center font-medium">
+          Development OTP Mode Active (Code: 123456)
+        </div>
+      )}
       {mode === "signup" && (
         <div>
           <Label htmlFor="phoneFullName">Full Name</Label>
@@ -198,14 +207,13 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
         {showSignupLink && (
           <button
             type="button"
-            className="text-xs text-royal font-medium hover:underline mt-1"
+            className="text-xs text-royal font-medium hover:underline mt-1 block"
             onClick={() => onRequestSignup?.()}
           >
             Sign up instead
           </button>
         )}
       </div>
-      <div ref={turnstile.containerRef} className="my-2 flex justify-center" />
       <Button
         type="button"
         onClick={sendOtp}
@@ -218,3 +226,4 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
     </div>
   );
 }
+
