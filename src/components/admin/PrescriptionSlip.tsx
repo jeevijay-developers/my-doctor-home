@@ -53,13 +53,14 @@ type Props = {
 
 const ROYAL = "#1d4ed8";
 
-// A single "Label : underlined value" row, matching the reference image's
-// fill-in-the-blank info box style.
+// A single "Label : value" row. Wraps rather than clipping long values (a
+// long diagnosis, patient name, etc.) — `min-w-0` is required for a flex
+// child to actually shrink/wrap instead of overflowing its row.
 const InfoRow = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-baseline gap-2 text-[13px]" data-prescription-slip-row>
+  <div className="flex items-start gap-2 text-[13px]" data-prescription-slip-row>
     <span className="font-semibold text-gray-700 w-[92px] flex-shrink-0">{label}</span>
     <span className="text-gray-500">:</span>
-    <span className="flex-1 border-b border-gray-300 pb-0.5 text-gray-900 font-medium truncate">{value}</span>
+    <span className="flex-1 min-w-0 text-gray-900 font-medium break-words">{value}</span>
   </div>
 );
 
@@ -192,144 +193,151 @@ const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload }: 
           own hardcoded TEAL constants instead of theme tokens.
         */}
         <div data-prescription-slip-print-root>
-          <div className="slip-card bg-white p-6 sm:p-8 border border-gray-200">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4 pb-4">
-              <div className="flex items-start gap-3">
-                <div className="w-11 h-11 rounded-lg border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: ROYAL }}>
-                  <HeaderIcon />
+          {/*
+            Split into header/body/footer so the "Download PDF" pipeline
+            (downloadPdfFromNode) can rasterize each independently: the
+            header is placed only on page 1, the footer is pinned to the
+            fixed bottom of every page, and the body is paginated to fill
+            whatever space is left on each page — see downloadSlip() in
+            PrescriptionsPage.tsx for the selectors passed in.
+          */}
+          <div className="slip-card bg-white border border-gray-200">
+            <div data-prescription-slip-header className="px-6 sm:px-8 pt-6 sm:pt-8">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 pb-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-lg border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: ROYAL }}>
+                    <HeaderIcon />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="font-heading font-bold text-2xl break-words" style={{ color: ROYAL }}>
+                      Dr. {profile?.full_name || ""}
+                    </h2>
+                    {qualificationLine && <p className="text-[13px] text-gray-600 mt-0.5 break-words">{qualificationLine}</p>}
+                    {registrationNumber && <p className="text-[12px] text-gray-500 mt-0.5 break-words">Reg. No.: {registrationNumber}</p>}
+                  </div>
                 </div>
-                <div>
-                  <h2 className="font-heading font-bold text-2xl" style={{ color: ROYAL }}>
-                    Dr. {profile?.full_name || ""}
-                  </h2>
-                  {qualificationLine && <p className="text-[13px] text-gray-600 mt-0.5">{qualificationLine}</p>}
-                  {registrationNumber && <p className="text-[12px] text-gray-500 mt-0.5">Reg. No.: {registrationNumber}</p>}
+                {(clinicPhone || clinicEmail) && (
+                  <div className="hidden sm:flex items-stretch gap-4 flex-shrink-0 max-w-[45%]">
+                    <div className="w-px bg-gray-200" />
+                    <div className="space-y-1.5 text-[12.5px] text-gray-700 min-w-0">
+                      {clinicPhone && (
+                        <div className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 flex-shrink-0" style={{ color: ROYAL }} /> <span className="break-words">{clinicPhone}</span></div>
+                      )}
+                      {clinicEmail && (
+                        <div className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 flex-shrink-0" style={{ color: ROYAL }} /> <span className="break-all">{clinicEmail}</span></div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="h-[2px]" style={{ backgroundColor: ROYAL }} />
+            </div>
+
+            <div data-prescription-slip-body className="px-6 sm:px-8">
+              {/* Patient / Prescription info box */}
+              <div className="rounded-xl border-2 mt-5 p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5" style={{ borderColor: ROYAL }}>
+                <div className="space-y-2.5">
+                  {leftInfo.map((f) => <InfoRow key={f.label} label={f.label} value={f.value} />)}
+                </div>
+                <div className="space-y-2.5">
+                  {rightInfo.map((f) => <InfoRow key={f.label} label={f.label} value={f.value} />)}
                 </div>
               </div>
-              {(clinicPhone || clinicEmail) && (
-                <div className="hidden sm:flex items-stretch gap-4 flex-shrink-0">
-                  <div className="w-px bg-gray-200" />
-                  <div className="space-y-1.5 text-[12.5px] text-gray-700">
-                    {clinicPhone && (
-                      <div className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" style={{ color: ROYAL }} /> {clinicPhone}</div>
-                    )}
-                    {clinicEmail && (
-                      <div className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" style={{ color: ROYAL }} /> {clinicEmail}</div>
-                    )}
-                  </div>
+
+              {vitalsChips.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3" data-prescription-slip-row>
+                  {vitalsChips.map((c) => (
+                    <span key={c.label} className="text-[11px] px-2.5 py-1 rounded-full font-medium" style={{ backgroundColor: `${ROYAL}0d`, color: ROYAL }}>
+                      {c.label}: {c.value}
+                    </span>
+                  ))}
                 </div>
               )}
-            </div>
-            <div className="h-[2px]" style={{ backgroundColor: ROYAL }} />
 
-            {/* Patient / Prescription info box */}
-            <div className="rounded-xl border-2 mt-5 p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5" style={{ borderColor: ROYAL }}>
-              <div className="space-y-2.5">
-                {leftInfo.map((f) => <InfoRow key={f.label} label={f.label} value={f.value} />)}
-              </div>
-              <div className="space-y-2.5">
-                {rightInfo.map((f) => <InfoRow key={f.label} label={f.label} value={f.value} />)}
-              </div>
-            </div>
-
-            {vitalsChips.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3" data-prescription-slip-row>
-                {vitalsChips.map((c) => (
-                  <span key={c.label} className="text-[11px] px-2.5 py-1 rounded-full font-medium" style={{ backgroundColor: `${ROYAL}0d`, color: ROYAL }}>
-                    {c.label}: {c.value}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Rx / medicines */}
-            <div className="relative mt-6 min-h-[180px]">
-              <RxWatermark />
-              <div className="font-heading font-extrabold text-4xl relative" style={{ color: ROYAL }}>
-                R<span className="align-sub text-2xl">x</span>
-              </div>
-              <div className="mt-5 relative">
-                {(prescription.medicines?.length ?? 0) > 0 ? (
-                  <div className="space-y-4">
-                    {prescription.medicines.map((m, i) => (
-                      <div key={i} data-prescription-slip-row>
-                        <div className="text-[14px] font-semibold text-gray-900">
-                          {i + 1}. {m.name}{m.strength ? ` — ${m.strength}` : ""}
-                        </div>
-                        {(m.frequency || m.duration || m.timing || m.route) && (
+              {/* Rx / medicines */}
+              <div className="relative mt-6 min-h-[180px]">
+                <RxWatermark />
+                <div className="font-heading font-extrabold text-4xl relative" style={{ color: ROYAL }}>
+                  R<span className="align-sub text-2xl">x</span>
+                </div>
+                <div className="mt-5 relative">
+                  {(prescription.medicines?.length ?? 0) > 0 ? (
+                    <div className="space-y-4">
+                      {prescription.medicines.map((m, i) => (
+                        <div key={i} data-prescription-slip-row>
+                          <div className="text-[14px] font-semibold text-gray-900">
+                            {i + 1}. {m.name}{m.strength ? ` — ${m.strength}` : ""}
+                          </div>
                           <div className="text-[12px] text-gray-600 pl-4 mt-0.5">
                             {[
-                              m.frequency && `Dosage: ${m.frequency}`,
-                              m.duration && `Duration: ${m.duration}`,
-                              m.timing && `Timing: ${m.timing}`,
-                              m.route && `Route: ${m.route}`,
+                              m.durationDays > 0 && `${m.durationDays} day${m.durationDays === 1 ? "" : "s"}`,
+                              m.food === "before" ? "Before Food" : "After Food",
                             ].filter(Boolean).join("  ·  ")}
                           </div>
-                        )}
-                        {m.instructions && <div className="text-[12px] text-gray-500 italic pl-4 mt-0.5">{m.instructions}</div>}
-                      </div>
-                    ))}
-                  </div>
-                ) : prescription.medications ? (
-                  <p className="text-[14px] text-gray-900 whitespace-pre-line leading-relaxed">{prescription.medications}</p>
-                ) : (
-                  <p className="text-[14px] text-gray-400 italic">No medications recorded</p>
-                )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : prescription.medications ? (
+                    <p className="text-[14px] text-gray-900 whitespace-pre-line leading-relaxed">{prescription.medications}</p>
+                  ) : (
+                    <p className="text-[14px] text-gray-400 italic">No medications recorded</p>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {(adviceSections.length > 0 || prescription.follow_up_date || prescription.follow_up_instructions) && (
-              <div className="mt-6 space-y-2.5 border-t border-gray-200 pt-4">
-                {adviceSections.map((s) => (
-                  <div key={s.label} data-prescription-slip-row>
-                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{s.label}</p>
-                    <p className="text-[13px] text-gray-900 whitespace-pre-line mt-0.5">{s.value}</p>
-                  </div>
-                ))}
-                {(prescription.follow_up_date || prescription.follow_up_instructions) && (
-                  <div data-prescription-slip-row>
-                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Follow-up</p>
-                    <p className="text-[13px] text-gray-900 mt-0.5">
-                      {prescription.follow_up_date && <span className="font-medium">{prescription.follow_up_date}</span>}
-                      {prescription.follow_up_date && prescription.follow_up_instructions && " — "}
-                      {prescription.follow_up_instructions}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+              {(adviceSections.length > 0 || prescription.follow_up_date || prescription.follow_up_instructions) && (
+                <div className="mt-6 space-y-2.5 border-t border-gray-200 pt-4">
+                  {adviceSections.map((s) => (
+                    <div key={s.label} data-prescription-slip-row>
+                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{s.label}</p>
+                      <p className="text-[13px] text-gray-900 whitespace-pre-line mt-0.5">{s.value}</p>
+                    </div>
+                  ))}
+                  {(prescription.follow_up_date || prescription.follow_up_instructions) && (
+                    <div data-prescription-slip-row>
+                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Follow-up</p>
+                      <p className="text-[13px] text-gray-900 mt-0.5">
+                        {prescription.follow_up_date && <span className="font-medium">{prescription.follow_up_date}</span>}
+                        {prescription.follow_up_date && prescription.follow_up_instructions && " — "}
+                        {prescription.follow_up_instructions}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {/* Signature */}
-            <div className="flex justify-end mt-10" data-prescription-slip-row>
-              <div className="text-center">
-                {signatureUrl && <img src={signatureUrl} alt="Signature" className="h-14 object-contain mx-auto mb-1" />}
-                <div className="w-48 border-t border-gray-400 pt-1">
-                  <p className="text-[11px] text-gray-500">Signature</p>
-                  <p className="text-[12px] font-semibold text-gray-900 mt-1">Dr. {profile?.full_name || ""}</p>
-                  {qualificationLine && <p className="text-[10.5px] text-gray-500">{qualificationLine}</p>}
-                  {registrationNumber && <p className="text-[10.5px] text-gray-500">Reg. No.: {registrationNumber}</p>}
+              {/* Signature */}
+              <div className="flex justify-end mt-10" data-prescription-slip-row>
+                <div className="text-center">
+                  {signatureUrl && <img src={signatureUrl} alt="Signature" className="h-14 object-contain mx-auto mb-1" />}
+                  <div className="w-48 border-t border-gray-400 pt-1">
+                    <p className="text-[11px] text-gray-500">Signature</p>
+                    <p className="text-[12px] font-semibold text-gray-900 mt-1">Dr. {profile?.full_name || ""}</p>
+                    {qualificationLine && <p className="text-[10.5px] text-gray-500">{qualificationLine}</p>}
+                    {registrationNumber && <p className="text-[10.5px] text-gray-500">Reg. No.: {registrationNumber}</p>}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="rounded-xl border-2 mt-6 grid grid-cols-1 sm:grid-cols-2" style={{ borderColor: ROYAL }}>
-              <div className="p-4 sm:p-5 space-y-1">
-                <p className="text-[13px] font-bold" style={{ color: ROYAL }}>Clinic Address</p>
-                <p className="text-[13px] font-bold text-gray-900">{clinicName}</p>
-                {clinicAddr && <p className="text-[12.5px] text-gray-600 whitespace-pre-line">{clinicAddr}</p>}
-                {clinicPhone && <p className="text-[12.5px] text-gray-600">{clinicPhone}</p>}
-                {clinicEmail && <p className="text-[12.5px] text-gray-600">{clinicEmail}</p>}
-              </div>
-              <div className="p-4 sm:p-5 border-t sm:border-t-0 sm:border-l flex flex-col items-center justify-center gap-2" style={{ borderColor: `${ROYAL}33` }}>
-                <p className="text-[13px] font-bold text-center" style={{ color: ROYAL }}>Scan to visit our website</p>
-                {qrDataUrl ? (
-                  <img src={qrDataUrl} alt="Scan to visit website" className="w-[92px] h-[92px]" />
-                ) : (
-                  <div className="w-[92px] h-[92px] bg-gray-100 rounded animate-pulse" />
-                )}
-                <img src={doctyliaLogo} alt="Doctylia" className="h-4 w-auto object-contain opacity-60" />
+            <div data-prescription-slip-footer className="px-6 sm:px-8 pb-6 sm:pb-8">
+              {/* Footer */}
+              <div className="rounded-xl border-2 mt-6 grid grid-cols-1 sm:grid-cols-2" style={{ borderColor: ROYAL }}>
+                <div className="p-4 sm:p-5 space-y-1">
+                  <p className="text-[13px] font-bold" style={{ color: ROYAL }}>Clinic Address</p>
+                  <p className="text-[13px] font-bold text-gray-900">{clinicName}</p>
+                  {clinicAddr && <p className="text-[12.5px] text-gray-600 whitespace-pre-line">{clinicAddr}</p>}
+                </div>
+                <div className="p-4 sm:p-5 border-t sm:border-t-0 sm:border-l flex flex-col items-center justify-center gap-2" style={{ borderColor: `${ROYAL}33` }}>
+                  <p className="text-[13px] font-bold text-center" style={{ color: ROYAL }}>Scan to visit our website</p>
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="Scan to visit website" className="w-[92px] h-[92px]" />
+                  ) : (
+                    <div className="w-[92px] h-[92px] bg-gray-100 rounded animate-pulse" />
+                  )}
+                  <img src={doctyliaLogo} alt="Doctylia" className="h-4 w-auto object-contain opacity-60" />
+                </div>
               </div>
             </div>
           </div>

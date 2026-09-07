@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DigitsInput } from "@/components/ui/digits-input";
 import { AmountInput } from "@/components/ui/amount-input";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
@@ -25,7 +24,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import PrescriptionSlip, { PrescriptionSlipData, VisitSummary, VitalsSummary } from "./PrescriptionSlip";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
-import { parseMedicineItems } from "@/lib/prescriptionMedicines";
+import { parseMedicineItems, type MedicineItem } from "@/lib/prescriptionMedicines";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
@@ -43,9 +42,231 @@ type Prescription = {
 };
 
 const emptyForm = {
-  patient_name: "", patient_id: "", diagnosis: "", medications: "", notes: "",
+  patient_name: "", patient_id: "", diagnosis: "",
   date: format(new Date(), "yyyy-MM-dd"), patient_age: "", patient_weight: "",
 };
+
+// Local, form-friendly mirror of MedicineItem — morning/afternoon/evening as
+// booleans (checkboxes) and durationDays as a raw input string, converted
+// to the stored 0/1 + number shape only at save time via toMedicineItems().
+// `saved` is pure UI state (never persisted): false shows the full editable
+// card, true collapses it to a one-line "1. Name" summary.
+type MedicineFormItem = {
+  name: string; strength: string;
+  morning: boolean; afternoon: boolean; evening: boolean;
+  durationDays: string; food: "before" | "after";
+  saved: boolean;
+};
+
+const emptyMedicineFormItem = (): MedicineFormItem => ({
+  name: "", strength: "", morning: false, afternoon: false, evening: false, durationDays: "", food: "after", saved: false,
+});
+
+// Existing medicines (opening an already-saved prescription for edit) start
+// collapsed — they're already complete, so show the compact summary first.
+const fromMedicineItems = (items: MedicineItem[]): MedicineFormItem[] =>
+  items.map((m) => ({
+    name: m.name, strength: m.strength,
+    morning: m.morning === 1, afternoon: m.afternoon === 1, evening: m.evening === 1,
+    durationDays: m.durationDays ? String(m.durationDays) : "",
+    food: m.food,
+    saved: true,
+  }));
+
+// Fully-empty rows (e.g. left over from clicking "+ Add Medicine" without
+// filling it in) are silently dropped rather than saved or rejected.
+const toMedicineItems = (items: MedicineFormItem[]): MedicineItem[] =>
+  items
+    .filter((m) => m.name.trim() || m.strength.trim() || m.durationDays.trim() || m.morning || m.afternoon || m.evening)
+    .map((m) => ({
+      name: m.name.trim(),
+      strength: m.strength.trim(),
+      morning: m.morning ? 1 : 0,
+      afternoon: m.afternoon ? 1 : 0,
+      evening: m.evening ? 1 : 0,
+      durationDays: Number(m.durationDays) || 0,
+      food: m.food,
+    }));
+
+// A row counts as "touched" if any field has content — only touched rows are
+// validated; a row nobody filled in is simply dropped by toMedicineItems().
+const validateMedicines = (items: MedicineFormItem[]): string | null => {
+  for (const m of items) {
+    const touched = m.name.trim() || m.strength.trim() || m.durationDays.trim() || m.morning || m.afternoon || m.evening;
+    if (!touched) continue;
+    if (!m.name.trim()) return "Enter a medicine name for each medicine.";
+    if (!m.strength.trim()) return "Enter a strength/dose for each medicine.";
+    const days = Number(m.durationDays);
+    if (!m.durationDays.trim() || !Number.isFinite(days) || days <= 0) {
+      return `Enter a valid duration (in days) for ${m.name.trim() || "each medicine"}.`;
+    }
+  }
+  return null;
+};
+
+// Used by each medicine card's own "Save Medicine" button — validates just
+// that one row before collapsing it to the summary line.
+const validateSingleMedicine = (m: MedicineFormItem): string | null => {
+  if (!m.name.trim()) return "Enter a medicine name.";
+  if (!m.strength.trim()) return "Enter a strength/dose.";
+  const days = Number(m.durationDays);
+  if (!m.durationDays.trim() || !Number.isFinite(days) || days <= 0) return "Enter a valid duration (in days).";
+  return null;
+};
+
+// One medicine's fields — used inside both the "New Prescription" dialog and
+// the prescription Edit form. Renders as a compact "1. Name" summary line
+// once saved, or the full editable card while being filled in/re-edited.
+const MedicineRowEditor = ({
+  item, index, onChange, onRemove,
+}: {
+  item: MedicineFormItem;
+  index: number;
+  onChange: (next: MedicineFormItem) => void;
+  onRemove: () => void;
+}) => {
+  if (item.saved) {
+    return (
+      <Card className="border-border/60 shadow-none">
+        <CardContent className="p-3 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            className="text-left flex-1 min-w-0"
+            onClick={() => onChange({ ...item, saved: false })}
+          >
+            <div className="text-sm font-medium text-foreground truncate">
+              {index + 1}. {item.name}{item.strength ? ` — ${item.strength}` : ""}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5 truncate">
+              {[
+                `Morning-Afternoon-Evening: ${item.morning ? 1 : 0}-${item.afternoon ? 1 : 0}-${item.evening ? 1 : 0}`,
+                item.durationDays && `${item.durationDays} day${item.durationDays === "1" ? "" : "s"}`,
+                item.food === "before" ? "Before Food" : "After Food",
+              ].filter(Boolean).join(" · ")}
+            </div>
+          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => onChange({ ...item, saved: false })}
+              aria-label={`Edit medicine ${index + 1}`}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+              onClick={onRemove}
+              aria-label={`Remove medicine ${index + 1}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const handleSaveMedicine = () => {
+    const error = validateSingleMedicine(item);
+    if (error) { toast.error(error); return; }
+    onChange({ ...item, saved: true });
+  };
+
+  return (
+    <Card className="border-border/60 shadow-none">
+      <CardContent className="p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-muted-foreground">Medicine {index + 1}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+            onClick={onRemove}
+            aria-label={`Remove medicine ${index + 1}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Medicine Name *</Label>
+            <Input className="h-9" value={item.name} onChange={(e) => onChange({ ...item, name: e.target.value })} placeholder="e.g. Paracetamol" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Strength/Dose *</Label>
+            <Input className="h-9" value={item.strength} onChange={(e) => onChange({ ...item, strength: e.target.value })} placeholder="e.g. 500 mg" />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+            <Checkbox checked={item.morning} onCheckedChange={(c) => onChange({ ...item, morning: !!c })} /> Morning
+          </label>
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+            <Checkbox checked={item.afternoon} onCheckedChange={(c) => onChange({ ...item, afternoon: !!c })} /> Afternoon
+          </label>
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+            <Checkbox checked={item.evening} onCheckedChange={(c) => onChange({ ...item, evening: !!c })} /> Evening/Night
+          </label>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Duration (days) *</Label>
+            <DigitsInput className="h-9" maxLength={3} value={item.durationDays} onChange={(e) => onChange({ ...item, durationDays: e.target.value })} placeholder="e.g. 5" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Food Instruction *</Label>
+            <Select value={item.food} onValueChange={(v: "before" | "after") => onChange({ ...item, food: v })}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="before">Before Food</SelectItem>
+                <SelectItem value="after">After Food</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button type="button" size="sm" className="h-9 bg-royal hover:bg-royal/90" onClick={handleSaveMedicine}>
+          Save Medicine
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+// The "+ Add Medicine" list — one instance rendered in the New Prescription
+// dialog, another in the Edit form, each bound to its own state array.
+const MedicinesEditor = ({
+  items, onChange,
+}: {
+  items: MedicineFormItem[];
+  onChange: (next: MedicineFormItem[]) => void;
+}) => (
+  <div className="space-y-1.5">
+    <Label className="flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medicines</Label>
+    {items.length > 0 && (
+      <div className="space-y-2.5">
+        {items.map((m, i) => (
+          <MedicineRowEditor
+            key={i}
+            item={m}
+            index={i}
+            onChange={(next) => onChange(items.map((p, pi) => (pi === i ? next : p)))}
+            onRemove={() => onChange(items.filter((_, pi) => pi !== i))}
+          />
+        ))}
+      </div>
+    )}
+    <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => onChange([...items, emptyMedicineFormItem()])}>
+      <Plus className="h-3.5 w-3.5 mr-1" /> Add Medicine
+    </Button>
+  </div>
+);
 
 // Compact read-only render of the structured medicine list, used in the
 // table row summary and the detail Sheet — falls back to the legacy free
@@ -74,10 +295,12 @@ const PrescriptionsPage = () => {
   const [showNew, setShowNew] = useState(false);
   const [patients, setPatients] = useState<{ id: string; name: string; phone: string; gender: string | null }[]>([]);
   const [form, setForm] = useState(emptyForm);
+  const [formMedicines, setFormMedicines] = useState<MedicineFormItem[]>([]);
 
   const [viewing, setViewing] = useState<Prescription | null>(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(emptyForm);
+  const [editFormMedicines, setEditFormMedicines] = useState<MedicineFormItem[]>([]);
 
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -166,7 +389,16 @@ const PrescriptionsPage = () => {
 
   const downloadSlip = () => {
     if (!slipPrescription) return;
-    downloadPdfFromNode('[data-prescription-slip-print-root] .slip-card', `prescription-${slipPrescription.id || "preview"}.pdf`, { multiPage: true });
+    downloadPdfFromNode(
+      '[data-prescription-slip-print-root] [data-prescription-slip-body]',
+      `prescription-${slipPrescription.id || "preview"}.pdf`,
+      {
+        multiPage: true,
+        headerSelector: '[data-prescription-slip-print-root] [data-prescription-slip-header]',
+        footerSelector: '[data-prescription-slip-print-root] [data-prescription-slip-footer]',
+        rowSelector: '[data-prescription-slip-print-root] [data-prescription-slip-row]',
+      }
+    );
   };
 
   // Keep patients list in sync with Patients section (add/delete/update)
@@ -200,13 +432,14 @@ const PrescriptionsPage = () => {
       toast.error("Weight cannot be negative");
       return;
     }
+    const medError = validateMedicines(formMedicines);
+    if (medError) { toast.error(medError); return; }
     const { data, error } = await supabase.from("prescriptions").insert({
       doctor_id: profile.id,
       patient_id: form.patient_id || null,
       patient_name: form.patient_name,
       diagnosis: form.diagnosis || null,
-      medications: form.medications || null,
-      notes: form.notes || null,
+      medicines: toMedicineItems(formMedicines),
       date: form.date,
       patient_age: form.patient_age ? Number(form.patient_age) : null,
       patient_weight: form.patient_weight ? Number(form.patient_weight) : null,
@@ -214,6 +447,7 @@ const PrescriptionsPage = () => {
     if (error) { toast.error("Could not add prescription"); return; }
     setShowNew(false);
     setForm(emptyForm);
+    setFormMedicines([]);
     load();
     toast.success("Prescription added");
     if (data) openSlip(data as Prescription);
@@ -230,12 +464,13 @@ const PrescriptionsPage = () => {
       toast.error("Weight cannot be negative");
       return;
     }
+    const medError = validateMedicines(editFormMedicines);
+    if (medError) { toast.error(medError); return; }
     const { error } = await supabase.from("prescriptions").update({
       patient_id: editForm.patient_id || null,
       patient_name: editForm.patient_name,
       diagnosis: editForm.diagnosis || null,
-      medications: editForm.medications || null,
-      notes: editForm.notes || null,
+      medicines: toMedicineItems(editFormMedicines),
       date: editForm.date,
       patient_age: editForm.patient_age ? Number(editForm.patient_age) : null,
       patient_weight: editForm.patient_weight ? Number(editForm.patient_weight) : null,
@@ -252,12 +487,11 @@ const PrescriptionsPage = () => {
       patient_name: viewing.patient_name,
       patient_id: viewing.patient_id || "",
       diagnosis: viewing.diagnosis || "",
-      medications: viewing.medications || "",
-      notes: viewing.notes || "",
       date: viewing.date,
       patient_age: viewing.patient_age != null ? String(viewing.patient_age) : "",
       patient_weight: viewing.patient_weight != null ? String(viewing.patient_weight) : "",
     });
+    setEditFormMedicines(fromMedicineItems(parseMedicineItems(viewing.medicines)));
     setEditing(true);
   };
 
@@ -305,7 +539,7 @@ const PrescriptionsPage = () => {
           <p className="text-sm text-muted-foreground mt-0.5">{totalCount} total records</p>
         </div>
         {can("prescriptions.create") && (
-        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); else setForm(emptyForm); }}>
+        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); else { setForm(emptyForm); setFormMedicines([]); } }}>
           <DialogTrigger asChild>
             <Button
               className="bg-royal hover:bg-royal/90"
@@ -354,14 +588,7 @@ const PrescriptionsPage = () => {
                 <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
                 <Input value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} placeholder="e.g. Acute bronchitis" className="h-10" />
               </div>
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medications</Label>
-                <Textarea value={form.medications} onChange={(e) => setForm({ ...form, medications: e.target.value })} placeholder="List medications, dosage, frequency..." rows={3} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Notes</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes..." rows={2} />
-              </div>
+              <MedicinesEditor items={formMedicines} onChange={setFormMedicines} />
               <Button onClick={addPrescription} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Save Prescription</Button>
             </div>
           </DialogContent>
@@ -590,11 +817,13 @@ const PrescriptionsPage = () => {
                         {parseMedicineItems(viewing.medicines).map((m, i) => (
                           <li key={i} className="text-sm text-foreground">
                             <span className="font-medium">{i + 1}. {m.name}{m.strength ? ` — ${m.strength}` : ""}</span>
-                            {(m.frequency || m.duration || m.timing || m.route) && (
-                              <div className="text-xs text-muted-foreground pl-4">
-                                {[m.frequency, m.duration, m.timing, m.route].filter(Boolean).join(" · ")}
-                              </div>
-                            )}
+                            <div className="text-xs text-muted-foreground pl-4">
+                              {[
+                                `Morning-Afternoon-Evening: ${m.morning}-${m.afternoon}-${m.evening}`,
+                                m.durationDays > 0 && `${m.durationDays} day${m.durationDays === 1 ? "" : "s"}`,
+                                m.food === "before" ? "Before Food" : "After Food",
+                              ].filter(Boolean).join(" · ")}
+                            </div>
                           </li>
                         ))}
                       </ol>
@@ -622,10 +851,12 @@ const PrescriptionsPage = () => {
                       </p>
                     </div>
                   )}
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Notes</Label>
-                    <p className="text-sm text-foreground mt-1 whitespace-pre-line">{viewing.notes || <span className="text-muted-foreground italic">No notes</span>}</p>
-                  </div>
+                  {viewing.notes && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Notes</Label>
+                      <p className="text-sm text-foreground mt-1 whitespace-pre-line">{viewing.notes}</p>
+                    </div>
+                  )}
                   <div className="pt-2 flex gap-2">
                     <Button variant="outline" className="flex-1 h-10" onClick={() => openSlip(viewing)}>
                       <Download className="h-4 w-4 mr-2" /> Download
@@ -675,14 +906,7 @@ const PrescriptionsPage = () => {
                     <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
                     <Input value={editForm.diagnosis} onChange={(e) => setEditForm({ ...editForm, diagnosis: e.target.value })} className="h-10" />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medications</Label>
-                    <Textarea value={editForm.medications} onChange={(e) => setEditForm({ ...editForm, medications: e.target.value })} rows={3} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Notes</Label>
-                    <Textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={2} />
-                  </div>
+                  <MedicinesEditor items={editFormMedicines} onChange={setEditFormMedicines} />
                   <div className="flex gap-2 pt-2">
                     <Button variant="outline" className="flex-1 h-10" onClick={() => setEditing(false)}>Cancel</Button>
                     <Button onClick={saveEdit} disabled={writeDisabled} className="flex-1 h-10 bg-royal hover:bg-royal/90">Save Changes</Button>

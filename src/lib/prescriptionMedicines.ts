@@ -1,18 +1,21 @@
 // Shared shape for a single structured medicine line item on a prescription.
 // Used by both the prescription form (PrescriptionsPage.tsx) and the
 // printable slip (PrescriptionSlip.tsx) so the shape is defined once.
+//
+// morning/afternoon/evening are stored as 0/1 (0 = not taken, 1 = taken at
+// that time of day) — the standard Indian Rx "1-0-1" dosage notation.
 export type MedicineItem = {
   name: string;
   strength: string;
-  frequency: string;
-  duration: string;
-  timing: string;
-  route: string;
-  instructions: string;
+  morning: 0 | 1;
+  afternoon: 0 | 1;
+  evening: 0 | 1;
+  durationDays: number;
+  food: "before" | "after";
 };
 
 export const emptyMedicineItem = (): MedicineItem => ({
-  name: "", strength: "", frequency: "", duration: "", timing: "", route: "", instructions: "",
+  name: "", strength: "", morning: 0, afternoon: 0, evening: 0, durationDays: 0, food: "after",
 });
 
 // prescriptions.medicines is stored as Json; narrow it to MedicineItem[] for
@@ -24,11 +27,11 @@ export const parseMedicineItems = (value: unknown): MedicineItem[] => {
     .map((v) => ({
       name: typeof v.name === "string" ? v.name : "",
       strength: typeof v.strength === "string" ? v.strength : "",
-      frequency: typeof v.frequency === "string" ? v.frequency : "",
-      duration: typeof v.duration === "string" ? v.duration : "",
-      timing: typeof v.timing === "string" ? v.timing : "",
-      route: typeof v.route === "string" ? v.route : "",
-      instructions: typeof v.instructions === "string" ? v.instructions : "",
-    }))
+      morning: v.morning === 1 ? 1 : 0,
+      afternoon: v.afternoon === 1 ? 1 : 0,
+      evening: v.evening === 1 ? 1 : 0,
+      durationDays: typeof v.durationDays === "number" && v.durationDays > 0 ? v.durationDays : 0,
+      food: v.food === "before" ? "before" : "after",
+    } satisfies MedicineItem))
     .filter((m) => m.name.trim() !== "");
 };
