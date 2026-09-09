@@ -18,9 +18,9 @@ const LandingFooter = () => {
   return (
     <footer className="bg-primary pt-10 md:pt-14 pb-6 md:pb-8">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-8 pb-8 md:pb-10 border-b border-primary-foreground/10">
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-6 md:gap-8 pb-8 md:pb-10 border-b border-primary-foreground/10">
           {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
+          <div className="col-span-3 md:col-span-1">
             <img src="/doctylia-logo.png" alt="Doctylia" className="h-8 brightness-0 invert mb-3" />
             <p className="text-sm text-primary-foreground/60 leading-relaxed">
               The Complete Doctor Platform. India's #1 AI-powered SaaS for medical practices.
@@ -58,19 +58,6 @@ const LandingFooter = () => {
               <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
             </ul>
-          </div>
-          {/* Newsletter */}
-          <div>
-            <h4 className="font-heading font-semibold text-white mb-3 md:mb-4 text-sm">Stay Updated</h4>
-            <p className="text-xs text-primary-foreground/50 mb-3">Get tips on growing your practice.</p>
-            <div className="flex">
-              <input
-                type="email"
-                placeholder="Email"
-                className="flex-1 min-w-0 bg-primary-foreground/10 border-none rounded-l-lg px-3 py-2 text-sm text-white placeholder:text-primary-foreground/40 outline-none"
-              />
-              <button className="bg-royal px-3 rounded-r-lg text-xs font-medium text-white hover:bg-royal/80 transition-colors shrink-0">→</button>
-            </div>
           </div>
         </div>
         <div className="flex flex-col md:flex-row items-center justify-between mt-5 md:mt-6 gap-2 md:gap-3">
