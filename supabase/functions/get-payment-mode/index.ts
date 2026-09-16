@@ -4,8 +4,8 @@
 // resolves it for patient payments — see _shared/paymentMode.ts.
 import { resolvePaymentMode, corsHeaders, json } from "../_shared/paymentMode.ts";
 
-const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
-const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
+const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
+const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
 
 Deno.serve((req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

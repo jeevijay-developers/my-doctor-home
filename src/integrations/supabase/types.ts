@@ -1507,6 +1507,7 @@ export type Database = {
           razorpay_payment_id: string | null
           razorpay_signature: string | null
           status: Database["public"]["Enums"]["payment_txn_status"]
+          transfer_status: string | null
           updated_at: string
         }
         Insert: {
@@ -1525,6 +1526,7 @@ export type Database = {
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
           status?: Database["public"]["Enums"]["payment_txn_status"]
+          transfer_status?: string | null
           updated_at?: string
         }
         Update: {
@@ -1543,6 +1545,7 @@ export type Database = {
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
           status?: Database["public"]["Enums"]["payment_txn_status"]
+          transfer_status?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1837,6 +1840,13 @@ export type Database = {
           plan_tier: string
           profile_photo_url: string | null
           qualifications: string | null
+          razorpay_account_id: string | null
+          razorpay_account_status: string
+          razorpay_last_synced_at: string | null
+          razorpay_onboarding_error: string | null
+          razorpay_payment_enabled: boolean
+          razorpay_product_id: string | null
+          razorpay_stakeholder_id: string | null
           registration_number: string | null
           signature_url: string | null
           slug: string | null
@@ -1867,6 +1877,13 @@ export type Database = {
           plan_tier?: string
           profile_photo_url?: string | null
           qualifications?: string | null
+          razorpay_account_id?: string | null
+          razorpay_account_status?: string
+          razorpay_last_synced_at?: string | null
+          razorpay_onboarding_error?: string | null
+          razorpay_payment_enabled?: boolean
+          razorpay_product_id?: string | null
+          razorpay_stakeholder_id?: string | null
           registration_number?: string | null
           signature_url?: string | null
           slug?: string | null
@@ -1897,6 +1914,13 @@ export type Database = {
           plan_tier?: string
           profile_photo_url?: string | null
           qualifications?: string | null
+          razorpay_account_id?: string | null
+          razorpay_account_status?: string
+          razorpay_last_synced_at?: string | null
+          razorpay_onboarding_error?: string | null
+          razorpay_payment_enabled?: boolean
+          razorpay_product_id?: string | null
+          razorpay_stakeholder_id?: string | null
           registration_number?: string | null
           signature_url?: string | null
           slug?: string | null
@@ -1998,6 +2022,56 @@ export type Database = {
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlements: {
+        Row: {
+          amount: number
+          created_at: string
+          fee: number | null
+          id: string
+          processed_at: string | null
+          razorpay_settlement_id: string | null
+          status: string
+          tax: number | null
+          transfer_id: string
+          updated_at: string
+          utr: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          fee?: number | null
+          id?: string
+          processed_at?: string | null
+          razorpay_settlement_id?: string | null
+          status?: string
+          tax?: number | null
+          transfer_id: string
+          updated_at?: string
+          utr?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          fee?: number | null
+          id?: string
+          processed_at?: string | null
+          razorpay_settlement_id?: string | null
+          status?: string
+          tax?: number | null
+          transfer_id?: string
+          updated_at?: string
+          utr?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlements_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "transfers"
             referencedColumns: ["id"]
           },
         ]
@@ -2362,6 +2436,115 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      transfers: {
+        Row: {
+          amount: number
+          appointment_id: string | null
+          created_at: string
+          currency: string
+          doctor_id: string
+          error: string | null
+          id: string
+          is_mock: boolean
+          payment_id: string
+          processed_at: string | null
+          razorpay_account_id: string
+          razorpay_transfer_id: string | null
+          reversed_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          appointment_id?: string | null
+          created_at?: string
+          currency?: string
+          doctor_id: string
+          error?: string | null
+          id?: string
+          is_mock?: boolean
+          payment_id: string
+          processed_at?: string | null
+          razorpay_account_id: string
+          razorpay_transfer_id?: string | null
+          reversed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          appointment_id?: string | null
+          created_at?: string
+          currency?: string
+          doctor_id?: string
+          error?: string | null
+          id?: string
+          is_mock?: boolean
+          payment_id?: string
+          processed_at?: string | null
+          razorpay_account_id?: string
+          razorpay_transfer_id?: string | null
+          reversed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfers_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_events: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          razorpay_event_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          razorpay_event_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          razorpay_event_id?: string
+          status?: string
+        }
+        Relationships: []
       }
     }
     Views: {
