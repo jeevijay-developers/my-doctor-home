@@ -264,19 +264,29 @@ const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload }: 
                 <div className="mt-5 relative">
                   {(prescription.medicines?.length ?? 0) > 0 ? (
                     <div className="space-y-4">
-                      {prescription.medicines.map((m, i) => (
-                        <div key={i} data-prescription-slip-row>
-                          <div className="text-[14px] font-semibold text-gray-900">
-                            {i + 1}. {m.name}{m.strength ? ` — ${m.strength}` : ""}
+                      {prescription.medicines.map((m, i) => {
+                        // Readable words, never the raw 0/1 timing code, for
+                        // the patient-facing invoice.
+                        const timingLabel = [
+                          m.morning === 1 && "Morning",
+                          m.afternoon === 1 && "Afternoon",
+                          m.evening === 1 && "Evening/Night",
+                        ].filter(Boolean).join(", ");
+                        return (
+                          <div key={i} data-prescription-slip-row>
+                            <div className="text-[14px] font-semibold text-gray-900">
+                              {i + 1}. {m.name}{m.strength ? ` — ${m.strength}` : ""}
+                            </div>
+                            <div className="text-[12px] text-gray-600 pl-4 mt-0.5 break-words">
+                              {[
+                                timingLabel,
+                                m.durationDays > 0 && `${m.durationDays} day${m.durationDays === 1 ? "" : "s"}`,
+                                m.food === "before" ? "Before Food" : "After Food",
+                              ].filter(Boolean).join("  ·  ")}
+                            </div>
                           </div>
-                          <div className="text-[12px] text-gray-600 pl-4 mt-0.5">
-                            {[
-                              m.durationDays > 0 && `${m.durationDays} day${m.durationDays === 1 ? "" : "s"}`,
-                              m.food === "before" ? "Before Food" : "After Food",
-                            ].filter(Boolean).join("  ·  ")}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : prescription.medications ? (
                     <p className="text-[14px] text-gray-900 whitespace-pre-line leading-relaxed">{prescription.medications}</p>
