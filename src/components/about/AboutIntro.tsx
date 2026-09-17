@@ -1,4 +1,44 @@
-import { Globe, Users2 } from "lucide-react";
+import { Globe, Users2, Target, Telescope, type LucideIcon } from "lucide-react";
+import MobileCardCarousel from "./MobileCardCarousel";
+
+type IntroCard = { icon: LucideIcon; color: string; title: string; desc: string };
+
+const cards: IntroCard[] = [
+  {
+    icon: Globe,
+    color: "bg-royal/10 text-royal",
+    title: "For Doctors",
+    desc: "A doctor can go live with a professional website, start accepting online bookings, and manage patients, prescriptions, and billing — without hiring a developer or IT team.",
+  },
+  {
+    icon: Users2,
+    color: "bg-teal/10 text-teal",
+    title: "For Patients",
+    desc: "A patient gets a clear view of the doctor's services and availability, and can book an appointment — in-clinic or online — in a few taps, instead of a phone call.",
+  },
+  {
+    icon: Target,
+    color: "bg-royal/10 text-royal",
+    title: "Our Mission",
+    desc: "To make healthcare access more convenient by helping every doctor build a professional digital presence, simplifying how appointments are booked and managed, and making it easier for patients to reach the right doctor with the information they need.",
+  },
+  {
+    icon: Telescope,
+    color: "bg-teal/10 text-teal",
+    title: "Our Vision",
+    desc: "A future where every doctor and clinic — solo practice or growing team — has the same digital tools as a large hospital chain, and every patient can find, book, and consult a doctor as easily as ordering anything else online.",
+  },
+];
+
+const IntroCard = ({ c }: { c: IntroCard }) => (
+  <div className="h-full rounded-2xl bg-white border border-border shadow-sm p-6 md:p-8">
+    <div className={`w-11 h-11 rounded-xl ${c.color} flex items-center justify-center mb-4`}>
+      <c.icon className="h-5 w-5" />
+    </div>
+    <h3 className="font-heading font-bold text-xl md:text-2xl text-primary">{c.title}</h3>
+    <p className="text-sm md:text-base text-muted-foreground mt-3 leading-relaxed">{c.desc}</p>
+  </div>
+);
 
 const AboutIntro = () => (
   <section className="py-14 md:py-20 bg-white">
@@ -15,28 +55,10 @@ const AboutIntro = () => (
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto">
-        <div className="rounded-xl bg-secondary/60 border border-border p-5 md:p-6">
-          <div className="w-10 h-10 rounded-lg bg-royal/10 text-royal flex items-center justify-center mb-3">
-            <Globe className="h-5 w-5" />
-          </div>
-          <h3 className="font-heading font-semibold text-primary text-base md:text-lg">For Doctors</h3>
-          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-            A doctor can go live with a professional website, start accepting online bookings, and manage
-            patients, prescriptions, and billing — without hiring a developer or IT team.
-          </p>
-        </div>
-        <div className="rounded-xl bg-secondary/60 border border-border p-5 md:p-6">
-          <div className="w-10 h-10 rounded-lg bg-teal/10 text-teal flex items-center justify-center mb-3">
-            <Users2 className="h-5 w-5" />
-          </div>
-          <h3 className="font-heading font-semibold text-primary text-base md:text-lg">For Patients</h3>
-          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-            A patient gets a clear view of the doctor's services and availability, and can book an
-            appointment — in-clinic or online — in a few taps, instead of a phone call.
-          </p>
-        </div>
+      <div className="hidden md:grid md:grid-cols-2 gap-5 md:gap-6 max-w-4xl mx-auto items-stretch">
+        {cards.map((c) => <IntroCard key={c.title} c={c} />)}
       </div>
+      <MobileCardCarousel items={cards} renderItem={(c) => <IntroCard c={c} />} />
     </div>
   </section>
 );

@@ -1,11 +1,24 @@
-import { ShieldCheck, KeyRound, ClipboardCheck, MonitorSmartphone } from "lucide-react";
+import { ShieldCheck, KeyRound, ClipboardCheck, MonitorSmartphone, type LucideIcon } from "lucide-react";
+import MobileCardCarousel from "./MobileCardCarousel";
 
-const points = [
+type TrustPoint = { icon: LucideIcon; title: string; desc: string };
+
+const points: TrustPoint[] = [
   { icon: ShieldCheck, title: "Professional Presence", desc: "A structured, consistent website format built for healthcare — not a generic template." },
   { icon: KeyRound, title: "Role-Based Access", desc: "Staff accounts only see the parts of the practice they're given access to." },
   { icon: ClipboardCheck, title: "Organized Records", desc: "Patient history, prescriptions, and appointments are kept in one structured system." },
   { icon: MonitorSmartphone, title: "Reliable Experience", desc: "The same platform doctors and patients use every day for real appointments." },
 ];
+
+const TrustCard = ({ p }: { p: TrustPoint }) => (
+  <div className="h-full text-center px-2">
+    <div className="w-12 h-12 rounded-xl bg-royal/10 text-royal flex items-center justify-center mx-auto mb-3">
+      <p.icon className="h-5 w-5" />
+    </div>
+    <h3 className="font-heading font-semibold text-primary text-sm md:text-base">{p.title}</h3>
+    <p className="text-xs md:text-sm text-muted-foreground mt-1.5 leading-relaxed">{p.desc}</p>
+  </div>
+);
 
 const AboutTrust = () => (
   <section className="py-14 md:py-20 bg-white">
@@ -17,17 +30,10 @@ const AboutTrust = () => (
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 max-w-5xl mx-auto">
-        {points.map((p) => (
-          <div key={p.title} className="text-center px-2">
-            <div className="w-12 h-12 rounded-xl bg-royal/10 text-royal flex items-center justify-center mx-auto mb-3">
-              <p.icon className="h-5 w-5" />
-            </div>
-            <h3 className="font-heading font-semibold text-primary text-sm md:text-base">{p.title}</h3>
-            <p className="text-xs md:text-sm text-muted-foreground mt-1.5 leading-relaxed">{p.desc}</p>
-          </div>
-        ))}
+      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 max-w-5xl mx-auto">
+        {points.map((p) => <TrustCard key={p.title} p={p} />)}
       </div>
+      <MobileCardCarousel items={points} renderItem={(p) => <TrustCard p={p} />} />
     </div>
   </section>
 );

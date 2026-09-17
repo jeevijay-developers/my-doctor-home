@@ -1,4 +1,5 @@
-import { Stethoscope, UserRound, Check } from "lucide-react";
+import { Stethoscope, UserRound, Check, type LucideIcon } from "lucide-react";
+import MobileCardCarousel from "./MobileCardCarousel";
 
 const doctorPoints = [
   "A professional online presence with your own branded website",
@@ -20,6 +21,13 @@ const patientPoints = [
   "Read health articles published by the doctor",
 ];
 
+type SideCard = { icon: LucideIcon; color: string; title: string; points: string[] };
+
+const sides: SideCard[] = [
+  { icon: Stethoscope, color: "bg-royal/10 text-royal", title: "Built for Doctors", points: doctorPoints },
+  { icon: UserRound, color: "bg-teal/10 text-teal", title: "Designed for Patients", points: patientPoints },
+];
+
 const PointList = ({ points }: { points: string[] }) => (
   <ul className="space-y-2.5 mt-4">
     {points.map((p) => (
@@ -29,6 +37,16 @@ const PointList = ({ points }: { points: string[] }) => (
       </li>
     ))}
   </ul>
+);
+
+const SideCard = ({ s }: { s: SideCard }) => (
+  <div className="h-full rounded-2xl bg-white border border-border p-6 md:p-8 shadow-sm">
+    <div className={`w-11 h-11 rounded-xl ${s.color} flex items-center justify-center`}>
+      <s.icon className="h-5 w-5" />
+    </div>
+    <h3 className="font-heading font-bold text-lg md:text-xl text-primary mt-4">{s.title}</h3>
+    <PointList points={s.points} />
+  </div>
 );
 
 const ForDoctorsPatients = () => (
@@ -41,22 +59,10 @@ const ForDoctorsPatients = () => (
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 max-w-4xl mx-auto items-stretch">
-        <div className="rounded-2xl bg-white border border-border p-6 md:p-8 shadow-sm">
-          <div className="w-11 h-11 rounded-xl bg-royal/10 text-royal flex items-center justify-center">
-            <Stethoscope className="h-5 w-5" />
-          </div>
-          <h3 className="font-heading font-bold text-lg md:text-xl text-primary mt-4">Built for Doctors</h3>
-          <PointList points={doctorPoints} />
-        </div>
-        <div className="rounded-2xl bg-white border border-border p-6 md:p-8 shadow-sm">
-          <div className="w-11 h-11 rounded-xl bg-teal/10 text-teal flex items-center justify-center">
-            <UserRound className="h-5 w-5" />
-          </div>
-          <h3 className="font-heading font-bold text-lg md:text-xl text-primary mt-4">Designed for Patients</h3>
-          <PointList points={patientPoints} />
-        </div>
+      <div className="hidden md:grid md:grid-cols-2 gap-5 md:gap-6 max-w-4xl mx-auto items-stretch">
+        {sides.map((s) => <SideCard key={s.title} s={s} />)}
       </div>
+      <MobileCardCarousel items={sides} renderItem={(s) => <SideCard s={s} />} itemClassName="basis-[90%]" />
     </div>
   </section>
 );

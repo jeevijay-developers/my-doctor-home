@@ -1,3 +1,5 @@
+import MobileCardCarousel from "./MobileCardCarousel";
+
 const patientSteps = [
   "Open the doctor's website (via their shared link or QR code)",
   "Explore their profile, clinic details, and services",
@@ -18,7 +20,14 @@ const doctorSteps = [
   "Grow your presence with blog posts and reviews",
 ];
 
-const StepList = ({ title, steps, color }: { title: string; steps: string[]; color: string }) => (
+type Flow = { title: string; steps: string[]; color: string };
+
+const flows: Flow[] = [
+  { title: "For Patients", steps: patientSteps, color: "from-royal to-teal" },
+  { title: "For Doctors", steps: doctorSteps, color: "from-teal to-accent" },
+];
+
+const StepList = ({ title, steps, color }: Flow) => (
   <div className="h-full rounded-2xl bg-white border border-border p-6 md:p-8 shadow-sm">
     <h3 className="font-heading font-bold text-lg md:text-xl text-primary mb-5">{title}</h3>
     <ol className="space-y-4">
@@ -46,10 +55,10 @@ const AboutHowItWorks = () => (
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 max-w-4xl mx-auto items-stretch">
-        <StepList title="For Patients" steps={patientSteps} color="from-royal to-teal" />
-        <StepList title="For Doctors" steps={doctorSteps} color="from-teal to-accent" />
+      <div className="hidden md:grid md:grid-cols-2 gap-5 md:gap-6 max-w-4xl mx-auto items-stretch">
+        {flows.map((f) => <StepList key={f.title} {...f} />)}
       </div>
+      <MobileCardCarousel items={flows} renderItem={(f) => <StepList {...f} />} itemClassName="basis-[90%]" />
     </div>
   </section>
 );
