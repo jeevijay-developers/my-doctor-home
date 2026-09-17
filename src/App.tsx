@@ -8,6 +8,7 @@ import LandingPage from "./pages/LandingPage";
 import AboutPage from "./pages/AboutPage";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import RefundPolicy from "./pages/RefundPolicy";
 import Auth from "./pages/Auth";
 import StaffLogin from "./pages/StaffLogin";
 import ResetPassword from "./pages/ResetPassword";
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="/about" element={<AboutPage />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
             <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/staff-login" element={<StaffLogin />} />

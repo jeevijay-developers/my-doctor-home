@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Wallet, IndianRupee, PieChart, History, Loader2, Info,
-  RefreshCw, Send, Users2, CreditCard,
+  RefreshCw, Send, Users2, CreditCard, ArrowRightLeft, CheckCircle2,
 } from "lucide-react";
 import DoctorGroupCard from "@/components/shared/DoctorGroupCard";
 import { format } from "date-fns";
@@ -24,7 +24,8 @@ import type { Tables } from "@/integrations/supabase/types";
 type Payment = Tables<"payments">;
 type Ledger = Tables<"doctor_ledger">;
 type Payout = Tables<"payouts">;
-type ProfileLite = { id: string; full_name: string | null; clinic_name: string | null };
+type Transfer = Tables<"transfers">;
+type ProfileLite = { id: string; full_name: string | null; clinic_name: string | null; razorpay_account_id?: string | null; razorpay_account_status?: string | null; razorpay_payment_enabled?: boolean | null };
 type AppointmentLite = { id: string; doctor_id: string; patient_name: string | null; patient_phone: string | null; created_at: string };
 
 const payoutStatusStyle: Record<string, { bg: string; text: string; label: string }> = {
@@ -35,9 +36,17 @@ const payoutStatusStyle: Record<string, { bg: string; text: string; label: strin
   cancelled: { bg: "bg-muted", text: "text-muted-foreground", label: "Cancelled" },
 };
 
+const transferStatusStyle: Record<string, { bg: string; text: string; label: string }> = {
+  pending: { bg: "bg-warning/10", text: "text-warning", label: "Pending (T+2)" },
+  processed: { bg: "bg-success/10", text: "text-success", label: "Settled to Doctor" },
+  failed: { bg: "bg-destructive/10", text: "text-destructive", label: "Failed" },
+  reversed: { bg: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", text: "text-purple-700 dark:text-purple-300", label: "Reversed (Refunded)" },
+};
+
 const SAPayments = () => {
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [ledger, setLedger] = useState<Ledger[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [profiles, setProfiles] = useState<Record<string, ProfileLite>>({});
@@ -49,14 +58,16 @@ const SAPayments = () => {
   const [drillPatientKey, setDrillPatientKey] = useState<string | null>(null);
 
   const loadData = async () => {
-    const [paymentsRes, ledgerRes, payoutsRes, profilesRes, appointmentsRes] = await Promise.all([
+    const [paymentsRes, transfersRes, ledgerRes, payoutsRes, profilesRes, appointmentsRes] = await Promise.all([
       supabase.from("payments").select("*").order("created_at", { ascending: false }).limit(300),
+      supabase.from("transfers").select("*").order("created_at", { ascending: false }).limit(300),
       supabase.from("doctor_ledger").select("*"),
       supabase.from("payouts").select("*").order("created_at", { ascending: false }),
-      supabase.from("profiles").select("id, full_name, clinic_name"),
+      supabase.from("profiles").select("id, full_name, clinic_name, razorpay_account_id, razorpay_account_status, razorpay_payment_enabled"),
       supabase.from("appointments").select("id, doctor_id, patient_name, patient_phone, created_at"),
     ]);
     setPayments(paymentsRes.data || []);
+    setTransfers(transfersRes.data || []);
     setLedger(ledgerRes.data || []);
     setPayouts(payoutsRes.data || []);
     const map: Record<string, ProfileLite> = {};
@@ -71,18 +82,19 @@ const SAPayments = () => {
   const doctorLabel = (id: string) => profiles[id]?.full_name || id.slice(0, 8);
   const appointmentById = new Map(appointments.map((a) => [a.id, a]));
 
-  const captured = payments.filter((p) => p.status === "captured");
-  const totalCollected = captured.reduce((s, p) => s + Number(p.amount), 0);
-  const pendingPayoutTotal = payouts.filter((p) => p.status === "pending" || p.status === "processing")
-    .reduce((s, p) => s + Number(p.total_amount), 0);
+  const totalRouted = transfers
+    .filter((t) => t.status === "processed" || t.status === "pending")
+    .reduce((s, t) => s + Number(t.amount), 0);
 
-  // Only 2 cards: the platform takes no commission on consultation payments
-  // (doctors keep 100% — see verify-razorpay-payment), so "Platform
-  // Commission" is always ₹0 and "Doctor Share" always equals Total
-  // Collected. Showing either would be redundant/misleading.
+  const activeLinkedAccountsCount = Object.values(profiles).filter(
+    (p) => p.razorpay_payment_enabled || p.razorpay_account_status === "active"
+  ).length;
+
+  // Overview metrics: Platform collection, Route direct transfers, and Legacy payouts
   const overviewCards = [
     { label: "Total Collected", value: totalCollected, icon: IndianRupee, gradient: "from-royal to-teal" },
-    { label: "Awaiting Payout", value: pendingPayoutTotal, icon: Wallet, gradient: "from-warning to-royal" },
+    { label: "Direct Route Transfers", value: totalRouted, icon: ArrowRightLeft, gradient: "from-teal to-emerald-600" },
+    { label: "Awaiting Payout (Legacy)", value: pendingPayoutTotal, icon: Wallet, gradient: "from-warning to-royal" },
   ];
 
   const paymentsByDoctor = (() => {
@@ -199,19 +211,25 @@ const SAPayments = () => {
       <Card className="border-royal/30 bg-royal/5">
         <CardContent className="p-4 flex items-start gap-3">
           <Info className="h-5 w-5 text-royal flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-muted-foreground">
-            Patients pay into Doctylia's Razorpay account here. Run the monthly rollup to turn last month's
-            captured payments into per-doctor payouts, then approve each one to send it via RazorpayX.
-          </p>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>
+              <strong>Direct Route Transfers (Active):</strong> Patient payments are automatically transferred directly to the doctor's Linked Account with 0% platform commission and settled on T+2.
+            </p>
+            <p className="text-xs text-muted-foreground/80">
+              Legacy monthly payouts via RazorpayX are preserved below for historical records.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
       <Tabs defaultValue="overview" className="space-y-5">
         <TabsList className="bg-card border border-border h-11 flex-wrap h-auto">
           <TabsTrigger value="overview" className="gap-1.5"><PieChart className="h-3.5 w-3.5" /> Overview</TabsTrigger>
+          <TabsTrigger value="transfers" className="gap-1.5"><ArrowRightLeft className="h-3.5 w-3.5" /> Route Transfers{transfers.length > 0 && ` (${transfers.length})`}</TabsTrigger>
+          <TabsTrigger value="accounts" className="gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> Linked Accounts ({activeLinkedAccountsCount})</TabsTrigger>
           <TabsTrigger value="payments" className="gap-1.5"><CreditCard className="h-3.5 w-3.5" /> All Payments</TabsTrigger>
           <TabsTrigger value="doctors" className="gap-1.5"><Users2 className="h-3.5 w-3.5" /> Doctor-wise Earnings</TabsTrigger>
-          <TabsTrigger value="payouts" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Payouts{pendingPayouts.length > 0 && ` (${pendingPayouts.length})`}</TabsTrigger>
+          <TabsTrigger value="payouts" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Legacy Payouts{pendingPayouts.length > 0 && ` (${pendingPayouts.length})`}</TabsTrigger>
           <TabsTrigger value="history" className="gap-1.5"><History className="h-3.5 w-3.5" /> Payout History</TabsTrigger>
         </TabsList>
 
@@ -275,6 +293,88 @@ const SAPayments = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="transfers" className="space-y-3">
+          {transfers.length === 0 ? (
+            <EmptyState icon={ArrowRightLeft} text="No Route transfers yet" sub="Transfers will appear here automatically when patients book appointments with online payment." />
+          ) : (
+            transfers.map((t) => {
+              const style = transferStatusStyle[t.status] || transferStatusStyle.pending;
+              return (
+                <Card key={t.id} className="border-border/60 shadow-none">
+                  <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {doctorLabel(t.doctor_id)}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate space-x-2">
+                        <span>Transfer ID: {t.razorpay_transfer_id || "Pending"}</span>
+                        <span>·</span>
+                        <span>Account: {t.razorpay_account_id}</span>
+                        <span>·</span>
+                        <span>{format(new Date(t.created_at), "d MMM yyyy, h:mm a")}</span>
+                      </div>
+                      {t.error && (
+                        <div className="text-xs text-destructive mt-1 font-medium">
+                          Error: {t.error}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      {t.is_mock && <TestModeBadge />}
+                      <Badge variant="outline" className={`text-[10px] ${style.bg} ${style.text}`}>
+                        {style.label}
+                      </Badge>
+                      <span className="font-heading font-bold text-foreground">
+                        ₹{Number(t.amount).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </TabsContent>
+
+        <TabsContent value="accounts" className="space-y-3">
+          {Object.values(profiles).length === 0 ? (
+            <EmptyState icon={CheckCircle2} text="No doctors found" />
+          ) : (
+            Object.values(profiles).map((p) => {
+              const isEnabled = p.razorpay_payment_enabled;
+              const status = p.razorpay_account_status || "not_started";
+              return (
+                <Card key={p.id} className="border-border/60 shadow-none">
+                  <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {p.full_name || p.clinic_name || "Doctor (" + p.id.slice(0, 8) + ")"}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate space-x-2">
+                        {p.clinic_name && <span>{p.clinic_name} · </span>}
+                        <span>Account ID: {p.razorpay_account_id || "Not created"}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${
+                          isEnabled
+                            ? "bg-success/10 text-success"
+                            : status === "processing" || status === "submitted"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                        }`}
+                      >
+                        {isEnabled ? "Active & Receiving Payments" : status === "not_started" ? "Not Set Up" : `Status: ${status}`}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
         </TabsContent>
 
         <TabsContent value="payments" className="space-y-3">
