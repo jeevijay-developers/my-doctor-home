@@ -17,6 +17,18 @@ const LandingNavbar = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Clicking "Home" while already on "/" is a same-route Link, which React
+  // Router treats as a no-op — nothing happens, not even a scroll. Scroll to
+  // top ourselves in that case (mirrors LandingFooter's "About Us" handling
+  // of the same same-route issue); from any other page the normal Link
+  // navigation (plus ScrollToTop in App.tsx) already lands at the top.
+  const handleHomeClick = (e: React.MouseEvent) => {
+    if (location.pathname === "/") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   // Tapping/clicking anywhere outside the open mobile/tablet menu closes it —
   // except the toggle button, which already opens/closes it via its own
   // onClick (excluding it here avoids that same tap re-closing what it just
@@ -49,6 +61,19 @@ const LandingNavbar = () => {
         </Link>
 
         <div className="hidden md:flex items-center gap-7">
+          <Link
+            to="/"
+            onClick={handleHomeClick}
+            className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
+          >
+            Home
+          </Link>
+          <Link
+            to="/about"
+            className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
+          >
+            About
+          </Link>
           {navLinks.map((link) => {
             const linkClassName = "text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full";
             return onLandingPage ? (
@@ -90,6 +115,20 @@ const LandingNavbar = () => {
         }`}
         aria-hidden={!mobileOpen}
       >
+        <Link
+          to="/"
+          onClick={(e) => { handleHomeClick(e); setMobileOpen(false); }}
+          className="block text-sm font-medium text-muted-foreground py-1"
+        >
+          Home
+        </Link>
+        <Link
+          to="/about"
+          onClick={() => setMobileOpen(false)}
+          className="block text-sm font-medium text-muted-foreground py-1"
+        >
+          About
+        </Link>
         {navLinks.map((link) => {
           const mobileLinkClassName = "block text-sm font-medium text-muted-foreground py-1";
           return onLandingPage ? (

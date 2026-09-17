@@ -13,6 +13,7 @@ import PricingSection from "@/components/landing/PricingSection";
 import Testimonials from "@/components/landing/Testimonials";
 import FAQ from "@/components/landing/FAQ";
 import ContactSection from "@/components/landing/ContactSection";
+import AboutSummary from "@/components/landing/AboutSummary";
 import CTABanner from "@/components/landing/CTABanner";
 import LandingFooter from "@/components/landing/LandingFooter";
 import AnimatedSection from "@/components/landing/AnimatedSection";
@@ -40,6 +41,9 @@ const LandingPage = () => {
       <MediaLogos />
       <AnimatedSection>
         <FeaturesGrid />
+      </AnimatedSection>
+      <AnimatedSection>
+        <AboutSummary />
       </AnimatedSection>
       <AnimatedSection>
         <BeforeAfter />

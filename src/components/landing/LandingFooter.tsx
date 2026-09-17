@@ -4,12 +4,13 @@ import { Facebook, Instagram, Linkedin, Youtube, Twitter } from "lucide-react";
 const LandingFooter = () => {
   const location = useLocation();
 
-  // Clicking "About Us" while already on "/" is a same-route Link, which
-  // React Router treats as a no-op — nothing happens, not even a scroll.
-  // Scroll to top ourselves in that case; from any other page the normal
-  // Link navigation (plus ScrollToTop in App.tsx) already lands at the top.
+  // Clicking "About Us" while already on "/about" is a same-route Link,
+  // which React Router treats as a no-op — nothing happens, not even a
+  // scroll. Scroll to top ourselves in that case; from any other page the
+  // normal Link navigation (plus ScrollToTop in App.tsx) already lands at
+  // the top of /about.
   const handleAboutUsClick = (e: React.MouseEvent) => {
-    if (location.pathname === "/") {
+    if (location.pathname === "/about") {
       e.preventDefault();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -47,7 +48,7 @@ const LandingFooter = () => {
           <div>
             <h4 className="font-heading font-semibold text-white mb-3 md:mb-4 text-sm">Company</h4>
             <ul className="space-y-2 md:space-y-2.5 text-sm text-primary-foreground/60">
-              <li><Link to="/" onClick={handleAboutUsClick} className="hover:text-white transition-colors">About Us</Link></li>
+              <li><Link to="/about" onClick={handleAboutUsClick} className="hover:text-white transition-colors">About Us</Link></li>
               <li><a href="#contact" className="hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>
