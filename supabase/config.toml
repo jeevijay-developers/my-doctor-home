@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.mock-otp-login]
 verify_jwt = false
+
+[functions.send-sms-hook]
+verify_jwt = false
