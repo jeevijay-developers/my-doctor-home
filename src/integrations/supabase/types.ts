@@ -319,6 +319,8 @@ export type Database = {
           paid: boolean
           payment_id: string
           payout_id: string | null
+          refunded: boolean
+          refunded_at: string | null
         }
         Insert: {
           appointment_id: string
@@ -333,6 +335,8 @@ export type Database = {
           paid?: boolean
           payment_id: string
           payout_id?: string | null
+          refunded?: boolean
+          refunded_at?: string | null
         }
         Update: {
           appointment_id?: string
@@ -347,6 +351,8 @@ export type Database = {
           paid?: boolean
           payment_id?: string
           payout_id?: string | null
+          refunded?: boolean
+          refunded_at?: string | null
         }
         Relationships: [
           {
@@ -503,13 +509,17 @@ export type Database = {
           amount: number
           appointment_id: string | null
           clinic_gstin: string | null
+          commission_amount: number
+          commission_percent: number
           created_at: string
           doctor_id: string
           gst_amount: number
           gst_rate: number
           id: string
           invoice_number: string
+          net_amount: number | null
           patient_name: string
+          refunded_at: string | null
           service_name: string
           status: string
           total_amount: number
@@ -518,13 +528,17 @@ export type Database = {
           amount?: number
           appointment_id?: string | null
           clinic_gstin?: string | null
+          commission_amount?: number
+          commission_percent?: number
           created_at?: string
           doctor_id: string
           gst_amount?: number
           gst_rate?: number
           id?: string
           invoice_number: string
+          net_amount?: number | null
           patient_name: string
+          refunded_at?: string | null
           service_name: string
           status?: string
           total_amount?: number
@@ -533,13 +547,17 @@ export type Database = {
           amount?: number
           appointment_id?: string | null
           clinic_gstin?: string | null
+          commission_amount?: number
+          commission_percent?: number
           created_at?: string
           doctor_id?: string
           gst_amount?: number
           gst_rate?: number
           id?: string
           invoice_number?: string
+          net_amount?: number | null
           patient_name?: string
+          refunded_at?: string | null
           service_name?: string
           status?: string
           total_amount?: number
@@ -1494,9 +1512,12 @@ export type Database = {
         Row: {
           amount: number
           appointment_id: string | null
+          commission_amount: number
+          commission_percent: number
           created_at: string
           currency: string
           doctor_id: string
+          doctor_share: number
           id: string
           is_mock: boolean
           method: string | null
@@ -1506,6 +1527,7 @@ export type Database = {
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           razorpay_signature: string | null
+          service_id: string | null
           status: Database["public"]["Enums"]["payment_txn_status"]
           transfer_status: string | null
           updated_at: string
@@ -1513,9 +1535,12 @@ export type Database = {
         Insert: {
           amount: number
           appointment_id?: string | null
+          commission_amount?: number
+          commission_percent?: number
           created_at?: string
           currency?: string
           doctor_id: string
+          doctor_share?: number
           id?: string
           is_mock?: boolean
           method?: string | null
@@ -1525,6 +1550,7 @@ export type Database = {
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
+          service_id?: string | null
           status?: Database["public"]["Enums"]["payment_txn_status"]
           transfer_status?: string | null
           updated_at?: string
@@ -1532,9 +1558,12 @@ export type Database = {
         Update: {
           amount?: number
           appointment_id?: string | null
+          commission_amount?: number
+          commission_percent?: number
           created_at?: string
           currency?: string
           doctor_id?: string
+          doctor_share?: number
           id?: string
           is_mock?: boolean
           method?: string | null
@@ -1544,6 +1573,7 @@ export type Database = {
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
+          service_id?: string | null
           status?: Database["public"]["Enums"]["payment_txn_status"]
           transfer_status?: string | null
           updated_at?: string
@@ -1561,6 +1591,13 @@ export type Database = {
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
             referencedColumns: ["id"]
           },
         ]
@@ -2441,10 +2478,13 @@ export type Database = {
         Row: {
           amount: number
           appointment_id: string | null
+          commission_amount: number | null
+          commission_percent: number | null
           created_at: string
           currency: string
           doctor_id: string
           error: string | null
+          gross_amount: number | null
           id: string
           is_mock: boolean
           payment_id: string
@@ -2458,10 +2498,13 @@ export type Database = {
         Insert: {
           amount: number
           appointment_id?: string | null
+          commission_amount?: number | null
+          commission_percent?: number | null
           created_at?: string
           currency?: string
           doctor_id: string
           error?: string | null
+          gross_amount?: number | null
           id?: string
           is_mock?: boolean
           payment_id: string
@@ -2475,10 +2518,13 @@ export type Database = {
         Update: {
           amount?: number
           appointment_id?: string | null
+          commission_amount?: number | null
+          commission_percent?: number | null
           created_at?: string
           currency?: string
           doctor_id?: string
           error?: string | null
+          gross_amount?: number | null
           id?: string
           is_mock?: boolean
           payment_id?: string

@@ -12,8 +12,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { IndianRupee } from "lucide-react";
+import { IndianRupee, Percent } from "lucide-react";
 import { FALLBACK_PLAN_PRICES } from "@/hooks/usePlanPrices";
+
+const DEFAULT_PLATFORM_COMMISSION = 10;
 
 const SAFlags = () => {
   const [maintenance, setMaintenance] = useState(false);
@@ -30,6 +32,12 @@ const SAFlags = () => {
   const [pricingConfirmOpen, setPricingConfirmOpen] = useState(false);
   const [savingPricing, setSavingPricing] = useState(false);
 
+  // Platform Consultation Charge (%) state
+  const [commissionInput, setCommissionInput] = useState(String(DEFAULT_PLATFORM_COMMISSION));
+  const [savedCommission, setSavedCommission] = useState<number>(DEFAULT_PLATFORM_COMMISSION);
+  const [commissionConfirmOpen, setCommissionConfirmOpen] = useState(false);
+  const [savingCommission, setSavingCommission] = useState(false);
+
   useEffect(() => {
     supabase.from("platform_settings").select("*").then(({ data }) => {
       const map = Object.fromEntries((data ?? []).map((r: any) => [r.key, r.value]));
@@ -45,6 +53,13 @@ const SAFlags = () => {
       setSavedPremiumPrice(premium);
       setProInput(String(pro));
       setPremiumInput(String(premium));
+
+      const comm =
+        map.default_commission_percent != null && Number.isFinite(Number(map.default_commission_percent))
+          ? Number(map.default_commission_percent)
+          : DEFAULT_PLATFORM_COMMISSION;
+      setSavedCommission(comm);
+      setCommissionInput(String(comm));
     });
   }, []);
 
@@ -109,6 +124,58 @@ const SAFlags = () => {
 
   const pricingChanged =
     Number(proInput) !== savedProPrice || Number(premiumInput) !== savedPremiumPrice;
+
+  const openCommissionConfirm = () => {
+    const newCommission = Number(commissionInput);
+    if (commissionInput.trim() === "" || !Number.isFinite(newCommission) || newCommission < 0 || newCommission > 100) {
+      toast({
+        title: "Invalid commission percentage",
+        description: "Platform consultation charge must be between 0% and 100%.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCommissionConfirmOpen(true);
+  };
+
+  const confirmSaveCommission = async () => {
+    const newCommission = Math.round(Number(commissionInput) * 100) / 100;
+    setSavingCommission(true);
+
+    const { error } = await supabase
+      .from("platform_settings")
+      .upsert({
+        key: "default_commission_percent",
+        value: newCommission as any,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (error) {
+      toast({ title: "Failed to save commission", description: error.message, variant: "destructive" });
+      setSavingCommission(false);
+      setCommissionConfirmOpen(false);
+      return;
+    }
+
+    await logAdminAction("update_default_commission", "platform_settings", undefined, {
+      old: savedCommission,
+      new: newCommission,
+    });
+
+    setSavedCommission(newCommission);
+    setCommissionInput(String(newCommission));
+    setSavingCommission(false);
+    setCommissionConfirmOpen(false);
+    toast({
+      title: "Platform consultation charge updated",
+      description: `Default platform charge is now ${newCommission}% (doctor receives ${Math.max(0, 100 - newCommission)}%).`,
+    });
+  };
+
+  const commissionChanged =
+    commissionInput.trim() !== "" &&
+    Number.isFinite(Number(commissionInput)) &&
+    Number(commissionInput) !== savedCommission;
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -200,6 +267,50 @@ const SAFlags = () => {
         </CardContent>
       </Card>
 
+      {/* ── Platform Consultation Charge (%) ─────────────────────────────────── */}
+      <Card className="border-royal/30">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Percent className="h-4 w-4 text-royal" />
+            Platform Consultation Charge (%)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Set the default platform service charge percentage deducted from online patient consultation and service payments before routing the net share to the doctor's Razorpay Linked Account. Doctors with a per-doctor override are unaffected.
+          </p>
+
+          <div className="max-w-xs space-y-1.5">
+            <label htmlFor="default-commission-input" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Default Platform Charge (0–100%)
+            </label>
+            <div className="relative">
+              <AmountInput
+                id="default-commission-input"
+                maxLength={6}
+                className="pr-8"
+                value={commissionInput}
+                onChange={(e) => setCommissionInput(e.target.value)}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Current default: <strong>{savedCommission}%</strong> · Example on ₹500 fee: Platform retains{" "}
+              <strong>₹{Math.round(500 * (Number.isFinite(Number(commissionInput)) ? Number(commissionInput) : savedCommission)) / 100}</strong>, Doctor receives{" "}
+              <strong>₹{500 - Math.round(500 * (Number.isFinite(Number(commissionInput)) ? Number(commissionInput) : savedCommission)) / 100}</strong>.
+            </p>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={openCommissionConfirm}
+            disabled={!commissionChanged}
+          >
+            Save Platform Charge
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* ── Pricing confirmation dialog ───────────────────────────────────────── */}
       <AlertDialog open={pricingConfirmOpen} onOpenChange={(o) => !savingPricing && setPricingConfirmOpen(o)}>
         <AlertDialogContent>
@@ -241,6 +352,46 @@ const SAFlags = () => {
             <AlertDialogCancel disabled={savingPricing}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmSavePricing} disabled={savingPricing}>
               {savingPricing ? "Saving…" : "Confirm & Save"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Commission confirmation dialog ────────────────────────────────────── */}
+      <AlertDialog open={commissionConfirmOpen} onOpenChange={(o) => !savingCommission && setCommissionConfirmOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm platform consultation charge change</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  This will update the <strong>default platform charge percentage</strong> deducted from future online consultation and service bookings across all doctors who do not have a custom override.
+                </p>
+                <div className="rounded-lg border bg-muted/50 p-3 space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Default Platform Charge</span>
+                    <span>
+                      <span className="line-through text-muted-foreground mr-2">{savedCommission}%</span>
+                      <span className="font-semibold text-foreground">{Number(commissionInput)}%</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Doctor Net Share</span>
+                    <span className="font-semibold text-foreground">
+                      {Math.max(0, 100 - Number(commissionInput))}%
+                    </span>
+                  </div>
+                </div>
+                <p className="text-amber-600 dark:text-amber-400 text-xs font-medium">
+                  ⚠ This change is logged to the Audit Log and applies to new Razorpay Route orders immediately.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={savingCommission}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSaveCommission} disabled={savingCommission}>
+              {savingCommission ? "Saving…" : "Confirm & Save"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

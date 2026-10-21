@@ -22,8 +22,12 @@ const getServiceType = (type: string) => {
   return { label: "At Clinic", Icon: MapPin };
 };
 
-const ServiceCard = ({ service, index, onBook, onSeeMore }: {
+const resolveServicePrice = (service: Service, consultationFee?: number | null) =>
+  (service.price && Number(service.price) > 0 ? Number(service.price) : consultationFee) ?? 500;
+
+const ServiceCard = ({ service, price, index, onBook, onSeeMore }: {
   service: Service;
+  price: number;
   index: number;
   onBook: () => void;
   onSeeMore: () => void;
@@ -70,6 +74,9 @@ const ServiceCard = ({ service, index, onBook, onSeeMore }: {
               <Clock className="h-4 w-4" style={{ color: PRIMARY }} />
               {service.duration || 30} min
             </span>
+            <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-extrabold text-[#092b50] dark:bg-blue-950/50 dark:text-blue-200">
+              ₹{price}
+            </span>
           </div>
 
           <button
@@ -88,14 +95,19 @@ const ServiceCard = ({ service, index, onBook, onSeeMore }: {
 };
 
 const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
-  const { services } = useDoctorData();
+  const { services, profile } = useDoctorData();
   const [activeService, setActiveService] = useState<Service | null>(null);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [selectedService, setSelectedService] = useState(0);
   const isDesktop = useIsDesktop();
   const showCarousel = services.length === 0 || !isDesktop || services.length > CAROUSEL_THRESHOLD;
 
-  const bookService = () => scrollToSection("booking");
+  const bookService = (service?: Service) => {
+    if (service && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("doctylia:select-service", { detail: service }));
+    }
+    scrollToSection("booking");
+  };
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -147,8 +159,9 @@ const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                   <CarouselItem key={service.id} className="basis-[88%] pl-4 sm:basis-1/2 lg:basis-1/3">
                     <ServiceCard
                       service={service}
+                      price={resolveServicePrice(service, profile?.consultation_fee)}
                       index={index}
-                      onBook={bookService}
+                      onBook={() => bookService(service)}
                       onSeeMore={() => setActiveService(service)}
                     />
                   </CarouselItem>
@@ -178,8 +191,9 @@ const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                 <ServiceCard
                   key={service.id}
                   service={service}
+                  price={resolveServicePrice(service, profile?.consultation_fee)}
                   index={index}
-                  onBook={bookService}
+                  onBook={() => bookService(service)}
                   onSeeMore={() => setActiveService(service)}
                 />
               ))}
@@ -202,6 +216,9 @@ const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                 <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                   <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{getServiceType(activeService.type).label}</span>
                   <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{activeService.duration || 30} min</span>
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 font-extrabold text-[#092b50] dark:bg-blue-950/50 dark:text-blue-200">
+                    ₹{resolveServicePrice(activeService, profile?.consultation_fee)}
+                  </span>
                 </div>
               </DialogHeader>
 
@@ -215,8 +232,9 @@ const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                   className="h-11 rounded-xl px-6 text-sm font-bold text-white"
                   style={{ backgroundColor: PRIMARY }}
                   onClick={() => {
+                    const serviceToBook = activeService;
                     setActiveService(null);
-                    requestAnimationFrame(bookService);
+                    requestAnimationFrame(() => bookService(serviceToBook));
                   }}
                 >
                   Book Now

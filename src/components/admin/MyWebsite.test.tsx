@@ -4,9 +4,14 @@ import { MemoryRouter } from "react-router-dom";
 import MyWebsite from "./MyWebsite";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
-vi.mock("@/hooks/useProfile", () => ({
-  useProfile: () => ({ profile: { id: "doctor-1", full_name: "Dr. Test", slug: "dr-test" }, loading: false }),
-}));
+vi.mock("@/hooks/useProfile", () => {
+  // Stable identity: MyWebsite reloads whenever `profile` changes, and a fresh
+  // object on every render retriggers that effect forever.
+  const profile = { id: "doctor-1", full_name: "Dr. Test", slug: "dr-test" };
+  return {
+    useProfile: () => ({ profile, loading: false, isStaff: false, can: () => false }),
+  };
+});
 
 vi.mock("@/hooks/useFeatureAccess", () => ({ useFeatureAccess: vi.fn() }));
 
@@ -65,17 +70,16 @@ describe("MyWebsite - Online Consultation gating", () => {
 });
 
 describe("MyWebsite - Services editor", () => {
-  it("keeps service identity fields without exposing the service price", async () => {
+  it("renders service identity fields including the configurable service price", async () => {
     vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, loading: false, rows: [], refetch: vi.fn() });
     renderMyWebsite();
 
     fireEvent.click(screen.getByRole("button", { name: "Services" }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(screen.getByDisplayValue("General Consultation")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("General Consultation")).toBeInTheDocument();
     expect(screen.getByText("Clinic")).toBeInTheDocument();
     expect(screen.getByDisplayValue("30")).toBeInTheDocument();
-    expect(screen.queryByText("Price ₹")).not.toBeInTheDocument();
-    expect(screen.queryByDisplayValue("500")).not.toBeInTheDocument();
+    expect(screen.getByText("Price (₹)")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("500")).toBeInTheDocument();
   });
 });

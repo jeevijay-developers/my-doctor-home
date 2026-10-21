@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Wallet, IndianRupee, PieChart, History, Loader2, Info,
-  RefreshCw, Send, Users2, CreditCard, ArrowRightLeft, CheckCircle2,
+  RefreshCw, Send, Users2, CreditCard, ArrowRightLeft, CheckCircle2, Percent,
 } from "lucide-react";
 import DoctorGroupCard from "@/components/shared/DoctorGroupCard";
 import { format } from "date-fns";
@@ -81,19 +81,34 @@ const SAPayments = () => {
 
   const doctorLabel = (id: string) => profiles[id]?.full_name || id.slice(0, 8);
   const appointmentById = new Map(appointments.map((a) => [a.id, a]));
+  const paymentById = new Map(payments.map((p) => [p.id, p]));
+
+  const totalCollected = payments
+    .filter((p) => p.status === "captured")
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  const activeLedger = ledger.filter((l) => !l.refunded);
+
+  const totalPlatformCommission = activeLedger
+    .reduce((s, l) => s + Number(l.commission_amount || 0), 0);
 
   const totalRouted = transfers
     .filter((t) => t.status === "processed" || t.status === "pending")
-    .reduce((s, t) => s + Number(t.amount), 0);
+    .reduce((s, t) => s + Number(t.amount || 0), 0);
+
+  const pendingPayoutTotal = payouts
+    .filter((p) => p.status === "pending" || p.status === "processing")
+    .reduce((s, p) => s + Number(p.total_amount || 0), 0);
 
   const activeLinkedAccountsCount = Object.values(profiles).filter(
     (p) => p.razorpay_payment_enabled || p.razorpay_account_status === "active"
   ).length;
 
-  // Overview metrics: Platform collection, Route direct transfers, and Legacy payouts
+  // Overview metrics: Gross collected, Platform commission, Route direct transfers, and Legacy payouts
   const overviewCards = [
-    { label: "Total Collected", value: totalCollected, icon: IndianRupee, gradient: "from-royal to-teal" },
-    { label: "Direct Route Transfers", value: totalRouted, icon: ArrowRightLeft, gradient: "from-teal to-emerald-600" },
+    { label: "Gross Collected", value: totalCollected, icon: IndianRupee, gradient: "from-royal to-teal" },
+    { label: "Platform Commission", value: totalPlatformCommission, icon: Percent, gradient: "from-indigo-600 to-royal" },
+    { label: "Net Routed to Doctors", value: totalRouted, icon: ArrowRightLeft, gradient: "from-teal to-emerald-600" },
     { label: "Awaiting Payout (Legacy)", value: pendingPayoutTotal, icon: Wallet, gradient: "from-warning to-royal" },
   ];
 
@@ -114,16 +129,13 @@ const SAPayments = () => {
   };
 
   const doctorEarnings = (() => {
-    // No commission is taken, so gross === doctorShare always — kept as
-    // separate fields (rather than collapsed to one) so this shape stays
-    // stable if a commission is ever reintroduced later.
     const byDoctor = new Map<string, { gross: number; commission: number; doctorShare: number; unpaid: number; count: number }>();
-    ledger.forEach((l) => {
+    activeLedger.forEach((l) => {
       const row = byDoctor.get(l.doctor_id) || { gross: 0, commission: 0, doctorShare: 0, unpaid: 0, count: 0 };
-      row.gross += Number(l.gross_amount);
-      row.commission += Number(l.commission_amount);
-      row.doctorShare += Number(l.doctor_share);
-      if (!l.paid) row.unpaid += Number(l.doctor_share);
+      row.gross += Number(l.gross_amount || 0);
+      row.commission += Number(l.commission_amount || 0);
+      row.doctorShare += Number(l.doctor_share || 0);
+      if (!l.paid) row.unpaid += Number(l.doctor_share || 0);
       row.count += 1;
       byDoctor.set(l.doctor_id, row);
     });
@@ -213,10 +225,10 @@ const SAPayments = () => {
           <Info className="h-5 w-5 text-royal flex-shrink-0 mt-0.5" />
           <div className="text-sm text-muted-foreground space-y-1">
             <p>
-              <strong>Direct Route Transfers (Active):</strong> Patient payments are automatically transferred directly to the doctor's Linked Account with 0% platform commission and settled on T+2.
+              <strong>Razorpay Route Split Transfers (Active):</strong> Patient payments are automatically split at order time via Razorpay Route — the platform retains the configured Platform Charge % and the net doctor share is automatically routed to the doctor's Linked Account (settled on T+2).
             </p>
             <p className="text-xs text-muted-foreground/80">
-              Legacy monthly payouts via RazorpayX are preserved below for historical records.
+              Configure the default percentage in Feature Flags or set a per-doctor override on any Doctor Detail page. Legacy monthly payouts via RazorpayX are preserved below for historical records.
             </p>
           </div>
         </CardContent>
@@ -234,7 +246,7 @@ const SAPayments = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {overviewCards.map((c) => (
               <Card key={c.label} className="border-0 shadow-none overflow-hidden">
                 <CardContent className={`p-5 bg-gradient-to-br ${c.gradient} text-white relative`}>
@@ -301,6 +313,27 @@ const SAPayments = () => {
           ) : (
             transfers.map((t) => {
               const style = transferStatusStyle[t.status] || transferStatusStyle.pending;
+              const linkedPayment = t.payment_id ? paymentById.get(t.payment_id) : undefined;
+              const netAmount = Number(t.amount || 0);
+              const grossAmount =
+                t.gross_amount != null
+                  ? Number(t.gross_amount)
+                  : linkedPayment?.amount != null
+                  ? Number(linkedPayment.amount)
+                  : netAmount;
+              const commissionPercent =
+                t.commission_percent != null
+                  ? Number(t.commission_percent)
+                  : linkedPayment?.commission_percent != null
+                  ? Number(linkedPayment.commission_percent)
+                  : 0;
+              const commissionAmount =
+                t.commission_amount != null
+                  ? Number(t.commission_amount)
+                  : linkedPayment?.commission_amount != null
+                  ? Number(linkedPayment.commission_amount)
+                  : Math.max(0, Math.round((grossAmount - netAmount) * 100) / 100);
+
               return (
                 <Card key={t.id} className="border-border/60 shadow-none">
                   <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -315,6 +348,13 @@ const SAPayments = () => {
                         <span>·</span>
                         <span>{format(new Date(t.created_at), "d MMM yyyy, h:mm a")}</span>
                       </div>
+                      <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                        <span>Gross: <strong className="text-foreground">₹{grossAmount.toLocaleString("en-IN")}</strong></span>
+                        <span>·</span>
+                        <span>Platform Charge: <strong className="text-foreground">{commissionPercent}% · ₹{commissionAmount.toLocaleString("en-IN")}</strong></span>
+                        <span>·</span>
+                        <span>Doctor Net Share: <strong className="text-success">₹{netAmount.toLocaleString("en-IN")}</strong></span>
+                      </div>
                       {t.error && (
                         <div className="text-xs text-destructive mt-1 font-medium">
                           Error: {t.error}
@@ -327,7 +367,7 @@ const SAPayments = () => {
                         {style.label}
                       </Badge>
                       <span className="font-heading font-bold text-foreground">
-                        ₹{Number(t.amount).toLocaleString("en-IN")}
+                        ₹{netAmount.toLocaleString("en-IN")}
                       </span>
                     </div>
                   </CardContent>
@@ -466,28 +506,39 @@ const SAPayments = () => {
           {doctorEarnings.length === 0 ? (
             <EmptyState icon={Users2} text="No doctor earnings yet" />
           ) : (
-            doctorEarnings.map(([doctorId, e]) => (
-              <DoctorGroupCard
-                key={doctorId}
-                doctorName={doctorLabel(doctorId)}
-                clinicName={profiles[doctorId]?.clinic_name ?? null}
-                count={e.count}
-                itemLabel="transaction"
-              >
-                <div className="p-4 space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Amount Earned</span>
-                    <span className="font-medium text-foreground">₹{e.doctorShare.toLocaleString("en-IN")}</span>
+            doctorEarnings.map(([doctorId, e]) => {
+              const effectivePct = e.gross > 0 ? Math.round((e.commission / e.gross) * 10000) / 100 : 0;
+              return (
+                <DoctorGroupCard
+                  key={doctorId}
+                  doctorName={doctorLabel(doctorId)}
+                  clinicName={profiles[doctorId]?.clinic_name ?? null}
+                  count={e.count}
+                  itemLabel="transaction"
+                >
+                  <div className="p-4 space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Gross Amount</span>
+                      <span className="font-medium text-foreground">₹{e.gross.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Platform Charge</span>
+                      <span className="font-medium text-foreground">{effectivePct}% · ₹{e.commission.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Doctor Net Share</span>
+                      <span className="font-semibold text-success">₹{e.doctorShare.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-border">
+                      <span className="text-muted-foreground">Unpaid / Pending Settlement</span>
+                      <Badge variant="outline" className={`text-[10px] ${e.unpaid > 0 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
+                        {e.unpaid > 0 ? `₹${e.unpaid.toLocaleString("en-IN")}` : "Fully paid out"}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-border">
-                    <span className="text-muted-foreground">Unpaid</span>
-                    <Badge variant="outline" className={`text-[10px] ${e.unpaid > 0 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
-                      {e.unpaid > 0 ? `₹${e.unpaid.toLocaleString("en-IN")}` : "Fully paid out"}
-                    </Badge>
-                  </div>
-                </div>
-              </DoctorGroupCard>
-            ))
+                </DoctorGroupCard>
+              );
+            })
           )}
         </TabsContent>
 

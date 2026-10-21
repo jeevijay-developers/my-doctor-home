@@ -1,9 +1,10 @@
 // Step 2 of the pay-first patient booking flow — signature verification and
-// appointment creation. Now also updates the Route transfer record and links
-// it to the created appointment.
+// appointment creation. Updates the Route transfer record, records the exact
+// commission split in doctor_ledger, and guarantees a server-side invoice row
+// with the platform charge breakdown.
 //
-// Mock mode: same as before — real HMAC check against mock secret, then
-// creates appointment + updates transfer record identically to live flow.
+// Mock mode: same as live — real HMAC check against mock secret, then
+// creates appointment + updates transfer + ledger + invoice identically.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hmacHex, MOCK_SIGNING_SECRET, corsHeaders, json } from "../_shared/paymentMode.ts";
 
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
 
   const { data: payment, error: payErr } = await admin
     .from("payments")
-    .select("id, doctor_id, amount, status, razorpay_order_id, appointment_id, pending_booking, is_mock")
+    .select("id, doctor_id, service_id, amount, commission_percent, commission_amount, doctor_share, status, razorpay_order_id, appointment_id, pending_booking, is_mock")
     .eq("id", payment_id)
     .eq("razorpay_order_id", razorpay_order_id)
     .maybeSingle();
@@ -44,7 +45,19 @@ Deno.serve(async (req) => {
       .select("id, token_number, status, payment_status, created_at")
       .eq("id", payment.appointment_id)
       .maybeSingle();
-    return json(200, { ok: true, already_verified: true, appointment: appt, payment: { id: payment.id, razorpay_payment_id, amount: payment.amount } });
+    return json(200, {
+      ok: true,
+      already_verified: true,
+      appointment: appt,
+      payment: {
+        id: payment.id,
+        razorpay_payment_id,
+        amount: payment.amount,
+        commission_percent: payment.commission_percent,
+        commission_amount: payment.commission_amount,
+        doctor_share: payment.doctor_share,
+      },
+    });
   }
 
   // Signature verification — real secret for live, mock secret for mock
@@ -68,7 +81,7 @@ Deno.serve(async (req) => {
   const booking = payment.pending_booking as {
     doctor_id: string; patient_name: string; patient_phone: string;
     patient_age?: number | null; patient_gender?: string | null;
-    patient_email?: string | null; service_name: string;
+    patient_email?: string | null; service_id?: string | null; service_name: string;
     appointment_type: "clinic" | "online"; date: string;
     time_slot: string; amount: number; chief_complaint?: string | null;
   } | null;
@@ -81,6 +94,13 @@ Deno.serve(async (req) => {
   }
 
   const tkn = `T${Math.floor(Math.random() * 900) + 100}`;
+  const gross = Number(payment.amount ?? booking.amount ?? 0);
+  const commissionPercent = Number(payment.commission_percent ?? 0);
+  const commissionAmount = Number(payment.commission_amount ?? 0);
+  const doctorShare =
+    payment.doctor_share != null && Number(payment.doctor_share) > 0
+      ? Number(payment.doctor_share)
+      : Math.max(0, +(gross - commissionAmount).toFixed(2));
 
   const { data: appt, error: apptErr } = await admin
     .from("appointments")
@@ -95,7 +115,7 @@ Deno.serve(async (req) => {
       appointment_type: booking.appointment_type,
       date: booking.date,
       time_slot: booking.time_slot,
-      amount: booking.amount,
+      amount: gross,
       token_number: tkn,
       chief_complaint: booking.chief_complaint ?? null,
       status: "confirmed",
@@ -123,43 +143,98 @@ Deno.serve(async (req) => {
     .from("payments")
     .update({
       status: "captured",
-      transfer_status: "pending", // Transfer is auto-executing via Route
+      transfer_status: payment.is_mock ? "processed" : "pending",
       razorpay_payment_id,
       razorpay_signature,
       appointment_id: appt.id,
     })
     .eq("id", payment.id);
 
-  // Update transfer record with appointment link
+  // Update transfer record with appointment link (and mark processed in mock mode)
   await admin
     .from("transfers")
-    .update({ appointment_id: appt.id })
+    .update({
+      appointment_id: appt.id,
+      ...(payment.is_mock
+        ? { status: "processed", processed_at: new Date().toISOString() }
+        : {}),
+    })
     .eq("payment_id", payment.id);
 
-  // Ledger for reporting (commission = 0 — platform earns via SaaS subscriptions)
-  const gross = Number(booking.amount);
+  // Insert doctor_ledger row with real commission split from payments
   const month = new Date().toISOString().slice(0, 7);
   const { error: ledgerErr } = await admin.from("doctor_ledger").insert({
     doctor_id: booking.doctor_id,
     payment_id: payment.id,
     appointment_id: appt.id,
     gross_amount: gross,
-    commission_percent: 0,
-    commission_amount: 0,
-    doctor_share: gross,
+    commission_percent: commissionPercent,
+    commission_amount: commissionAmount,
+    doctor_share: doctorShare,
     month,
+    paid: payment.is_mock ? true : false,
+    refunded: false,
   });
   if (ledgerErr && !ledgerErr.message?.includes("duplicate")) {
     console.error("verify-razorpay-payment ledger error:", ledgerErr.message);
   }
 
-  // In mock mode, immediately mark transfer as processed (no real webhook)
-  if (payment.is_mock) {
-    await admin.from("transfers").update({
-      status: "processed",
-      processed_at: new Date().toISOString(),
-    }).eq("payment_id", payment.id);
-    await admin.from("payments").update({ transfer_status: "processed" }).eq("id", payment.id);
+  // Auto-create or upsert the invoices row server-side so commission snapshots
+  // and patient receipt totals are guaranteed immediately upon payment verification.
+  try {
+    const { data: docProfile } = await admin
+      .from("profiles")
+      .select("gst_registered, gstin")
+      .eq("id", booking.doctor_id)
+      .maybeSingle();
+
+    const gstRegistered = Boolean(docProfile?.gst_registered);
+    const gstin = docProfile?.gstin || null;
+    const gst_rate = gstRegistered ? 18 : 0;
+    const gst_amount = +(gross * gst_rate / 100).toFixed(2);
+    const total_amount = +(gross + gst_amount).toFixed(2);
+
+    const year = new Date().getFullYear();
+    const prefix = `INV-${year}-`;
+    const { data: existingInvoices } = await admin
+      .from("invoices")
+      .select("invoice_number")
+      .eq("doctor_id", booking.doctor_id)
+      .like("invoice_number", `${prefix}%`);
+
+    const existingNums = (existingInvoices || [])
+      .map((i: { invoice_number: string }) => parseInt(i.invoice_number.slice(prefix.length), 10))
+      .filter((n: number) => !isNaN(n));
+    const nextSeq = (existingNums.length ? Math.max(...existingNums) : 0) + 1;
+    const invoice_number = `${prefix}${String(nextSeq).padStart(4, "0")}`;
+
+    const { error: invErr } = await admin
+      .from("invoices")
+      .upsert(
+        {
+          doctor_id: booking.doctor_id,
+          appointment_id: appt.id,
+          invoice_number,
+          patient_name: booking.patient_name,
+          service_name: booking.service_name,
+          amount: gross,
+          gst_rate,
+          gst_amount,
+          total_amount,
+          clinic_gstin: gstin,
+          commission_percent: commissionPercent,
+          commission_amount: commissionAmount,
+          net_amount: doctorShare,
+          status: "generated",
+        },
+        { onConflict: "appointment_id" },
+      );
+
+    if (invErr) {
+      console.error("verify-razorpay-payment invoice upsert error:", invErr.message);
+    }
+  } catch (invEx) {
+    console.error("verify-razorpay-payment invoice generation error:", invEx);
   }
 
   return json(200, {
@@ -167,11 +242,15 @@ Deno.serve(async (req) => {
     appointment: appt,
     payment: {
       id: payment.id,
+      service_id: payment.service_id ?? booking.service_id ?? null,
       razorpay_payment_id,
       razorpay_order_id,
       amount: gross,
+      commission_percent: commissionPercent,
+      commission_amount: commissionAmount,
+      doctor_share: doctorShare,
       is_mock: payment.is_mock,
-      route_transfer: "pending", // Will be confirmed via webhook
+      route_transfer: payment.is_mock ? "processed" : "pending", // Confirmed via webhook in live mode
     },
   });
 });

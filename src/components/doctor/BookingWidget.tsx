@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { CheckCircle2, XCircle, ChevronLeft, Video, Users, Clock, FileText, Building2, Receipt } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, Video, Users, Clock, FileText, Building2, Receipt, AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DigitsInput } from "@/components/ui/digits-input";
@@ -67,10 +67,11 @@ const SLOT_PERIODS = [
 ] as const;
 
 const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
-  const { profile, settings, workingHours, isPremium, hasFeature } = useDoctorData();
+  const { profile, services, settings, workingHours, isPremium, hasFeature } = useDoctorData();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [step, setStep] = useState(1);
   const [type, setType] = useState<"clinic" | "online">("clinic");
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
   const [name, setName] = useState("");
@@ -127,15 +128,60 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     ...(hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION) ? [{ k: "online" as const, label: "Online", Icon: Video }] : []),
   ];
 
-  // No service selection step anymore — every booking uses the doctor's
-  // Default Consultation Fee, and the appointment's service name just
-  // reflects the chosen consultation type.
-  const consultationFee = profile?.consultation_fee ?? 500;
-  const selectedService = {
+  // Listen for service selections dispatched from ServicesSection
+  useEffect(() => {
+    const handleSelectService = (event: Event) => {
+      const customEvent = event as CustomEvent<any>;
+      const svc = customEvent.detail;
+      if (!svc) return;
+      if (svc.type === "online" && hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION)) {
+        setType("online");
+      } else if (svc.type === "clinic") {
+        setType("clinic");
+      }
+      setSelectedServiceId(svc.id ?? null);
+      setCachedOrder(null);
+      setStep(2);
+    };
+    window.addEventListener("doctylia:select-service", handleSelectService as EventListener);
+    return () => window.removeEventListener("doctylia:select-service", handleSelectService as EventListener);
+  }, [hasFeature]);
+
+  const defaultFee = type === "online"
+    ? (settings?.online_fee || profile?.consultation_fee || 500)
+    : (profile?.consultation_fee || 500);
+
+  const defaultServiceOption = useMemo(() => ({
+    id: null as string | null,
     name: type === "online" ? "Online Consultation" : "Clinic Visit",
-    price: consultationFee,
-    duration: 15,
-  };
+    price: Number(defaultFee),
+    duration: type === "online" ? Number(settings?.online_duration || 30) : Number(settings?.slot_duration_minutes || 15),
+    type,
+  }), [type, defaultFee, settings?.online_duration, settings?.slot_duration_minutes]);
+
+  const compatibleServices = useMemo(() => {
+    const activeServices = (services || []).filter(
+      (s: any) => s && s.active !== false && (s.type === type || s.type === "both")
+    );
+    return [
+      defaultServiceOption,
+      ...activeServices.map((s: any) => ({
+        id: s.id as string,
+        name: s.name?.trim() || "Consultation",
+        price: Number(s.price && Number(s.price) > 0 ? s.price : defaultFee),
+        duration: Number(s.duration || 30),
+        type: s.type as string,
+      })),
+    ];
+  }, [services, type, defaultServiceOption, defaultFee]);
+
+  const selectedService = useMemo(() => {
+    if (selectedServiceId) {
+      const found = compatibleServices.find((s) => s.id === selectedServiceId);
+      if (found) return found;
+    }
+    return defaultServiceOption;
+  }, [selectedServiceId, compatibleServices, defaultServiceOption]);
 
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
   const { counts, isFull, refresh } = useSlotAvailability(profile?.id, dateStr, type);
@@ -239,7 +285,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   };
 
   const reset = () => {
-    setStep(1); setType("clinic"); setSelectedDate(null);
+    setStep(1); setType("clinic"); setSelectedServiceId(null); setSelectedDate(null);
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setConfirmedPaymentStatus("pay_at_clinic"); setPaymentMeta(null);
     setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setMockCheckoutOpen(false);
@@ -329,6 +375,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     const dStr = format(selectedDate, "yyyy-MM-dd");
     const bookingPayload = {
       doctor_id: profile.id,
+      service_id: selectedService.id ?? null,
       patient_name: name,
       patient_phone: normalizeIndianPhone(phone),
       patient_age: age ? Number(age) : null,
@@ -691,37 +738,109 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         </button>
       )}
 
-      {step === 1 && (
-        <div className="text-left">
-          <h3 className="mb-4 font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Consultation Type</h3>
-          <div className={`grid gap-4 ${consultationTypes.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-            {consultationTypes.map((t) => {
-              const isSelected = type === t.k;
-              return (
-                <button
-                  key={t.k}
-                  onClick={() => { setType(t.k); setStep(2); }}
-                  className={`group relative min-h-[132px] rounded-2xl p-5 flex flex-col items-center justify-center gap-3 transition-all duration-300 ${
-                    isSelected
-                      ? "border-2 border-primary-500 bg-blue-50/80 shadow-[0_12px_28px_rgba(60,131,252,0.14)] dark:bg-blue-950/25"
-                      : "border border-slate-200 bg-white hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-800"
-                  }`}
-                >
-                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-colors ${isSelected ? "bg-primary-500 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-primary-500 dark:bg-gray-800"}`}>
-                    <t.Icon size={24} />
-                  </span>
-                  <span className={`text-sm ${isSelected ? "font-extrabold text-primary-600 dark:text-primary-400" : "font-semibold text-text-dark dark:text-gray-200"}`}>
-                    {t.label}
-                  </span>
-                </button>
-              );
-            })}
+      {wantsOnlinePayment && !paymentModeIsMock && (!profile?.razorpay_payment_enabled || profile?.razorpay_account_status !== "active") && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-left text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-semibold">Online payments are not yet active for this clinic</p>
+            <p className="mt-0.5 text-amber-700/90 dark:text-amber-300/80">
+              This clinic is completing payment gateway setup. Please contact the clinic directly if you are unable to complete checkout.
+            </p>
           </div>
+        </div>
+      )}
+
+      {step === 1 && (
+        <div className="text-left space-y-5">
+          <div>
+            <h3 className="mb-4 font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Consultation Type</h3>
+            <div className={`grid gap-4 ${consultationTypes.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+              {consultationTypes.map((t) => {
+                const isSelected = type === t.k;
+                return (
+                  <button
+                    key={t.k}
+                    onClick={() => { setType(t.k); setSelectedServiceId(null); setStep(2); }}
+                    className={`group relative min-h-[132px] rounded-2xl p-5 flex flex-col items-center justify-center gap-3 transition-all duration-300 ${
+                      isSelected
+                        ? "border-2 border-primary-500 bg-blue-50/80 shadow-[0_12px_28px_rgba(60,131,252,0.14)] dark:bg-blue-950/25"
+                        : "border border-slate-200 bg-white hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-800"
+                    }`}
+                  >
+                    <span className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-colors ${isSelected ? "bg-primary-500 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-primary-500 dark:bg-gray-800"}`}>
+                      <t.Icon size={24} />
+                    </span>
+                    <span className={`text-sm ${isSelected ? "font-extrabold text-primary-600 dark:text-primary-400" : "font-semibold text-text-dark dark:text-gray-200"}`}>
+                      {t.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {compatibleServices.length > 1 && (
+            <div className="space-y-2.5">
+              <label className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Select Service / Procedure
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {compatibleServices.map((svc) => {
+                  const isSvcSelected = (selectedService.id ?? null) === (svc.id ?? null);
+                  return (
+                    <button
+                      key={svc.id ?? "default-consultation"}
+                      type="button"
+                      onClick={() => {
+                        setSelectedServiceId(svc.id ?? null);
+                        setCachedOrder(null);
+                      }}
+                      className={`flex items-center justify-between gap-2 rounded-xl border p-3 text-left transition-all ${
+                        isSvcSelected
+                          ? "border-2 border-primary-500 bg-blue-50/80 dark:bg-blue-950/30"
+                          : "border-slate-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-[#092b50] dark:text-white">{svc.name}</p>
+                        <p className="text-xs text-muted-foreground">{svc.duration} min</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-blue-100/80 px-2.5 py-1 text-xs font-extrabold text-primary-600 dark:bg-blue-900/50 dark:text-blue-200">
+                        ₹{svc.price}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {step === 2 && (
         <div className="space-y-4 text-left">
+          {compatibleServices.length > 1 && (
+            <div className="space-y-2">
+              <label className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Service
+              </label>
+              <select
+                aria-label="Select Service"
+                value={selectedService.id ?? ""}
+                onChange={(e) => {
+                  setSelectedServiceId(e.target.value || null);
+                  setCachedOrder(null);
+                }}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900"
+              >
+                {compatibleServices.map((svc) => (
+                  <option key={svc.id ?? "default-consultation"} value={svc.id ?? ""}>
+                    {svc.name} — ₹{svc.price} ({svc.duration} min)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Date</h3>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {days.map((d, i) => {
@@ -817,6 +936,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           </div>
 
           <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 space-y-2 text-sm dark:border-blue-900 dark:bg-blue-950/20">
+            <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="text-foreground font-medium">{selectedService?.name}</span></div>
             <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="text-foreground font-medium">{selectedDate && format(selectedDate, "d MMM")}</span></div>
             <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="text-foreground font-medium">{selectedTime}</span></div>
             <hr className="border-border" />
@@ -857,6 +977,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               <div className="space-y-1.5">
                 <SummaryRow label="Doctor Name" value={`Dr. ${profile?.full_name || ""}`} />
                 <SummaryRow label="Consultation Type" value={type === "clinic" ? "Clinic Visit" : "Online Consultation"} />
+                <SummaryRow label="Service" value={selectedService?.name || ""} />
                 <SummaryRow label="Appointment Date" value={selectedDate ? format(selectedDate, "EEEE, d MMMM yyyy") : ""} />
                 <SummaryRow label="Appointment Time" value={selectedTime} />
               </div>

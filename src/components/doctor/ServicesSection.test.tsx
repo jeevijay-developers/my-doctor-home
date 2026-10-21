@@ -24,8 +24,10 @@ const service = {
 };
 
 describe("ServicesSection - service pricing", () => {
-  it("keeps service identity fields without displaying price on the card or details view", () => {
-    vi.mocked(useDoctorData).mockReturnValue({ services: [service] } as any);
+  it("displays service identity fields and price badge on the card and details view, and dispatches selection event on book", () => {
+    vi.mocked(useDoctorData).mockReturnValue({ services: [service], profile: { consultation_fee: 400 } } as any);
+    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+
     render(
       <MemoryRouter>
         <ServicesSection />
@@ -35,8 +37,14 @@ describe("ServicesSection - service pricing", () => {
     expect(screen.getByRole("heading", { name: "General Consultation" })).toBeInTheDocument();
     expect(screen.getByText("At Clinic")).toBeInTheDocument();
     expect(screen.getByText("30 min")).toBeInTheDocument();
-    expect(screen.queryByText("Consultation fee")).not.toBeInTheDocument();
-    expect(screen.queryByText("₹500")).not.toBeInTheDocument();
+    expect(screen.getByText("₹500")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Book This Service" }));
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "doctylia:select-service",
+      })
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "View details" }));
 
@@ -44,7 +52,7 @@ describe("ServicesSection - service pricing", () => {
     expect(within(dialog).getByRole("heading", { name: "General Consultation" })).toBeInTheDocument();
     expect(within(dialog).getByText("At Clinic")).toBeInTheDocument();
     expect(within(dialog).getByText("30 min")).toBeInTheDocument();
-    expect(within(dialog).queryByText("Consultation fee")).not.toBeInTheDocument();
-    expect(within(dialog).queryByText("₹500")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("₹500")).toBeInTheDocument();
+    dispatchSpy.mockRestore();
   });
 });

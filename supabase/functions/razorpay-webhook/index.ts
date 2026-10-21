@@ -138,6 +138,9 @@ Deno.serve(async (req) => {
           // Mirror on payments table for quick reads
           await admin.from("payments").update({ transfer_status: "processed" }).eq("id", transfer.payment_id);
 
+          // Mark doctor_ledger row as settled/paid
+          await admin.from("doctor_ledger").update({ paid: true }).eq("payment_id", transfer.payment_id);
+
           // Safety invariant: verify the linked account matches the doctor's account
           const { data: doctorProfile } = await admin
             .from("profiles")
@@ -191,11 +194,12 @@ Deno.serve(async (req) => {
     else if (event === "transfer.reversed") {
       const transferId = transferEntity?.id;
       if (transferId) {
+        const nowIso = new Date().toISOString();
         const { data: transfer } = await admin
           .from("transfers")
           .update({
             status: "reversed",
-            reversed_at: new Date().toISOString(),
+            reversed_at: nowIso,
           })
           .eq("razorpay_transfer_id", transferId)
           .select("id, payment_id")
@@ -203,6 +207,10 @@ Deno.serve(async (req) => {
 
         if (transfer) {
           await admin.from("payments").update({ transfer_status: "reversed" }).eq("id", transfer.payment_id);
+          await admin
+            .from("doctor_ledger")
+            .update({ refunded: true, refunded_at: nowIso, paid: false })
+            .eq("payment_id", transfer.payment_id);
         }
       }
     }

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
   CreditCard, TrendingUp, Calendar, IndianRupee, PieChart, Download,
-  FileText, Eye, Loader2, ChevronLeft, ChevronRight, X,
+  FileText, Eye, Loader2, ChevronLeft, ChevronRight, X, Percent, Wallet, ArrowDownRight,
 } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import PaymentStatusDonut, { type DonutSegment } from "@/components/shared/PaymentStatusDonut";
@@ -37,6 +37,36 @@ type Invoice = {
   status: string;
   created_at: string;
   appointment_id: string;
+  commission_percent?: number | null;
+  commission_amount?: number | null;
+  net_amount?: number | null;
+  refunded_at?: string | null;
+};
+
+type LedgerRow = {
+  id: string;
+  payment_id?: string | null;
+  appointment_id: string;
+  gross_amount: number;
+  commission_percent: number;
+  commission_amount: number;
+  doctor_share: number;
+  paid?: boolean;
+  refunded?: boolean;
+  refunded_at?: string | null;
+  created_at?: string;
+};
+
+type PaymentRow = {
+  id: string;
+  appointment_id: string;
+  amount: number;
+  status?: string;
+  transfer_status?: string | null;
+  commission_percent?: number | null;
+  commission_amount?: number | null;
+  doctor_share?: number | null;
+  created_at?: string;
 };
 
 const BillingPage = () => {
@@ -47,6 +77,8 @@ const BillingPage = () => {
   const isPremium = hasFeature(FEATURE_KEYS.BILLING_INVOICES);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [ledger, setLedger] = useState<LedgerRow[]>([]);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [filter, setFilter] = useState("all");
   // Transactions list defaults to the current month; switching to Date
   // narrows it to a single day instead. Mirrors the period-filter UX in
@@ -62,12 +94,24 @@ const BillingPage = () => {
 
   const loadData = async () => {
     if (!profile) return;
-    const [aRes, iRes] = await Promise.all([
-      supabase.from("appointments").select("*").eq("doctor_id", profile.id).order("date", { ascending: false }),
-      (supabase.from("invoices" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }),
+    const safeQuery = async (promise: Promise<any>) => {
+      try {
+        const res = await promise;
+        return res?.data || [];
+      } catch {
+        return [];
+      }
+    };
+    const [aData, iData, lData, pData] = await Promise.all([
+      safeQuery(supabase.from("appointments").select("*").eq("doctor_id", profile.id).order("date", { ascending: false }) as any),
+      safeQuery((supabase.from("invoices" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false })),
+      safeQuery((supabase.from("doctor_ledger" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false })),
+      safeQuery((supabase.from("payments" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false })),
     ]);
-    setAppointments(aRes.data || []);
-    setInvoices((iRes.data || []) as Invoice[]);
+    setAppointments(aData);
+    setInvoices(iData as Invoice[]);
+    setLedger(lData as LedgerRow[]);
+    setPayments(pData as PaymentRow[]);
   };
 
   useEffect(() => {
@@ -76,12 +120,14 @@ const BillingPage = () => {
     }
   }, [profile, isPremium]);
 
-  // Realtime: refresh when appointments or invoices change for this doctor
+  // Realtime: refresh when appointments, invoices, ledger, or payments change for this doctor
   useEffect(() => {
     if (!profile || !isPremium) return;
     const channel = supabase.channel(`billing-${profile.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: `doctor_id=eq.${profile.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "doctor_ledger", filter: `doctor_id=eq.${profile.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments", filter: `doctor_id=eq.${profile.id}` }, () => loadData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,6 +162,19 @@ const BillingPage = () => {
         const gst_rate = gstRegistered ? 18 : 0;
         const gst_amount = +(amount * gst_rate / 100).toFixed(2);
         const total_amount = +(amount + gst_amount).toFixed(2);
+        const matchedLedger = ledger.find(l => l.appointment_id === appt.id);
+        const matchedPayment = payments.find(p => p.appointment_id === appt.id);
+        const commission_percent = Number(matchedLedger?.commission_percent ?? matchedPayment?.commission_percent ?? 0);
+        const commission_amount = Number(
+          matchedLedger?.commission_amount ??
+          matchedPayment?.commission_amount ??
+          (commission_percent > 0 ? +(Math.round(amount * commission_percent) / 100).toFixed(2) : 0)
+        );
+        const net_amount = Number(
+          matchedLedger?.doctor_share ??
+          matchedPayment?.doctor_share ??
+          +(amount - commission_amount).toFixed(2)
+        );
         await (supabase.from("invoices" as any) as any).insert({
           doctor_id: profile.id,
           appointment_id: appt.id,
@@ -128,6 +187,9 @@ const BillingPage = () => {
           total_amount,
           clinic_gstin: gstin,
           status: "generated",
+          commission_percent,
+          commission_amount,
+          net_amount,
         });
       }
       setGeneratingInvoices(false);
@@ -177,57 +239,240 @@ const BillingPage = () => {
     ? format(selectedDate, "MMMM yyyy")
     : "This Month";
 
+  // Lookup maps for resolving platform commission split & Route settlement status
+  const apptById = new Map(appointments.map(a => [a.id, a]));
+  const apptGatewayById = new Map(appointments.map(a => [a.id, a.payment_gateway]));
+  const ledgerByApptId = new Map(ledger.filter(l => l.appointment_id).map(l => [l.appointment_id, l]));
+  const paymentByApptId = new Map(payments.filter(p => p.appointment_id).map(p => [p.appointment_id, p]));
+
+  const resolveSplit = (params: {
+    grossAmount: number;
+    appointmentId?: string | null;
+    inv?: Invoice;
+    paymentStatus?: string;
+  }) => {
+    const gross = Number(params.grossAmount || 0);
+    const apptRow = params.appointmentId ? apptById.get(params.appointmentId) : undefined;
+    const ledgerRow = params.appointmentId ? ledgerByApptId.get(params.appointmentId) : undefined;
+    const paymentRow = params.appointmentId ? paymentByApptId.get(params.appointmentId) : undefined;
+    const inv = params.inv;
+
+    const isPayAtClinic = params.paymentStatus === "pay_at_clinic" || apptRow?.payment_status === "pay_at_clinic";
+    const isRefunded =
+      params.paymentStatus === "refunded" ||
+      inv?.status === "refunded" ||
+      Boolean(ledgerRow?.refunded) ||
+      paymentRow?.status === "refunded" ||
+      paymentRow?.transfer_status === "reversed" ||
+      apptRow?.payment_status === "refunded";
+
+    if (isPayAtClinic) {
+      return {
+        gross,
+        commission_percent: 0,
+        commission_amount: 0,
+        net_amount: gross,
+        isRefunded: false,
+        settlement_status: "pay_at_clinic" as const,
+        settlement_label: "Pay at Clinic (0% fee)",
+      };
+    }
+
+    const invPct = inv?.commission_percent != null ? Number(inv.commission_percent) : null;
+    const ledgerPct = ledgerRow?.commission_percent != null ? Number(ledgerRow.commission_percent) : null;
+    const paymentPct = paymentRow?.commission_percent != null ? Number(paymentRow.commission_percent) : null;
+
+    const commission_percent =
+      (invPct != null && invPct > 0 ? invPct : null) ??
+      (ledgerPct != null && ledgerPct > 0 ? ledgerPct : null) ??
+      (paymentPct != null && paymentPct > 0 ? paymentPct : null) ??
+      invPct ??
+      ledgerPct ??
+      paymentPct ??
+      0;
+
+    const invComm = inv?.commission_amount != null ? Number(inv.commission_amount) : null;
+    const ledgerComm = ledgerRow?.commission_amount != null ? Number(ledgerRow.commission_amount) : null;
+    const paymentComm = paymentRow?.commission_amount != null ? Number(paymentRow.commission_amount) : null;
+
+    const commission_amount =
+      (invComm != null && invComm > 0 ? invComm : null) ??
+      (ledgerComm != null && ledgerComm > 0 ? ledgerComm : null) ??
+      (paymentComm != null && paymentComm > 0 ? paymentComm : null) ??
+      (commission_percent > 0 ? +(Math.round(gross * commission_percent) / 100).toFixed(2) : 0);
+
+    const invNet = inv?.net_amount != null ? Number(inv.net_amount) : null;
+    const ledgerNet = ledgerRow?.doctor_share != null ? Number(ledgerRow.doctor_share) : null;
+    const paymentNet = paymentRow?.doctor_share != null ? Number(paymentRow.doctor_share) : null;
+
+    const net_amount =
+      commission_amount > 0
+        ? (invNet != null && invNet < gross ? invNet : null) ??
+          (ledgerNet != null && ledgerNet < gross ? ledgerNet : null) ??
+          (paymentNet != null && paymentNet < gross ? paymentNet : null) ??
+          +(gross - commission_amount).toFixed(2)
+        : invNet ?? ledgerNet ?? paymentNet ?? gross;
+
+    let settlement_status: "settled" | "pending_settlement" | "failed" | "refunded" | "pay_at_clinic" = "settled";
+    let settlement_label = "Settled to Bank";
+    if (isRefunded) {
+      settlement_status = "refunded";
+      settlement_label = "Refunded";
+    } else if (paymentRow?.transfer_status === "failed") {
+      settlement_status = "failed";
+      settlement_label = "Transfer Failed";
+    } else if (paymentRow?.transfer_status === "processed" || ledgerRow?.paid === true) {
+      settlement_status = "settled";
+      settlement_label = "Settled to Bank";
+    } else if (paymentRow || ledgerRow) {
+      settlement_status = "pending_settlement";
+      settlement_label = "Pending (T+2)";
+    }
+
+    return {
+      gross,
+      commission_percent,
+      commission_amount,
+      net_amount,
+      isRefunded,
+      settlement_status,
+      settlement_label,
+    };
+  };
+
   // Revenue totals are computed from the persisted invoices table (not from
   // live appointments), so deleting an appointment or patient later does NOT
-  // retroactively reduce Revenue / Billing figures.
+  // retroactively reduce Revenue / Billing figures. Refunded invoices are
+  // excluded so refunded bookings do not inflate positive revenue.
   const invoiceDate = (inv: Invoice) => (inv.created_at || "").slice(0, 10);
-  const todayRev = invoices.filter((i) => invoiceDate(i) === dayCardDate).reduce((s, i) => s + Number(i.amount || 0), 0);
-  const weekRev = invoices.filter((i) => invoiceDate(i) >= weekStart && invoiceDate(i) <= weekEnd).reduce((s, i) => s + Number(i.amount || 0), 0);
-  const monthRev = !periodActive
-    ? invoices.reduce((s, i) => s + Number(i.amount || 0), 0)
-    : invoices.filter((i) => invoiceDate(i) >= monthCardStart && invoiceDate(i) <= monthCardEnd).reduce((s, i) => s + Number(i.amount || 0), 0);
+  const invoicedApptIds = new Set(invoices.map(i => i.appointment_id).filter(Boolean));
+
+  type RevenueEntry = {
+    date: string;
+    gross: number;
+    commission_amount: number;
+    net_amount: number;
+  };
+
+  const activeInvoiceEntries: RevenueEntry[] = invoices
+    .map(inv => {
+      const split = resolveSplit({ grossAmount: Number(inv.amount || 0), appointmentId: inv.appointment_id, inv });
+      return {
+        date: invoiceDate(inv),
+        gross: split.gross,
+        commission_amount: split.commission_amount,
+        net_amount: split.net_amount,
+        isRefunded: split.isRefunded,
+      };
+    })
+    .filter(entry => !entry.isRefunded);
+
+  // Fallback for paid appointments that have not yet been persisted into invoices
+  const uninvoicedPaidEntries: RevenueEntry[] = appointments
+    .filter(a => !invoicedApptIds.has(a.id) && a.payment_status === "paid")
+    .map(a => {
+      const split = resolveSplit({ grossAmount: Number(a.amount || 0), appointmentId: a.id, paymentStatus: a.payment_status });
+      return {
+        date: a.date || today,
+        gross: split.gross,
+        commission_amount: split.commission_amount,
+        net_amount: split.net_amount,
+        isRefunded: split.isRefunded,
+      };
+    })
+    .filter(entry => !entry.isRefunded);
+
+  const revenueEntries: RevenueEntry[] = [...activeInvoiceEntries, ...uninvoicedPaidEntries];
+
+  const todayRev = revenueEntries
+    .filter((e) => e.date === dayCardDate)
+    .reduce((s, e) => s + e.gross, 0);
+  const weekRev = revenueEntries
+    .filter((e) => e.date >= weekStart && e.date <= weekEnd)
+    .reduce((s, e) => s + e.gross, 0);
+  const periodRevenueEntries = !periodActive
+    ? revenueEntries
+    : revenueEntries.filter((e) => e.date >= monthCardStart && e.date <= monthCardEnd);
+  const monthRev = periodRevenueEntries.reduce((s, e) => s + e.gross, 0);
+
+  const totalGrossRev = revenueEntries.reduce((s, e) => s + e.gross, 0);
+  const totalPlatformCharges = +revenueEntries.reduce((s, e) => s + e.commission_amount, 0).toFixed(2);
+  const totalNetCredited = +revenueEntries.reduce((s, e) => s + e.net_amount, 0).toFixed(2);
+  const periodNetRev = +periodRevenueEntries.reduce((s, e) => s + e.net_amount, 0).toFixed(2);
+  const periodCommission = +periodRevenueEntries.reduce((s, e) => s + e.commission_amount, 0).toFixed(2);
 
   // Persisted transaction rows are built from the invoices table (which
   // survives appointment/patient deletion via ON DELETE SET NULL). We then
   // append appointments that haven't been invoiced yet (pending / pay-at-
-  // clinic / refunded) so the doctor still sees open items.
+  // clinic / refunded / uninvoiced paid) so the doctor still sees open items.
   type TxRow = {
     key: string;
     patient_name: string;
     service_name: string;
     date: string;
     amount: number;
+    commission_percent: number;
+    commission_amount: number;
+    net_amount: number;
+    settlement_status: "settled" | "pending_settlement" | "failed" | "refunded" | "pay_at_clinic";
+    settlement_label: string;
     payment_status: "paid" | "pending" | "refunded" | "pay_at_clinic";
     status: string;
     is_mock: boolean;
   };
-  // payment_gateway lives on appointments (set by verify-razorpay-payment:
-  // "razorpay_mock" vs "razorpay"), not on invoices — look it up by
-  // appointment_id so invoice-based rows still show the mock badge.
-  const apptGatewayById = new Map(appointments.map(a => [a.id, a.payment_gateway]));
-  const invoicedApptIds = new Set(invoices.map(i => i.appointment_id).filter(Boolean));
-  const invoiceTx: TxRow[] = invoices.map(i => ({
-    key: `inv-${i.id}`,
-    patient_name: i.patient_name,
-    service_name: i.service_name,
-    date: invoiceDate(i),
-    amount: Number(i.amount || 0),
-    payment_status: "paid",
-    status: "completed",
-    is_mock: apptGatewayById.get(i.appointment_id) === "razorpay_mock",
-  }));
+
+  const invoiceTx: TxRow[] = invoices.map(i => {
+    const split = resolveSplit({ grossAmount: Number(i.amount || 0), appointmentId: i.appointment_id, inv: i });
+    return {
+      key: `inv-${i.id}`,
+      patient_name: i.patient_name,
+      service_name: i.service_name,
+      date: invoiceDate(i),
+      amount: split.gross,
+      commission_percent: split.commission_percent,
+      commission_amount: split.commission_amount,
+      net_amount: split.net_amount,
+      settlement_status: split.settlement_status,
+      settlement_label: split.settlement_label,
+      payment_status: split.isRefunded ? "refunded" : "paid",
+      status: split.isRefunded ? "cancelled" : "completed",
+      is_mock: apptGatewayById.get(i.appointment_id) === "razorpay_mock",
+    };
+  });
   const openApptTx: TxRow[] = appointments
-    .filter(a => !invoicedApptIds.has(a.id) && a.payment_status !== "paid")
-    .map(a => ({
-      key: `apt-${a.id}`,
-      patient_name: a.patient_name,
-      service_name: a.service_name,
-      date: a.date,
-      amount: Number(a.amount || 0),
-      payment_status: a.payment_status,
-      status: a.status,
-      is_mock: a.payment_gateway === "razorpay_mock",
-    }));
+    .filter(a => !invoicedApptIds.has(a.id))
+    .map(a => {
+      const split = resolveSplit({
+        grossAmount: Number(a.amount || 0),
+        appointmentId: a.id,
+        paymentStatus: a.payment_status,
+      });
+      const paymentStatus: TxRow["payment_status"] = split.isRefunded
+        ? "refunded"
+        : (a.payment_status || "pending");
+      return {
+        key: `apt-${a.id}`,
+        patient_name: a.patient_name,
+        service_name: a.service_name,
+        date: a.date,
+        amount: split.gross,
+        commission_percent: paymentStatus === "paid" || paymentStatus === "refunded" ? split.commission_percent : 0,
+        commission_amount: paymentStatus === "paid" || paymentStatus === "refunded" ? split.commission_amount : 0,
+        net_amount: paymentStatus === "paid" || paymentStatus === "refunded" ? split.net_amount : split.gross,
+        settlement_status: split.settlement_status,
+        settlement_label:
+          paymentStatus === "pay_at_clinic"
+            ? "Pay at Clinic (0% fee)"
+            : paymentStatus === "refunded"
+            ? "Refunded"
+            : paymentStatus === "paid"
+            ? split.settlement_label
+            : "Pending Payment",
+        payment_status: paymentStatus,
+        status: a.status,
+        is_mock: a.payment_gateway === "razorpay_mock",
+      };
+    });
   const transactions: TxRow[] = [...invoiceTx, ...openApptTx].sort(
     (a, b) => (b.date || "").localeCompare(a.date || "")
   );
@@ -300,7 +545,11 @@ const BillingPage = () => {
       "Patient Name": a.patient_name,
       "Service": a.service_name,
       "Date": a.date,
-      "Amount (INR)": a.amount,
+      "Gross Amount (INR)": a.amount,
+      "Platform Charge %": a.commission_percent,
+      "Platform Charge (INR)": a.commission_amount,
+      "Net Credited (INR)": a.net_amount,
+      "Settlement Status": a.settlement_label,
       "Payment Status": a.payment_status,
       "Appointment Status": a.status,
       "Mock": a.is_mock ? "yes" : "no",
@@ -373,6 +622,69 @@ const BillingPage = () => {
         {revenueCards.map((r) => (
           <StatCard key={r.label} label={r.label} value={`₹${r.value.toLocaleString("en-IN")}`} icon={r.icon} gradient={r.gradient} />
         ))}
+      </div>
+
+      {/* Platform Charge & Net Credited Breakdown Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card className="border-border/60 shadow-none">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Gross Revenue</span>
+              <IndianRupee className="h-3.5 w-3.5 text-royal" />
+            </div>
+            <div className="font-heading font-bold text-xl text-foreground mt-1" data-testid="summary-gross-revenue">
+              ₹{totalGrossRev.toLocaleString("en-IN")}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Total paid by patients (excl. refunded)
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 shadow-none">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Platform Charges</span>
+              <Percent className="h-3.5 w-3.5 text-warning" />
+            </div>
+            <div className="font-heading font-bold text-xl text-warning mt-1" data-testid="summary-platform-charges">
+              -₹{totalPlatformCharges.toLocaleString("en-IN")}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Period: -₹{periodCommission.toLocaleString("en-IN")} deducted by Doctylia
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 shadow-none">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Net Credited to You</span>
+              <Wallet className="h-3.5 w-3.5 text-success" />
+            </div>
+            <div className="font-heading font-bold text-xl text-success mt-1" data-testid="summary-net-credited">
+              ₹{totalNetCredited.toLocaleString("en-IN")}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Routed to your Linked Account
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 shadow-none">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{monthCardLabel === "This Month" ? "This Month's Net Earnings" : `${monthCardLabel} Net Earnings`}</span>
+              <ArrowDownRight className="h-3.5 w-3.5 text-teal" />
+            </div>
+            <div className="font-heading font-bold text-xl text-foreground mt-1" data-testid="summary-period-net">
+              ₹{periodNetRev.toLocaleString("en-IN")}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Net after platform charges ({monthCardLabel})
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="transactions" className="space-y-5">
@@ -503,23 +815,63 @@ const BillingPage = () => {
                   <div className="space-y-2">
                     {paginated.map((a) => {
                       const pc = paymentColors[a.payment_status] || paymentColors.pending;
+                      const showCommissionBreakdown = a.payment_status === "paid" || a.payment_status === "refunded";
+                      const settlementBadgeClass =
+                        a.settlement_status === "settled"
+                          ? "bg-success/10 text-success border-success/20"
+                          : a.settlement_status === "pending_settlement"
+                          ? "bg-warning/10 text-warning border-warning/20"
+                          : a.settlement_status === "failed" || a.settlement_status === "refunded"
+                          ? "bg-destructive/10 text-destructive border-destructive/20"
+                          : "bg-royal/10 text-royal border-royal/20";
                       return (
                         <Card key={a.key} className="border-border/60 shadow-none hover:shadow-sm transition-shadow">
                           <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-start gap-3">
                               <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center text-sm font-bold text-success flex-shrink-0">
                                 {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
                               </div>
-                              <div>
+                              <div className="space-y-1">
                                 <div className="font-medium text-foreground text-sm">{a.patient_name}</div>
                                 <div className="text-xs text-muted-foreground">{a.service_name} · {a.date}</div>
+                                {showCommissionBreakdown ? (
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground pt-0.5">
+                                    <span>Gross ₹{a.amount.toLocaleString("en-IN")}</span>
+                                    <span>·</span>
+                                    <span className="text-warning font-medium">
+                                      Platform Charge {a.commission_percent}% (-₹{a.commission_amount.toLocaleString("en-IN")})
+                                    </span>
+                                    <span>·</span>
+                                    <span className={a.payment_status === "refunded" ? "text-destructive line-through" : "text-success font-semibold"}>
+                                      Net Credited ₹{a.net_amount.toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+                                ) : a.payment_status === "pay_at_clinic" ? (
+                                  <div className="text-[11px] text-muted-foreground pt-0.5">
+                                    Pay at Clinic (0% fee) · Net Credited ₹{a.net_amount.toLocaleString("en-IN")}
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
                             <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-shrink-0">
                               <Badge variant="outline" className={`text-[10px] ${pc.bg} ${pc.text}`}>{pc.label}</Badge>
+                              {(a.payment_status === "paid" || a.payment_status === "pay_at_clinic") && (
+                                <Badge variant="outline" className={`text-[10px] ${settlementBadgeClass}`}>
+                                  {a.settlement_label}
+                                </Badge>
+                              )}
                               <Badge variant="outline" className={`text-[10px] capitalize ${statusColors[a.status] || ""}`}>{a.status}</Badge>
                               {a.is_mock && <TestModeBadge />}
-                              <span className="font-heading font-bold text-foreground">₹{a.amount}</span>
+                              <div className="text-right">
+                                <span className="font-heading font-bold text-foreground">
+                                  ₹{(a.payment_status === "paid" ? a.net_amount : a.amount).toLocaleString("en-IN")}
+                                </span>
+                                {a.payment_status === "paid" && a.commission_amount > 0 && (
+                                  <div className="text-[10px] text-muted-foreground">
+                                    of ₹{a.amount.toLocaleString("en-IN")}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -582,7 +934,14 @@ const BillingPage = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-[10px] capitalize bg-success/10 text-success">{inv.status}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] capitalize ${
+                          inv.status === "refunded" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"
+                        }`}
+                      >
+                        {inv.status}
+                      </Badge>
                       <span className="font-heading font-bold text-foreground">₹{Number(inv.total_amount).toLocaleString("en-IN")}</span>
                       <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setViewingInvoice(inv)}>
                         <Eye className="h-3.5 w-3.5 mr-1" /> View

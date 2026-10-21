@@ -1,8 +1,11 @@
-// Super Admin-triggered refund — now with real Razorpay refund API support.
+// Super Admin-triggered refund — with real Razorpay refund API support.
 // For Route payments, Razorpay automatically reverses the linked account
-// transfer when a refund is issued (no separate reversal call needed).
+// transfer when a refund is issued (`reverse_all: 1`).
+// Also synchronizes `doctor_ledger` (`refunded = true, refunded_at = now(), paid = false`)
+// and `invoices` (`status = 'refunded', refunded_at = now()`) so neither Doctor Net
+// Earnings nor Platform Commission are overstated after a refund.
 //
-// Mock mode: same as before — flips payment + transfer + appointment to
+// Mock mode: flips payment + transfer + ledger + invoice + appointment to
 // refunded state for UI testing.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/paymentMode.ts";
@@ -48,12 +51,16 @@ Deno.serve(async (req) => {
     return json(400, { error: `Only captured payments can be refunded (this one is ${payment.status})` });
   }
 
+  const nowIso = new Date().toISOString();
+
   // ---- MOCK MODE ----
   if (payment.is_mock) {
     await admin.from("payments").update({ status: "refunded", needs_refund: false, transfer_status: "reversed" }).eq("id", payment.id);
-    await admin.from("transfers").update({ status: "reversed", reversed_at: new Date().toISOString() }).eq("payment_id", payment.id);
+    await admin.from("transfers").update({ status: "reversed", reversed_at: nowIso }).eq("payment_id", payment.id);
+    await admin.from("doctor_ledger").update({ refunded: true, refunded_at: nowIso, paid: false }).eq("payment_id", payment.id);
     if (payment.appointment_id) {
       await admin.from("appointments").update({ status: "cancelled", payment_status: "refunded" }).eq("id", payment.appointment_id);
+      await admin.from("invoices").update({ status: "refunded", refunded_at: nowIso }).eq("appointment_id", payment.appointment_id);
     }
     return json(200, { ok: true, payment_id: payment.id, status: "refunded", is_mock: true });
   }
@@ -90,19 +97,19 @@ Deno.serve(async (req) => {
       return json(502, { error: rzRefund?.error?.description || "Razorpay refund API failed" });
     }
 
-    const isFullRefund = refundAmountPaise >= Math.round(Number(payment.amount) * 100);
     await admin.from("payments").update({
-      status: isFullRefund ? "refunded" : "captured", // partial refund leaves status as captured
+      status: "refunded",
       needs_refund: false,
-      transfer_status: isFullRefund ? "reversed" : payment.transfer_status,
+      transfer_status: "reversed",
       raw_response: rzRefund,
     }).eq("id", payment.id);
 
-    if (isFullRefund) {
-      await admin.from("transfers").update({ status: "reversed", reversed_at: new Date().toISOString() }).eq("payment_id", payment.id);
-      if (payment.appointment_id) {
-        await admin.from("appointments").update({ status: "cancelled", payment_status: "refunded" }).eq("id", payment.appointment_id);
-      }
+    await admin.from("transfers").update({ status: "reversed", reversed_at: nowIso }).eq("payment_id", payment.id);
+    await admin.from("doctor_ledger").update({ refunded: true, refunded_at: nowIso, paid: false }).eq("payment_id", payment.id);
+
+    if (payment.appointment_id) {
+      await admin.from("appointments").update({ status: "cancelled", payment_status: "refunded" }).eq("id", payment.appointment_id);
+      await admin.from("invoices").update({ status: "refunded", refunded_at: nowIso }).eq("appointment_id", payment.appointment_id);
     }
 
     return json(200, {

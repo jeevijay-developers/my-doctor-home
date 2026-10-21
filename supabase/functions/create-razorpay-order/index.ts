@@ -1,16 +1,24 @@
-// Step 1 of the pay-first patient booking flow — now using Razorpay Route.
-// Patient selects doctor/slot → this function validates everything server-side,
-// creates a Razorpay order WITH a Route transfer[] embedded so funds go
-// directly to the doctor's linked account on payment capture.
+// Step 1 of the pay-first patient booking flow — using Razorpay Route.
+// Patient selects doctor/service/slot → this function validates everything server-side,
+// resolves the authoritative service/consultation price from Postgres, computes
+// the platform commission split in integer paise, and creates a Razorpay order
+// WITH a Route transfer[] embedded so the doctor's net share goes directly to
+// their linked account on payment capture while Doctylia retains the platform charge.
 //
 // Key security rules enforced here:
-// - Amount is NEVER trusted from the frontend — re-read from doctor's services
-// - Doctor's razorpay_account_id is read from DB — never from client
-// - Doctor must have razorpay_payment_enabled = true to proceed
+// - Amount is NEVER trusted from the frontend — resolved from DB (`services` / `website_settings` / `profiles`)
+// - Doctor's razorpay_account_id and commission_percent are read from DB — never from client
+// - Doctor must have razorpay_payment_enabled = true to proceed in live mode
 //
 // Mock mode: no real Razorpay call; generates fake IDs; same response shape.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolvePaymentMode, mockId, corsHeaders, json } from "../_shared/paymentMode.ts";
+import {
+  calculateCommissionSplit,
+  isAmountMatchingServerPrice,
+  resolveAuthoritativePrice,
+  type ServiceRecordForPricing,
+} from "../_shared/commissionSplit.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
@@ -26,6 +34,7 @@ type BookingPayload = {
   patient_age?: number | null;
   patient_gender?: string | null;
   patient_email?: string | null;
+  service_id?: string | null;
   service_name: string;
   appointment_type: "clinic" | "online";
   date: string; // yyyy-MM-dd
@@ -54,10 +63,10 @@ Deno.serve(async (req) => {
   }
   if (!isValidBooking(booking)) return json(400, { error: "Missing or invalid booking details" });
 
-  // Fetch doctor profile — including Route payment fields
+  // Fetch doctor profile — including Route payment & fee/commission fields
   const { data: doctor, error: doctorErr } = await admin
     .from("profiles")
-    .select("id, plan_status, razorpay_account_id, razorpay_payment_enabled, razorpay_account_status")
+    .select("id, plan_status, consultation_fee, commission_percent, razorpay_account_id, razorpay_payment_enabled, razorpay_account_status")
     .eq("id", booking.doctor_id)
     .maybeSingle();
   if (doctorErr) return json(500, { error: doctorErr.message });
@@ -99,14 +108,86 @@ Deno.serve(async (req) => {
     .neq("status", "cancelled");
   if ((taken ?? 0) >= 1) return json(409, { error: "SLOT_FULL" });
 
-  // Always use integer paise — never float arithmetic
-  const amountPaise = Math.round(booking.amount * 100);
+  // ---- AUTHORITATIVE SERVER-SIDE PRICE LOOKUP ----
+  let serviceRow: ServiceRecordForPricing | null = null;
+  if (booking.service_id) {
+    const { data: svc, error: svcErr } = await admin
+      .from("services")
+      .select("id, name, price, type, active")
+      .eq("id", booking.service_id)
+      .eq("doctor_id", booking.doctor_id)
+      .eq("active", true)
+      .maybeSingle();
+    if (svcErr) return json(500, { error: svcErr.message });
+    if (!svc) {
+      return json(400, {
+        error: "INVALID_SERVICE",
+        message: "The selected service is not available. Please refresh and try again.",
+      });
+    }
+    serviceRow = svc;
+  }
 
-  // Doctor gets 100% (platform revenue = SaaS subscription, not per-txn commission)
-  // In live mode with Route, the gateway + Route fees (~2.25% + GST) are deducted
-  // by Razorpay from the settlement, not from the transfer amount. So we transfer
-  // the full amount and let Razorpay handle fee deduction per their standard schedule.
-  const doctorAmountPaise = amountPaise;
+  let onlineFee: number | null = null;
+  if (!booking.service_id && booking.appointment_type === "online") {
+    const { data: ws } = await admin
+      .from("website_settings")
+      .select("online_fee")
+      .eq("doctor_id", booking.doctor_id)
+      .maybeSingle();
+    onlineFee = ws?.online_fee != null ? Number(ws.online_fee) : null;
+  }
+
+  const priceResolution = resolveAuthoritativePrice({
+    appointmentType: booking.appointment_type,
+    consultationFee: doctor.consultation_fee,
+    onlineFee,
+    service: serviceRow,
+  });
+
+  if (!priceResolution.ok) {
+    return json(400, { error: priceResolution.error, message: priceResolution.message });
+  }
+
+  const serverPrice = priceResolution.serverPrice;
+  if (!isAmountMatchingServerPrice(booking.amount, serverPrice)) {
+    return json(400, {
+      error: "PAYMENT_AMOUNT_MISMATCH",
+      message: "Service price has changed. Please refresh and try again.",
+    });
+  }
+
+  // Ensure pending_booking stores the authoritative server price & canonical service_name
+  const resolvedServiceName = serviceRow?.name || booking.service_name;
+  const authoritativeBooking: BookingPayload = {
+    ...booking,
+    service_id: serviceRow?.id ?? null,
+    service_name: resolvedServiceName,
+    amount: serverPrice,
+  };
+
+  // ---- COMMISSION RESOLUTION & INTEGER PAISE MATH ----
+  const { data: defaultCommSetting } = await admin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "default_commission_percent")
+    .maybeSingle();
+
+  const split = calculateCommissionSplit(
+    serverPrice,
+    doctor.commission_percent,
+    defaultCommSetting?.value as number | string | null | undefined,
+  );
+
+  const {
+    commissionPercent: pct,
+    grossPaise,
+    commissionPaise,
+    doctorNetPaise,
+    grossAmount,
+    commissionAmount,
+    doctorShare,
+  } = split;
 
   // ---- MOCK MODE ----
   if (mode === "mock") {
@@ -116,13 +197,24 @@ Deno.serve(async (req) => {
     const { data: paymentRow, error: insErr } = await admin.from("payments").insert({
       doctor_id: booking.doctor_id,
       appointment_id: null,
+      service_id: serviceRow?.id ?? null,
       razorpay_order_id: orderId,
-      amount: booking.amount,
+      amount: grossAmount,
+      commission_percent: pct,
+      commission_amount: commissionAmount,
+      doctor_share: doctorShare,
       currency: "INR",
       status: "created",
       transfer_status: "pending",
-      raw_response: { mock: true, order_id: orderId, amount: amountPaise },
-      pending_booking: booking,
+      raw_response: {
+        mock: true,
+        order_id: orderId,
+        amount: grossPaise,
+        commission_percent: pct,
+        commission_paise: commissionPaise,
+        doctor_net_paise: doctorNetPaise,
+      },
+      pending_booking: authoritativeBooking,
       is_mock: true,
     }).select("id").single();
     if (insErr) return json(500, { error: insErr.message });
@@ -133,7 +225,10 @@ Deno.serve(async (req) => {
       doctor_id: booking.doctor_id,
       razorpay_transfer_id: mockId("trf"),
       razorpay_account_id: mockAccountId,
-      amount: booking.amount,
+      amount: doctorShare,
+      gross_amount: grossAmount,
+      commission_percent: pct,
+      commission_amount: commissionAmount,
       currency: "INR",
       status: "pending",
       is_mock: true,
@@ -142,7 +237,7 @@ Deno.serve(async (req) => {
     return json(200, {
       order_id: orderId,
       key_id: "mock_key",
-      amount: amountPaise,
+      amount: grossPaise,
       currency: "INR",
       payment_id: paymentRow.id,
       mode: "mock",
@@ -157,31 +252,44 @@ Deno.serve(async (req) => {
   try {
     const basicAuth = btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`);
 
-    // Create order with Route transfer[] — money auto-routes to doctor on capture
+    // Create order with Route transfer[] — doctor net share auto-routes to doctor on capture
     const orderPayload: Record<string, unknown> = {
-      amount: amountPaise,
+      amount: grossPaise,
       currency: "INR",
       receipt: `appt_${booking.doctor_id.slice(0, 8)}_${Date.now()}`,
       notes: {
         doctor_id: booking.doctor_id,
         patient_phone: booking.patient_phone,
+        service_id: serviceRow?.id ?? "",
+        service_name: resolvedServiceName,
         date: booking.date,
         time_slot: booking.time_slot,
+        gross_paise: String(grossPaise),
+        commission_pct: String(pct),
+        commission_paise: String(commissionPaise),
+        doctor_net_paise: String(doctorNetPaise),
       },
-      transfers: [
+    };
+
+    if (doctorNetPaise > 0) {
+      orderPayload.transfers = [
         {
           account: doctor.razorpay_account_id,
-          amount: doctorAmountPaise,
+          amount: doctorNetPaise,
           currency: "INR",
           notes: {
             doctor_id: booking.doctor_id,
+            service_name: resolvedServiceName,
             appointment_date: booking.date,
             appointment_time: booking.time_slot,
+            gross_paise: String(grossPaise),
+            commission_pct: String(pct),
+            commission_paise: String(commissionPaise),
           },
           on_hold: 0, // Settle immediately — no hold
         },
-      ],
-    };
+      ];
+    }
 
     const res = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
@@ -198,13 +306,17 @@ Deno.serve(async (req) => {
     const { data: paymentRow, error: insErr } = await admin.from("payments").insert({
       doctor_id: booking.doctor_id,
       appointment_id: null,
+      service_id: serviceRow?.id ?? null,
       razorpay_order_id: order.id,
-      amount: booking.amount,
+      amount: grossAmount,
+      commission_percent: pct,
+      commission_amount: commissionAmount,
+      doctor_share: doctorShare,
       currency: order.currency || "INR",
       status: "created",
-      transfer_status: "pending",
+      transfer_status: doctorNetPaise > 0 ? "pending" : "processed",
       raw_response: order,
-      pending_booking: booking,
+      pending_booking: authoritativeBooking,
       is_mock: false,
     }).select("id").single();
     if (insErr) return json(500, { error: insErr.message });
@@ -215,9 +327,12 @@ Deno.serve(async (req) => {
       doctor_id: booking.doctor_id,
       razorpay_transfer_id: rzTransferId,
       razorpay_account_id: doctor.razorpay_account_id!,
-      amount: booking.amount,
+      amount: doctorShare,
+      gross_amount: grossAmount,
+      commission_percent: pct,
+      commission_amount: commissionAmount,
       currency: "INR",
-      status: rzTransferId ? "pending" : "pending",
+      status: doctorNetPaise > 0 ? "pending" : "processed",
       is_mock: false,
     });
 

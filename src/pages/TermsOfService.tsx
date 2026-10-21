@@ -9,7 +9,7 @@ import LandingFooter from "@/components/landing/LandingFooter";
 // Razorpay/RazorpayX, and operates in India (DPDP Act 2023 + potential
 // healthcare-data-specific obligations apply). See the on-page notice below
 // and the PR description for the same disclaimer.
-const LAST_UPDATED = "August 13, 2026";
+const LAST_UPDATED = "October 21, 2026";
 
 const sections: { id: string; title: string; body: React.ReactNode }[] = [
   {
@@ -119,23 +119,24 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
     body: (
       <>
         <p>
-          Where a Practitioner enables online payment for consultations, patient payments are processed
-          through Razorpay. <strong>Doctylia does not charge any commission on patient consultation
-          payments</strong> — the Practitioner receives the full amount the patient pays. Doctylia's revenue
-          comes solely from Practitioner subscription fees described in Section 4, not from a per-transaction
-          cut of patient payments.
+          Where a Practitioner enables online payment for consultations or clinical services, patient
+          payments are processed through Razorpay and split automatically via Razorpay Route.{" "}
+          <strong>
+            Doctylia deducts the applicable platform service charge percentage (commission) from each online
+            transaction
+          </strong>{" "}
+          as configured for the platform or agreed with the Practitioner, and routes the remaining net
+          proceeds directly to the Practitioner's verified Razorpay Linked Account. Appointments booked as
+          "Pay at Clinic" are collected directly by the Practitioner at the clinic and are not subject to an
+          online platform service charge.
         </p>
         <p>
-          Collected patient payments are settled to Practitioners as payouts via RazorpayX, calculated on a
-          monthly rollup of that Practitioner's confirmed, paid appointments for the period. A Practitioner
-          must complete bank account verification before payouts can be released to them.
-        </p>
-        <p>
-          <em>
-            [Placeholder — exact payout settlement timing/SLA and the refund process for a patient who
-            cancels or disputes a paid appointment are not yet finalized in the product and must be confirmed
-            before publishing.]
-          </em>
+          Net proceeds routed to a Practitioner's Razorpay Linked Account are settled to the Practitioner's
+          verified bank account by Razorpay on its standard settlement schedule (typically T+2 business
+          days). A Practitioner must complete Razorpay Route KYC and bank account verification before live
+          online payments and automated settlements can be enabled. If a paid appointment is refunded to the
+          patient, the full patient payment is returned and the corresponding net transfer to the
+          Practitioner's Linked Account is reversed.
         </p>
       </>
     ),

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Globe, ExternalLink, Copy, Monitor, Smartphone, Tablet, Save, Plus, Trash2, GripVertical, Clock, Pin, EyeOff, Eye, UserCircle } from "lucide-react";
+import { Globe, ExternalLink, Copy, Monitor, Smartphone, Tablet, Save, Plus, Trash2, GripVertical, Clock, Pin, EyeOff, Eye, UserCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DigitsInput } from "@/components/ui/digits-input";
@@ -580,15 +580,16 @@ const MyWebsite = () => {
                     </div>
                     <Input placeholder="Service name" value={s.name} onChange={(e) => updateService(i, "name", e.target.value)} />
                     <Input placeholder="Description" value={s.description} onChange={(e) => updateService(i, "description", e.target.value)} />
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
                         <Label className="text-xs">Type</Label>
-                        <Select value={s.type} onValueChange={(v) => updateService(i, "type", v)}>
+                        <Select value={s.type} onValueChange={(v) => updateService(i, "type", v)} disabled={!canEditWebsite}>
                           <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                           <SelectContent><SelectItem value="clinic">Clinic</SelectItem><SelectItem value="online">Online</SelectItem><SelectItem value="both">Both</SelectItem></SelectContent>
                         </Select>
                       </div>
-                      <div><Label className="text-xs">Duration</Label><DigitsInput maxLength={3} placeholder="0" value={s.duration || ""} onChange={(e) => updateService(i, "duration", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
+                      <div><Label className="text-xs">Duration</Label><DigitsInput maxLength={3} placeholder="0" value={s.duration || ""} onChange={(e) => updateService(i, "duration", e.target.value === "" ? 0 : Number(e.target.value))} disabled={!canEditWebsite} /></div>
+                      <div><Label className="text-xs">Price (₹)</Label><AmountInput placeholder="500" value={s.price ?? ""} onChange={(e) => updateService(i, "price", e.target.value === "" ? 0 : Number(e.target.value))} disabled={!canEditWebsite} /></div>
                     </div>
                   </div>
                 ))}
@@ -745,20 +746,39 @@ const MyWebsite = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <Label>Require Online Payment</Label>
-                  <Switch checked={settings.require_payment ?? false} onCheckedChange={(v) => updateSetting("require_payment", v)} />
+                  <Switch checked={settings.require_payment ?? false} onCheckedChange={(v) => updateSetting("require_payment", v)} disabled={!canEditWebsite} />
                 </div>
+                {(!profile?.razorpay_payment_enabled || profile?.razorpay_account_status !== "active") && (
+                  <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-xs text-warning space-y-1.5">
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>Razorpay Linked Account Not Active</span>
+                    </div>
+                    <p className="text-muted-foreground">
+                      Live online payments require an active Razorpay Linked Account so consultation and service fees can be routed to your bank.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => nav("/admin/settings")}
+                      className="inline-flex items-center gap-1 font-medium text-royal hover:underline"
+                    >
+                      Configure Online Patient Payments in Settings &rarr;
+                    </button>
+                  </div>
+                )}
                 <div>
                   <Label className="flex items-center gap-2">
                     Payment Gateway
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Not connected yet</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${profile?.razorpay_payment_enabled && profile?.razorpay_account_status === "active" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+                      {profile?.razorpay_payment_enabled && profile?.razorpay_account_status === "active" ? "Active" : "Not connected yet"}
+                    </span>
                   </Label>
                   <Select value="razorpay" disabled>
-                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Razorpay (Coming Soon)" /></SelectTrigger>
-                    <SelectContent><SelectItem value="razorpay">Razorpay (Coming Soon)</SelectItem></SelectContent>
+                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Razorpay Route" /></SelectTrigger>
+                    <SelectContent><SelectItem value="razorpay">Razorpay Route</SelectItem></SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Online payments will activate automatically once Razorpay keys are added by the Doctylia team.
-                    Until then, all bookings will fall back to Pay at Clinic.
+                    Patient payments are routed directly to your Razorpay Linked Account (settled T+2).
                   </p>
                 </div>
                 <div className="flex items-center justify-between">
