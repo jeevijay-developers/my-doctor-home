@@ -150,7 +150,7 @@ const Auth = () => {
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
                 {mode === "signup"
-                  ? "7 days free. No credit card required."
+                  ? "7 days free"
                   : "Log in to your dashboard with your phone number."}
               </p>
             </div>
