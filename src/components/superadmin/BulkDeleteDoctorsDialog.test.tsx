@@ -14,11 +14,16 @@ vi.mock("@/lib/adminAudit", () => ({ logAdminAction: vi.fn() }));
 
 const targets = [{ id: "doc-1", full_name: "Dr. Test" }];
 
+// The mocked supabase responses are partial shapes; cast through `unknown`
+// to the real return types instead of using `any`.
+type SessionResult = Awaited<ReturnType<typeof supabase.auth.getSession>>;
+type InvokeResult = Awaited<ReturnType<typeof supabase.functions.invoke>>;
+
 describe("BulkDeleteDoctorsDialog", () => {
   beforeEach(() => {
     vi.mocked(supabase.auth.getSession).mockResolvedValue({
       data: { session: { access_token: "tok" } },
-    } as any);
+    } as unknown as SessionResult);
     vi.mocked(supabase.functions.invoke).mockReset();
   });
 
@@ -33,7 +38,7 @@ describe("BulkDeleteDoctorsDialog", () => {
     vi.mocked(supabase.functions.invoke).mockResolvedValue({
       data: { ok: true, deleted: ["doc-1"], failed: [] },
       error: null,
-    } as any);
+    } as unknown as InvokeResult);
     const onDeleted = vi.fn();
     render(<BulkDeleteDoctorsDialog targets={targets} onClose={vi.fn()} onDeleted={onDeleted} />);
     fireEvent.change(screen.getByPlaceholderText(/your password/i), { target: { value: "correct-horse" } });
@@ -49,7 +54,7 @@ describe("BulkDeleteDoctorsDialog", () => {
     vi.mocked(supabase.functions.invoke).mockResolvedValue({
       data: null,
       error: { context: { status: 401, json: async () => ({ error: "Incorrect password" }) } },
-    } as any);
+    } as unknown as InvokeResult);
     const onClose = vi.fn();
     render(<BulkDeleteDoctorsDialog targets={targets} onClose={onClose} onDeleted={vi.fn()} />);
     const passwordInput = screen.getByPlaceholderText(/your password/i) as HTMLInputElement;

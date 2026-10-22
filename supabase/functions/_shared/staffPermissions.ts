@@ -1,3 +1,5 @@
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "./cors.ts";
+
 // Canonical staff permission keys — must mirror src/lib/staffPermissions.ts
 // exactly (duplicated, not imported: edge functions run on Deno and cannot
 // import from src/, per this repo's established cross-runtime convention).
@@ -28,10 +30,16 @@ export function sanitizePermissions(input: unknown): Record<string, boolean> {
   return out;
 }
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+export { corsHeaders };
+
+const STAFF_CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type",
 };
+
+export function beginStaffRequest(req: Request): Response | null {
+  bindCorsRequest(req, STAFF_CORS);
+  return handleCors(req, STAFF_CORS);
+}
 
 export function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });

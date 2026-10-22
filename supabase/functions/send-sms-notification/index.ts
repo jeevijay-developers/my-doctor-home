@@ -4,7 +4,7 @@
 // rather than a shared handler so each channel's future live-provider
 // wiring stays independently deployable.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { sendSms, corsHeaders, json } from "../_shared/notificationProviders.ts";
+import { sendSms, beginNotificationRequest, json } from "../_shared/notificationProviders.ts";
 import { SMS_CHECKUP_TEMPLATE, renderTemplate } from "../_shared/notificationTemplates.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -14,7 +14,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginNotificationRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization");

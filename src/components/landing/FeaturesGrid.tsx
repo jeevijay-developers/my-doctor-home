@@ -3,24 +3,24 @@ import { motion } from "framer-motion";
 import { Globe, CalendarCheck, CreditCard, Users, Brain, Video, BarChart3 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import featureWebsite from "@/assets/feature-website.png";
-import featureAppointments from "@/assets/feature-appointments.png";
-import featureBilling from "@/assets/feature-billing.png";
-import featurePatients from "@/assets/feature-patients.png";
-import featureAiBlog from "@/assets/feature-ai-blog.png";
-import featureConsultation from "@/assets/feature-consultation.png";
-import featureWhatsapp from "@/assets/feature-whatsapp.png";
-import featureAnalytics from "@/assets/feature-analytics.png";
+import featureWebsite from "@/assets/feature-website.webp";
+import featureAppointments from "@/assets/feature-appointments.webp";
+import featureBilling from "@/assets/feature-billing.webp";
+import featurePatients from "@/assets/feature-patients.webp";
+import featureAiBlog from "@/assets/feature-ai-blog.webp";
+import featureConsultation from "@/assets/feature-consultation.webp";
+import featureWhatsapp from "@/assets/feature-whatsapp.webp";
+import featureAnalytics from "@/assets/feature-analytics.webp";
 
 const features = [
-  { icon: Globe, title: "Your Own Website", desc: "Get a professional branded website live in minutes — patients find & book you 24/7.", color: "bg-royal/10 text-royal", img: featureWebsite, bg: "bg-gradient-to-br from-royal/5 to-teal/5" },
-  { icon: CalendarCheck, title: "Smart Appointments", desc: "Reduce no-shows by 70% with online booking + automated WhatsApp reminders.", color: "bg-success/10 text-success", img: featureAppointments, bg: "bg-gradient-to-br from-teal/5 to-success/5" },
-  { icon: CreditCard, title: "Billing & Invoices", desc: "Auto-generate GST invoices, accept UPI payments — collect ₹0 outstanding.", color: "bg-accent/10 text-accent", img: featureBilling, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
-  { icon: Users, title: "Patient Records", desc: "Digital patient history, prescriptions & reports — find any record in 2 seconds.", color: "bg-ai-purple/10 text-ai-purple", img: featurePatients, bg: "bg-gradient-to-br from-ai-purple/5 to-royal/5" },
-  { icon: Brain, title: "AI Blog Writer", desc: "AI writes SEO health articles for your website — attract 3x more patients from Google.", color: "bg-spark/10 text-spark", img: featureAiBlog, bg: "bg-gradient-to-br from-spark/10 to-teal/5" },
-  { icon: Video, title: "Online Consultation", desc: "Earn extra ₹20,000+/month with video consultations — no app download needed.", color: "bg-teal/10 text-teal", img: featureConsultation, bg: "bg-gradient-to-br from-teal/5 to-royal/5" },
-  { icon: WhatsAppIcon, title: "WhatsApp Integration", desc: "Auto reminders, confirmations & follow-ups — 80% fewer missed appointments.", color: "bg-success/10 text-success", img: featureWhatsapp, bg: "bg-gradient-to-br from-success/5 to-teal/5" },
-  { icon: BarChart3, title: "Analytics Dashboard", desc: "Track revenue, patients & growth in real-time — make data-driven decisions.", color: "bg-royal/10 text-royal", img: featureAnalytics, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
+  { icon: Globe, title: "Your Own Website", desc: "A branded website patients can find and book from, live within 10 minutes.", color: "bg-royal/10 text-royal", img: featureWebsite, bg: "bg-gradient-to-br from-royal/5 to-teal/5" },
+  { icon: CalendarCheck, title: "Smart Appointments", desc: "Online booking with automated WhatsApp reminders.", color: "bg-success/10 text-success", img: featureAppointments, bg: "bg-gradient-to-br from-teal/5 to-success/5" },
+  { icon: CreditCard, title: "Billing & Invoices", desc: "GST invoices and UPI payments through Razorpay, in the same dashboard.", color: "bg-accent/10 text-accent", img: featureBilling, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
+  { icon: Users, title: "Patient Records", desc: "Digital patient history, prescriptions, and reports in one place.", color: "bg-ai-purple/10 text-ai-purple", img: featurePatients, bg: "bg-gradient-to-br from-ai-purple/5 to-royal/5" },
+  { icon: Brain, title: "AI Blog Writer", desc: "Draft an SEO health article from a topic, then edit and publish it on your site.", color: "bg-spark/10 text-spark", img: featureAiBlog, bg: "bg-gradient-to-br from-spark/10 to-teal/5" },
+  { icon: Video, title: "Online Consultation", desc: "Video consultations from your branded site - no app download needed.", color: "bg-teal/10 text-teal", img: featureConsultation, bg: "bg-gradient-to-br from-teal/5 to-royal/5" },
+  { icon: WhatsAppIcon, title: "WhatsApp Integration", desc: "Automatic reminders, confirmations, and follow-ups on WhatsApp.", color: "bg-success/10 text-success", img: featureWhatsapp, bg: "bg-gradient-to-br from-success/5 to-teal/5" },
+  { icon: BarChart3, title: "Analytics Dashboard", desc: "See revenue, patients, and growth from one dashboard.", color: "bg-royal/10 text-royal", img: featureAnalytics, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
 ];
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };

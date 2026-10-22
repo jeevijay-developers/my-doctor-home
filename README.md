@@ -116,10 +116,8 @@ Weight	Use Case	Size (Web)	Color
 3.2 Secondary Font — Inter
 Use Inter for data tables, form labels, code snippets, and dashboard numbers. It is optimized for readability in dense UI contexts like the admin panel.
 
-3.3 Font Import (for Web/Lovable)
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
-font-family: 'Plus Jakarta Sans', sans-serif;  /* Primary */
-font-family: 'Inter', sans-serif;  /* Dashboard/Tables */
+3.3 Fonts (web)
+Latin subsets are self-hosted in `public/fonts/` and declared with `@font-face` in `src/index.css` (`font-display: swap`). Family names stay `Plus Jakarta Sans` (headings) and `Inter` (body).
 
  
 4. UI Design System

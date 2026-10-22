@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import doctyliaLogo from "@/assets/doctylia-logo.png";
+import doctyliaLogo from "@/assets/doctylia-logo.webp";
 import { getClinicMapsUrl } from "@/lib/clinicLocation";
 
 type Props = {
@@ -36,7 +36,7 @@ const TEAL = "#0f6e7c";
 const PLUS_PATTERN =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cpath d='M20 12v16M12 20h16' stroke='%23ffffff' stroke-opacity='0.08' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E";
 
-// Separate, standalone receipt for the online payment itself — distinct from
+// Separate, standalone receipt for the online payment itself - distinct from
 // AppointmentSlip (the booking confirmation). Never shows the doctor's photo,
 // only the Doctylia logo + clinic contact block, matching AppointmentSlip.
 const PaymentSlip = ({
@@ -78,8 +78,8 @@ const PaymentSlip = ({
     { icon: Phone, label: "Phone", value: patientPhone },
     { icon: Stethoscope, label: "Service", value: service?.name || "" },
     { icon: Calendar, label: "Appointment", value: date ? `${format(date, "d MMM yyyy")}${time ? `, ${time}` : ""}` : "" },
-    { icon: Hash, label: "Payment ID", value: razorpayPaymentId || "—" },
-    { icon: Hash, label: "Order ID", value: razorpayOrderId || "—" },
+    { icon: Hash, label: "Payment ID", value: razorpayPaymentId || "-" },
+    { icon: Hash, label: "Order ID", value: razorpayOrderId || "-" },
     { icon: Clock, label: "Paid On", value: paidAt ? format(new Date(paidAt), "d MMM yyyy, h:mm a") : "" },
   ];
 
@@ -110,7 +110,7 @@ const PaymentSlip = ({
             />
 
             <div className="relative grid grid-cols-[36%_64%] h-full">
-              {/* LEFT COLUMN — logo + clinic contact only, no photo */}
+              {/* LEFT COLUMN - logo + clinic contact only, no photo */}
               <div className="flex flex-col text-white p-4 md:p-5">
                 {/* Logo card */}
                 <div className="bg-white rounded-lg px-3 py-2 flex items-center justify-center shadow-sm">
@@ -124,7 +124,7 @@ const PaymentSlip = ({
                 </p>
                 <div className="h-px w-10 bg-white/25 mx-auto mt-3" aria-hidden />
 
-                {/* Contact block — pinned to the bottom, nudged up a few px */}
+                {/* Contact block - pinned to the bottom, nudged up a few px */}
                 <div className="mt-auto space-y-3 text-[9.5px] pb-4">
                   {clinicAddr && (
                     <div className="flex items-start gap-2">
@@ -207,7 +207,7 @@ const PaymentSlip = ({
                       <r.icon className="h-4 w-4" style={{ color: TEAL_DARK }} />
                       <div className="text-[12px]" style={{ color: "#6b7280" }}>{r.label}</div>
                       <div className="text-[12px] font-bold break-words" style={{ color: TEAL_DARK }}>
-                        {r.value || "—"}
+                        {r.value || "-"}
                       </div>
                     </div>
                   ))}

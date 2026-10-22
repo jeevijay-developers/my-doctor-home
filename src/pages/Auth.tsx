@@ -10,8 +10,6 @@ import avatar1 from "@/assets/testimonial-doctor-1.png";
 import avatar2 from "@/assets/testimonial-doctor-2.png";
 import avatar3 from "@/assets/testimonial-doctor-3.png";
 
-// Phone OTP (sent via MSG91 by the send-sms-hook auth hook) is the only way
-// to log in or sign up — email/password and Google sign-in were removed.
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<"login" | "signup">(
@@ -20,10 +18,28 @@ const Auth = () => {
   const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
 
-  // Preserve a same-origin relative `next` (e.g. /.lovable/oauth/consent?authorization_id=...)
   const rawNext = searchParams.get("next");
   const safeNext =
     rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
+
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = mode === "signup" ? "Create Doctor Account | Doctylia" : "Doctor Login | Doctylia";
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        "content",
+        mode === "signup"
+          ? "Start your 7-day free trial on Doctylia. Create your clinic booking website and practice management dashboard within 10 minutes."
+          : "Sign in to your Doctylia doctor dashboard to manage appointments, patients, prescriptions, and billing."
+      );
+    }
+    return () => {
+      document.title = prevTitle;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+    };
+  }, [mode]);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -79,18 +95,17 @@ const Auth = () => {
 
   if (checkingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-secondary">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-secondary">
         <Loader2 className="h-8 w-8 animate-spin text-royal" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
-      {/* Top bar — full width, matches marketing site header */}
+    <div className="min-h-[100dvh] flex flex-col bg-white">
       <header className="w-full flex items-center justify-between px-5 sm:px-8 lg:px-10 py-4 border-b border-border/60">
         <Link to="/" className="inline-flex items-center gap-2.5">
-          <img src="/doctylia-logo.png" alt="Doctylia" className="h-8 sm:h-9" />
+          <img src="/doctylia-logo.webp" alt="Doctylia" className="h-8 sm:h-9" />
           <span className="hidden sm:block text-xs text-muted-foreground border-l border-border pl-2.5">
             The Complete Doctor Platform
           </span>
@@ -109,7 +124,6 @@ const Auth = () => {
       </header>
 
       <div className="flex-1 flex relative overflow-hidden">
-        {/* Background photo — spans the full row behind both columns, desktop only */}
         <img
           src={loginDoctor}
           alt="Doctor using Doctylia"
@@ -117,7 +131,6 @@ const Auth = () => {
         />
         <div className="hidden lg:block absolute inset-0 bg-gradient-to-r from-white/60 via-white/15 to-white/35" />
 
-        {/* Left Brand Panel — hidden on mobile */}
         <div className="hidden lg:flex lg:w-1/2 relative p-10 flex-col justify-center">
           <div className="relative z-10 space-y-6 max-w-lg">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-medium text-success">
@@ -155,7 +168,6 @@ const Auth = () => {
             <p className="font-script text-2xl text-royal/70 pt-1">Your Patients → Our Priority</p>
           </div>
 
-          {/* Floating stat cards over the background photo */}
           <div className="absolute right-0 bottom-10 top-24 w-[46%] hidden xl:block pointer-events-none">
             <motion.div
               animate={{ y: [0, -8, 0] }}
@@ -211,12 +223,10 @@ const Auth = () => {
           </div>
         </div>
 
-        {/* Right Form Panel */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-8 bg-secondary lg:bg-transparent">
-          {/* Mobile brand header */}
           <div className="lg:hidden mb-6 text-center">
             <Link to="/">
-              <img src="/doctylia-logo.png" alt="Doctylia" className="h-9 mx-auto mb-2" />
+              <img src="/doctylia-logo.webp" alt="Doctylia" className="h-9 mx-auto mb-2" />
             </Link>
           </div>
 
@@ -238,7 +248,7 @@ const Auth = () => {
                 }}
               />
               <div className="text-center mb-6 relative">
-                <img src="/doctylia-logo.png" alt="Doctylia" className="h-8 mx-auto mb-3" />
+                <img src="/doctylia-logo.webp" alt="Doctylia" className="h-8 mx-auto mb-3" />
                 <span className="inline-block rounded-full bg-royal/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-royal mb-3">
                   DOCTYLIA FOR DOCTORS
                 </span>
@@ -262,14 +272,14 @@ const Auth = () => {
                 {mode === "signup" ? (
                   <p>
                     Already have an account?{" "}
-                    <button onClick={() => setMode("login")} className="text-royal font-medium hover:underline">
+                    <button type="button" onClick={() => setMode("login")} className="text-royal font-medium hover:underline">
                       Log In
                     </button>
                   </p>
                 ) : (
                   <p>
-                    Don't have an account?{" "}
-                    <button onClick={() => setMode("signup")} className="text-royal font-medium hover:underline">
+                    Don&apos;t have an account?{" "}
+                    <button type="button" onClick={() => setMode("signup")} className="text-royal font-medium hover:underline">
                       Sign Up Free
                     </button>
                   </p>
@@ -282,7 +292,6 @@ const Auth = () => {
               </div>
             </div>
 
-            {/* Mobile trust points */}
             <div className="lg:hidden mt-6 space-y-3">
               {trustPoints.map((tp, i) => (
                 <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -296,7 +305,9 @@ const Auth = () => {
       </div>
 
       <div className="hidden lg:block text-center py-3">
-        <p className="text-muted-foreground/60 text-xs">© 2025 Doctylia by Jeevijay Technologies Pvt. Ltd.</p>
+        <p className="text-muted-foreground/60 text-xs">
+          © {new Date().getFullYear()} Doctylia by Jeevijay Technologies Pvt. Ltd.
+        </p>
       </div>
     </div>
   );

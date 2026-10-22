@@ -6,10 +6,11 @@
 // to it — so this mints the session server-side via the admin API instead,
 // which isn't behind the public CAPTCHA gate at all.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
+import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const OTP_CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type",
 };
 
 function json(status: number, body: unknown) {
@@ -19,8 +20,22 @@ function json(status: number, body: unknown) {
 const DEV_OTP_CODE = "123456";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  bindCorsRequest(req, OTP_CORS);
+  const preflight = handleCors(req, OTP_CORS);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
+
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
+  const limited = await enforceRateLimit(admin, {
+    key: `mock-otp-login:ip:${clientIp(req)}`,
+    limit: 5,
+    windowSeconds: 10 * 60,
+  });
+  if (limited) return limited;
 
   if (Deno.env.get("ENABLE_TEST_OTP") !== "true") {
     return json(403, { error: "Test OTP login is disabled." });
@@ -36,12 +51,6 @@ Deno.serve(async (req) => {
   const { phone, otp, fullName, isSignup } = body;
   if (!phone || typeof phone !== "string") return json(400, { error: "Missing phone" });
   if (otp !== DEV_OTP_CODE) return json(400, { error: "Invalid OTP" });
-
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } }
-  );
 
   // get_or_create_dev_user always derives a synthetic dev.<digits>@doctylia.com
   // address from `phone` itself — it never takes a client-supplied email — so

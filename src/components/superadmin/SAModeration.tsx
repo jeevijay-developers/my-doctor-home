@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
+import { markdownToHtml } from "@/lib/markdown";
 import { Card, CardContent } from "@/components/ui/card";
 import DoctorGroupCard from "@/components/shared/DoctorGroupCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,6 +46,18 @@ const SAModeration = () => {
 
   const postGroups = groupByDoctor(posts);
   const reviewGroups = groupByDoctor(reviews);
+
+  const sanitizedPostHtml = useMemo(() => {
+    const content = openPost?.content || "";
+    if (!content) {
+      return DOMPurify.sanitize("<p class='text-muted-foreground'>No content.</p>");
+    }
+    const source = /<\/?[a-z][\s\S]*>/i.test(content) ? content : markdownToHtml(content);
+    return DOMPurify.sanitize(source, {
+      ADD_TAGS: ["iframe"],
+      ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling", "target"],
+    });
+  }, [openPost?.content]);
 
   return (
     <Tabs defaultValue="blogs">
@@ -134,14 +148,14 @@ const SAModeration = () => {
                 <span>{new Date(openPost.published_at || openPost.created_at).toLocaleDateString()}</span>
               </div>
               {openPost.featured_image_url && (
-                <img src={openPost.featured_image_url} alt={openPost.title} className="w-full rounded-lg max-h-64 object-cover" />
+                <img src={openPost.featured_image_url} alt={openPost.title} loading="lazy" decoding="async" className="w-full rounded-lg max-h-64 object-cover" />
               )}
               {openPost.excerpt && (
                 <p className="text-sm font-medium text-muted-foreground italic">{openPost.excerpt}</p>
               )}
               <div
                 className="prose prose-sm max-w-none text-foreground"
-                dangerouslySetInnerHTML={{ __html: openPost.content || "<p class='text-muted-foreground'>No content.</p>" }}
+                dangerouslySetInnerHTML={{ __html: sanitizedPostHtml }}
               />
               <DialogFooter>
                 {openPost.is_published

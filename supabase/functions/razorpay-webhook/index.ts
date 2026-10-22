@@ -6,12 +6,13 @@
 // secret. Which secret applies is always derived from OUR own is_mock flag
 // on the referenced payments/transfers row — never from the incoming payload.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { hmacHex, MOCK_SIGNING_SECRET } from "../_shared/paymentMode.ts";
+import { hmacHex, timingSafeEqualHex, MOCK_SIGNING_SECRET } from "../_shared/paymentMode.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-razorpay-signature",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
+
+const WEBHOOK_CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type, x-razorpay-signature",
+  allowMethods: "POST, OPTIONS",
 };
 
 const RAZORPAY_WEBHOOK_SECRET = Deno.env.get("RAZORPAY_WEBHOOK_SECRET")?.trim();
@@ -25,7 +26,9 @@ function json(status: number, body: unknown) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  bindCorsRequest(req, WEBHOOK_CORS);
+  const preflight = handleCors(req, WEBHOOK_CORS);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const rawBody = await req.text();
@@ -83,7 +86,7 @@ Deno.serve(async (req) => {
   if (!secret) return json(501, { error: "Webhook secret not configured" });
 
   const expected = await hmacHex(secret, rawBody);
-  if (expected !== signature) return json(400, { error: "Invalid webhook signature" });
+  if (!timingSafeEqualHex(expected, signature)) return json(400, { error: "Invalid webhook signature" });
 
   try {
     // ── payment.captured ──────────────────────────────────────────────────────

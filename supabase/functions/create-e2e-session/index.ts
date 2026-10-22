@@ -1,12 +1,25 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
+
+const E2E_CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  bindCorsRequest(req, E2E_CORS);
+  const preflight = handleCors(req, E2E_CORS);
+  if (preflight) return preflight;
+
+  if (Deno.env.get("ENABLE_E2E_AUTH") !== "true") {
+    return new Response(
+      JSON.stringify({ error: "E2E session creation is disabled in production" }),
+      {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
 
   try {
     const { email } = await req.json();

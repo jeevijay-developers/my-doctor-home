@@ -12,7 +12,7 @@
 // themselves granted "Create Staff" (staff.create) — never by anyone else,
 // and a staff caller can only ever create staff under their OWN doctor.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders, json, sanitizePermissions } from "../_shared/staffPermissions.ts";
+import { beginStaffRequest, json, sanitizePermissions } from "../_shared/staffPermissions.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -23,7 +23,8 @@ const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { pe
 const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,32}$/;
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginStaffRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization");

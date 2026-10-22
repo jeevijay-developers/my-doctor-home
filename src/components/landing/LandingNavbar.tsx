@@ -18,7 +18,7 @@ const LandingNavbar = () => {
   }, []);
 
   // Clicking "Home" while already on "/" is a same-route Link, which React
-  // Router treats as a no-op — nothing happens, not even a scroll. Scroll to
+  // Router treats as a no-op - nothing happens, not even a scroll. Scroll to
   // top ourselves in that case (mirrors LandingFooter's "About Us" handling
   // of the same same-route issue); from any other page the normal Link
   // navigation (plus ScrollToTop in App.tsx) already lands at the top.
@@ -29,7 +29,7 @@ const LandingNavbar = () => {
     }
   };
 
-  // Tapping/clicking anywhere outside the open mobile/tablet menu closes it —
+  // Tapping/clicking anywhere outside the open mobile/tablet menu closes it -
   // except the toggle button, which already opens/closes it via its own
   // onClick (excluding it here avoids that same tap re-closing what it just
   // opened, or double-toggling on close).
@@ -57,7 +57,7 @@ const LandingNavbar = () => {
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "bg-white/60 shadow-lg backdrop-blur-2xl border-b border-border/30" : "bg-transparent"}`}>
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
         <Link to="/" className="flex items-center">
-          <img src="/doctylia-logo.png" alt="Doctylia" className="h-9" />
+          <img src="/doctylia-logo.webp" alt="Doctylia" className="h-9" />
         </Link>
 
         <div className="hidden md:flex items-center gap-7">
@@ -102,7 +102,7 @@ const LandingNavbar = () => {
 
       {/*
         Always mounted (not conditionally rendered) so both the open AND
-        close transitions can actually play — a conditionally-rendered panel
+        close transitions can actually play - a conditionally-rendered panel
         would unmount instantly on close with no time to animate. Visibility
         is driven purely by the translate-x transform; `fixed` positioning
         keeps it out of normal document flow so sliding it off-screen to the
@@ -138,10 +138,10 @@ const LandingNavbar = () => {
           );
         })}
         <div className="flex gap-2 pt-3">
-          <Link to="/auth?mode=login" className="flex-1">
+          <Link to="/auth?mode=login" className="flex-1" onClick={() => setMobileOpen(false)}>
             <Button variant="outline" className="w-full" size="sm">Login</Button>
           </Link>
-          <Link to="/auth?mode=signup" className="flex-1">
+          <Link to="/auth?mode=signup" className="flex-1" onClick={() => setMobileOpen(false)}>
             <Button className="w-full bg-royal text-white" size="sm">Start Free Trial</Button>
           </Link>
         </div>

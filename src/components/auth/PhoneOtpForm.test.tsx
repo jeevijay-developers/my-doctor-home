@@ -1,9 +1,19 @@
+import type { ReactElement } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import PhoneOtpForm from "./PhoneOtpForm";
 import { otpService } from "@/lib/auth/otp/otpService";
 import { MockOtpService } from "@/lib/auth/otp/mockOtpService";
+
+function renderForm(ui: ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
+function agreeToPolicies() {
+  fireEvent.click(screen.getByRole("checkbox", { name: /terms of service/i }));
+}
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -27,19 +37,33 @@ describe("PhoneOtpForm - phone entry step", () => {
     }
   });
 
+  it("keeps Send OTP disabled until the terms checkbox is checked", () => {
+    renderForm(<PhoneOtpForm mode="signup" onAuthenticated={onAuthenticated} />);
+    expect(screen.getByRole("button", { name: /send otp/i })).toBeDisabled();
+    agreeToPolicies();
+    expect(screen.getByRole("button", { name: /send otp/i })).toBeEnabled();
+  });
+
+  it("does not show a terms checkbox on login", () => {
+    renderForm(<PhoneOtpForm mode="login" onAuthenticated={onAuthenticated} />);
+    expect(screen.queryByRole("checkbox", { name: /terms of service/i })).not.toBeInTheDocument();
+  });
+
   it("shows a validation error and does not send OTP for an invalid phone number", async () => {
-    render(<PhoneOtpForm mode="signup" onAuthenticated={onAuthenticated} />);
+    renderForm(<PhoneOtpForm mode="signup" onAuthenticated={onAuthenticated} />);
     fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: "123" } });
+    agreeToPolicies();
     fireEvent.click(screen.getByRole("button", { name: /send otp/i }));
 
     expect(await screen.findByText(/enter a valid phone number/i)).toBeInTheDocument();
   });
 
   it("sends OTP and moves to OTP step for a valid phone number", async () => {
-    render(<PhoneOtpForm mode="signup" onAuthenticated={onAuthenticated} />);
+    renderForm(<PhoneOtpForm mode="signup" onAuthenticated={onAuthenticated} />);
 
     fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Dr. Rahul Sharma" } });
     fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: "+919876543210" } });
+    agreeToPolicies();
     fireEvent.click(screen.getByRole("button", { name: /send otp/i }));
 
     expect(await screen.findByLabelText(/6-digit code/i)).toBeInTheDocument();
@@ -62,7 +86,7 @@ describe("PhoneOtpForm - OTP entry step", () => {
   });
 
   async function getToOtpStep(phoneNum = "+919876543210") {
-    render(<PhoneOtpForm mode="login" onAuthenticated={onAuthenticated} />);
+    renderForm(<PhoneOtpForm mode="login" onAuthenticated={onAuthenticated} />);
     fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: phoneNum } });
     fireEvent.click(screen.getByRole("button", { name: /send otp/i }));
     await screen.findByLabelText(/6-digit code/i);

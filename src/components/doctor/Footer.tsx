@@ -1,11 +1,13 @@
 import { Link, useLocation, useParams } from "react-router-dom";
-import { ArrowRight, CalendarDays, ChevronRight, Facebook, HeartPulse, Instagram, Linkedin, MapPin, Phone, Youtube } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronRight, Facebook, HeartPulse, Instagram, Linkedin, Mail, MapPin, Phone, Youtube } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { scrollToSection } from "@/lib/scrollToSection";
 import type { Tables } from "@/integrations/supabase/types";
 
-type Profile = Tables<"profiles">;
+// `display_name` is an optional override that isn't a column in the generated
+// profiles type; the name falls back to `full_name` when it's absent.
+type Profile = Tables<"profiles"> & { display_name?: string | null };
 
 type FooterProps = {
   profileOverride?: Profile | null;
@@ -29,6 +31,7 @@ const Footer = ({ profileOverride }: FooterProps) => {
   const isDoctorHome = location.pathname === doctorBasePath;
   const isArticleRoute = location.pathname.includes("/blog");
   const phone = profile?.clinic_phone || profile?.phone || "";
+  const email = profile?.clinic_email || "";
   const address = [profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ");
   const clinicLine = [profile?.clinic_name, profile?.city].filter(Boolean).join(", ");
 
@@ -94,7 +97,7 @@ const Footer = ({ profileOverride }: FooterProps) => {
               <Link to={doctorBasePath} className="inline-flex items-center gap-3">
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-lg">
                   {profile?.profile_photo_url ? (
-                    <img src={profile.profile_photo_url} alt={doctorName} className="h-full w-full object-cover" loading="lazy" />
+                    <img src={profile.profile_photo_url} alt={doctorName} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <HeartPulse className="h-7 w-7 text-[#3C83FC]" />
                   )}
@@ -159,13 +162,19 @@ const Footer = ({ profileOverride }: FooterProps) => {
                     <span className="pt-2 break-all">{phone}</span>
                   </a>
                 )}
+                {email && (
+                  <a href={`mailto:${email}`} className="group flex flex-1 min-w-[150px] items-start gap-3 transition hover:text-white lg:min-w-0 lg:flex-none">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3C83FC]/15 text-[#79aaff] transition group-hover:bg-[#3C83FC] group-hover:text-white"><Mail className="h-4 w-4" /></span>
+                    <span className="pt-2 break-all">{email}</span>
+                  </a>
+                )}
                 {address && (
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`} target="_blank" rel="noreferrer" className="group flex flex-1 min-w-[150px] items-start gap-3 transition hover:text-white lg:min-w-0 lg:flex-none">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3C83FC]/15 text-[#79aaff] transition group-hover:bg-[#3C83FC] group-hover:text-white"><MapPin className="h-4 w-4" /></span>
                     <span className="pt-1 leading-6">{address}</span>
                   </a>
                 )}
-                {!phone && !address && <p className="leading-6 text-slate-400">Visit the doctor profile for current clinic information.</p>}
+                {!phone && !email && !address && <p className="leading-6 text-slate-400">Visit the doctor profile for current clinic information.</p>}
               </div>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import LandingFooter from "@/components/landing/LandingFooter";
 
-// LEGAL DRAFT — NOT YET REVIEWED BY COUNSEL. Do not treat this as final or
+// LEGAL DRAFT - NOT YET REVIEWED BY COUNSEL. Do not treat this as final or
 // publish it as binding without sign-off from a qualified lawyer, given that
 // the platform handles patient-adjacent health data, processes payments via
 // Razorpay/RazorpayX, and operates in India (DPDP Act 2023 + potential
@@ -90,8 +90,8 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
       <>
         <p>Doctylia currently offers the following Practitioner subscription tiers:</p>
         <ul>
-          <li><strong>Pro</strong> — ₹1,499/month.</li>
-          <li><strong>Premium</strong> — ₹3,999/month.</li>
+          <li><strong>Pro</strong> - ₹1,499/month.</li>
+          <li><strong>Premium</strong> - ₹3,999/month.</li>
         </ul>
         <p>
           New Practitioners receive a 7-day free trial with no credit card required. At the end of the
@@ -106,7 +106,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
         </p>
         <p>
           <em>
-            [Placeholder — refund policy for subscription fees (e.g. pro-rata refunds, no-refund policy on
+            [Placeholder - refund policy for subscription fees (e.g. pro-rata refunds, no-refund policy on
             partial months) is not yet finalized in the product and must be confirmed before publishing.]
           </em>
         </p>
@@ -151,7 +151,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
           <li>Create fraudulent, impersonating, or misleading practitioner or clinic listings.</li>
           <li>
             Use patient data collected through the Service for any purpose other than providing care and
-            operating the practice — including selling, renting, or disclosing patient data to third parties
+            operating the practice - including selling, renting, or disclosing patient data to third parties
             without a lawful basis or patient consent.
           </li>
           <li>
@@ -192,8 +192,8 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
     body: (
       <>
         <p>
-          Doctylia processes personal data — including patient names, contact details, appointment history,
-          prescriptions, and medical records — as described in our{" "}
+          Doctylia processes personal data - including patient names, contact details, appointment history,
+          prescriptions, and medical records - as described in our{" "}
           <Link to="/privacy">Privacy Policy</Link>, which covers what data is collected and how it is
           handled in full detail and should be read together with these Terms.
         </p>
@@ -207,8 +207,8 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
       <>
         <p>
           Doctylia retains all rights, title, and interest in the Doctylia platform, software, and branding.
-          A Practitioner retains ownership of the content they upload to their branded website — including
-          their clinic description, service listings, gallery photos, and blog posts — and grants Doctylia a
+          A Practitioner retains ownership of the content they upload to their branded website - including
+          their clinic description, service listings, gallery photos, and blog posts - and grants Doctylia a
           license to host, display, and (where the AI blog writer is used) generate that content solely to
           operate the Service on the Practitioner's behalf.
         </p>
@@ -241,7 +241,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
           third-party providers (Razorpay/RazorpayX), or loss of data.
         </p>
         <p>
-          <em>[Placeholder — a specific liability cap (e.g. fees paid in the preceding 12 months) should be set with counsel.]</em>
+          <em>[Placeholder - a specific liability cap (e.g. fees paid in the preceding 12 months) should be set with counsel.]</em>
         </p>
       </>
     ),
@@ -253,7 +253,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
       <p>
         These Terms are governed by the laws of India. Subject to confirmation by counsel, disputes are
         intended to be subject to the exclusive jurisdiction of the courts at{" "}
-        <em>[Jurisdiction — inferred from Doctylia's registered address in Kota, Rajasthan; not yet confirmed by counsel]</em>.
+        <em>[Jurisdiction - inferred from Doctylia's registered address in Kota, Rajasthan; not yet confirmed by counsel]</em>.
       </p>
     ),
   },
@@ -286,11 +286,22 @@ const TermsOfService = () => {
     window.scrollTo(0, 0);
     const prev = document.title;
     document.title = "Terms of Service | Doctylia";
-    return () => { document.title = prev; };
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        "content",
+        "Read Doctylia's Terms of Service governing doctor subscriptions, patient appointment bookings, online payments, and platform usage."
+      );
+    }
+    return () => {
+      document.title = prev;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+    };
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <LandingNavbar />
 
       <div className="pt-28 md:pt-32">

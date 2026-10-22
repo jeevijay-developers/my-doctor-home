@@ -4,7 +4,7 @@ import MobileCardCarousel from "./MobileCardCarousel";
 type TrustPoint = { icon: LucideIcon; title: string; desc: string };
 
 const points: TrustPoint[] = [
-  { icon: ShieldCheck, title: "Professional Presence", desc: "A structured, consistent website format built for healthcare — not a generic template." },
+  { icon: ShieldCheck, title: "Professional Presence", desc: "A structured, consistent website format built for healthcare - not a generic template." },
   { icon: KeyRound, title: "Role-Based Access", desc: "Staff accounts only see the parts of the practice they're given access to." },
   { icon: ClipboardCheck, title: "Organized Records", desc: "Patient history, prescriptions, and appointments are kept in one structured system." },
   { icon: MonitorSmartphone, title: "Reliable Experience", desc: "The same platform doctors and patients use every day for real appointments." },

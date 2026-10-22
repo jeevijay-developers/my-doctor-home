@@ -3,7 +3,7 @@
 // Payment" and "Simulate Signature Mismatch" both call the
 // mock-simulate-payment edge function to get a (valid or deliberately
 // invalid) payment id + signature, then hand it to the SAME onResult
-// callback the real Razorpay handler uses — so verify-razorpay-payment,
+// callback the real Razorpay handler uses - so verify-razorpay-payment,
 // appointment creation, commission split, etc. all run through the exact
 // same code path either way. "Simulate Failed Payment" / "Payment Timeout"
 // never touch the backend, exactly like a real failed/abandoned Checkout.
@@ -88,7 +88,7 @@ const MockCheckoutModal = ({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          No real Razorpay account is connected yet. Pick an outcome below to test the booking flow — nothing here moves real money.
+          No real Razorpay account is connected yet. Pick an outcome below to test the booking flow - nothing here moves real money.
         </p>
 
         <div className="grid grid-cols-1 gap-2">

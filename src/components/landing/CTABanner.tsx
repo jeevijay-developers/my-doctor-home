@@ -47,7 +47,7 @@ const CTABanner = () => (
           Ready to Grow Your Practice?
         </h2>
         <p className="text-white/75 mt-3 md:mt-4 max-w-lg mx-auto text-sm md:text-lg">
-          Start your free 7-day trial today. No credit card. No setup fees. Go live in minutes.
+          Start your free 7-day trial today. No credit card. No setup fees. Go live within 10 minutes.
         </p>
 
         {/* Guarantee badges */}

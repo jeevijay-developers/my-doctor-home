@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,11 +32,26 @@ const Onboarding = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [savedSlug, setSavedSlug] = useState<string>("");
   const [form, setForm] = useState({
     full_name: "", specialization: "", specialization_other: "", qualifications: "", experience_years: "",
     clinic_name: "", state: "", city: "", address: "", phone: "", bio: "", consultation_fee: "",
   });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = "Complete Your Clinic Setup | Doctylia";
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    if (metaDesc) {
+      metaDesc.setAttribute("content", "Set up your Doctylia clinic profile, specialization, and location to launch your doctor booking website.");
+    }
+    return () => {
+      document.title = prevTitle;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+    };
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -107,6 +122,8 @@ const Onboarding = () => {
         phone: form.phone, slug, onboarding_completed: true,
       }).eq("id", user.id);
       if (error) throw error;
+      setSavedSlug(slug);
+      toast.success("Your clinic website is now live!");
       setStep(4);
     } catch (err: any) {
       toast.error(err.message || "Failed to save profile");
@@ -116,14 +133,16 @@ const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-secondary">
+    <div className="min-h-screen flex bg-secondary overflow-x-hidden">
       {/* Desktop Sidebar Stepper */}
       <div className="hidden lg:flex w-[300px] gradient-navy-teal p-8 flex-col relative overflow-hidden">
         <div className="absolute top-20 -right-10 w-40 h-40 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute bottom-10 left-5 w-32 h-32 rounded-full bg-spark/10 blur-2xl" />
 
         <div className="relative z-10 mb-12">
-          <img src="/doctylia-logo.png" alt="Doctylia" className="h-8 brightness-0 invert mb-1" />
+          <Link to="/" className="inline-block">
+            <img src="/doctylia-logo.webp" alt="Doctylia" className="h-8 brightness-0 invert mb-1" />
+          </Link>
           <p className="text-white/40 text-xs">Setup your practice</p>
         </div>
 
@@ -395,7 +414,7 @@ const Onboarding = () => {
                       <Button className="w-full h-11 bg-royal hover:bg-royal/90 text-white font-semibold" onClick={() => navigate("/admin/dashboard")}>
                         Go to Dashboard
                       </Button>
-                      <Button variant="outline" className="w-full h-11" onClick={() => navigate(`/dr/${generateSlug(form.full_name)}`)}>
+                      <Button variant="outline" className="w-full h-11" onClick={() => navigate(`/dr/${savedSlug || generateSlug(form.full_name)}`)}>
                         <Globe className="h-4 w-4 mr-2" /> View My Website
                       </Button>
                     </div>

@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
-import heroDoctor from "@/assets/hero-doctor.png";
+import heroAvif from "@/assets/hero-doctor.avif";
+import heroDoctor from "@/assets/hero-doctor.webp";
 
 const rotatingWords = ["Website Builder", "Appointment System", "Billing Tool", "AI Blog Writer", "Patient Manager"];
 
@@ -30,7 +31,7 @@ const LandingHero = () => {
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         className="absolute bottom-10 left-10 w-36 md:w-56 h-36 md:h-56 bg-accent rounded-full blur-3xl"
       />
-      {/* Floating particles — hidden on mobile */}
+      {/* Floating particles - hidden on mobile */}
       <motion.div animate={{ y: [0, -20, 0], x: [0, 10, 0] }} transition={{ duration: 7, repeat: Infinity }} className="absolute top-1/3 left-[15%] w-3 h-3 rounded-full bg-royal/20 hidden md:block" />
       <motion.div animate={{ y: [0, 15, 0], x: [0, -8, 0] }} transition={{ duration: 5, repeat: Infinity, delay: 1 }} className="absolute top-1/4 right-[25%] w-2 h-2 rounded-full bg-teal/30 hidden md:block" />
 
@@ -58,13 +59,13 @@ const LandingHero = () => {
                 transition={{ delay: 0.4 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success/10 text-success text-xs font-semibold"
               >
-                🔥 2,847 doctors joined
+                🔥 2,500+ doctors joined
               </motion.span>
             </div>
 
             <h1 className="font-heading font-extrabold text-[2.1rem] leading-[1.02] text-primary sm:text-5xl md:text-5xl lg:text-[56px]">
               <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                Grow Your Practice 3x
+                Grow Your Practice
               </motion.span>
               <br />
               <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-gradient">
@@ -88,7 +89,7 @@ const LandingHero = () => {
             </h1>
 
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="text-sm md:text-lg text-muted-foreground max-w-lg leading-relaxed">
-              Join <strong className="text-foreground">10,000+ doctors</strong> who automated their practice. Branded website, booking, billing & patient management — all in one. <strong className="text-foreground">7-day free trial</strong>.
+              Join <strong className="text-foreground">2,500+ doctors</strong> who automated their practice. Branded website, booking, billing & patient management - all in one. <strong className="text-foreground">7-day free trial</strong>.
             </motion.p>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }} className="flex flex-row gap-2 sm:gap-3">
@@ -105,7 +106,7 @@ const LandingHero = () => {
             </motion.div>
 
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }} className="flex flex-col sm:flex-row sm:flex-wrap gap-y-1 sm:gap-x-4 sm:gap-y-1.5 text-xs text-muted-foreground pt-1">
-              {["No credit card required", "Set up in 5 minutes", "Cancel anytime"].map((t, i) => (
+              {["No credit card required", "Set up in 10 minutes", "Cancel anytime"].map((t) => (
                 <span key={t} className="flex items-center gap-1 sm:gap-1.5">
                   <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" /> {t}
                 </span>
@@ -113,7 +114,7 @@ const LandingHero = () => {
             </motion.div>
           </motion.div>
 
-          {/* Right — Doctor Image + Floating cards */}
+          {/* Right - Doctor Image + Floating cards */}
           <motion.div
             initial={{ opacity: 0, x: 40, scale: 0.95 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
@@ -122,11 +123,15 @@ const LandingHero = () => {
           >
             <div className="relative flex w-full max-w-[360px] items-end justify-center md:max-w-none">
               <div className="w-full rounded-[28px] border border-[#dfeaf5] bg-[#dfeaf3] p-2 shadow-[0_10px_20px_rgba(74,97,120,0.08)] md:border-0 md:bg-transparent md:p-0 md:shadow-none">
-                <img
-                  src={heroDoctor}
-                  alt="Doctor using Doctylia"
-                  className="mx-auto h-[300px] w-full rounded-[24px] object-cover object-center md:h-auto md:w-[280px] md:drop-shadow-2xl lg:w-[420px]"
-                />
+                <picture>
+                  <source srcSet={heroAvif} type="image/avif" />
+                  <source srcSet={heroDoctor} type="image/webp" />
+                  <img
+                    src={heroDoctor}
+                    alt="Doctor using Doctylia on a tablet in clinic"
+                    className="mx-auto h-[300px] w-full rounded-[24px] object-cover object-center md:h-auto md:w-[280px] md:drop-shadow-2xl lg:w-[420px]"
+                  />
+                </picture>
               </div>
 
               <motion.div

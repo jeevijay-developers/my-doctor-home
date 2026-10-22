@@ -16,6 +16,7 @@ import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { FEATURE_KEYS } from "@/lib/features";
 import { markdownToHtml } from "@/lib/markdown";
 import LockedFeatureCard from "./LockedFeatureCard";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 type BlogPost = {
   id: string;
@@ -44,6 +45,7 @@ const BlogPage = () => {
   const isPremium = hasFeature(FEATURE_KEYS.AI_BLOG_WRITER);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [editing, setEditing] = useState<BlogPost | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -252,8 +254,8 @@ const BlogPage = () => {
   };
 
   const filtered = posts.filter((p) =>
-    p.title.toLowerCase().includes(search.toLowerCase()) ||
-    (p.category || "").toLowerCase().includes(search.toLowerCase())
+    p.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    (p.category || "").toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   const publishedCount = posts.filter((p) => p.is_published).length;
@@ -297,7 +299,7 @@ const BlogPage = () => {
         ) : filtered.map((post) => (
           <div key={post.id} className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow">
             {post.featured_image_url ? (
-              <img src={post.featured_image_url} alt={post.title} className="w-full h-32 object-cover" loading="lazy" />
+              <img src={post.featured_image_url} alt={post.title} className="w-full h-32 object-cover" loading="lazy" decoding="async" />
             ) : (
               <div className="w-full h-32 bg-secondary flex items-center justify-center">
                 <ImageIcon className="h-6 w-6 text-muted-foreground/40" />

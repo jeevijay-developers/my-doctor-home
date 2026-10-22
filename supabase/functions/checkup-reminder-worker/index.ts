@@ -21,7 +21,7 @@
 // moved into the future, so a second attempt can never match the WHERE
 // clause again.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { sendWhatsApp, sendSms, corsHeaders, json } from "../_shared/notificationProviders.ts";
+import { sendWhatsApp, sendSms, beginNotificationRequest, json } from "../_shared/notificationProviders.ts";
 import { WHATSAPP_CHECKUP_TEMPLATE, SMS_CHECKUP_TEMPLATE, IN_APP_CHECKUP_TEMPLATE, renderTemplate } from "../_shared/notificationTemplates.ts";
 import { addFrequency, subtractDays, type Frequency } from "../_shared/checkupSchedule.ts";
 
@@ -41,7 +41,8 @@ type ReminderRow = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginNotificationRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization") || "";

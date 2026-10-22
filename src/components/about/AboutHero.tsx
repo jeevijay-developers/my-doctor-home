@@ -2,7 +2,8 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, HeartPulse, CheckCircle } from "lucide-react";
-import heroDoctor from "@/assets/hero-doctor.png";
+import heroAvif from "@/assets/hero-doctor.avif";
+import heroDoctor from "@/assets/hero-doctor.webp";
 
 const AboutHero = () => (
   <section className="pt-24 pb-10 md:pt-32 md:pb-16 bg-gradient-to-br from-white via-secondary to-cloud-blue overflow-hidden relative">
@@ -28,7 +29,7 @@ const AboutHero = () => (
           </h1>
           <p className="text-sm md:text-lg text-muted-foreground max-w-lg leading-relaxed">
             Doctylia gives every doctor a professional online presence and gives every patient a simpler
-            way to find, book, and consult them — all in one place.
+            way to find, book, and consult them - all in one place.
           </p>
           <div className="flex flex-row gap-2 sm:gap-3 pt-1">
             <Link to="/auth?mode=signup" className="flex-1 min-w-0">
@@ -50,13 +51,17 @@ const AboutHero = () => (
           transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
           className="relative flex justify-center"
         >
-          <img
-            src={heroDoctor}
-            alt="Doctor using Doctylia"
-            className="h-[260px] sm:h-[320px] md:h-[380px] w-auto rounded-[24px] object-cover object-center drop-shadow-2xl"
-          />
+          <picture>
+            <source srcSet={heroAvif} type="image/avif" />
+            <source srcSet={heroDoctor} type="image/webp" />
+            <img
+              src={heroDoctor}
+              alt="Doctor using Doctylia on a tablet in clinic"
+              className="h-[260px] sm:h-[320px] md:h-[380px] w-auto rounded-[24px] object-cover object-center drop-shadow-2xl"
+            />
+          </picture>
 
-          {/* Floating stat cards — same style/copy as the homepage hero */}
+          {/* Floating stat cards - same style/copy as the homepage hero */}
           <motion.div
             animate={{ y: [0, -10, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}

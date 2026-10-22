@@ -16,6 +16,7 @@ import { Link } from "react-router-dom";
 import { ExternalLink, KeyRound, MessageSquarePlus, Radio, Trash2, X } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 type MessageTarget = { type: "single"; id: string; name: string } | { type: "broadcast" };
 
@@ -53,6 +54,7 @@ function PlanStatusBadge({ row }: { row: any }) {
 const SADoctors = () => {
   const [rows, setRows] = useState<any[]>([]);
   const [q, setQ] = useState("");
+  const debouncedQ = useDebouncedValue(q, 300);
   const [statusFilter, setStatusFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
 
@@ -156,7 +158,7 @@ const SADoctors = () => {
   };
 
   const filtered = rows.filter((r) => {
-    const t = q.toLowerCase();
+    const t = debouncedQ.toLowerCase();
     if (t && !`${r.full_name} ${r.clinic_name} ${r.city}`.toLowerCase().includes(t)) return false;
     if (statusFilter !== "all" && r.plan_status !== statusFilter) return false;
     if (tierFilter !== "all" && (r.plan_tier || "free") !== tierFilter) return false;

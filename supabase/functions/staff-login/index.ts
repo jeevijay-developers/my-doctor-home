@@ -9,18 +9,16 @@
 // session tokens for the frontend to adopt via supabase.auth.setSession(),
 // exactly the same session mechanism a doctor's own login already produces.
 //
-// IMPORTANT: this project has CAPTCHA (Cloudflare Turnstile) enforcement
-// enabled at the GoTrue/Auth level for signInWithPassword (see Auth.tsx's
-// doctor login, which passes options.captchaToken) — confirmed via a direct
-// call to /auth/v1/token?grant_type=password, which returns
-// error_code "captcha_failed" without one. There's no browser in this flow
-// to solve a Turnstile challenge, so we MUST call signInWithPassword through
-// the service-role (`admin`) client, not a fresh anon client — GoTrue
-// exempts the service_role JWT from the captcha check (confirmed
-// empirically). Do not swap this back to an anon client without re-adding a
-// real captcha token, or every staff login will fail with a generic
-// "Invalid username or password" while the real cause (captcha_failed) is
-// silently swallowed below.
+// Cloudflare Turnstile: the staff login form sends `captchaToken` (exact
+// field name) on the JSON body. This function verifies it with siteverify
+// before the password check. The token is single-use, so it is NOT forwarded
+// to GoTrue. signInWithPassword still goes through the service-role client,
+// which GoTrue exempts from its own captcha gate — an anon client would
+// reject the call with captcha_failed because the token was already spent
+// (or never presented to GoTrue). Do not swap this back to an anon client.
+//
+// Brute-force limits: 5 attempts / 15 min per IP, and 10 attempts / 15 min
+// per username.
 //
 // Deliberately returns the SAME generic error to the CLIENT for "no such
 // username", "wrong password" and "account disabled" — never reveal which
@@ -28,7 +26,9 @@
 // logged server-side (console.error) so it's visible in Edge Function logs
 // without weakening the client-facing response.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders, json } from "../_shared/staffPermissions.ts";
+import { beginStaffRequest, json } from "../_shared/staffPermissions.ts";
+import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";
+import { turnstileError } from "../_shared/turnstile.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -37,10 +37,19 @@ const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { pe
 const INVALID = "Invalid username or password";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginStaffRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
-  let body: any;
+  const ip = clientIp(req);
+  const limitedIp = await enforceRateLimit(admin, {
+    key: `staff-login:ip:${ip}`,
+    limit: 5,
+    windowSeconds: 15 * 60,
+  });
+  if (limitedIp) return limitedIp;
+
+  let body: { username?: unknown; password?: unknown; captchaToken?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -48,6 +57,20 @@ Deno.serve(async (req) => {
   }
   const username = String(body?.username || "").trim();
   const password = String(body?.password || "");
+
+  if (username) {
+    const limitedUser = await enforceRateLimit(admin, {
+      key: `staff-login:username:${username.toLowerCase()}`,
+      limit: 10,
+      windowSeconds: 15 * 60,
+    });
+    if (limitedUser) return limitedUser;
+  }
+
+  // `captchaToken` — Cloudflare Turnstile token. Exact field name.
+  const captcha = await turnstileError(body?.captchaToken, ip);
+  if (captcha) return json(400, captcha);
+
   if (!username || !password) return json(400, { error: INVALID });
 
   // Query for the staff member by username case-insensitively. Previously

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
@@ -70,6 +71,7 @@ const STATUS_ACTIONS: Record<string, { label: string; tone: string; requiresCanc
 };
 
 const AppointmentsPage = () => {
+  const navigate = useNavigate();
   const { profile, isStaff, can } = useProfile();
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
   const { accessLevel: trialAccessLevel } = useTrialStatus();
@@ -720,7 +722,13 @@ const AppointmentsPage = () => {
                     <div className="min-w-0">
                       <SheetTitle className="text-primary text-lg truncate">{viewing.patient_name}</SheetTitle>
                       <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
-                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {viewing.patient_phone}</span>
+                        {viewing.patient_phone ? (
+                          <a href={`tel:${viewing.patient_phone}`} className="flex items-center gap-1 hover:text-royal transition-colors">
+                            <Phone className="h-3 w-3" /> {viewing.patient_phone}
+                          </a>
+                        ) : (
+                          <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> —</span>
+                        )}
                         {viewing.token_number && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold">#{viewing.token_number}</span>}
                       </p>
                     </div>

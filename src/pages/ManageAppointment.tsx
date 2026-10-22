@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,25 @@ const ManageAppointment = () => {
   const [newDate, setNewDate] = useState<Date | null>(null);
   const [newTime, setNewTime] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = doctor?.full_name
+      ? `Manage Appointment · Dr. ${doctor.full_name} | Doctylia`
+      : "Manage Your Appointment | Doctylia";
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        "content",
+        "Look up, reschedule, or cancel your booked clinic or online consultation appointment using your token number and registered mobile number."
+      );
+    }
+    return () => {
+      document.title = prevTitle;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+    };
+  }, [doctor?.full_name]);
 
   useEffect(() => {
     if (!slug) return;
@@ -168,12 +187,12 @@ const ManageAppointment = () => {
   };
 
   return (
-    <div className="min-h-screen bg-cloud-blue py-10 px-4">
+    <div className="min-h-screen bg-cloud-blue py-10 px-4 overflow-x-hidden">
       <div className="container mx-auto max-w-lg">
         {slug && (
-          <a href={`/dr/${slug}`} className="inline-flex items-center gap-1 text-sm text-royal mb-4 hover:underline">
+          <Link to={`/dr/${slug}`} className="inline-flex items-center gap-1 text-sm text-royal mb-4 hover:underline">
             <ChevronLeft className="h-4 w-4" /> Back to Dr. {doctor?.full_name || "Doctor"}
-          </a>
+          </Link>
         )}
 
         <Card className="border-border/60 shadow-xl">
@@ -239,9 +258,9 @@ const ManageAppointment = () => {
                       <p className="text-[11px] text-success font-medium">Reminder enabled</p>
                     )}
                     {slug && (
-                      <a href={`/dr/${slug}#booking`}>
+                      <Link to={`/dr/${slug}#booking`}>
                         <Button size="sm" className="h-8 text-xs bg-royal hover:bg-royal/90">Book Appointment</Button>
-                      </a>
+                      </Link>
                     )}
                   </div>
                 )}
@@ -271,7 +290,7 @@ const ManageAppointment = () => {
 
                 {tooClose && (appt.status === "pending" || appt.status === "confirmed") && (
                   <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 text-xs text-warning-foreground/80">
-                    This appointment is too close to be changed online — please call the clinic.
+                    This appointment is too close to be changed online - please call the clinic.
                   </div>
                 )}
 
@@ -381,10 +400,10 @@ const errorMessage = (code?: string) => {
     case "NOT_FOUND": return "Appointment not found.";
     case "NOT_CANCELLABLE": return "This appointment can no longer be cancelled.";
     case "NOT_RESCHEDULABLE": return "This appointment can no longer be rescheduled.";
-    case "TOO_CLOSE": return "Too close to the appointment time — please call the clinic.";
+    case "TOO_CLOSE": return "Too close to the appointment time - please call the clinic.";
     case "MAX_RESCHEDULES": return "You've reached the maximum number of reschedules.";
     case "SLOT_FULL": return "That slot was just taken. Please pick another.";
-    case "SLOT_IN_PAST": return "That time is in the past — please pick a future slot.";
+    case "SLOT_IN_PAST": return "That time is in the past - please pick a future slot.";
     default: return "Something went wrong. Please try again.";
   }
 };

@@ -1,14 +1,14 @@
 import { ReactNode } from "react";
 
 /**
- * Wraps a full-bleed patient-page section in a bounded, premium "card" —
- * rounded corners, border, shadow, and consistent max-width/spacing — without
+ * Wraps a full-bleed patient-page section in a bounded, premium "card" -
+ * rounded corners, border, shadow, and consistent max-width/spacing - without
  * touching the section's own internal markup, content, or logic. The
  * section's existing background, padding, and decorative overlays are left
  * completely intact; this just frames them.
  */
 const SectionCard = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
-  // Left/right inset is zero at every breakpoint — cards run edge-to-edge,
+  // Left/right inset is zero at every breakpoint - cards run edge-to-edge,
   // flush with the viewport, on both mobile and desktop. Each section's own
   // inner content still centers itself within its usual max-width, so this
   // only widens the card's background/border/shadow, not the readable

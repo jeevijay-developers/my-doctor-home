@@ -8,13 +8,13 @@ const cards: IntroCard[] = [
     icon: Globe,
     color: "bg-royal/10 text-royal",
     title: "For Doctors",
-    desc: "A doctor can go live with a professional website, start accepting online bookings, and manage patients, prescriptions, and billing — without hiring a developer or IT team.",
+    desc: "A doctor can go live with a professional website, start accepting online bookings, and manage patients, prescriptions, and billing - without hiring a developer or IT team.",
   },
   {
     icon: Users2,
     color: "bg-teal/10 text-teal",
     title: "For Patients",
-    desc: "A patient gets a clear view of the doctor's services and availability, and can book an appointment — in-clinic or online — in a few taps, instead of a phone call.",
+    desc: "A patient gets a clear view of the doctor's services and availability, and can book an appointment - in-clinic or online - in a few taps, instead of a phone call.",
   },
   {
     icon: Target,
@@ -26,7 +26,7 @@ const cards: IntroCard[] = [
     icon: Telescope,
     color: "bg-teal/10 text-teal",
     title: "Our Vision",
-    desc: "A future where every doctor and clinic — solo practice or growing team — has the same digital tools as a large hospital chain, and every patient can find, book, and consult a doctor as easily as ordering anything else online.",
+    desc: "A future where every doctor and clinic - solo practice or growing team - has the same digital tools as a large hospital chain, and every patient can find, book, and consult a doctor as easily as ordering anything else online.",
   },
 ];
 

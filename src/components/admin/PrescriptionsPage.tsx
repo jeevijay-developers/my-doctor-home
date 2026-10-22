@@ -784,6 +784,7 @@ const PrescriptionsPage = () => {
               );
             })}
           </div>
+          <PaginationBar page={page} totalCount={totalCount} onPageChange={setPage} />
         </>
       )}
 

@@ -2,12 +2,24 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { UserPlus, Settings, Rocket } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import goLiveImg from "@/assets/step-go-live-24-7.jpg";
+import goLiveImg from "@/assets/step-go-live-24-7.webp";
 
-const steps = [
+type Step = {
+  icon: typeof UserPlus;
+  num: string;
+  title: string;
+  desc: string;
+  color: string;
+  img: string;
+  imgAlt: string;
+  // Optional Tailwind object-fit class (defaults to object-cover when unset).
+  imgFit?: string;
+};
+
+const steps: Step[] = [
   {
     icon: UserPlus, num: "01", title: "Sign Up Free",
-    desc: "Create your account in 30 seconds. No credit card. 7-day free trial starts instantly.",
+    desc: "Create your account. No credit card required. The 7-day free trial starts immediately.",
     color: "from-royal to-teal",
     img: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400&h=260&fit=crop&q=80",
     imgAlt: "Doctor signing up on laptop"

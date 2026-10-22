@@ -41,6 +41,8 @@ const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) =>
                   <img
                     src={photoSrc}
                     alt={`Dr. ${doctorName}`}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover object-top"
                   />
                 ) : (

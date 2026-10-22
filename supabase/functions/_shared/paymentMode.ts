@@ -11,6 +11,8 @@
 // unset               -> auto: mock if this function's real key(s) aren't
 //                        configured, live if they are. This is what makes
 //                        "no keys yet" work with zero configuration today.
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "./cors.ts";
+
 export type PaymentMode = "mock" | "live";
 
 export function resolvePaymentMode(hasLiveCredentials: boolean): PaymentMode {
@@ -34,16 +36,35 @@ export async function hmacHex(secret: string, message: string): Promise<string> 
   return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// Constant-time string comparison for HMAC hex digests to prevent timing attacks.
+export function timingSafeEqualHex(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aBytes = enc.encode(a.trim().toLowerCase());
+  const bBytes = enc.encode(b.trim().toLowerCase());
+  if (aBytes.length === 0 || aBytes.length !== bBytes.length) return false;
+  let diff = 0;
+  for (let i = 0; i < aBytes.length; i++) {
+    diff |= aBytes[i] ^ bBytes[i];
+  }
+  return diff === 0;
+}
+
 export function mockId(prefix: string): string {
   const rand = crypto.randomUUID().replace(/-/g, "").slice(0, 14);
   return `${prefix}_mock_${rand}`;
 }
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+export { corsHeaders };
+
+const PAYMENT_CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type",
+  allowMethods: "POST, OPTIONS",
 };
+
+export function beginPaymentRequest(req: Request): Response | null {
+  bindCorsRequest(req, PAYMENT_CORS);
+  return handleCors(req, PAYMENT_CORS);
+}
 
 export function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });

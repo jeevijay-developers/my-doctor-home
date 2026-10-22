@@ -8,7 +8,7 @@
 // Mock mode: flips payment + transfer + ledger + invoice + appointment to
 // refunded state for UI testing.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders, json } from "../_shared/paymentMode.ts";
+import { beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
@@ -19,7 +19,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginPaymentRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization");
@@ -62,6 +63,17 @@ Deno.serve(async (req) => {
       await admin.from("appointments").update({ status: "cancelled", payment_status: "refunded" }).eq("id", payment.appointment_id);
       await admin.from("invoices").update({ status: "refunded", refunded_at: nowIso }).eq("appointment_id", payment.appointment_id);
     }
+    await admin.from("admin_audit_log").insert({
+      admin_user_id: uid,
+      action: "refund_payment",
+      target_table: "payments",
+      target_id: payment.id,
+      details: {
+        amount: payment.amount,
+        appointment_id: payment.appointment_id,
+        is_mock: true,
+      },
+    });
     return json(200, { ok: true, payment_id: payment.id, status: "refunded", is_mock: true });
   }
 
@@ -111,6 +123,19 @@ Deno.serve(async (req) => {
       await admin.from("appointments").update({ status: "cancelled", payment_status: "refunded" }).eq("id", payment.appointment_id);
       await admin.from("invoices").update({ status: "refunded", refunded_at: nowIso }).eq("appointment_id", payment.appointment_id);
     }
+
+    await admin.from("admin_audit_log").insert({
+      admin_user_id: uid,
+      action: "refund_payment",
+      target_table: "payments",
+      target_id: payment.id,
+      details: {
+        razorpay_refund_id: rzRefund.id,
+        amount_refunded: rzRefund.amount / 100,
+        appointment_id: payment.appointment_id,
+        is_mock: false,
+      },
+    });
 
     return json(200, {
       ok: true,

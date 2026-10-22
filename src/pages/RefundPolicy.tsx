@@ -105,11 +105,22 @@ const RefundPolicy = () => {
     window.scrollTo(0, 0);
     const prev = document.title;
     document.title = "Refund Policy | Doctylia";
-    return () => { document.title = prev; };
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        "content",
+        "Read Doctylia's Refund & Cancellation Policy for doctor SaaS subscriptions and patient appointment bookings."
+      );
+    }
+    return () => {
+      document.title = prev;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+    };
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <LandingNavbar />
 
       <div className="pt-28 md:pt-32">

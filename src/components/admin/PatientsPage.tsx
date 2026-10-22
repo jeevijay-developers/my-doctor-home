@@ -497,7 +497,13 @@ const PatientsPage = () => {
                   </div>
                   <div>
                     <SheetTitle className="text-primary text-lg">{selected.name}</SheetTitle>
-                    <p className="text-sm text-muted-foreground">{selected.phone}</p>
+                    {selected.phone ? (
+                      <a href={`tel:${selected.phone}`} className="text-sm text-muted-foreground hover:text-royal transition-colors">
+                        {selected.phone}
+                      </a>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">—</p>
+                    )}
                   </div>
                 </div>
               </SheetHeader>
@@ -513,7 +519,15 @@ const PatientsPage = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: "Email", value: selected.email || "—", icon: Mail },
+                    {
+                      label: "Email",
+                      value: selected.email ? (
+                        <a href={`mailto:${selected.email}`} className="hover:text-royal transition-colors break-all">
+                          {selected.email}
+                        </a>
+                      ) : "—",
+                      icon: Mail,
+                    },
                     { label: "Age", value: selected.age ? `${selected.age} years` : "—", icon: Activity },
                     { label: "Gender", value: selected.gender || "—", icon: Users },
                     { label: "Total Visits", value: String(selected.total_visits), icon: CalendarIcon },

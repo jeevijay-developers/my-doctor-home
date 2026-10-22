@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
+import { enforceRateLimit } from "../_shared/rateLimit.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const AI_BLOG_CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type",
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -11,7 +12,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  bindCorsRequest(req, AI_BLOG_CORS);
+  const preflight = handleCors(req, AI_BLOG_CORS);
+  if (preflight) return preflight;
 
   try {
     const authHeader = req.headers.get("Authorization") || "";
@@ -44,6 +47,14 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // 20 generations / hour for this signed-in doctor.
+    const limited = await enforceRateLimit(admin, {
+      key: `ai-blog-writer:doctor:${doctorId}`,
+      limit: 20,
+      windowSeconds: 60 * 60,
+    });
+    if (limited) return limited;
 
     const systemPrompt = `You are a medical content writer for an Indian doctor's website. Write professional, patient-friendly health articles. The doctor is ${doctorName || "a doctor"}, specializing in ${specialization || "general medicine"}.
 

@@ -56,8 +56,12 @@ const SALeads = () => {
                   <td className="p-3 font-medium">{r.name}</td>
                   <td className="p-3">{r.clinic_name || "—"}</td>
                   <td className="p-3">{r.city || "—"}</td>
-                  <td className="p-3 text-xs">{r.email || "—"}</td>
-                  <td className="p-3 text-xs">{r.phone || "—"}</td>
+                  <td className="p-3 text-xs">
+                    {r.email ? <a href={`mailto:${r.email}`} className="text-royal hover:underline">{r.email}</a> : "—"}
+                  </td>
+                  <td className="p-3 text-xs">
+                    {r.phone ? <a href={`tel:${r.phone}`} className="text-royal hover:underline">{r.phone}</a> : "—"}
+                  </td>
                   <td className="p-3 text-xs max-w-xs truncate">{r.message || "—"}</td>
                   <td className="p-3">
                     <Select value={r.status || "new"} onValueChange={(v) => updateStatus(r.id, v, r.status || "new")}>
@@ -92,7 +96,13 @@ const SALeads = () => {
                   <span className="text-xs text-muted-foreground flex-shrink-0">{new Date(r.created_at).toLocaleDateString()}</span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {r.email || "—"}{r.phone ? ` · ${r.phone}` : ""}
+                  {r.email ? <a href={`mailto:${r.email}`} className="text-royal hover:underline">{r.email}</a> : "—"}
+                  {r.phone ? (
+                    <>
+                      {" · "}
+                      <a href={`tel:${r.phone}`} className="text-royal hover:underline">{r.phone}</a>
+                    </>
+                  ) : ""}
                 </div>
                 {r.message && <p className="text-xs text-muted-foreground line-clamp-2">{r.message}</p>}
                 <Select value={r.status || "new"} onValueChange={(v) => updateStatus(r.id, v, r.status || "new")}>

@@ -1,12 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
+
+const INVITE_CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  bindCorsRequest(req, INVITE_CORS);
+  const preflight = handleCors(req, INVITE_CORS);
+  if (preflight) return preflight;
 
   try {
     const authHeader = req.headers.get("Authorization") || "";

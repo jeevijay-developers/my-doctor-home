@@ -11,8 +11,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Wallet, IndianRupee, PieChart, History, Loader2, Info,
-  RefreshCw, Send, Users2, CreditCard, ArrowRightLeft, CheckCircle2, Percent,
+  Wallet,
+  IndianRupee,
+  PieChart,
+  History,
+  Loader2,
+  Info,
+  RefreshCw,
+  Send,
+  Users2,
+  CreditCard,
+  ArrowRightLeft,
+  CheckCircle2,
+  Percent,
 } from "lucide-react";
 import DoctorGroupCard from "@/components/shared/DoctorGroupCard";
 import { format } from "date-fns";
@@ -25,22 +36,65 @@ type Payment = Tables<"payments">;
 type Ledger = Tables<"doctor_ledger">;
 type Payout = Tables<"payouts">;
 type Transfer = Tables<"transfers">;
-type ProfileLite = { id: string; full_name: string | null; clinic_name: string | null; razorpay_account_id?: string | null; razorpay_account_status?: string | null; razorpay_payment_enabled?: boolean | null };
-type AppointmentLite = { id: string; doctor_id: string; patient_name: string | null; patient_phone: string | null; created_at: string };
+type ProfileLite = {
+  id: string;
+  full_name: string | null;
+  clinic_name: string | null;
+  razorpay_account_id?: string | null;
+  razorpay_account_status?: string | null;
+  razorpay_payment_enabled?: boolean | null;
+};
+type AppointmentLite = {
+  id: string;
+  doctor_id: string;
+  patient_name: string | null;
+  patient_phone: string | null;
+  created_at: string;
+};
 
-const payoutStatusStyle: Record<string, { bg: string; text: string; label: string }> = {
+const payoutStatusStyle: Record<
+  string,
+  { bg: string; text: string; label: string }
+> = {
   pending: { bg: "bg-warning/10", text: "text-warning", label: "Pending" },
   processing: { bg: "bg-royal/10", text: "text-royal", label: "Processing" },
   processed: { bg: "bg-success/10", text: "text-success", label: "Paid" },
-  failed: { bg: "bg-destructive/10", text: "text-destructive", label: "Failed" },
-  cancelled: { bg: "bg-muted", text: "text-muted-foreground", label: "Cancelled" },
+  failed: {
+    bg: "bg-destructive/10",
+    text: "text-destructive",
+    label: "Failed",
+  },
+  cancelled: {
+    bg: "bg-muted",
+    text: "text-muted-foreground",
+    label: "Cancelled",
+  },
 };
 
-const transferStatusStyle: Record<string, { bg: string; text: string; label: string }> = {
-  pending: { bg: "bg-warning/10", text: "text-warning", label: "Pending (T+2)" },
-  processed: { bg: "bg-success/10", text: "text-success", label: "Settled to Doctor" },
-  failed: { bg: "bg-destructive/10", text: "text-destructive", label: "Failed" },
-  reversed: { bg: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", text: "text-purple-700 dark:text-purple-300", label: "Reversed (Refunded)" },
+const transferStatusStyle: Record<
+  string,
+  { bg: string; text: string; label: string }
+> = {
+  pending: {
+    bg: "bg-warning/10",
+    text: "text-warning",
+    label: "Pending (T+2)",
+  },
+  processed: {
+    bg: "bg-success/10",
+    text: "text-success",
+    label: "Settled to Doctor",
+  },
+  failed: {
+    bg: "bg-destructive/10",
+    text: "text-destructive",
+    label: "Failed",
+  },
+  reversed: {
+    bg: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+    text: "text-purple-700 dark:text-purple-300",
+    label: "Reversed (Refunded)",
+  },
 };
 
 const SAPayments = () => {
@@ -58,26 +112,54 @@ const SAPayments = () => {
   const [drillPatientKey, setDrillPatientKey] = useState<string | null>(null);
 
   const loadData = async () => {
-    const [paymentsRes, transfersRes, ledgerRes, payoutsRes, profilesRes, appointmentsRes] = await Promise.all([
-      supabase.from("payments").select("*").order("created_at", { ascending: false }).limit(300),
-      supabase.from("transfers").select("*").order("created_at", { ascending: false }).limit(300),
+    const [
+      paymentsRes,
+      transfersRes,
+      ledgerRes,
+      payoutsRes,
+      profilesRes,
+      appointmentsRes,
+    ] = await Promise.all([
+      supabase
+        .from("payments")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(300),
+      supabase
+        .from("transfers")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(300),
       supabase.from("doctor_ledger").select("*"),
-      supabase.from("payouts").select("*").order("created_at", { ascending: false }),
-      supabase.from("profiles").select("id, full_name, clinic_name, razorpay_account_id, razorpay_account_status, razorpay_payment_enabled"),
-      supabase.from("appointments").select("id, doctor_id, patient_name, patient_phone, created_at"),
+      supabase
+        .from("payouts")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select(
+          "id, full_name, clinic_name, razorpay_account_id, razorpay_account_status, razorpay_payment_enabled",
+        ),
+      supabase
+        .from("appointments")
+        .select("id, doctor_id, patient_name, patient_phone, created_at"),
     ]);
     setPayments(paymentsRes.data || []);
     setTransfers(transfersRes.data || []);
     setLedger(ledgerRes.data || []);
     setPayouts(payoutsRes.data || []);
     const map: Record<string, ProfileLite> = {};
-    (profilesRes.data || []).forEach((p) => { map[p.id] = p; });
+    (profilesRes.data || []).forEach((p) => {
+      map[p.id] = p;
+    });
     setProfiles(map);
     setAppointments((appointmentsRes.data || []) as AppointmentLite[]);
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const doctorLabel = (id: string) => profiles[id]?.full_name || id.slice(0, 8);
   const appointmentById = new Map(appointments.map((a) => [a.id, a]));
@@ -89,8 +171,10 @@ const SAPayments = () => {
 
   const activeLedger = ledger.filter((l) => !l.refunded);
 
-  const totalPlatformCommission = activeLedger
-    .reduce((s, l) => s + Number(l.commission_amount || 0), 0);
+  const totalPlatformCommission = activeLedger.reduce(
+    (s, l) => s + Number(l.commission_amount || 0),
+    0,
+  );
 
   const totalRouted = transfers
     .filter((t) => t.status === "processed" || t.status === "pending")
@@ -101,15 +185,35 @@ const SAPayments = () => {
     .reduce((s, p) => s + Number(p.total_amount || 0), 0);
 
   const activeLinkedAccountsCount = Object.values(profiles).filter(
-    (p) => p.razorpay_payment_enabled || p.razorpay_account_status === "active"
+    (p) => p.razorpay_payment_enabled || p.razorpay_account_status === "active",
   ).length;
 
   // Overview metrics: Gross collected, Platform commission, Route direct transfers, and Legacy payouts
   const overviewCards = [
-    { label: "Gross Collected", value: totalCollected, icon: IndianRupee, gradient: "from-royal to-teal" },
-    { label: "Platform Commission", value: totalPlatformCommission, icon: Percent, gradient: "from-indigo-600 to-royal" },
-    { label: "Net Routed to Doctors", value: totalRouted, icon: ArrowRightLeft, gradient: "from-teal to-emerald-600" },
-    { label: "Awaiting Payout (Legacy)", value: pendingPayoutTotal, icon: Wallet, gradient: "from-warning to-royal" },
+    {
+      label: "Gross Collected",
+      value: totalCollected,
+      icon: IndianRupee,
+      gradient: "from-royal to-teal",
+    },
+    {
+      label: "Platform Commission",
+      value: totalPlatformCommission,
+      icon: Percent,
+      gradient: "from-indigo-600 to-royal",
+    },
+    {
+      label: "Net Routed to Doctors",
+      value: totalRouted,
+      icon: ArrowRightLeft,
+      gradient: "from-teal to-emerald-600",
+    },
+    {
+      label: "Awaiting Payout (Legacy)",
+      value: pendingPayoutTotal,
+      icon: Wallet,
+      gradient: "from-warning to-royal",
+    },
   ];
 
   const paymentsByDoctor = (() => {
@@ -124,14 +228,31 @@ const SAPayments = () => {
   })();
 
   const patientKeyFor = (p: Payment) => {
-    const appt = p.appointment_id ? appointmentById.get(p.appointment_id) : undefined;
+    const appt = p.appointment_id
+      ? appointmentById.get(p.appointment_id)
+      : undefined;
     return appt?.patient_phone || `unknown-${p.id}`;
   };
 
   const doctorEarnings = (() => {
-    const byDoctor = new Map<string, { gross: number; commission: number; doctorShare: number; unpaid: number; count: number }>();
+    const byDoctor = new Map<
+      string,
+      {
+        gross: number;
+        commission: number;
+        doctorShare: number;
+        unpaid: number;
+        count: number;
+      }
+    >();
     activeLedger.forEach((l) => {
-      const row = byDoctor.get(l.doctor_id) || { gross: 0, commission: 0, doctorShare: 0, unpaid: 0, count: 0 };
+      const row = byDoctor.get(l.doctor_id) || {
+        gross: 0,
+        commission: 0,
+        doctorShare: 0,
+        unpaid: 0,
+        count: 0,
+      };
       row.gross += Number(l.gross_amount || 0);
       row.commission += Number(l.commission_amount || 0);
       row.doctorShare += Number(l.doctor_share || 0);
@@ -139,11 +260,18 @@ const SAPayments = () => {
       row.count += 1;
       byDoctor.set(l.doctor_id, row);
     });
-    return Array.from(byDoctor.entries()).sort((a, b) => b[1].gross - a[1].gross);
+    return Array.from(byDoctor.entries()).sort(
+      (a, b) => b[1].gross - a[1].gross,
+    );
   })();
 
-  const payoutStatusCounts = (Object.keys(payoutStatusStyle) as Array<keyof typeof payoutStatusStyle>)
-    .map((status) => ({ status, count: payouts.filter((p) => p.status === status).length }))
+  const payoutStatusCounts = (
+    Object.keys(payoutStatusStyle) as Array<keyof typeof payoutStatusStyle>
+  )
+    .map((status) => ({
+      status,
+      count: payouts.filter((p) => p.status === status).length,
+    }))
     .filter((s) => s.count > 0);
 
   const topEarners = doctorEarnings.slice(0, 5);
@@ -151,12 +279,22 @@ const SAPayments = () => {
 
   const patientsForDrillDoctor = (() => {
     if (!drillDoctorId) return [];
-    const map = new Map<string, { patientName: string; count: number; total: number; lastDate: string }>();
+    const map = new Map<
+      string,
+      { patientName: string; count: number; total: number; lastDate: string }
+    >();
     for (const p of payments) {
       if (p.doctor_id !== drillDoctorId) continue;
-      const appt = p.appointment_id ? appointmentById.get(p.appointment_id) : undefined;
+      const appt = p.appointment_id
+        ? appointmentById.get(p.appointment_id)
+        : undefined;
       const key = patientKeyFor(p);
-      const row = map.get(key) || { patientName: appt?.patient_name || "Unknown patient", count: 0, total: 0, lastDate: p.created_at };
+      const row = map.get(key) || {
+        patientName: appt?.patient_name || "Unknown patient",
+        count: 0,
+        total: 0,
+        lastDate: p.created_at,
+      };
       row.count += 1;
       row.total += Number(p.amount);
       if (p.created_at > row.lastDate) row.lastDate = p.created_at;
@@ -168,43 +306,70 @@ const SAPayments = () => {
   const transactionsForDrillPatient = (() => {
     if (!drillDoctorId || !drillPatientKey) return [];
     return payments
-      .filter((p) => p.doctor_id === drillDoctorId && patientKeyFor(p) === drillPatientKey)
+      .filter(
+        (p) =>
+          p.doctor_id === drillDoctorId && patientKeyFor(p) === drillPatientKey,
+      )
       .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
   })();
 
-  const drillPatientName = patientsForDrillDoctor.find(([key]) => key === drillPatientKey)?.[1].patientName;
+  const drillPatientName = patientsForDrillDoctor.find(
+    ([key]) => key === drillPatientKey,
+  )?.[1].patientName;
 
-  const pendingPayouts = payouts.filter((p) => p.status === "pending" || p.status === "processing");
-  const payoutHistory = payouts.filter((p) => p.status === "processed" || p.status === "failed" || p.status === "cancelled");
+  const pendingPayouts = payouts.filter(
+    (p) => p.status === "pending" || p.status === "processing",
+  );
+  const payoutHistory = payouts.filter(
+    (p) =>
+      p.status === "processed" ||
+      p.status === "failed" ||
+      p.status === "cancelled",
+  );
 
   const runMonthlyCalculation = async () => {
     setRunningCalc(true);
-    const { data, error } = await supabase.functions.invoke("calculate-monthly-earnings", { body: {} });
+    const { data, error } = await supabase.functions.invoke(
+      "calculate-monthly-earnings",
+      { body: {} },
+    );
     setRunningCalc(false);
     if (error) {
       toast.error("Couldn't run the monthly rollup. Please try again.");
       return;
     }
-    toast.success(`Rollup complete for ${data?.month}`, { description: `${data?.doctors ?? 0} doctor payout(s) queued.` });
+    toast.success(`Rollup complete for ${data?.month}`, {
+      description: `${data?.doctors ?? 0} doctor payout(s) queued.`,
+    });
     loadData();
   };
 
   const approvePayout = async (payoutId: string) => {
     setPayingOut(payoutId);
-    const { data, error } = await supabase.functions.invoke("create-doctor-payout", { body: { payout_id: payoutId } });
+    const { data, error } = await supabase.functions.invoke(
+      "create-doctor-payout",
+      { body: { payout_id: payoutId } },
+    );
     setPayingOut(null);
     if (error || !data?.ok) {
       toast.error("Payout couldn't be sent", {
-        description: "RazorpayX likely isn't configured yet, or the doctor hasn't finished bank/UPI setup.",
+        description:
+          "RazorpayX likely isn't configured yet, or the doctor hasn't finished bank/UPI setup.",
       });
       return;
     }
-    toast.success("Payout sent to RazorpayX", { description: "It will show as Paid once RazorpayX confirms processing." });
+    toast.success("Payout sent to RazorpayX", {
+      description: "It will show as Paid once RazorpayX confirms processing.",
+    });
     loadData();
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-24"><Loader2 className="h-7 w-7 animate-spin text-royal" /></div>;
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-7 w-7 animate-spin text-royal" />
+      </div>
+    );
   }
 
   return (
@@ -214,8 +379,16 @@ const SAPayments = () => {
           <Wallet className="h-6 w-6 text-royal" /> Payments & Payouts
           {paymentModeIsMock && <TestModeBadge />}
         </h1>
-        <Button size="sm" variant="outline" onClick={runMonthlyCalculation} disabled={runningCalc} className="gap-1.5">
-          <RefreshCw className={`h-3.5 w-3.5 ${runningCalc ? "animate-spin" : ""}`} />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={runMonthlyCalculation}
+          disabled={runningCalc}
+          className="gap-1.5"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${runningCalc ? "animate-spin" : ""}`}
+          />
           {runningCalc ? "Running..." : "Run Monthly Payout Calculation"}
         </Button>
       </div>
@@ -225,35 +398,69 @@ const SAPayments = () => {
           <Info className="h-5 w-5 text-royal flex-shrink-0 mt-0.5" />
           <div className="text-sm text-muted-foreground space-y-1">
             <p>
-              <strong>Razorpay Route Split Transfers (Active):</strong> Patient payments are automatically split at order time via Razorpay Route — the platform retains the configured Platform Charge % and the net doctor share is automatically routed to the doctor's Linked Account (settled on T+2).
+              <strong>Razorpay Route Split Transfers (Active):</strong> Patient
+              payments are automatically split at order time via Razorpay Route
+              — the platform retains the configured Platform Charge % and the
+              net doctor share is automatically routed to the doctor's Linked
+              Account (settled on T+2).
             </p>
             <p className="text-xs text-muted-foreground/80">
-              Configure the default percentage in Feature Flags or set a per-doctor override on any Doctor Detail page. Legacy monthly payouts via RazorpayX are preserved below for historical records.
+              Configure the default percentage in Feature Flags or set a
+              per-doctor override on any Doctor Detail page. Legacy monthly
+              payouts via RazorpayX are preserved below for historical records.
             </p>
           </div>
         </CardContent>
       </Card>
 
       <Tabs defaultValue="overview" className="space-y-5">
-        <TabsList className="bg-card border border-border h-11 flex-wrap h-auto">
-          <TabsTrigger value="overview" className="gap-1.5"><PieChart className="h-3.5 w-3.5" /> Overview</TabsTrigger>
-          <TabsTrigger value="transfers" className="gap-1.5"><ArrowRightLeft className="h-3.5 w-3.5" /> Route Transfers{transfers.length > 0 && ` (${transfers.length})`}</TabsTrigger>
-          <TabsTrigger value="accounts" className="gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> Linked Accounts ({activeLinkedAccountsCount})</TabsTrigger>
-          <TabsTrigger value="payments" className="gap-1.5"><CreditCard className="h-3.5 w-3.5" /> All Payments</TabsTrigger>
-          <TabsTrigger value="doctors" className="gap-1.5"><Users2 className="h-3.5 w-3.5" /> Doctor-wise Earnings</TabsTrigger>
-          <TabsTrigger value="payouts" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Legacy Payouts{pendingPayouts.length > 0 && ` (${pendingPayouts.length})`}</TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5"><History className="h-3.5 w-3.5" /> Payout History</TabsTrigger>
+        <TabsList className="bg-card border border-border h-11 flex-wrap">
+          <TabsTrigger value="overview" className="gap-1.5">
+            <PieChart className="h-3.5 w-3.5" /> Overview
+          </TabsTrigger>
+          <TabsTrigger value="transfers" className="gap-1.5">
+            <ArrowRightLeft className="h-3.5 w-3.5" /> Route Transfers
+            {transfers.length > 0 && ` (${transfers.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="accounts" className="gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Linked Accounts (
+            {activeLinkedAccountsCount})
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="gap-1.5">
+            <CreditCard className="h-3.5 w-3.5" /> All Payments
+          </TabsTrigger>
+          <TabsTrigger value="doctors" className="gap-1.5">
+            <Users2 className="h-3.5 w-3.5" /> Doctor-wise Earnings
+          </TabsTrigger>
+          <TabsTrigger value="payouts" className="gap-1.5">
+            <Send className="h-3.5 w-3.5" /> Legacy Payouts
+            {pendingPayouts.length > 0 && ` (${pendingPayouts.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5">
+            <History className="h-3.5 w-3.5" /> Payout History
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {overviewCards.map((c) => (
-              <Card key={c.label} className="border-0 shadow-none overflow-hidden">
-                <CardContent className={`p-5 bg-gradient-to-br ${c.gradient} text-white relative`}>
-                  <div className="absolute top-3 right-3 opacity-20"><c.icon className="h-10 w-10" /></div>
+              <Card
+                key={c.label}
+                className="border-0 shadow-none overflow-hidden"
+              >
+                <CardContent
+                  className={`p-5 bg-gradient-to-br ${c.gradient} text-white relative`}
+                >
+                  <div className="absolute top-3 right-3 opacity-20">
+                    <c.icon className="h-10 w-10" />
+                  </div>
                   <div className="relative z-10">
-                    <div className="text-xs font-medium text-white/80">{c.label}</div>
-                    <div className="font-heading font-extrabold text-xl mt-1">₹{c.value.toLocaleString("en-IN")}</div>
+                    <div className="text-xs font-medium text-white/80">
+                      {c.label}
+                    </div>
+                    <div className="font-heading font-extrabold text-xl mt-1">
+                      ₹{c.value.toLocaleString("en-IN")}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -262,18 +469,32 @@ const SAPayments = () => {
 
           <div className="grid md:grid-cols-2 gap-4">
             <Card>
-              <CardHeader><CardTitle className="text-base">Payout Status</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Payout Status</CardTitle>
+              </CardHeader>
               <CardContent>
                 {payoutStatusCounts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No payouts calculated yet.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No payouts calculated yet.
+                  </p>
                 ) : (
                   <div className="space-y-2">
                     {payoutStatusCounts.map(({ status, count }) => {
                       const style = payoutStatusStyle[status];
                       return (
-                        <div key={status} className="flex items-center justify-between text-sm">
-                          <Badge variant="outline" className={`text-[10px] ${style.bg} ${style.text}`}>{style.label}</Badge>
-                          <span className="font-medium text-foreground">{count}</span>
+                        <div
+                          key={status}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] ${style.bg} ${style.text}`}
+                          >
+                            {style.label}
+                          </Badge>
+                          <span className="font-medium text-foreground">
+                            {count}
+                          </span>
                         </div>
                       );
                     })}
@@ -283,20 +504,33 @@ const SAPayments = () => {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Top Earning Doctors</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Top Earning Doctors</CardTitle>
+              </CardHeader>
               <CardContent>
                 {topEarners.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No earnings yet.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No earnings yet.
+                  </p>
                 ) : (
                   <div className="space-y-3">
                     {topEarners.map(([doctorId, e]) => (
                       <div key={doctorId}>
                         <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-foreground font-medium truncate">{doctorLabel(doctorId)}</span>
-                          <span className="text-muted-foreground">₹{e.gross.toLocaleString("en-IN")}</span>
+                          <span className="text-foreground font-medium truncate">
+                            {doctorLabel(doctorId)}
+                          </span>
+                          <span className="text-muted-foreground">
+                            ₹{e.gross.toLocaleString("en-IN")}
+                          </span>
                         </div>
                         <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                          <div className="h-full bg-royal rounded-full" style={{ width: `${topEarnersMax ? (e.gross / topEarnersMax) * 100 : 0}%` }} />
+                          <div
+                            className="h-full bg-royal rounded-full"
+                            style={{
+                              width: `${topEarnersMax ? (e.gross / topEarnersMax) * 100 : 0}%`,
+                            }}
+                          />
                         </div>
                       </div>
                     ))}
@@ -309,30 +543,40 @@ const SAPayments = () => {
 
         <TabsContent value="transfers" className="space-y-3">
           {transfers.length === 0 ? (
-            <EmptyState icon={ArrowRightLeft} text="No Route transfers yet" sub="Transfers will appear here automatically when patients book appointments with online payment." />
+            <EmptyState
+              icon={ArrowRightLeft}
+              text="No Route transfers yet"
+              sub="Transfers will appear here automatically when patients book appointments with online payment."
+            />
           ) : (
             transfers.map((t) => {
-              const style = transferStatusStyle[t.status] || transferStatusStyle.pending;
-              const linkedPayment = t.payment_id ? paymentById.get(t.payment_id) : undefined;
+              const style =
+                transferStatusStyle[t.status] || transferStatusStyle.pending;
+              const linkedPayment = t.payment_id
+                ? paymentById.get(t.payment_id)
+                : undefined;
               const netAmount = Number(t.amount || 0);
               const grossAmount =
                 t.gross_amount != null
                   ? Number(t.gross_amount)
                   : linkedPayment?.amount != null
-                  ? Number(linkedPayment.amount)
-                  : netAmount;
+                    ? Number(linkedPayment.amount)
+                    : netAmount;
               const commissionPercent =
                 t.commission_percent != null
                   ? Number(t.commission_percent)
                   : linkedPayment?.commission_percent != null
-                  ? Number(linkedPayment.commission_percent)
-                  : 0;
+                    ? Number(linkedPayment.commission_percent)
+                    : 0;
               const commissionAmount =
                 t.commission_amount != null
                   ? Number(t.commission_amount)
                   : linkedPayment?.commission_amount != null
-                  ? Number(linkedPayment.commission_amount)
-                  : Math.max(0, Math.round((grossAmount - netAmount) * 100) / 100);
+                    ? Number(linkedPayment.commission_amount)
+                    : Math.max(
+                        0,
+                        Math.round((grossAmount - netAmount) * 100) / 100,
+                      );
 
               return (
                 <Card key={t.id} className="border-border/60 shadow-none">
@@ -342,18 +586,38 @@ const SAPayments = () => {
                         {doctorLabel(t.doctor_id)}
                       </div>
                       <div className="text-xs text-muted-foreground truncate space-x-2">
-                        <span>Transfer ID: {t.razorpay_transfer_id || "Pending"}</span>
+                        <span>
+                          Transfer ID: {t.razorpay_transfer_id || "Pending"}
+                        </span>
                         <span>·</span>
                         <span>Account: {t.razorpay_account_id}</span>
                         <span>·</span>
-                        <span>{format(new Date(t.created_at), "d MMM yyyy, h:mm a")}</span>
+                        <span>
+                          {format(new Date(t.created_at), "d MMM yyyy, h:mm a")}
+                        </span>
                       </div>
                       <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                        <span>Gross: <strong className="text-foreground">₹{grossAmount.toLocaleString("en-IN")}</strong></span>
+                        <span>
+                          Gross:{" "}
+                          <strong className="text-foreground">
+                            ₹{grossAmount.toLocaleString("en-IN")}
+                          </strong>
+                        </span>
                         <span>·</span>
-                        <span>Platform Charge: <strong className="text-foreground">{commissionPercent}% · ₹{commissionAmount.toLocaleString("en-IN")}</strong></span>
+                        <span>
+                          Platform Charge:{" "}
+                          <strong className="text-foreground">
+                            {commissionPercent}% · ₹
+                            {commissionAmount.toLocaleString("en-IN")}
+                          </strong>
+                        </span>
                         <span>·</span>
-                        <span>Doctor Net Share: <strong className="text-success">₹{netAmount.toLocaleString("en-IN")}</strong></span>
+                        <span>
+                          Doctor Net Share:{" "}
+                          <strong className="text-success">
+                            ₹{netAmount.toLocaleString("en-IN")}
+                          </strong>
+                        </span>
                       </div>
                       {t.error && (
                         <div className="text-xs text-destructive mt-1 font-medium">
@@ -363,7 +627,10 @@ const SAPayments = () => {
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       {t.is_mock && <TestModeBadge />}
-                      <Badge variant="outline" className={`text-[10px] ${style.bg} ${style.text}`}>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${style.bg} ${style.text}`}
+                      >
                         {style.label}
                       </Badge>
                       <span className="font-heading font-bold text-foreground">
@@ -389,11 +656,15 @@ const SAPayments = () => {
                   <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-foreground truncate">
-                        {p.full_name || p.clinic_name || "Doctor (" + p.id.slice(0, 8) + ")"}
+                        {p.full_name ||
+                          p.clinic_name ||
+                          "Doctor (" + p.id.slice(0, 8) + ")"}
                       </div>
                       <div className="text-xs text-muted-foreground truncate space-x-2">
                         {p.clinic_name && <span>{p.clinic_name} · </span>}
-                        <span>Account ID: {p.razorpay_account_id || "Not created"}</span>
+                        <span>
+                          Account ID: {p.razorpay_account_id || "Not created"}
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
@@ -403,11 +674,15 @@ const SAPayments = () => {
                           isEnabled
                             ? "bg-success/10 text-success"
                             : status === "processing" || status === "submitted"
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                         }`}
                       >
-                        {isEnabled ? "Active & Receiving Payments" : status === "not_started" ? "Not Set Up" : `Status: ${status}`}
+                        {isEnabled
+                          ? "Active & Receiving Payments"
+                          : status === "not_started"
+                            ? "Not Set Up"
+                            : `Status: ${status}`}
                       </Badge>
                     </div>
                   </CardContent>
@@ -421,7 +696,10 @@ const SAPayments = () => {
           <div className="flex items-center gap-1.5 text-sm flex-wrap">
             <button
               className={`hover:underline ${!drillDoctorId ? "font-semibold text-foreground" : "text-royal"}`}
-              onClick={() => { setDrillDoctorId(null); setDrillPatientKey(null); }}
+              onClick={() => {
+                setDrillDoctorId(null);
+                setDrillPatientKey(null);
+              }}
             >
               All Doctors
             </button>
@@ -439,7 +717,9 @@ const SAPayments = () => {
             {drillPatientKey && (
               <>
                 <span className="text-muted-foreground">›</span>
-                <span className="font-semibold text-foreground">{drillPatientName}</span>
+                <span className="font-semibold text-foreground">
+                  {drillPatientName}
+                </span>
               </>
             )}
           </div>
@@ -450,54 +730,89 @@ const SAPayments = () => {
                 <EmptyState icon={CreditCard} text="No payments yet" />
               ) : (
                 paymentsByDoctor.map(([doctorId, s]) => (
-                  <Card key={doctorId} className="border-border/60 shadow-none hover:shadow-sm transition-shadow cursor-pointer" onClick={() => setDrillDoctorId(doctorId)}>
+                  <Card
+                    key={doctorId}
+                    className="border-border/60 shadow-none hover:shadow-sm transition-shadow cursor-pointer"
+                    onClick={() => setDrillDoctorId(doctorId)}
+                  >
                     <CardContent className="p-4 flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium text-foreground">{doctorLabel(doctorId)}</span>
-                      <span className="text-xs text-muted-foreground">{s.count} transaction{s.count === 1 ? "" : "s"} · ₹{s.total.toLocaleString("en-IN")}</span>
+                      <span className="text-sm font-medium text-foreground">
+                        {doctorLabel(doctorId)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {s.count} transaction{s.count === 1 ? "" : "s"} · ₹
+                        {s.total.toLocaleString("en-IN")}
+                      </span>
                     </CardContent>
                   </Card>
                 ))
               )
             ) : !drillPatientKey ? (
               patientsForDrillDoctor.length === 0 ? (
-                <EmptyState icon={CreditCard} text="No payments for this doctor" />
+                <EmptyState
+                  icon={CreditCard}
+                  text="No payments for this doctor"
+                />
               ) : (
                 patientsForDrillDoctor.map(([key, s]) => (
-                  <Card key={key} className="border-border/60 shadow-none hover:shadow-sm transition-shadow cursor-pointer" onClick={() => setDrillPatientKey(key)}>
+                  <Card
+                    key={key}
+                    className="border-border/60 shadow-none hover:shadow-sm transition-shadow cursor-pointer"
+                    onClick={() => setDrillPatientKey(key)}
+                  >
                     <CardContent className="p-4 flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium text-foreground">{s.patientName}</span>
-                      <span className="text-xs text-muted-foreground">{s.count} transaction{s.count === 1 ? "" : "s"} · ₹{s.total.toLocaleString("en-IN")} · last {format(new Date(s.lastDate), "d MMM yyyy")}</span>
+                      <span className="text-sm font-medium text-foreground">
+                        {s.patientName}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {s.count} transaction{s.count === 1 ? "" : "s"} · ₹
+                        {s.total.toLocaleString("en-IN")} · last{" "}
+                        {format(new Date(s.lastDate), "d MMM yyyy")}
+                      </span>
                     </CardContent>
                   </Card>
                 ))
               )
+            ) : transactionsForDrillPatient.length === 0 ? (
+              <EmptyState icon={CreditCard} text="No transactions" />
             ) : (
-              transactionsForDrillPatient.length === 0 ? (
-                <EmptyState icon={CreditCard} text="No transactions" />
-              ) : (
-                transactionsForDrillPatient.map((p) => {
-                  const orphaned = p.status === "captured" && (p.needs_refund || !p.appointment_id);
-                  return (
-                    <Card key={p.id} className={`border-border/60 shadow-none ${orphaned ? "border-destructive/40" : ""}`}>
-                      <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-foreground truncate">{p.razorpay_order_id || "—"}</div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            {format(new Date(p.created_at), "d MMM yyyy, h:mm a")}{p.method ? ` · ${p.method}` : ""}
-                          </div>
+              transactionsForDrillPatient.map((p) => {
+                const orphaned =
+                  p.status === "captured" &&
+                  (p.needs_refund || !p.appointment_id);
+                return (
+                  <Card
+                    key={p.id}
+                    className={`border-border/60 shadow-none ${orphaned ? "border-destructive/40" : ""}`}
+                  >
+                    <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-foreground truncate">
+                          {p.razorpay_order_id || "—"}
                         </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          {p.is_mock && <TestModeBadge />}
-                          {orphaned && (
-                            <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive">Needs Refund Review</Badge>
-                          )}
-                          <span className="font-heading font-bold text-foreground">₹{Number(p.amount).toLocaleString("en-IN")}</span>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {format(new Date(p.created_at), "d MMM yyyy, h:mm a")}
+                          {p.method ? ` · ${p.method}` : ""}
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {p.is_mock && <TestModeBadge />}
+                        {orphaned && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-destructive/10 text-destructive"
+                          >
+                            Needs Refund Review
+                          </Badge>
+                        )}
+                        <span className="font-heading font-bold text-foreground">
+                          ₹{Number(p.amount).toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </div>
         </TabsContent>
@@ -507,7 +822,10 @@ const SAPayments = () => {
             <EmptyState icon={Users2} text="No doctor earnings yet" />
           ) : (
             doctorEarnings.map(([doctorId, e]) => {
-              const effectivePct = e.gross > 0 ? Math.round((e.commission / e.gross) * 10000) / 100 : 0;
+              const effectivePct =
+                e.gross > 0
+                  ? Math.round((e.commission / e.gross) * 10000) / 100
+                  : 0;
               return (
                 <DoctorGroupCard
                   key={doctorId}
@@ -518,21 +836,41 @@ const SAPayments = () => {
                 >
                   <div className="p-4 space-y-2 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Gross Amount</span>
-                      <span className="font-medium text-foreground">₹{e.gross.toLocaleString("en-IN")}</span>
+                      <span className="text-muted-foreground">
+                        Gross Amount
+                      </span>
+                      <span className="font-medium text-foreground">
+                        ₹{e.gross.toLocaleString("en-IN")}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Platform Charge</span>
-                      <span className="font-medium text-foreground">{effectivePct}% · ₹{e.commission.toLocaleString("en-IN")}</span>
+                      <span className="text-muted-foreground">
+                        Platform Charge
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {effectivePct}% · ₹
+                        {e.commission.toLocaleString("en-IN")}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Doctor Net Share</span>
-                      <span className="font-semibold text-success">₹{e.doctorShare.toLocaleString("en-IN")}</span>
+                      <span className="text-muted-foreground">
+                        Doctor Net Share
+                      </span>
+                      <span className="font-semibold text-success">
+                        ₹{e.doctorShare.toLocaleString("en-IN")}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-border">
-                      <span className="text-muted-foreground">Unpaid / Pending Settlement</span>
-                      <Badge variant="outline" className={`text-[10px] ${e.unpaid > 0 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
-                        {e.unpaid > 0 ? `₹${e.unpaid.toLocaleString("en-IN")}` : "Fully paid out"}
+                      <span className="text-muted-foreground">
+                        Unpaid / Pending Settlement
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${e.unpaid > 0 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}
+                      >
+                        {e.unpaid > 0
+                          ? `₹${e.unpaid.toLocaleString("en-IN")}`
+                          : "Fully paid out"}
                       </Badge>
                     </div>
                   </div>
@@ -544,7 +882,11 @@ const SAPayments = () => {
 
         <TabsContent value="payouts" className="space-y-2">
           {pendingPayouts.length === 0 ? (
-            <EmptyState icon={Send} text="No pending payouts" sub="Run the monthly calculation above to queue this month's payouts." />
+            <EmptyState
+              icon={Send}
+              text="No pending payouts"
+              sub="Run the monthly calculation above to queue this month's payouts."
+            />
           ) : (
             pendingPayouts.map((p) => {
               const style = payoutStatusStyle[p.status];
@@ -552,15 +894,30 @@ const SAPayments = () => {
                 <Card key={p.id} className="border-border/60 shadow-none">
                   <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-medium text-foreground">{doctorLabel(p.doctor_id)}</div>
-                      <div className="text-xs text-muted-foreground">{p.month}</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {doctorLabel(p.doctor_id)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {p.month}
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       {p.is_mock && <TestModeBadge />}
-                      <Badge variant="outline" className={`text-[10px] ${style.bg} ${style.text}`}>{style.label}</Badge>
-                      <span className="font-heading font-bold text-foreground">₹{Number(p.total_amount).toLocaleString("en-IN")}</span>
-                      <Button size="sm" className="bg-royal hover:bg-royal/90 h-8 text-xs" disabled={p.status !== "pending" || payingOut === p.id}
-                        onClick={() => approvePayout(p.id)}>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${style.bg} ${style.text}`}
+                      >
+                        {style.label}
+                      </Badge>
+                      <span className="font-heading font-bold text-foreground">
+                        ₹{Number(p.total_amount).toLocaleString("en-IN")}
+                      </span>
+                      <Button
+                        size="sm"
+                        className="bg-royal hover:bg-royal/90 h-8 text-xs"
+                        disabled={p.status !== "pending" || payingOut === p.id}
+                        onClick={() => approvePayout(p.id)}
+                      >
                         {payingOut === p.id ? "Sending..." : "Approve & Pay"}
                       </Button>
                     </div>
@@ -581,15 +938,25 @@ const SAPayments = () => {
                 <Card key={p.id} className="border-border/60 shadow-none">
                   <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-medium text-foreground">{doctorLabel(p.doctor_id)}</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {doctorLabel(p.doctor_id)}
+                      </div>
                       <div className="text-xs text-muted-foreground">
-                        {p.month}{p.failure_reason ? ` · ${p.failure_reason}` : ""}
+                        {p.month}
+                        {p.failure_reason ? ` · ${p.failure_reason}` : ""}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       {p.is_mock && <TestModeBadge />}
-                      <Badge variant="outline" className={`text-[10px] ${style.bg} ${style.text}`}>{style.label}</Badge>
-                      <span className="font-heading font-bold text-foreground">₹{Number(p.total_amount).toLocaleString("en-IN")}</span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${style.bg} ${style.text}`}
+                      >
+                        {style.label}
+                      </Badge>
+                      <span className="font-heading font-bold text-foreground">
+                        ₹{Number(p.total_amount).toLocaleString("en-IN")}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -602,7 +969,15 @@ const SAPayments = () => {
   );
 };
 
-const EmptyState = ({ icon: Icon, text, sub }: { icon: typeof Wallet; text: string; sub?: string }) => (
+const EmptyState = ({
+  icon: Icon,
+  text,
+  sub,
+}: {
+  icon: typeof Wallet;
+  text: string;
+  sub?: string;
+}) => (
   <Card className="border-border/60 shadow-none">
     <CardContent className="py-16 text-center">
       <Icon className="h-12 w-12 text-royal/20 mx-auto mb-3" />

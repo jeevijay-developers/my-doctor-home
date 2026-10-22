@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { DoctorProvider, useDoctorData } from "@/contexts/DoctorContext";
 import Navbar from "@/components/doctor/Navbar";
@@ -14,40 +14,221 @@ import ContactQueryForm from "@/components/doctor/ContactQueryForm";
 import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 import SectionCard from "@/components/doctor/SectionCard";
+import { jsonLdScript } from "@/lib/jsonLd";
 import { scrollToSection } from "@/lib/scrollToSection";
+
+const DEFAULT_TITLE = "Doctylia - India's #1 Practice Management & Website Platform for Doctors";
+const DEFAULT_DESCRIPTION =
+  "Doctylia gives doctors in India their own branded website, 24/7 online appointment booking, patient medical records, GST billing, AI blog writer, and WhatsApp reminders. Start your 7-day free trial.";
+
+function formatDoctorName(rawName: string): string {
+  const trimmed = rawName.trim();
+  if (!trimmed) return "";
+  return /^dr\.?\s/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`;
+}
+
+function upsertMeta(selector: string, attr: "name" | "property", key: string, content: string) {
+  let el = document.head.querySelector<HTMLMetaElement>(selector);
+  if (!el) {
+    el = document.createElement("meta");
+    el.setAttribute(attr, key);
+    document.head.appendChild(el);
+  }
+  const prev = el.content;
+  el.content = content;
+  return () => {
+    if (el) el.content = prev;
+  };
+}
+
+function upsertCanonical(href: string) {
+  let link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.setAttribute("rel", "canonical");
+    document.head.appendChild(link);
+  }
+  const prev = link.href;
+  link.href = href;
+  return () => {
+    if (link) link.href = prev || `${window.location.origin}/`;
+  };
+}
 
 const DoctorPageContent = () => {
   const { profile, settings, loading, services, reviews, gallery } = useDoctorData();
   const { hash } = useLocation();
 
+  const doctorName = useMemo(() => {
+    const raw = (profile?.display_name || profile?.full_name || "").trim();
+    return formatDoctorName(raw);
+  }, [profile?.display_name, profile?.full_name]);
+
+  const pageTitle = useMemo(() => {
+    if (settings?.seo_title?.trim()) return settings.seo_title.trim();
+    if (!doctorName) return "";
+    const specPart = profile?.specialization ? ` - ${profile.specialization}` : "";
+    const cityPart = profile?.city ? ` in ${profile.city}` : "";
+    return `${doctorName}${specPart}${cityPart} | Doctylia`;
+  }, [settings?.seo_title, doctorName, profile?.specialization, profile?.city]);
+
+  const pageDescription = useMemo(() => {
+    if (settings?.seo_description?.trim()) return settings.seo_description.trim();
+    if (profile?.bio?.trim()) return profile.bio.trim().slice(0, 160);
+    if (settings?.hero_description?.trim()) return settings.hero_description.trim().slice(0, 160);
+    if (!doctorName) return DEFAULT_DESCRIPTION;
+    const specPart = profile?.specialization ? `, ${profile.specialization}` : "";
+    const cityPart = profile?.city ? ` in ${profile.city}` : "";
+    const expPart = profile?.experience_years ? ` (${profile.experience_years}+ years experience)` : "";
+    return `Book an appointment with ${doctorName}${specPart}${cityPart}${expPart}. View clinic timings, consultation fees, services, and verified patient reviews on Doctylia.`;
+  }, [
+    settings?.seo_description,
+    settings?.hero_description,
+    profile?.bio,
+    profile?.specialization,
+    profile?.city,
+    profile?.experience_years,
+    doctorName,
+  ]);
 
   useEffect(() => {
-    if (!profile?.display_name) return;
+    if (!pageTitle) return;
     const previousTitle = document.title;
-    const name = profile.display_name.trim();
-    const formatted = /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
-    document.title = formatted;
+    document.title = pageTitle;
 
-    // Also sync og:title and twitter:title so social/preview scrapers reflect the doctor
-    const setMeta = (selector: string, value: string) => {
-      const el = document.head.querySelector<HTMLMetaElement>(selector);
-      if (el) {
-        const prev = el.content;
-        el.content = value;
-        return () => { el.content = prev; };
-      }
-      return () => {};
-    };
-    const restoreOg = setMeta('meta[property="og:title"]', formatted);
-    const restoreTw = setMeta('meta[name="twitter:title"]', formatted);
+    const canonicalUrl = profile?.slug
+      ? `${window.location.origin}/dr/${profile.slug}`
+      : window.location.href;
+    const shareImage = profile?.profile_photo_url || settings?.hero_photo_url || "";
+
+    const restoreCanonical = upsertCanonical(canonicalUrl);
+    const restoreDesc = upsertMeta('meta[name="description"]', "name", "description", pageDescription);
+    const restoreOgTitle = upsertMeta('meta[property="og:title"]', "property", "og:title", pageTitle);
+    const restoreOgDesc = upsertMeta('meta[property="og:description"]', "property", "og:description", pageDescription);
+    const restoreOgUrl = upsertMeta('meta[property="og:url"]', "property", "og:url", canonicalUrl);
+    const restoreOgType = upsertMeta('meta[property="og:type"]', "property", "og:type", "profile");
+    const restoreTwTitle = upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", pageTitle);
+    const restoreTwDesc = upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", pageDescription);
+    const restoreOgImage = shareImage
+      ? upsertMeta('meta[property="og:image"]', "property", "og:image", shareImage)
+      : () => {};
+    const restoreTwImage = shareImage
+      ? upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", shareImage)
+      : () => {};
 
     return () => {
-      document.title = previousTitle;
-      restoreOg();
-      restoreTw();
+      document.title = previousTitle || DEFAULT_TITLE;
+      restoreCanonical();
+      restoreDesc();
+      restoreOgTitle();
+      restoreOgDesc();
+      restoreOgUrl();
+      restoreOgType();
+      restoreTwTitle();
+      restoreTwDesc();
+      restoreOgImage();
+      restoreTwImage();
     };
-  }, [profile?.display_name]);
+  }, [
+    pageTitle,
+    pageDescription,
+    profile?.slug,
+    profile?.profile_photo_url,
+    settings?.hero_photo_url,
+  ]);
 
+  const structuredData = useMemo(() => {
+    if (!profile || !doctorName) return null;
+    const canonicalUrl = profile.slug
+      ? `${window.location.origin}/dr/${profile.slug}`
+      : window.location.href;
+    const validReviews = (reviews || []).filter((r: any) => typeof r.rating === "number" && r.rating > 0);
+    const avgRating =
+      validReviews.length > 0
+        ? (validReviews.reduce((acc: number, r: any) => acc + Number(r.rating), 0) / validReviews.length).toFixed(1)
+        : null;
+
+    const physicianEntity: Record<string, unknown> = {
+      "@type": ["Physician", "MedicalBusiness"],
+      "@id": `${canonicalUrl}#physician`,
+      name: doctorName,
+      url: canonicalUrl,
+      description: pageDescription,
+      ...(profile.specialization ? { medicalSpecialty: profile.specialization } : {}),
+      ...(profile.profile_photo_url || settings?.hero_photo_url
+        ? { image: profile.profile_photo_url || settings?.hero_photo_url }
+        : {}),
+      ...(profile.clinic_phone || profile.phone
+        ? { telephone: profile.clinic_phone || profile.phone }
+        : {}),
+      ...(profile.consultation_fee
+        ? { priceRange: `₹${profile.consultation_fee}` }
+        : {}),
+      ...(profile.address || profile.city || profile.state
+        ? {
+            address: {
+              "@type": "PostalAddress",
+              ...(profile.address ? { streetAddress: profile.address } : {}),
+              ...(profile.city ? { addressLocality: profile.city } : {}),
+              ...(profile.state ? { addressRegion: profile.state } : {}),
+              addressCountry: "IN",
+            },
+          }
+        : {}),
+      ...(Array.isArray(services) && services.length > 0
+        ? {
+            availableService: services.slice(0, 12).map((s: any) => ({
+              "@type": "MedicalProcedure",
+              name: s.name,
+              ...(s.description ? { description: s.description } : {}),
+              ...(s.price
+                ? {
+                    offers: {
+                      "@type": "Offer",
+                      price: String(s.price),
+                      priceCurrency: "INR",
+                    },
+                  }
+                : {}),
+            })),
+          }
+        : {}),
+      ...(avgRating && validReviews.length > 0
+        ? {
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: avgRating,
+              reviewCount: String(validReviews.length),
+              bestRating: "5",
+              worstRating: "1",
+            },
+          }
+        : {}),
+    };
+
+    const breadcrumbEntity = {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Doctylia",
+          item: `${window.location.origin}/`,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: doctorName,
+          item: canonicalUrl,
+        },
+      ],
+    };
+
+    return {
+      "@context": "https://schema.org",
+      "@graph": [physicianEntity, breadcrumbEntity],
+    };
+  }, [profile, doctorName, pageDescription, settings?.hero_photo_url, services, reviews]);
 
   useEffect(() => {
     if (loading || !profile || !hash) return;
@@ -91,7 +272,7 @@ const DoctorPageContent = () => {
   // (rendered inside HeroBanner) is always slot 1 (B) when shown, hardcoded
   // in HeroBanner.tsx itself since its position never varies. Everything
   // from here on is a card that may or may not render for a given doctor,
-  // so the slot counter only advances for cards that actually show — that
+  // so the slot counter only advances for cards that actually show - that
   // way the alternation stays correct (and keeps working for any future
   // card added to this list) regardless of which optional sections are on.
   let slot = settings.show_quick_stats !== false ? 2 : 1;
@@ -119,28 +300,36 @@ const DoctorPageContent = () => {
 
   return (
     <div className="min-h-screen bg-secondary/30 dark:bg-black">
+      {structuredData && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData) }}
+        />
+      )}
       <Navbar />
-      <HeroBanner cardColor={servicesColor ?? aboutColor ?? "secondary"} />
-      {showServices && (
-        <AnimatedSection><SectionCard><ServicesSection cardColor={servicesColor} /></SectionCard></AnimatedSection>
-      )}
-      {showAbout && (
-        <AnimatedSection><SectionCard><AboutSection cardColor={aboutColor} /></SectionCard></AnimatedSection>
-      )}
-      {showGallery && (
-        <AnimatedSection><SectionCard><GallerySection cardColor={galleryColor} /></SectionCard></AnimatedSection>
-      )}
-      <AnimatedSection><SectionCard><BookingWidget cardColor={bookingColor} /></SectionCard></AnimatedSection>
-      {showReviews && (
-        <AnimatedSection><SectionCard><ReviewsSection cardColor={reviewsColor} /></SectionCard></AnimatedSection>
-      )}
-      {showBlog && (
-        <AnimatedSection><SectionCard><BlogPreview cardColor={blogColor} /></SectionCard></AnimatedSection>
-      )}
-      {showClinicDetails && (
-        <AnimatedSection><SectionCard><ClinicDetails cardColor={clinicDetailsColor} /></SectionCard></AnimatedSection>
-      )}
-      <AnimatedSection><SectionCard><ContactQueryForm cardColor={queryFormColor} /></SectionCard></AnimatedSection>
+      <main>
+        <HeroBanner cardColor={servicesColor ?? aboutColor ?? "secondary"} />
+        {showServices && (
+          <AnimatedSection><SectionCard><ServicesSection cardColor={servicesColor} /></SectionCard></AnimatedSection>
+        )}
+        {showAbout && (
+          <AnimatedSection><SectionCard><AboutSection cardColor={aboutColor} /></SectionCard></AnimatedSection>
+        )}
+        {showGallery && (
+          <AnimatedSection><SectionCard><GallerySection cardColor={galleryColor} /></SectionCard></AnimatedSection>
+        )}
+        <AnimatedSection><SectionCard><BookingWidget cardColor={bookingColor} /></SectionCard></AnimatedSection>
+        {showReviews && (
+          <AnimatedSection><SectionCard><ReviewsSection cardColor={reviewsColor} /></SectionCard></AnimatedSection>
+        )}
+        {showBlog && (
+          <AnimatedSection><SectionCard><BlogPreview cardColor={blogColor} /></SectionCard></AnimatedSection>
+        )}
+        {showClinicDetails && (
+          <AnimatedSection><SectionCard><ClinicDetails cardColor={clinicDetailsColor} /></SectionCard></AnimatedSection>
+        )}
+        <AnimatedSection><SectionCard><ContactQueryForm cardColor={queryFormColor} /></SectionCard></AnimatedSection>
+      </main>
       <Footer />
     </div>
   );
