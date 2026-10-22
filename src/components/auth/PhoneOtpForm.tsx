@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { DigitsInput } from "@/components/ui/digits-input";
 import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
+import { CountryCodeSelect } from "@/components/ui/country-code-select";
 import { Label } from "@/components/ui/label";
 import { otpService } from "@/lib/auth/otp/otpService";
 import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
@@ -227,14 +228,17 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
       )}
       <div>
         <Label htmlFor="phoneNumber">Phone Number</Label>
-        <FormattedPhoneInput
-          id="phoneNumber"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+91 98765 43210"
-          required
-          className="h-11"
-        />
+        <div className="flex h-11 items-stretch rounded-md border border-input overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+          <CountryCodeSelect />
+          <FormattedPhoneInput
+            id="phoneNumber"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="98765 43210"
+            required
+            className="h-full border-0 rounded-none focus-visible:ring-0"
+          />
+        </div>
         {phoneError && <p className="text-xs text-destructive mt-1">{phoneError}</p>}
         {showSignupLink && (
           <button

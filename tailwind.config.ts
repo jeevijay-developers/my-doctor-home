@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         heading: ['"Plus Jakarta Sans"', 'sans-serif'],
         body: ['Inter', 'sans-serif'],
+        script: ['Caveat', 'cursive'],
       },
       colors: {
         border: "hsl(var(--border))",
