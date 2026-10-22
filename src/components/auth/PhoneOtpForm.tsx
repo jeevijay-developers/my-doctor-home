@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DigitsInput } from "@/components/ui/digits-input";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
 import { CountryCodeSelect } from "@/components/ui/country-code-select";
 import { Label } from "@/components/ui/label";
@@ -116,15 +116,24 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
         </p>
         <div>
           <Label htmlFor="otp">6-digit code</Label>
-          <DigitsInput
+          <InputOTP
             id="otp"
             maxLength={6}
             value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            placeholder="123456"
-            required
-            className="h-11 tracking-widest text-center"
-          />
+            onChange={(value) => setOtp(value)}
+            autoFocus
+            containerClassName="justify-center"
+          >
+            <InputOTPGroup className="gap-2">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <InputOTPSlot
+                  key={i}
+                  index={i}
+                  className="h-12 w-12 rounded-lg border border-royal/40 text-lg font-semibold"
+                />
+              ))}
+            </InputOTPGroup>
+          </InputOTP>
           {otpError && <p className="text-xs text-destructive mt-1">{otpError}</p>}
           {showSignupLink && (
             <button
@@ -202,8 +211,9 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
             id="phoneNumber"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="98765 43210"
+            placeholder="98765 4****"
             required
+            autoFocus
             className="h-full border-0 rounded-none focus-visible:ring-0"
           />
         </div>
