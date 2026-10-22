@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Loader2, CheckCircle, Shield, Zap, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle, Shield, Calendar, Users, TrendingUp, Heart } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Session } from "@supabase/supabase-js";
 import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
+import loginDoctor from "@/assets/login-doctor.png";
+import avatar1 from "@/assets/testimonial-doctor-1.png";
+import avatar2 from "@/assets/testimonial-doctor-2.png";
+import avatar3 from "@/assets/testimonial-doctor-3.png";
 
 // Phone OTP (sent via MSG91 by the send-sms-hook auth hook) is the only way
 // to log in or sign up — email/password and Google sign-in were removed.
@@ -68,9 +72,9 @@ const Auth = () => {
   };
 
   const trustPoints = [
-    { icon: Users, text: "Join 10,000+ doctors across India" },
-    { icon: Zap, text: "Go live in under 5 minutes" },
-    { icon: Shield, text: "7-day free trial · No credit card" },
+    { icon: Calendar, title: "Online Appointments", text: "Let patients book, reschedule and manage appointments easily." },
+    { icon: Users, title: "Patient Management", text: "Keep your patient records, history and communication in one place." },
+    { icon: TrendingUp, title: "Grow Your Practice", text: "Get more visibility, build trust and attract new patients." },
   ];
 
   if (checkingSession) {
@@ -82,114 +86,217 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Brand Panel — hidden on mobile */}
-      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden gradient-navy-teal p-10 flex-col justify-between">
-        {/* Decorative circles */}
-        <div className="absolute top-20 -left-10 w-64 h-64 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-48 h-48 rounded-full bg-spark/10 blur-2xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full border border-white/5" />
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* Top bar — full width, matches marketing site header */}
+      <header className="w-full flex items-center justify-between px-5 sm:px-8 lg:px-10 py-4 border-b border-border/60">
+        <Link to="/" className="inline-flex items-center gap-2.5">
+          <img src="/doctylia-logo.png" alt="Doctylia" className="h-8 sm:h-9" />
+          <span className="hidden sm:block text-xs text-muted-foreground border-l border-border pl-2.5">
+            The Complete Doctor Platform
+          </span>
+        </Link>
+        <nav className="hidden lg:flex items-center gap-6 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <Heart className="h-4 w-4 text-royal" /> Better Care
+          </span>
+          <span className="flex items-center gap-1.5">
+            <TrendingUp className="h-4 w-4 text-royal" /> Smarter Practice
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Shield className="h-4 w-4 text-royal" /> Healthier Tomorrow
+          </span>
+        </nav>
+      </header>
 
-        <div className="relative z-10">
-          <Link to="/" className="inline-flex items-center gap-2 mb-2">
-            <img src="/doctylia-logo.png" alt="Doctylia" className="h-10 brightness-0 invert" />
-          </Link>
-          <p className="text-white/50 text-sm mt-1">The Complete Doctor Platform</p>
-        </div>
+      <div className="flex-1 flex relative overflow-hidden">
+        {/* Background photo — spans the full row behind both columns, desktop only */}
+        <img
+          src={loginDoctor}
+          alt="Doctor using Doctylia"
+          className="hidden lg:block absolute inset-0 w-full h-full object-cover object-[center_15%]"
+        />
+        <div className="hidden lg:block absolute inset-0 bg-gradient-to-r from-white/60 via-white/15 to-white/35" />
 
-        <div className="relative z-10 space-y-6">
-          <h2 className="font-heading font-extrabold text-3xl text-white leading-tight">
-            Your patients are<br />searching online.<br />
-            <span className="text-spark">Be where they look.</span>
-          </h2>
-          <div className="space-y-4">
-            {trustPoints.map((tp, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + i * 0.15 }}
-                className="flex items-center gap-3"
-              >
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                  <tp.icon className="h-5 w-5 text-spark" />
+        {/* Left Brand Panel — hidden on mobile */}
+        <div className="hidden lg:flex lg:w-1/2 relative p-10 flex-col justify-center">
+          <div className="relative z-10 space-y-6 max-w-lg">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-medium text-success">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" /> Trusted by 10,000+ Doctors
+            </span>
+
+            <h2 className="font-heading font-extrabold text-4xl text-primary leading-tight">
+              Manage Your Patients,<br />
+              <span className="text-royal">Grow Your Practice</span>
+            </h2>
+            <p className="text-muted-foreground text-sm max-w-sm">
+              Doctylia helps you book appointments, consult online, manage patients and build your digital presence — all in one place.
+            </p>
+
+            <div className="space-y-4">
+              {trustPoints.map((tp, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 + i * 0.15 }}
+                  className="flex items-start gap-3"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-royal/10 flex items-center justify-center flex-shrink-0">
+                    <tp.icon className="h-5 w-5 text-royal" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-primary">{tp.title}</p>
+                    <p className="text-xs text-muted-foreground">{tp.text}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            <p className="font-script text-2xl text-royal/70 pt-1">Your Patients → Our Priority</p>
+          </div>
+
+          {/* Floating stat cards over the background photo */}
+          <div className="absolute right-0 bottom-10 top-24 w-[46%] hidden xl:block pointer-events-none">
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-2 right-0 bg-white rounded-xl shadow-lg px-3 py-2 border border-border"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-royal/10 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-royal" />
                 </div>
-                <span className="text-white/80 text-sm font-medium">{tp.text}</span>
-              </motion.div>
-            ))}
+                <div>
+                  <div className="text-[10px] text-muted-foreground leading-tight">Total Patients</div>
+                  <div className="text-sm font-bold text-primary leading-tight flex items-center gap-1">
+                    1,248 <span className="text-success text-xs">↑12%</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 3, delay: 1, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute bottom-24 -left-10 bg-white rounded-xl shadow-lg px-3 py-2.5 border border-border flex items-center gap-3"
+            >
+              <div className="w-9 h-9 rounded-full bg-royal/10 flex items-center justify-center flex-shrink-0">
+                <Calendar className="h-4 w-4 text-royal" />
+              </div>
+              <div className="pr-1">
+                <div className="text-[10px] text-muted-foreground leading-tight">Upcoming Appointment</div>
+                <div className="text-sm font-bold text-primary leading-tight">10:30 AM</div>
+                <div className="text-[10px] text-muted-foreground leading-tight">Today, 18 Oct 2025</div>
+              </div>
+              <div className="w-7 h-7 rounded-full bg-royal flex items-center justify-center flex-shrink-0">
+                <ArrowRight className="h-3.5 w-3.5 text-white" />
+              </div>
+            </motion.div>
+
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 3, delay: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -bottom-6 -left-10 bg-white rounded-full shadow-lg pl-1 pr-3 py-1 border border-border flex items-center gap-2"
+            >
+              <div className="flex -space-x-2">
+                {[avatar1, avatar2, avatar3].map((src, i) => (
+                  <img key={i} src={src} alt="" className="h-7 w-7 rounded-full object-cover border-2 border-white" />
+                ))}
+              </div>
+              <div className="leading-tight">
+                <div className="text-xs font-bold text-primary">10,000+</div>
+                <div className="text-[9px] text-muted-foreground">Happy Doctors</div>
+              </div>
+            </motion.div>
           </div>
         </div>
 
-        <div className="relative z-10">
-          <p className="text-white/30 text-xs">© 2025 Doctylia by Jeevijay Technologies Pvt. Ltd.</p>
+        {/* Right Form Panel */}
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-8 bg-secondary lg:bg-transparent">
+          {/* Mobile brand header */}
+          <div className="lg:hidden mb-6 text-center">
+            <Link to="/">
+              <img src="/doctylia-logo.png" alt="Doctylia" className="h-9 mx-auto mb-2" />
+            </Link>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-md"
+          >
+            <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-5">
+              <ArrowLeft className="h-4 w-4" /> Back to Doctylia
+            </Link>
+
+            <div className="relative overflow-hidden bg-card rounded-2xl shadow-xl border border-border p-5 sm:p-7">
+              <div
+                className="absolute top-0 right-0 w-16 h-16 opacity-40 pointer-events-none"
+                style={{
+                  backgroundImage: "radial-gradient(hsl(var(--royal)) 1px, transparent 1px)",
+                  backgroundSize: "8px 8px",
+                }}
+              />
+              <div className="text-center mb-6 relative">
+                <img src="/doctylia-logo.png" alt="Doctylia" className="h-8 mx-auto mb-3" />
+                <span className="inline-block rounded-full bg-royal/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-royal mb-3">
+                  DOCTYLIA FOR DOCTORS
+                </span>
+                <h1 className="font-heading font-bold text-2xl text-primary">
+                  {mode === "signup" ? "Start Your Free Trial" : "Welcome Back"}
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {mode === "signup"
+                    ? "7 days free"
+                    : "Log in to your dashboard with your phone number."}
+                </p>
+              </div>
+
+              <PhoneOtpForm
+                mode={mode}
+                onAuthenticated={handleAuthenticated}
+                onRequestSignup={() => setMode("signup")}
+              />
+
+              <div className="text-center mt-5 text-sm text-muted-foreground">
+                {mode === "signup" ? (
+                  <p>
+                    Already have an account?{" "}
+                    <button onClick={() => setMode("login")} className="text-royal font-medium hover:underline">
+                      Log In
+                    </button>
+                  </p>
+                ) : (
+                  <p>
+                    Don't have an account?{" "}
+                    <button onClick={() => setMode("signup")} className="text-royal font-medium hover:underline">
+                      Sign Up Free
+                    </button>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-center gap-1.5 mt-5 text-xs text-muted-foreground">
+                <Shield className="h-3.5 w-3.5" />
+                Your data is secure and encrypted
+              </div>
+            </div>
+
+            {/* Mobile trust points */}
+            <div className="lg:hidden mt-6 space-y-3">
+              {trustPoints.map((tp, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                  <span>{tp.title}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
         </div>
       </div>
 
-      {/* Right Form Panel */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 bg-secondary">
-        {/* Mobile brand header */}
-        <div className="lg:hidden mb-6 text-center">
-          <Link to="/">
-            <img src="/doctylia-logo.png" alt="Doctylia" className="h-9 mx-auto mb-2" />
-          </Link>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md"
-        >
-          <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-5">
-            <ArrowLeft className="h-4 w-4" /> Back to Doctylia
-          </Link>
-
-          <div className="bg-card rounded-2xl shadow-xl border border-border p-5 sm:p-7">
-            <div className="text-center mb-6">
-              <h1 className="font-heading font-bold text-2xl text-primary">
-                {mode === "signup" ? "Start Your Free Trial" : "Welcome Back"}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {mode === "signup"
-                  ? "7 days free"
-                  : "Log in to your dashboard with your phone number."}
-              </p>
-            </div>
-
-            <PhoneOtpForm
-              mode={mode}
-              onAuthenticated={handleAuthenticated}
-              onRequestSignup={() => setMode("signup")}
-            />
-
-            <div className="text-center mt-5 text-sm text-muted-foreground">
-              {mode === "signup" ? (
-                <p>
-                  Already have an account?{" "}
-                  <button onClick={() => setMode("login")} className="text-royal font-medium hover:underline">
-                    Log In
-                  </button>
-                </p>
-              ) : (
-                <p>
-                  Don't have an account?{" "}
-                  <button onClick={() => setMode("signup")} className="text-royal font-medium hover:underline">
-                    Sign Up Free
-                  </button>
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile trust points */}
-          <div className="lg:hidden mt-6 space-y-3">
-            {trustPoints.map((tp, i) => (
-              <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
-                <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                <span>{tp.text}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+      <div className="hidden lg:block text-center py-3">
+        <p className="text-muted-foreground/60 text-xs">© 2025 Doctylia by Jeevijay Technologies Pvt. Ltd.</p>
       </div>
     </div>
   );

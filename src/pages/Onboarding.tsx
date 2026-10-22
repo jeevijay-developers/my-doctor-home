@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
+import { CountryCodeSelect } from "@/components/ui/country-code-select";
 import { DigitsInput } from "@/components/ui/digits-input";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Label } from "@/components/ui/label";
@@ -275,7 +276,15 @@ const Onboarding = () => {
                       </div>
                       <div className="space-y-2">
                         <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone Number <span className="text-destructive">*</span></Label>
-                        <FormattedPhoneInput value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+91 98765 43210" className="h-11" />
+                        <div className="flex h-11 items-stretch rounded-md border border-input overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                          <CountryCodeSelect />
+                          <FormattedPhoneInput
+                            value={form.phone}
+                            onChange={(e) => update("phone", e.target.value)}
+                            placeholder="98765 43210"
+                            className="h-full border-0 rounded-none focus-visible:ring-0"
+                          />
+                        </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
