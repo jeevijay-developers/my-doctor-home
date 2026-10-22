@@ -6,9 +6,9 @@ import { motion } from "framer-motion";
 import type { Session } from "@supabase/supabase-js";
 import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
 import loginDoctor from "@/assets/login-doctor.png";
-import avatar1 from "@/assets/testimonial-doctor-1.png";
-import avatar2 from "@/assets/testimonial-doctor-2.png";
-import avatar3 from "@/assets/testimonial-doctor-3.png";
+import avatar1 from "@/assets/testimonial-doctor-1.webp";
+import avatar2 from "@/assets/testimonial-doctor-2.webp";
+import avatar3 from "@/assets/testimonial-doctor-3.webp";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
