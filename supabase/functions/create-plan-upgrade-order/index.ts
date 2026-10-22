@@ -5,7 +5,7 @@
 // plan_upgrade_payments (a doctor paying the platform) instead of payments
 // (a patient paying a doctor).
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolvePaymentMode, mockId, corsHeaders, json } from "../_shared/paymentMode.ts";
+import { resolvePaymentMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
@@ -19,7 +19,8 @@ const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { pe
 const FALLBACK_TIER_PRICES: Record<string, number> = { pro: 1499, premium: 3999 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginPaymentRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization");

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { X, Check, ArrowRight, TrendingUp, IndianRupee } from "lucide-react";
+import { X, Check, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
@@ -15,31 +15,31 @@ const withoutItems = [
 ];
 
 const withItems = [
-  "24/7 online booking — never miss a patient",
+  "24/7 online booking - never miss a patient",
   "Digital patient records, searchable & secure",
   "Branded website ranking on Google",
   "Auto-generated GST invoices & payment tracking",
-  "WhatsApp reminders reduce no-shows by 70%",
+  "WhatsApp reminders before the appointment",
   "Collect & showcase 5-star reviews automatically",
 ];
 
 const stats = [
   {
-    icon: TrendingUp,
-    value: "14 hrs/week",
-    label: "Time saved per doctor",
+    icon: Check,
+    value: "10 min",
+    label: "Typical time to go live",
     accent: "bg-royal/10 text-royal",
   },
   {
-    icon: IndianRupee,
-    value: "₹2.4 Cr+",
-    label: "Revenue generated",
+    icon: Check,
+    value: "7 days",
+    label: "Free trial, no card required",
     accent: "bg-success/10 text-success",
   },
   {
     icon: Check,
-    value: "98%",
-    label: "Satisfaction rate",
+    value: "2,500+",
+    label: "Doctors on Doctylia",
     accent: "bg-teal/10 text-teal",
   },
 ];
@@ -82,7 +82,7 @@ const BeforeAfter = () => {
             See the Transformation
           </h2>
           <p className="text-muted-foreground mt-3">
-            Thousands of doctors have switched from chaos to clarity. Here's what changes.
+            2,500+ doctors have switched from chaos to clarity. Here's what changes.
           </p>
         </div>
 

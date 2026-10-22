@@ -5,7 +5,7 @@
 // ONLY on a verified signature do we flip profiles.plan_tier. Mirrors
 // verify-razorpay-payment's structure and idempotency guard exactly.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { hmacHex, MOCK_SIGNING_SECRET, corsHeaders, json } from "../_shared/paymentMode.ts";
+import { hmacHex, timingSafeEqualHex, MOCK_SIGNING_SECRET, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -14,7 +14,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginPaymentRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   let body: any;
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
     return json(501, { error: "Razorpay integration pending — platform API keys not configured" });
   }
   const expectedSignature = await hmacHex(expectedSecret!, `${razorpay_order_id}|${razorpay_payment_id}`);
-  if (expectedSignature !== razorpay_signature) {
+  if (!timingSafeEqualHex(expectedSignature, razorpay_signature)) {
     await admin.from("plan_upgrade_payments").update({ status: "failed", razorpay_payment_id }).eq("id", payment.id);
     return json(400, { error: "Signature verification failed" });
   }

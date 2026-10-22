@@ -12,7 +12,9 @@
 //
 // Mock mode: no real Razorpay call; generates fake IDs; same response shape.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolvePaymentMode, mockId, corsHeaders, json } from "../_shared/paymentMode.ts";
+import { resolvePaymentMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";
+import { turnstileError } from "../_shared/turnstile.ts";
 import {
   calculateCommissionSplit,
   isAmountMatchingServerPrice,
@@ -27,8 +29,12 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
+// Public booking clients must include `captchaToken` (Cloudflare Turnstile)
+// on this JSON body. The frontend widget must use exactly the field name
+// `captchaToken`.
 type BookingPayload = {
   doctor_id: string;
+  captchaToken?: string;
   patient_name: string;
   patient_phone: string;
   patient_age?: number | null;
@@ -52,8 +58,17 @@ function isValidBooking(b: Partial<BookingPayload>): b is BookingPayload {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginPaymentRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
+
+  const ip = clientIp(req);
+  const limited = await enforceRateLimit(admin, {
+    key: `create-razorpay-order:ip:${ip}`,
+    limit: 10,
+    windowSeconds: 10 * 60,
+  });
+  if (limited) return limited;
 
   let booking: Partial<BookingPayload>;
   try {
@@ -61,6 +76,10 @@ Deno.serve(async (req) => {
   } catch {
     return json(400, { error: "Bad request" });
   }
+
+  const captcha = await turnstileError(booking.captchaToken, ip);
+  if (captcha) return json(400, captcha);
+
   if (!isValidBooking(booking)) return json(400, { error: "Missing or invalid booking details" });
 
   // Fetch doctor profile — including Route payment & fee/commission fields

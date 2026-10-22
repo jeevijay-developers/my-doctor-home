@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -15,11 +15,22 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const prevTitle = document.title;
+    document.title = "Reset Password | Doctylia";
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    if (metaDesc) {
+      metaDesc.setAttribute("content", "Set a new password for your Doctylia account.");
+    }
     // Check for recovery session in URL hash
     const hash = window.location.hash;
     if (hash.includes("type=recovery")) {
       // Supabase auto-sets session from hash
     }
+    return () => {
+      document.title = prevTitle;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,7 +55,7 @@ const ResetPassword = () => {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-secondary flex items-center justify-center px-4">
+      <div className="min-h-screen bg-secondary flex items-center justify-center px-4 overflow-x-hidden">
         <div className="bg-white rounded-2xl shadow-lg border border-border p-8 max-w-md w-full text-center">
           <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
           <h1 className="font-heading font-bold text-2xl text-primary mb-2">Password Updated!</h1>
@@ -55,11 +66,13 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen bg-secondary flex items-center justify-center px-4">
+    <div className="min-h-screen bg-secondary flex items-center justify-center px-4 overflow-x-hidden">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-lg border border-border p-8">
           <div className="text-center mb-6">
-            <img src="/doctylia-logo.png" alt="Doctylia" className="h-10 mx-auto mb-4" />
+            <Link to="/" className="inline-block">
+              <img src="/doctylia-logo.webp" alt="Doctylia" className="h-10 mx-auto mb-4" />
+            </Link>
             <h1 className="font-heading font-bold text-2xl text-primary">Set New Password</h1>
             <p className="text-sm text-muted-foreground mt-1">Enter your new password below</p>
           </div>

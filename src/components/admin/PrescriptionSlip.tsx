@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Phone, Mail, Download, Printer, X } from "lucide-react";
-import doctyliaLogo from "@/assets/doctylia-logo.png";
+import doctyliaLogo from "@/assets/doctylia-logo.webp";
 import type { MedicineItem } from "@/lib/prescriptionMedicines";
 
 export type VisitSummary = {

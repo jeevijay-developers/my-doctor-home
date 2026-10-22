@@ -27,7 +27,12 @@ export default defineTool({
       .eq("doctor_id", ctx.getUserId())
       .order("created_at", { ascending: false })
       .limit(limit ?? 50);
-    if (search) q = q.or(`name.ilike.%${search}%,phone.ilike.%${search}%`);
+    if (search) {
+      const safeSearch = search.replace(/[,()%_]/g, " ").trim();
+      if (safeSearch) {
+        q = q.or(`name.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%`);
+      }
+    }
     const { data, error } = await q;
     if (error)
       return { content: [{ type: "text", text: error.message }], isError: true };

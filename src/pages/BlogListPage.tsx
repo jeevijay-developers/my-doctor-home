@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
 import Footer from "@/components/doctor/Footer";
 import type { Tables } from "@/integrations/supabase/types";
+import { jsonLdScript } from "@/lib/jsonLd";
 
 type BlogPost = Tables<"blog_posts">;
 type Doctor = Tables<"profiles">;
@@ -13,10 +14,42 @@ type Doctor = Tables<"profiles">;
 const readingTime = (content: string | null) =>
   Math.max(1, Math.ceil((content || "").replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length / 200));
 
-const displayDoctorName = (doctor: Doctor) => {
+// `display_name` is an optional override that isn't a column in the generated
+// profiles type; the name falls back to `full_name` when it's absent.
+type DoctorWithDisplayName = Doctor & { display_name?: string | null };
+
+const displayDoctorName = (doctor: DoctorWithDisplayName) => {
   const name = (doctor.display_name || doctor.full_name || "Doctor").trim();
   return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
 };
+
+function upsertMeta(selector: string, attr: "name" | "property", key: string, content: string) {
+  let el = document.head.querySelector<HTMLMetaElement>(selector);
+  if (!el) {
+    el = document.createElement("meta");
+    el.setAttribute(attr, key);
+    document.head.appendChild(el);
+  }
+  const prev = el.content;
+  el.content = content;
+  return () => {
+    if (el) el.content = prev;
+  };
+}
+
+function upsertCanonical(href: string) {
+  let link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.setAttribute("rel", "canonical");
+    document.head.appendChild(link);
+  }
+  const prev = link.href;
+  link.href = href;
+  return () => {
+    if (link) link.href = prev || `${window.location.origin}/`;
+  };
+}
 
 const BlogListPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -80,10 +113,97 @@ const BlogListPage = () => {
 
   useEffect(() => {
     if (!doctor) return;
+    const doctorName = displayDoctorName(doctor);
+    const title = `Health Articles · ${doctorName} | Doctylia`;
+    const description = `Clear, practical health articles and medical guidance written by ${doctorName}${doctor.specialization ? ` (${doctor.specialization})` : ""} on Doctylia.`;
+    const canonicalUrl = slug
+      ? `${window.location.origin}/dr/${slug}/blog`
+      : window.location.href;
+
     const previousTitle = document.title;
-    document.title = `Health Articles · ${displayDoctorName(doctor)} | Doctylia`;
-    return () => { document.title = previousTitle; };
-  }, [doctor]);
+    document.title = title;
+
+    const restoreCanonical = upsertCanonical(canonicalUrl);
+    const restoreDesc = upsertMeta('meta[name="description"]', "name", "description", description);
+    const restoreOgTitle = upsertMeta('meta[property="og:title"]', "property", "og:title", title);
+    const restoreOgDesc = upsertMeta('meta[property="og:description"]', "property", "og:description", description);
+    const restoreOgUrl = upsertMeta('meta[property="og:url"]', "property", "og:url", canonicalUrl);
+    const restoreOgType = upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
+    const restoreTwTitle = upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", title);
+    const restoreTwDesc = upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", description);
+    const restoreOgImage = doctor.profile_photo_url
+      ? upsertMeta('meta[property="og:image"]', "property", "og:image", doctor.profile_photo_url)
+      : () => {};
+    const restoreTwImage = doctor.profile_photo_url
+      ? upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", doctor.profile_photo_url)
+      : () => {};
+
+    return () => {
+      document.title = previousTitle;
+      restoreCanonical();
+      restoreDesc();
+      restoreOgTitle();
+      restoreOgDesc();
+      restoreOgUrl();
+      restoreOgType();
+      restoreTwTitle();
+      restoreTwDesc();
+      restoreOgImage();
+      restoreTwImage();
+    };
+  }, [doctor, slug]);
+
+  const structuredData = useMemo(() => {
+    if (!doctor || !slug) return null;
+    const doctorName = displayDoctorName(doctor);
+    const doctorUrl = `${window.location.origin}/dr/${slug}`;
+    const blogUrl = `${doctorUrl}/blog`;
+
+    return {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Blog",
+          "@id": `${blogUrl}#blog`,
+          name: `Health Articles by ${doctorName}`,
+          url: blogUrl,
+          description: `Clear, practical health guidance from ${doctorName}${doctor.specialization ? `, ${doctor.specialization}` : ""}.`,
+          author: {
+            "@type": "Physician",
+            name: doctorName,
+            url: doctorUrl,
+            ...(doctor.specialization ? { medicalSpecialty: doctor.specialization } : {}),
+          },
+          blogPost: posts.slice(0, 20).map((post) => ({
+            "@type": "BlogPosting",
+            headline: post.title,
+            url: `${blogUrl}/${post.id}`,
+            ...(post.published_at || post.created_at
+              ? { datePublished: post.published_at || post.created_at }
+              : {}),
+            ...(post.excerpt ? { description: post.excerpt } : {}),
+          })),
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: doctorName,
+              item: doctorUrl,
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Health Articles",
+              item: blogUrl,
+            },
+          ],
+        },
+      ],
+    };
+  }, [doctor, slug, posts]);
 
   const categories = useMemo(
     () => ["all", ...Array.from(new Set(posts.map((post) => post.category).filter((value): value is string => Boolean(value))))],
@@ -118,6 +238,12 @@ const BlogListPage = () => {
 
   return (
     <>
+      {structuredData && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData) }}
+        />
+      )}
       <main className="min-h-screen bg-slate-50 dark:bg-gray-950">
       <header className="relative isolate overflow-hidden bg-gradient-to-br from-[#071f3b] via-[#0b3f78] to-[#3C83FC] text-white">
         <div className="absolute -right-20 -top-28 h-80 w-80 rounded-full bg-white/10 blur-2xl" />
@@ -143,7 +269,7 @@ const BlogListPage = () => {
           <div className="mt-8 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 border-white/50 bg-white/15">
               {doctor.profile_photo_url ? (
-                <img src={doctor.profile_photo_url} alt={doctorName} className="h-full w-full object-cover" />
+                <img src={doctor.profile_photo_url} alt={doctorName} width={44} height={44} decoding="async" className="h-full w-full object-cover" />
               ) : (
                 <User className="h-5 w-5" />
               )}

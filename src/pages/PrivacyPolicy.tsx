@@ -3,18 +3,18 @@ import { Link } from "react-router-dom";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import LandingFooter from "@/components/landing/LandingFooter";
 
-// LEGAL / COMPLIANCE DRAFT — NOT YET REVIEWED BY COUNSEL, specifically for
+// LEGAL / COMPLIANCE DRAFT - NOT YET REVIEWED BY COUNSEL, specifically for
 // Digital Personal Data Protection Act (DPDP Act), 2023 compliance. Do not
 // treat this as final or publish it as binding without sign-off from a
 // qualified lawyer: this platform collects patient-adjacent health data
 // (appointments, prescriptions, clinical notes), doctor financial/payout
 // details, and processes payments via Razorpay/RazorpayX. Content here was
 // drafted directly against the current Supabase schema and edge functions
-// (see the sections below) rather than assumed — but the DPDP Act concepts
+// (see the sections below) rather than assumed - but the DPDP Act concepts
 // (Grievance Officer, consent, retention, breach notification) still need a
 // real business/legal decision behind each bracketed placeholder before this
 // page goes live. Companion document: src/pages/TermsOfService.tsx.
-const LAST_UPDATED = "August 13, 2026";
+const LAST_UPDATED = "October 22, 2026";
 
 const sections: { id: string; title: string; body: React.ReactNode }[] = [
   {
@@ -24,7 +24,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
       <>
         <p>
           This Privacy Policy explains how Jeevijay Technologies Pvt. Ltd. ("Doctylia," "we," "us," or
-          "our") collects, uses, shares, and protects personal data through the Doctylia platform —
+          "our") collects, uses, shares, and protects personal data through the Doctylia platform -
           including the Doctylia website, the branded websites Doctylia generates for doctors, and the
           admin panel (collectively, the "Service"). It applies to three groups: <strong>Practitioners</strong>{" "}
           (doctors and clinics who subscribe to Doctylia), <strong>Staff</strong> (accounts a Practitioner
@@ -70,17 +70,22 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
           </li>
           <li>
             Payment records: a record that a consultation payment was made, its amount, and its status.
-            Doctylia does not store raw card, UPI, or net-banking credentials — those are handled entirely
+            Doctylia does not store raw card, UPI, or net-banking credentials - those are handled entirely
             by Razorpay, which is PCI-DSS compliant.
           </li>
         </ul>
         <p><strong>Automatically collected:</strong></p>
         <p>
-          Doctylia does not currently run any analytics, advertising, or tracking scripts anywhere on the
-          Service. The only browser storage used is functional: your logged-in session is kept in
-          browser local storage so you stay signed in, and the admin panel sets one first-party cookie
-          purely to remember whether you've collapsed the sidebar. Neither is used to track you across
-          sites or for advertising.
+          Doctylia uses Google Analytics 4 to measure how the public website and doctor pages are used -
+          for example, which pages are visited. Google Analytics may set cookies and receive technical
+          information such as browser type, an approximate location derived from IP address, and the pages
+          viewed. See{" "}
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="text-royal hover:underline">
+            Google's Privacy Policy
+          </a>
+          . Separately, your logged-in session is kept in browser local storage so you stay signed in, and
+          the admin panel sets one first-party cookie purely to remember whether you've collapsed the
+          sidebar. Those two are not used to track you across sites or for advertising.
         </p>
       </>
     ),
@@ -90,11 +95,12 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
     title: "3. How We Use Information",
     body: (
       <ul>
-        <li>To provide the Service — operating a Practitioner's branded website, appointment booking, patient records, prescriptions, and billing.</li>
+        <li>To provide the Service - operating a Practitioner's branded website, appointment booking, patient records, prescriptions, and billing.</li>
         <li>To process payments and payouts, via Razorpay and RazorpayX.</li>
         <li>To send appointment confirmations, reminders, and checkup follow-ups, by email, WhatsApp, or SMS depending on what the Practitioner has enabled and the patient's provided contact details.</li>
         <li>To operate account security and access control, including staff permission enforcement.</li>
         <li>To respond to support requests and, where a Practitioner reports it, to moderate blog content for policy compliance.</li>
+        <li>To measure how the public website and doctor pages are used, via Google Analytics 4 (see Section 10).</li>
         <li>To maintain and improve the reliability of the Service.</li>
       </ul>
     ),
@@ -116,13 +122,13 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
             the booking form on a Practitioner's website. Where a patient's medical data (diagnosis,
             prescriptions, clinical notes) is entered by the Practitioner as part of providing care, that
             data is processed as part of the doctor-patient relationship, on the Practitioner's instruction
-            — the Practitioner is responsible for obtaining any consent required directly from their
+            - the Practitioner is responsible for obtaining any consent required directly from their
             patient for that clinical relationship, separate from Doctylia's role as the software processor.
           </li>
         </ul>
         <p>
           <em>
-            [Placeholder — the current booking form does not yet present a standalone, explicit consent
+            [Placeholder - the current booking form does not yet present a standalone, explicit consent
             checkbox for medical data processing distinct from the general act of booking; whether the DPDP
             Act requires one in this two-party (Practitioner-collects-on-Doctylia's-platform) structure
             should be confirmed with counsel before publishing.]
@@ -139,31 +145,31 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
         <p>Doctylia shares personal data only as needed to operate the Service:</p>
         <ul>
           <li>
-            <strong>With the Practitioner a patient books with</strong> — a patient's booking, contact, and
+            <strong>With the Practitioner a patient books with</strong> - a patient's booking, contact, and
             medical details are visible to the Practitioner (and any staff the Practitioner has granted
             relevant permissions to) whose website the booking was made through.
           </li>
           <li>
-            <strong>Razorpay / RazorpayX</strong> — to process consultation payments and Practitioner
+            <strong>Razorpay / RazorpayX</strong> - to process consultation payments and Practitioner
             subscription billing, and to settle payouts to a Practitioner's bank account or UPI ID.
           </li>
           <li>
-            <strong>Supabase</strong> — Doctylia's database, authentication, and file storage
+            <strong>Supabase</strong> - Doctylia's database, authentication, and file storage
             infrastructure provider, which hosts all of the data described in Section 2.
           </li>
           <li>
-            <strong>A WhatsApp/SMS messaging provider</strong> — where a Practitioner enables appointment or
+            <strong>A WhatsApp/SMS messaging provider</strong> - where a Practitioner enables appointment or
             checkup reminders, a patient's phone number and message content are shared with a third-party
             messaging provider to deliver that message.{" "}
-            <em>[Placeholder — the specific messaging provider has not yet been finalized in the product;
+            <em>[Placeholder - the specific messaging provider has not yet been finalized in the product;
             this section names the category of recipient rather than a specific company, and should be
             updated once a provider is selected.]</em>
           </li>
         </ul>
         <p>
-          <strong>Doctylia does not sell personal data to third parties for advertising</strong>, and does
-          not currently share data with any advertising or analytics network, because none is integrated
-          into the Service (see Section 10).
+          <strong>Doctylia does not sell personal data to third parties for advertising</strong>. Site-usage
+          measurements are processed by Google Analytics 4, as described in Section 10. Doctylia does not
+          run advertising scripts.
         </p>
       </>
     ),
@@ -175,7 +181,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
       <>
         <p>
           All Service data is stored on Supabase's managed Postgres infrastructure.{" "}
-          <em>[Placeholder — the specific hosting region has not been confirmed for this policy and should
+          <em>[Placeholder - the specific hosting region has not been confirmed for this policy and should
           be filled in from the Supabase project settings.]</em> Data in transit is encrypted via HTTPS/TLS;
           data at rest is encrypted per Supabase's platform-level encryption.
         </p>
@@ -196,7 +202,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
     body: (
       <p>
         <em>
-          [Placeholder — a formal data retention schedule for patient records, appointment history, and
+          [Placeholder - a formal data retention schedule for patient records, appointment history, and
           payment records has not yet been defined and requires a real business/legal decision rather than
           an invented figure. The one retention rule currently implemented in the product: when a
           Practitioner's subscription is cancelled or expires, their account data is retained for 30 days
@@ -219,7 +225,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
         </p>
         <p>
           <em>
-            [Placeholder — self-service data access/export/deletion is not yet built into the product;
+            [Placeholder - self-service data access/export/deletion is not yet built into the product;
             requests are currently handled manually. This should be reflected accurately and revisited if
             a self-service flow is built.]
           </em>
@@ -232,7 +238,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
     title: "9. Doctor/Staff Access Controls",
     body: (
       <p>
-        Doctylia's admin panel uses a permission system scoped to specific modules — for example,
+        Doctylia's admin panel uses a permission system scoped to specific modules - for example,
         appointments, patients, prescriptions, billing, and staff management. A Practitioner decides which
         modules each staff account can view or edit when creating that account, and a staff member's
         access is limited to exactly what they've been granted, both in what the interface shows them and
@@ -246,11 +252,16 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
     title: "10. Cookies & Tracking",
     body: (
       <p>
-        Doctylia does not use advertising or analytics cookies, and no analytics, tracking, or advertising
-        scripts of any kind are integrated into the Service today. The Service uses browser local storage
-        to keep you signed in, and the admin panel sets a single first-party cookie to remember your
-        sidebar's collapsed/expanded state — both are strictly functional and are not used for tracking or
-        profiling. If this changes in the future, this section will be updated accordingly.
+        Doctylia uses Google Analytics 4 to measure site usage. That service may set analytics cookies and
+        process usage data such as pages visited, browser type, and an approximate location derived from
+        IP address, as described in{" "}
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="text-royal hover:underline">
+          Google's Privacy Policy
+        </a>
+        . Doctylia does not use advertising cookies and does not run advertising scripts. The Service also
+        uses browser local storage to keep you signed in, and the admin panel sets a single first-party
+        cookie to remember your sidebar's collapsed/expanded state - both are strictly functional and are
+        not used for advertising or profiling.
       </p>
     ),
   },
@@ -264,7 +275,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
         the adult submitting the booking as responsible for having the authority to provide that
         information on the minor's behalf, consistent with the DPDP Act's requirement of verifiable
         parental/guardian consent for processing a child's personal data.{" "}
-        <em>[Placeholder — the product does not currently ask the booking party to confirm they are the
+        <em>[Placeholder - the product does not currently ask the booking party to confirm they are the
         patient's parent/guardian when the patient is a minor; whether an explicit confirmation step is
         required here should be confirmed with counsel.]</em>
       </p>
@@ -278,7 +289,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
         If Doctylia becomes aware of a personal data breach that is likely to affect Practitioners,
         staff, or patients, we will take reasonable steps to contain it and will notify affected users and
         the relevant authority as required under the DPDP Act.{" "}
-        <em>[Placeholder — a specific breach-notification timeline and internal incident-response
+        <em>[Placeholder - a specific breach-notification timeline and internal incident-response
         process should be defined with counsel rather than left generic before this page is published.]</em>
       </p>
     ),
@@ -290,7 +301,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
       <p>
         The DPDP Act requires a named contact for privacy-related grievances.{" "}
         <em>
-          [Placeholder — a Grievance Officer has not yet been designated. This is a legal requirement, not
+          [Placeholder - a Grievance Officer has not yet been designated. This is a legal requirement, not
           optional copy, and must be filled in with a real named person or role (name, designation, and a
           direct contact email/address) before this page is published.]
         </em>{" "}
@@ -306,7 +317,7 @@ const sections: { id: string; title: string; body: React.ReactNode }[] = [
       <p>
         Doctylia is built for doctors and patients in India, and this Privacy Policy is written with the
         DPDP Act, 2023 as its primary reference framework.{" "}
-        <em>[Placeholder — if Doctylia serves or plans to serve users outside India, this section should
+        <em>[Placeholder - if Doctylia serves or plans to serve users outside India, this section should
         be expanded to address the relevant regional data protection regime (e.g. GDPR); as of this draft
         the product and marketing content describe an India-focused service, so no such section has been
         included.]</em>
@@ -343,11 +354,22 @@ const PrivacyPolicy = () => {
     window.scrollTo(0, 0);
     const prev = document.title;
     document.title = "Privacy Policy | Doctylia";
-    return () => { document.title = prev; };
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        "content",
+        "Read Doctylia's Privacy Policy covering how doctor and patient data is collected, encrypted, stored, and protected under Indian data protection laws."
+      );
+    }
+    return () => {
+      document.title = prev;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+    };
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <LandingNavbar />
 
       <div className="pt-28 md:pt-32">

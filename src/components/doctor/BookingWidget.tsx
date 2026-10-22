@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { FEATURE_KEYS } from "@/lib/features";
 import { usePaymentMode } from "@/hooks/usePaymentMode";
@@ -32,7 +33,7 @@ const getNextDays = (count: number) => {
 const SummaryRow = ({ label, value }: { label: string; value: string }) => (
   <div className="flex justify-between gap-3">
     <span className="text-text-gray">{label}</span>
-    <span className="text-foreground font-medium text-right break-words">{value || "—"}</span>
+    <span className="text-foreground font-medium text-right break-words">{value || "-"}</span>
   </div>
 );
 
@@ -45,7 +46,7 @@ type PaymentMeta = {
 
 // A Razorpay order + our internal payments row id, cached across a failed/
 // cancelled Checkout attempt so "Retry Payment" reopens the SAME order
-// instead of minting a new one each time — one payments row per booking
+// instead of minting a new one each time - one payments row per booking
 // attempt, never a duplicate appointment.
 type CachedOrder = {
   payment_id: string;
@@ -95,12 +96,14 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const [mockCheckoutOpen, setMockCheckoutOpen] = useState(false);
   // True while the async slot re-validation fires on time-slot selection
   const [checkingSlot, setCheckingSlot] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   useEffect(() => { if (confirmed) setSlipOpen(true); }, [confirmed]);
 
   // Any time the patient steps back before Review (to change date,
   // time, or their own details), the previously cached Razorpay order no
-  // longer matches what would be booked — drop it so the next "Pay Now"
+  // longer matches what would be booked - drop it so the next "Pay Now"
   // creates a fresh order instead of silently booking stale details.
   useEffect(() => { if (step < 5) setCachedOrder(null); }, [step]);
 
@@ -205,7 +208,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     return true;
   };
 
-  // Pay at Clinic booking — appointment is created immediately (unchanged
+  // Pay at Clinic booking - appointment is created immediately (unchanged
   // behaviour). Only used when the doctor has NOT turned on Require Online
   // Payment; the online-payment path below never calls this.
   const createAppointmentRow = async (): Promise<{ id: string; token: string } | null> => {
@@ -246,7 +249,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         return null;
       }
       if (error.message?.includes("SLOT_IN_PAST")) {
-        toast.error("That time has already passed — please pick a later slot.");
+        toast.error("That time has already passed - please pick a later slot.");
         setStep(3); setSelectedTime(""); refresh();
         return null;
       }
@@ -297,7 +300,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   // "Download Appointment/Payment Slip" on the confirmation screen open the
   // (printable) slip dialog and immediately trigger the PDF download once its
-  // content has mounted — one click, automatically generated, no second step.
+  // content has mounted - one click, automatically generated, no second step.
   const handleDownloadAppointmentSlip = () => {
     setSlipOpen(true);
     setTimeout(downloadSlip, 350);
@@ -309,11 +312,11 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   // Called when the patient taps a time-slot on step 4. We do an instant
   // isFull() check against the live cached counts first, then fire a fresh
-  // refresh() to pull the very latest state from the DB before advancing —
+  // refresh() to pull the very latest state from the DB before advancing -
   // this catches any booking that completed in the last 8 s polling window.
   //
   // IMPORTANT: after await refresh(), we use the freshCounts map returned
-  // directly from the call rather than calling isFull() again — isFull() reads
+  // directly from the call rather than calling isFull() again - isFull() reads
   // the React `counts` state which is updated asynchronously and would still
   // hold the stale value at the point we check it (classic stale-closure bug).
   const selectTimeSlot = async (slot: string) => {
@@ -331,18 +334,18 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     const freshCounts = await refresh();
     setCheckingSlot(false);
 
-    // Re-check against the freshly returned map — NOT isFull() (stale closure).
+    // Re-check against the freshly returned map - NOT isFull() (stale closure).
     if ((freshCounts[slot] || 0) >= 1) {
       toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
       return;
     }
 
-    // Slot still available — advance the wizard.
+    // Slot still available - advance the wizard.
     setSelectedTime(slot);
     setStep(4);
   };
 
-  // Step 4 "Continue" for online-payment doctors — just moves to the Review
+  // Step 4 "Continue" for online-payment doctors - just moves to the Review
   // Booking Summary step. Nothing is written to the database here.
   // Also re-validates the slot so a race between step 3 selection and step 4
   // Continue is caught before the patient proceeds to payment.
@@ -360,11 +363,15 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   };
 
   // Opens a Razorpay order for the current booking details (or reuses one
-  // already cached for this Review session) — no appointment or DB row for
+  // already cached for this Review session) - no appointment or DB row for
   // the appointment itself is created here, only a `payments` row holding
   // the pending booking payload.
   const ensureOrder = async (): Promise<CachedOrder | null> => {
     if (cachedOrder) return cachedOrder;
+    if (getTurnstileSiteKey() && !captchaToken) {
+      toast.error("Please complete the verification check.");
+      return null;
+    }
     if (!profile || !selectedDate || !selectedTime) return null;
     if (isFull(selectedTime)) {
       toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
@@ -390,8 +397,15 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     };
 
     const { data: orderData, error: orderErr } = await supabase.functions.invoke("create-razorpay-order", {
-      body: bookingPayload,
+      body: {
+        ...bookingPayload,
+        ...(captchaToken ? { captchaToken } : {}),
+      },
     });
+    if (captchaToken) {
+      setCaptchaToken("");
+      setTurnstileReset((n) => n + 1);
+    }
 
     if (orderErr || !orderData?.order_id) {
       const message = await edgeFunctionErrorMessage(orderErr, "Online payment isn't available right now.");
@@ -399,7 +413,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
         setStep(3); setSelectedTime(""); refresh();
       } else if (message.includes("SLOT_IN_PAST")) {
-        toast.error("That time has already passed — please pick a later slot.");
+        toast.error("That time has already passed - please pick a later slot.");
         setStep(3); setSelectedTime(""); refresh();
       } else {
         toast.error("Online payment isn't active yet for this clinic.", { description: "Please contact the clinic to book, or try again shortly." });
@@ -420,7 +434,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   };
 
   // Shared by the real Razorpay `handler` callback AND MockCheckoutModal's
-  // "Simulate Successful Payment" / "Simulate Signature Mismatch" — every
+  // "Simulate Successful Payment" / "Simulate Signature Mismatch" - every
   // outcome from either gateway is verified through this exact same call,
   // so verify-razorpay-payment, appointment creation, and commission split
   // run identically in mock and live mode. Only the caller (real Checkout vs
@@ -461,7 +475,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   };
 
   // Shared by real Razorpay's `payment.failed` event and MockCheckoutModal's
-  // "Simulate Failed Payment" / "Payment Timeout" — a genuine failure (as
+  // "Simulate Failed Payment" / "Payment Timeout" - a genuine failure (as
   // opposed to the patient just closing the modal) sends them to the
   // dedicated Payment Failed screen.
   const handleCheckoutFailure = (message: string) => {
@@ -471,7 +485,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     setSubmitting(false);
   };
 
-  // Cancelled, not failed — keep the cached order so a follow-up "Pay Now"
+  // Cancelled, not failed - keep the cached order so a follow-up "Pay Now"
   // click on the Review step reuses it instead of minting a new one.
   const handleCheckoutDismiss = () => {
     setSubmitting(false);
@@ -481,10 +495,10 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   // Opens Checkout for an already-created order and verifies the result. The
   // appointment is created ONLY inside verify-razorpay-payment, and only
-  // after the payment signature is verified — so a failed/cancelled payment
+  // after the payment signature is verified - so a failed/cancelled payment
   // never books anything, and a successful one can never be applied twice
   // (idempotent on payment_id). In mock mode this opens MockCheckoutModal
-  // instead of loading the real Razorpay script — everything past this point
+  // instead of loading the real Razorpay script - everything past this point
   // (verification, appointment creation, ledger) is identical either way.
   const openCheckout = async (order: CachedOrder) => {
     if (order.mode === "mock") {
@@ -519,7 +533,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   };
 
   // Review Summary "Pay Now" AND the Payment Failed screen's "Retry Payment"
-  // both call this — retry reuses the cached order (same payments row) so a
+  // both call this - retry reuses the cached order (same payments row) so a
   // second attempt never creates a second appointment record.
   const payNow = async () => {
     if (submitting) return;
@@ -559,7 +573,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
             {confirmedPaymentStatus === "paid" && (
               <div className="mb-4 p-3 rounded-xl bg-success/10 border border-success/20 text-left text-sm text-success flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>Payment received — you're all paid up for this appointment.</span>
+                <span>Payment received - you're all paid up for this appointment.</span>
               </div>
             )}
 
@@ -568,7 +582,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
                 <div className="flex items-center gap-2 font-semibold">
                   <Users className="h-4 w-4" />
                   {patientsAhead === 0
-                    ? "You're first in line — no wait!"
+                    ? "You're first in line - no wait!"
                     : `${patientsAhead} patient${patientsAhead > 1 ? "s" : ""} ahead of you`}
                 </div>
                 {patientsAhead > 0 && (
@@ -649,7 +663,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   }
 
   // Payment genuinely failed (Razorpay's payment.failed event) or our own
-  // verification rejected it — as opposed to the patient simply closing the
+  // verification rejected it - as opposed to the patient simply closing the
   // Checkout modal, which just returns them to Review Summary with a toast.
   // No appointment exists yet either way; Retry Payment reuses the same
   // cached order so retrying never creates a duplicate.
@@ -835,7 +849,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               >
                 {compatibleServices.map((svc) => (
                   <option key={svc.id ?? "default-consultation"} value={svc.id ?? ""}>
-                    {svc.name} — ₹{svc.price} ({svc.duration} min)
+                    {svc.name} - ₹{svc.price} ({svc.duration} min)
                   </option>
                 ))}
               </select>
@@ -921,7 +935,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
             {phone && !isValidIndianPhone(phone) && (
               <p className="text-[11px] text-destructive -mt-1">{phoneErrorMessage}</p>
             )}
-            <input type="email" placeholder="Email (optional — for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
+            <input type="email" placeholder="Email (optional - for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
             <div className="grid grid-cols-2 gap-3">
               <input type="number" min="0" max="120" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
@@ -958,7 +972,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           ) : (
             <Button variant="cta" className="w-full rounded-xl bg-primary-500 py-6 font-heading text-lg font-bold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] hover:bg-primary-600"
               disabled={!name || !phone || !age || !gender || submitting} onClick={submitBooking}>
-              {submitting ? "Booking..." : `Book Appointment — ₹${selectedService?.price}`}
+              {submitting ? "Booking..." : `Book Appointment - ₹${selectedService?.price}`}
             </Button>
           )}
         </div>
@@ -1009,6 +1023,8 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               </div>
             </div>
           </div>
+
+          <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(4)}>

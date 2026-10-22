@@ -39,7 +39,7 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { profile, workingHours, settings } = useDoctorData();
   const clinicName = profile?.clinic_name || (profile?.full_name ? `Dr. ${profile.full_name}'s Clinic` : "Clinic");
   const location = [profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ");
-  const phone = profile?.phone || "";
+  const phone = profile?.clinic_phone || profile?.phone || "";
   const email = profile?.clinic_email || "";
   const mapsQuery = getClinicMapsQuery(profile);
   const directionsUrl = getClinicMapsUrl(profile);

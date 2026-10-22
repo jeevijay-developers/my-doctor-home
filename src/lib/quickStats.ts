@@ -48,7 +48,7 @@ export const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
 export const DEFAULT_QUICK_STATS: QuickStatItem[] = [
   { id: "patients", label: "Patients Treated", value: "5,000+", icon: "Users", active: true },
   { id: "experience", label: "Years Experience", value: "", icon: "Award", active: true },
-  { id: "success", label: "Success Rate", value: "98%", icon: "ThumbsUp", active: true },
+  { id: "success", label: "Success Rate", value: "", icon: "ThumbsUp", active: false },
   { id: "booking", label: "Online Booking", value: "24/7", icon: "Headset", active: true },
 ];
 

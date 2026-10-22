@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { DigitsInput } from "@/components/ui/digits-input";
 import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
 import { Label } from "@/components/ui/label";
 import { otpService } from "@/lib/auth/otp/otpService";
+import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
+
+const PRIMARY = "#3C83FC";
 
 interface Props {
   mode: "login" | "signup";
@@ -27,18 +32,42 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
+  const [agreedToPolicies, setAgreedToPolicies] = useState(false);
+
+  useEffect(() => {
+    setAgreedToPolicies(false);
+    setPhoneError(null);
+  }, [mode]);
 
   const sendOtp = async () => {
     setPhoneError(null);
     setShowSignupLink(false);
 
+    if (mode === "signup" && !agreedToPolicies) {
+      setPhoneError("Please agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
+
     setLoading(true);
     try {
+      if (getTurnstileSiteKey() && !captchaToken) {
+        const message = "Please complete the verification check.";
+        if (step === "enter-otp") setOtpError(message);
+        else setPhoneError(message);
+        return;
+      }
       const res = await otpService.sendOtp({
         phone,
         mode,
         fullName: mode === "signup" ? fullName : undefined,
+        ...(captchaToken ? { captchaToken } : {}),
       });
+      if (captchaToken) {
+        setCaptchaToken("");
+        setTurnstileReset((n) => n + 1);
+      }
 
       if (!res.success) {
         setPhoneError(res.message || "Failed to send OTP.");
@@ -128,7 +157,8 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
           {showSignupLink && (
             <button
               type="button"
-              className="text-xs text-royal font-medium hover:underline mt-1 block"
+              className="text-xs font-medium hover:underline mt-1 block"
+              style={{ color: PRIMARY }}
               onClick={() => {
                 setStep("enter-phone");
                 setOtp("");
@@ -141,11 +171,13 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
             </button>
           )}
         </div>
+        <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
         <Button
           type="button"
           onClick={verifyOtp}
           disabled={loading}
-          className="w-full h-11 bg-royal hover:bg-royal/90 text-white font-semibold"
+          className="w-full h-11 text-white font-semibold hover:opacity-90"
+          style={{ backgroundColor: PRIMARY }}
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
           Verify OTP
@@ -154,7 +186,7 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
           type="button"
           onClick={resend}
           disabled={cooldownSeconds > 0 || loading}
-          className="text-xs text-muted-foreground hover:text-royal disabled:opacity-50 disabled:hover:text-muted-foreground w-full text-center block"
+          className="text-xs text-muted-foreground disabled:opacity-50 w-full text-center block hover:underline"
         >
           {cooldownSeconds > 0 ? `Resend OTP in ${cooldownSeconds}s` : "Resend OTP"}
         </button>
@@ -207,18 +239,45 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
         {showSignupLink && (
           <button
             type="button"
-            className="text-xs text-royal font-medium hover:underline mt-1 block"
+            className="text-xs font-medium hover:underline mt-1 block"
+            style={{ color: PRIMARY }}
             onClick={() => onRequestSignup?.()}
           >
             Sign up instead
           </button>
         )}
       </div>
+      {mode === "signup" && (
+        <div className="flex items-start gap-2.5">
+          <Checkbox
+            id="agree-policies"
+            checked={agreedToPolicies}
+            onCheckedChange={(checked) => {
+              setAgreedToPolicies(checked === true);
+              if (checked === true) setPhoneError(null);
+            }}
+            className="mt-0.5"
+          />
+          <Label htmlFor="agree-policies" className="text-xs leading-relaxed text-muted-foreground font-normal cursor-pointer">
+            I agree to the{" "}
+            <Link to="/terms" className="font-medium hover:underline" style={{ color: PRIMARY }}>
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="font-medium hover:underline" style={{ color: PRIMARY }}>
+              Privacy Policy
+            </Link>
+            .
+          </Label>
+        </div>
+      )}
+      <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
       <Button
         type="button"
         onClick={sendOtp}
-        disabled={loading}
-        className="w-full h-11 bg-royal hover:bg-royal/90 text-white font-semibold"
+        disabled={loading || (mode === "signup" && !agreedToPolicies)}
+        className="w-full h-11 text-white font-semibold hover:opacity-90"
+        style={{ backgroundColor: PRIMARY }}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
         Send OTP

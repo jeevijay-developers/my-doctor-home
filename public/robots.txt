@@ -1,14 +1,120 @@
+# Doctylia robots.txt - Search Engine, Social, AEO & GEO Crawler Directives
+
+# Standard Search Engine Crawlers
 User-agent: Googlebot
 Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
 
+# AI Search & Answer Engine Citation Crawlers (AEO / GEO)
+# OAI-SearchBot is OpenAI's search/citation crawler (distinct from GPTBot model training)
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
+
+# OpenAI Model Training Crawler (configured separately from OAI-SearchBot)
+User-agent: GPTBot
+Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
+
+# Social Preview Crawlers
 User-agent: Twitterbot
 Allow: /
 
 User-agent: facebookexternalhit
 Allow: /
 
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+# Default Rule for All Other Crawlers
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /superadmin
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /staff-login
+Disallow: /.lovable/
+
+Sitemap: https://doctylia.com/sitemap.xml

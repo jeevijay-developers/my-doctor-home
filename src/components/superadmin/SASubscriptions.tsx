@@ -17,6 +17,7 @@ import { logAdminAction } from "@/lib/adminAudit";
 import { Search, RotateCcw, Save, Trash2, X } from "lucide-react";
 import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
 import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 // Default plan prices (INR / month). Single source of truth for default pricing.
 // Kept as a static export so existing importers (subscriptionRevenue.ts,
@@ -40,6 +41,7 @@ const SASubscriptions = () => {
   const [dates, setDates] = useState<Record<string, string>>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [pendingTierChange, setPendingTierChange] = useState<{
     id: string; tier: string; prev: string; wasTrial: boolean; hasCustom: boolean; customPrice: number | null;
   } | null>(null);
@@ -99,14 +101,14 @@ const SASubscriptions = () => {
   const customCount = rows.filter((r) => r.custom_plan_price != null).length;
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((r) =>
       (r.full_name || "").toLowerCase().includes(q) ||
       (r.clinic_name || "").toLowerCase().includes(q) ||
       (r.email || "").toLowerCase().includes(q)
     );
-  }, [rows, search]);
+  }, [rows, debouncedSearch]);
 
   const bulkTargets = rows.filter((r) => selectedIds.has(r.id)).map((r) => ({ id: r.id, full_name: r.full_name }));
 
@@ -382,7 +384,7 @@ const SASubscriptions = () => {
                           variant="outline"
                           className="h-8 w-8"
                           disabled={!hasCustom}
-                          onClick={() => resetCustomPrice(r.id)}
+                          onClick={() => clearCustomPrice(r.id)}
                           title="Reset to default price"
                         >
                           <RotateCcw className="h-3.5 w-3.5" />

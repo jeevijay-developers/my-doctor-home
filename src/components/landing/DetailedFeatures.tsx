@@ -23,7 +23,7 @@ const tabs = [
     label: "Appointments",
     icon: CalendarCheck,
     title: "Smart Appointment Booking",
-    desc: "Let patients book 24/7. Auto-confirm, send reminders, manage your schedule — all on autopilot.",
+    desc: "Let patients book 24/7. Auto-confirm, send reminders, manage your schedule - all on autopilot.",
     features: [
       "Online booking from your website",
       "Calendar view with drag & reschedule",
@@ -39,7 +39,7 @@ const tabs = [
     label: "Billing",
     icon: CreditCard,
     title: "Billing & Payment Tracking",
-    desc: "Generate GST invoices, track payments, accept online payments — all from one place.",
+    desc: "Generate GST invoices, track payments, accept online payments - all from one place.",
     features: [
       "Auto-generate GST-compliant invoices",
       "Track paid, pending & refunded payments",
@@ -57,7 +57,7 @@ const tabs = [
     title: "AI-Powered Content & Insights",
     desc: "Let AI write SEO health blogs, generate patient education content, and surface smart insights.",
     features: [
-      "AI blog writer — publish in 1 click",
+      "AI blog writer - publish in 1 click",
       "SEO-optimized health articles",
       "Patient education content generator",
       "Smart analytics & growth insights",

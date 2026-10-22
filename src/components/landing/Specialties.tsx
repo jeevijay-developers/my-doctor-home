@@ -4,16 +4,16 @@ import { Heart, Baby, Bone, Eye, Brain, Stethoscope, Smile, Scissors, Pill, Acti
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 
 const specialties = [
-  { name: "General Physician", icon: Stethoscope, count: "3,200+", color: "bg-royal/8 text-royal" },
-  { name: "Dentist", icon: Smile, count: "1,800+", color: "bg-teal/10 text-teal" },
-  { name: "Pediatrician", icon: Baby, count: "1,400+", color: "bg-success/10 text-success" },
-  { name: "Cardiologist", icon: Heart, count: "900+", color: "bg-destructive/10 text-destructive" },
-  { name: "Orthopedic", icon: Bone, count: "750+", color: "bg-royal/8 text-royal" },
-  { name: "Dermatologist", icon: Scissors, count: "680+", color: "bg-ai-purple/10 text-ai-purple" },
-  { name: "Ophthalmologist", icon: Eye, count: "520+", color: "bg-teal/10 text-teal" },
-  { name: "Neurologist", icon: Brain, count: "400+", color: "bg-warning/10 text-warning" },
-  { name: "Gynecologist", icon: Activity, count: "1,100+", color: "bg-accent/10 text-accent" },
-  { name: "Ayurvedic", icon: Pill, count: "350+", color: "bg-success/10 text-success" },
+  { name: "General Physician", icon: Stethoscope, color: "bg-royal/8 text-royal" },
+  { name: "Dentist", icon: Smile, color: "bg-teal/10 text-teal" },
+  { name: "Pediatrician", icon: Baby, color: "bg-success/10 text-success" },
+  { name: "Cardiologist", icon: Heart, color: "bg-destructive/10 text-destructive" },
+  { name: "Orthopedic", icon: Bone, color: "bg-royal/8 text-royal" },
+  { name: "Dermatologist", icon: Scissors, color: "bg-ai-purple/10 text-ai-purple" },
+  { name: "Ophthalmologist", icon: Eye, color: "bg-teal/10 text-teal" },
+  { name: "Neurologist", icon: Brain, color: "bg-warning/10 text-warning" },
+  { name: "Gynecologist", icon: Activity, color: "bg-accent/10 text-accent" },
+  { name: "Ayurvedic", icon: Pill, color: "bg-success/10 text-success" },
 ];
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
@@ -51,7 +51,7 @@ const Specialties = () => {
                 Built for Every Specialty
               </h2>
               <p className="text-sm text-white/80 mt-1">
-                Whether you're a solo practitioner or run a multi-specialty clinic — Doctylia adapts.
+                10 specialties - solo practitioners and multi-specialty clinics.
               </p>
             </div>
           </div>
@@ -78,7 +78,6 @@ const Specialties = () => {
                       <s.icon className="h-4 w-4" />
                     </div>
                     <div className="font-heading font-semibold text-[10px] text-primary leading-tight">{s.name}</div>
-                    <div className="text-[9px] text-muted-foreground mt-0.5">{s.count}</div>
                   </motion.div>
                 </CarouselItem>
               ))}
@@ -115,7 +114,6 @@ const Specialties = () => {
                 <s.icon className="h-4 w-4 md:h-6 md:w-6" />
               </div>
               <div className="font-heading font-semibold text-[10px] sm:text-xs md:text-sm text-primary leading-tight">{s.name}</div>
-              <div className="text-[9px] md:text-[11px] text-muted-foreground mt-0.5">{s.count}</div>
             </motion.div>
           ))}
         </motion.div>

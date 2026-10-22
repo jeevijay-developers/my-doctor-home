@@ -10,7 +10,7 @@
 // doctor-side payout/settlement UI can be tested end-to-end today without
 // waiting on real RazorpayX activation.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolvePaymentMode, mockId, corsHeaders, json } from "../_shared/paymentMode.ts";
+import { resolvePaymentMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAYX_KEY_ID = Deno.env.get("RAZORPAYX_KEY_ID");
 const RAZORPAYX_KEY_SECRET = Deno.env.get("RAZORPAYX_KEY_SECRET");
@@ -40,7 +40,8 @@ async function razorpayxFetch(path: string, body: unknown) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginPaymentRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization");

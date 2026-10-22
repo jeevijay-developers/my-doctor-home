@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Shield, Award, Clock, MapPin } from "lucide-react";
 
 const stats = [
-  { number: 10000, suffix: "+", label: "Doctors Trust Us", icon: Shield },
+  { number: 2500, suffix: "+", label: "Doctors Trust Us", icon: Shield },
   { number: 50000, suffix: "+", label: "Appointments Booked", icon: Clock },
   { number: 200, suffix: "+", label: "Cities in India", icon: MapPin },
   { number: 99.9, suffix: "%", label: "Uptime Guarantee", icon: Award },

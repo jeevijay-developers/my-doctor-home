@@ -2,17 +2,17 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Star, Quote } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import testimonial1 from "@/assets/testimonial-doctor-1.png";
-import testimonial2 from "@/assets/testimonial-doctor-2.png";
-import testimonial3 from "@/assets/testimonial-doctor-3.png";
+import testimonial1 from "@/assets/testimonial-doctor-1.webp";
+import testimonial2 from "@/assets/testimonial-doctor-2.webp";
+import testimonial3 from "@/assets/testimonial-doctor-3.webp";
 
 const reviews = [
-  { name: "Dr. Priya Mehta", spec: "Dermatologist", city: "Pune", text: "Doctylia transformed my practice. I went from juggling WhatsApp messages to having a fully automated booking system. My patient no-shows dropped by 70%!", rating: 5, img: testimonial1 },
-  { name: "Dr. Vikram Singh", spec: "General Physician", city: "Delhi", text: "Setting up my website took 5 minutes. Now patients find me on Google and book directly. The AI blog writer saves me hours every week — absolute game changer.", rating: 5, img: testimonial2 },
-  { name: "Dr. Ananya Rao", spec: "Pediatrician", city: "Bangalore", text: "The billing feature alone is worth the subscription. GST invoices, payment tracking, online payments — everything I needed. My revenue went up 40% in 3 months.", rating: 5, img: testimonial3 },
-  { name: "Dr. Rajesh Gupta", spec: "Cardiologist", city: "Mumbai", text: "I was skeptical about online platforms, but Doctylia proved me wrong. My appointments doubled in 2 months and the patient management system is incredibly intuitive.", rating: 5, img: testimonial2 },
-  { name: "Dr. Sneha Patel", spec: "Gynecologist", city: "Ahmedabad", text: "The online consultation feature is a lifesaver. I can now serve patients across Gujarat without them traveling hours. Revenue grew 60% since joining Doctylia.", rating: 5, img: testimonial3 },
-  { name: "Dr. Arjun Nair", spec: "Orthopedic Surgeon", city: "Kochi", text: "Finally, a platform that understands Indian doctors! The WhatsApp integration, UPI payments, and Hindi blog support — everything is tailored for our market.", rating: 5, img: testimonial1 },
+  { name: "Dr. Priya Mehta", spec: "Dermatologist", city: "Pune", text: "Doctylia replaced scattered WhatsApp messages with a branded site and online booking, so patients pick a slot themselves.", rating: 5, img: testimonial1 },
+  { name: "Dr. Vikram Singh", spec: "General Physician", city: "Delhi", text: "My website was live within 10 minutes. Patients find me on Google and book directly, and the AI blog writer drafts articles I can edit and publish.", rating: 5, img: testimonial2 },
+  { name: "Dr. Ananya Rao", spec: "Pediatrician", city: "Bangalore", text: "GST invoices, payment tracking, and online payments are in one place, which is what I needed for day-to-day billing.", rating: 5, img: testimonial3 },
+  { name: "Dr. Rajesh Gupta", spec: "Cardiologist", city: "Mumbai", text: "Appointments and patient records sit in one dashboard. That is the part of the practice I used to manage by hand.", rating: 5, img: testimonial2 },
+  { name: "Dr. Sneha Patel", spec: "Gynecologist", city: "Ahmedabad", text: "Online consultation lets me see patients who cannot travel to the clinic, from the same branded website.", rating: 5, img: testimonial3 },
+  { name: "Dr. Arjun Nair", spec: "Orthopedic Surgeon", city: "Kochi", text: "Finally, a platform that understands Indian doctors! The WhatsApp integration, UPI payments, and Hindi blog support - everything is tailored for our market.", rating: 5, img: testimonial1 },
 ];
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
@@ -39,7 +39,7 @@ const Testimonials = () => {
         <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
           <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">Testimonials</span>
           <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
-            Loved by 10,000+ Doctors Across India
+            Loved by 2,500+ Doctors Across India
           </h2>
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -81,7 +81,7 @@ const Testimonials = () => {
                     </div>
                     <p className="text-xs text-foreground leading-relaxed mb-5">"{r.text}"</p>
                     <div className="flex items-center gap-3 pt-3 border-t border-border">
-                      <img src={r.img} alt={r.name} className="w-10 h-10 rounded-full object-cover border-2 border-white" />
+                      <img src={r.img} alt={r.name} loading="lazy" decoding="async" className="w-10 h-10 rounded-full object-cover border-2 border-white" />
                       <div>
                         <div className="font-heading font-semibold text-primary text-xs">{r.name}</div>
                         <div className="text-[10px] text-muted-foreground">{r.spec} · {r.city}</div>
@@ -127,7 +127,7 @@ const Testimonials = () => {
               </div>
               <p className="text-xs md:text-sm text-foreground leading-relaxed mb-5 md:mb-6">"{r.text}"</p>
               <div className="flex items-center gap-3 pt-3 md:pt-4 border-t border-border">
-                <img src={r.img} alt={r.name} className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border-2 border-white" />
+                <img src={r.img} alt={r.name} loading="lazy" decoding="async" className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border-2 border-white" />
                 <div>
                   <div className="font-heading font-semibold text-primary text-xs md:text-sm">{r.name}</div>
                   <div className="text-[10px] md:text-xs text-muted-foreground">{r.spec} · {r.city}</div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 
 // Mobile-only (md:hidden) auto-advancing, swipeable carousel for a list of
-// cards whose desktop presentation stays a normal grid — used across the
+// cards whose desktop presentation stays a normal grid - used across the
 // About page's six card sections. Built on the same embla-carousel-react
 // instance already used by FeaturesGrid/HowItWorks on the homepage (no new
 // dependency), just adding autoplay on top of that existing primitive.
@@ -35,7 +35,7 @@ export function MobileCardCarousel<T>({
   // Auto-advance every `autoplayMs` (embla's `loop` option makes the last ->
   // first wraparound a smooth continuous slide, not a jump). Paused while
   // the user's finger/pointer is actually down so a manual drag never fights
-  // the timer, and restarted — from a fresh `autoplayMs` window — on every
+  // the timer, and restarted - from a fresh `autoplayMs` window - on every
   // pointer-up or slide settle, whichever the interaction produced.
   useEffect(() => {
     if (!api) return;

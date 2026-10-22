@@ -4,7 +4,8 @@ import { Globe, TrendingUp, BarChart3, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import dashboardImg from "@/assets/command-center-dashboard.png";
+import dashboardAvif from "@/assets/command-center-dashboard.avif";
+import dashboardImg from "@/assets/command-center-dashboard.webp";
 
 const features = [
   { icon: TrendingUp, title: "Real-time Analytics", desc: "Track revenue, patients & growth instantly" },
@@ -49,11 +50,17 @@ const DashboardPreview = () => {
           className="max-w-5xl mx-auto"
         >
           <div className="rounded-xl md:rounded-2xl border border-border shadow-xl md:shadow-2xl overflow-hidden bg-white">
-            <img
-              src={dashboardImg}
-              alt="Doctylia Command Center Dashboard"
-              className="w-full h-auto object-contain block"
-            />
+            <picture>
+              <source srcSet={dashboardAvif} type="image/avif" />
+              <source srcSet={dashboardImg} type="image/webp" />
+              <img
+                src={dashboardImg}
+                alt="Doctylia command center showing appointments, patients, and billing"
+                loading="lazy"
+                decoding="async"
+                className="w-full h-auto object-contain block"
+              />
+            </picture>
           </div>
         </motion.div>
 

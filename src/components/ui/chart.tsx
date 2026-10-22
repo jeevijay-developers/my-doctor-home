@@ -81,7 +81,8 @@ ${colorConfig
 }
 `,
           )
-          .join("\n"),
+          .join("\n")
+          .replace(/</g, "\\003c "),
       }}
     />
   );

@@ -1,6 +1,6 @@
 import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCog, LifeBuoy, Mail } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import type { PermissionKey } from "@/lib/staffPermissions";
@@ -70,27 +70,29 @@ const AdminSidebar = () => {
       <SidebarContent className="bg-sidebar">
         {/* Logo */}
         <div className="px-4 py-6 flex items-center gap-2">
-          {!collapsed && (
-            <>
-              <img
-                src="/doctylia-logo.png"
-                alt="Doctylia"
-                className="h-12 w-[134px] object-contain object-left select-none block dark:hidden"
-                draggable={false}
-                style={{ imageRendering: "-webkit-optimize-contrast" }}
-              />
-              <img
-                src="/doctylia-logo-dark.png"
-                alt="Doctylia"
-                className="h-12 w-[134px] object-contain object-left select-none hidden dark:block"
-                draggable={false}
-                style={{ imageRendering: "-webkit-optimize-contrast" }}
-              />
-            </>
-          )}
-          {collapsed && (
-            <span className="text-primary font-heading font-bold text-xl">D</span>
-          )}
+          <Link to="/admin/dashboard" onClick={closeMobileSidebar} className="inline-flex items-center">
+            {!collapsed && (
+              <>
+                <img
+                  src="/doctylia-logo.webp"
+                  alt="Doctylia"
+                  className="h-12 w-[134px] object-contain object-left select-none block dark:hidden"
+                  draggable={false}
+                  style={{ imageRendering: "-webkit-optimize-contrast" }}
+                />
+                <img
+                  src="/doctylia-logo-dark.webp"
+                  alt="Doctylia"
+                  className="h-12 w-[134px] object-contain object-left select-none hidden dark:block"
+                  draggable={false}
+                  style={{ imageRendering: "-webkit-optimize-contrast" }}
+                />
+              </>
+            )}
+            {collapsed && (
+              <span className="text-primary font-heading font-bold text-xl">D</span>
+            )}
+          </Link>
         </div>
 
         <SidebarGroup>

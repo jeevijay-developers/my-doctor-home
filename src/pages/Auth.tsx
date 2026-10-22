@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Loader2, CheckCircle, Shield, Zap, Users } from "lucide-react";
-import { motion } from "framer-motion";
+import { ArrowLeft, Loader2, Check } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
 
-// Phone OTP (sent via MSG91 by the send-sms-hook auth hook) is the only way
-// to log in or sign up — email/password and Google sign-in were removed.
+const PRIMARY = "#3C83FC";
+const LIME = "#BFE038";
+const NAVY = "hsl(234 82% 24%)";
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<"login" | "signup">(
@@ -16,10 +17,28 @@ const Auth = () => {
   const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
 
-  // Preserve a same-origin relative `next` (e.g. /.lovable/oauth/consent?authorization_id=...)
   const rawNext = searchParams.get("next");
   const safeNext =
     rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
+
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = mode === "signup" ? "Create Doctor Account | Doctylia" : "Doctor Login | Doctylia";
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    if (metaDesc) {
+      metaDesc.setAttribute(
+        "content",
+        mode === "signup"
+          ? "Start your 7-day free trial on Doctylia. Create your clinic booking website and practice management dashboard within 10 minutes."
+          : "Sign in to your Doctylia doctor dashboard to manage appointments, patients, prescriptions, and billing."
+      );
+    }
+    return () => {
+      document.title = prevTitle;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+    };
+  }, [mode]);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -68,90 +87,80 @@ const Auth = () => {
   };
 
   const trustPoints = [
-    { icon: Users, text: "Join 10,000+ doctors across India" },
-    { icon: Zap, text: "Go live in under 5 minutes" },
-    { icon: Shield, text: "7-day free trial · No credit card" },
+    "Join 2,500+ doctors across India",
+    "Go live within 10 minutes",
+    "7-day free trial. No credit card",
   ];
 
   if (checkingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-secondary">
-        <Loader2 className="h-8 w-8 animate-spin text-royal" />
+      <div className="min-h-[100dvh] flex items-center justify-center bg-secondary">
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: PRIMARY }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Brand Panel — hidden on mobile */}
-      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden gradient-navy-teal p-10 flex-col justify-between">
-        {/* Decorative circles */}
-        <div className="absolute top-20 -left-10 w-64 h-64 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-48 h-48 rounded-full bg-spark/10 blur-2xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full border border-white/5" />
+    <div className="min-h-[100dvh] flex overflow-x-hidden">
+      <aside
+        className="hidden lg:flex lg:w-[44%] p-10 flex-col justify-between"
+        style={{ backgroundColor: NAVY }}
+      >
+        <Link to="/" className="inline-flex items-center">
+          <img src="/doctylia-logo.webp" alt="Doctylia" className="h-10 brightness-0 invert" />
+        </Link>
 
-        <div className="relative z-10">
-          <Link to="/" className="inline-flex items-center gap-2 mb-2">
-            <img src="/doctylia-logo.png" alt="Doctylia" className="h-10 brightness-0 invert" />
-          </Link>
-          <p className="text-white/50 text-sm mt-1">The Complete Doctor Platform</p>
-        </div>
-
-        <div className="relative z-10 space-y-6">
-          <h2 className="font-heading font-extrabold text-3xl text-white leading-tight">
-            Your patients are<br />searching online.<br />
-            <span className="text-spark">Be where they look.</span>
+        <div className="space-y-8">
+          <h2 className="font-heading font-extrabold text-4xl text-white leading-[1.15] tracking-tight">
+            Your patients are searching online.
+            <span className="block mt-2" style={{ color: LIME }}>
+              Be where they look.
+            </span>
           </h2>
-          <div className="space-y-4">
-            {trustPoints.map((tp, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + i * 0.15 }}
-                className="flex items-center gap-3"
-              >
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                  <tp.icon className="h-5 w-5 text-spark" />
-                </div>
-                <span className="text-white/80 text-sm font-medium">{tp.text}</span>
-              </motion.div>
+          <ul className="space-y-3">
+            {trustPoints.map((text) => (
+              <li key={text} className="flex items-start gap-3 text-white/85 text-sm font-medium">
+                <span
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: LIME }}
+                >
+                  <Check className="h-3 w-3 text-navy" strokeWidth={3} />
+                </span>
+                {text}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
-        <div className="relative z-10">
-          <p className="text-white/30 text-xs">© 2025 Doctylia by Jeevijay Technologies Pvt. Ltd.</p>
-        </div>
-      </div>
+        <p className="text-white/40 text-xs">
+          © {new Date().getFullYear()} Doctylia by Jeevijay Technologies Pvt. Ltd.
+        </p>
+      </aside>
 
-      {/* Right Form Panel */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 bg-secondary">
-        {/* Mobile brand header */}
         <div className="lg:hidden mb-6 text-center">
           <Link to="/">
-            <img src="/doctylia-logo.png" alt="Doctylia" className="h-9 mx-auto mb-2" />
+            <img src="/doctylia-logo.webp" alt="Doctylia" className="h-9 mx-auto" />
           </Link>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md"
-        >
-          <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-5">
+        <div className="w-full max-w-md">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-5"
+          >
             <ArrowLeft className="h-4 w-4" /> Back to Doctylia
           </Link>
 
-          <div className="bg-card rounded-2xl shadow-xl border border-border p-5 sm:p-7">
-            <div className="text-center mb-6">
-              <h1 className="font-heading font-bold text-2xl text-primary">
-                {mode === "signup" ? "Start Your Free Trial" : "Welcome Back"}
+          <div className="bg-card rounded-2xl border border-border p-5 sm:p-7">
+            <div className="mb-6">
+              <h1 className="font-heading font-bold text-2xl text-foreground">
+                {mode === "signup" ? "Start your free trial" : "Welcome back"}
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
                 {mode === "signup"
-                  ? "7 days free"
-                  : "Log in to your dashboard with your phone number."}
+                  ? "7 days free. Phone OTP only."
+                  : "Log in with your clinic phone number."}
               </p>
             </div>
 
@@ -165,31 +174,40 @@ const Auth = () => {
               {mode === "signup" ? (
                 <p>
                   Already have an account?{" "}
-                  <button onClick={() => setMode("login")} className="text-royal font-medium hover:underline">
-                    Log In
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="font-medium hover:underline"
+                    style={{ color: PRIMARY }}
+                  >
+                    Log in
                   </button>
                 </p>
               ) : (
                 <p>
-                  Don't have an account?{" "}
-                  <button onClick={() => setMode("signup")} className="text-royal font-medium hover:underline">
-                    Sign Up Free
+                  Don&apos;t have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("signup")}
+                    className="font-medium hover:underline"
+                    style={{ color: PRIMARY }}
+                  >
+                    Sign up free
                   </button>
                 </p>
               )}
             </div>
           </div>
 
-          {/* Mobile trust points */}
-          <div className="lg:hidden mt-6 space-y-3">
-            {trustPoints.map((tp, i) => (
-              <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
-                <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                <span>{tp.text}</span>
-              </div>
+          <ul className="lg:hidden mt-6 space-y-2.5">
+            {trustPoints.map((text) => (
+              <li key={text} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                <Check className="h-4 w-4 mt-0.5 shrink-0" style={{ color: LIME }} strokeWidth={2.5} />
+                <span>{text}</span>
+              </li>
             ))}
-          </div>
-        </motion.div>
+          </ul>
+        </div>
       </div>
     </div>
   );

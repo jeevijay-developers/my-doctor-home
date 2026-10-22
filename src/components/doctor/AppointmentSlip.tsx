@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import doctyliaLogo from "@/assets/doctylia-logo.png";
+import doctyliaLogo from "@/assets/doctylia-logo.webp";
 import { getClinicMapsUrl } from "@/lib/clinicLocation";
 
 type Props = {
@@ -24,7 +24,7 @@ type Props = {
   patientPhone: string;
   paymentStatus?: string;
   // When set, overrides the settings.auto_confirm inference below with the
-  // real DB status — used for the pay-first online flow, where payment
+  // real DB status - used for the pay-first online flow, where payment
   // success always means the appointment was actually created as "confirmed".
   forceConfirmed?: boolean;
   onDownload: () => void;
@@ -133,7 +133,7 @@ const AppointmentSlip = ({
                 </p>
                 <div className="h-px w-10 bg-white/25 mx-auto mt-3" aria-hidden />
 
-                {/* Contact block — pinned to the bottom, nudged up a few px */}
+                {/* Contact block - pinned to the bottom, nudged up a few px */}
                 <div className="mt-auto space-y-3 text-[9.5px] pb-4">
                   {clinicAddr && (
                     <div className="flex items-start gap-2">
@@ -230,7 +230,7 @@ const AppointmentSlip = ({
                       <r.icon className="h-4 w-4" style={{ color: TEAL_DARK }} />
                       <div className="text-[12px]" style={{ color: "#6b7280" }}>{r.label}</div>
                       <div className="text-[13px] font-bold break-words" style={{ color: TEAL_DARK }}>
-                        {r.value || "—"}
+                        {r.value || "-"}
                       </div>
                     </div>
                   ))}

@@ -9,7 +9,9 @@ import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
+import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { toast } from "sonner";
+import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -22,8 +24,18 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
-  const reset = () => { setName(""); setPhone(""); setEmail(""); setMessage(""); setWebsite(""); };
+  const reset = () => {
+    setName("");
+    setPhone("");
+    setEmail("");
+    setMessage("");
+    setWebsite("");
+    setCaptchaToken("");
+    setTurnstileReset((n) => n + 1);
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -34,6 +46,7 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
     if (!isValidIndianPhone(phone)) { toast.error(phoneErrorMessage); return; }
     if (email.trim() && !isValidEmail(email)) { toast.error("Enter a valid email or leave it blank."); return; }
     if (!message.trim()) { toast.error("Please enter your message."); return; }
+    if (getTurnstileSiteKey() && !captchaToken) { toast.error("Please complete the verification check."); return; }
 
     if (website.trim()) {
       setSubmitted(true);
@@ -42,18 +55,33 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
     }
 
     setSubmitting(true);
-    const { error } = await supabase.from("patient_queries").insert({
-      doctor_id: profile.id,
-      name: name.trim(),
-      phone: normalizeIndianPhone(phone),
-      email: email.trim() || null,
-      message: message.trim(),
+    const { error } = await supabase.functions.invoke("submit-patient-query", {
+      body: {
+        doctor_id: profile.id,
+        name: name.trim(),
+        phone: normalizeIndianPhone(phone),
+        email: email.trim() || null,
+        message: message.trim(),
+        ...(captchaToken ? { captchaToken } : {}),
+      },
     });
+    if (captchaToken) {
+      setCaptchaToken("");
+      setTurnstileReset((n) => n + 1);
+    }
     setSubmitting(false);
 
     if (error) {
-      if (error.message?.includes("PATIENT_QUERY_RATE_LIMITED")) toast.error("Please wait a moment before sending another message.");
-      else toast.error("Couldn't send your message. Please try again.");
+      const serverMessage = await edgeFunctionErrorMessage(error, "Couldn't send your message. Please try again.");
+      if (serverMessage.includes("PATIENT_QUERY_RATE_LIMITED") || serverMessage === "Too many requests") {
+        toast.error("Please wait a moment before sending another message.");
+      } else if (serverMessage === "captcha_required") {
+        toast.error("Please complete the verification check.");
+      } else if (serverMessage === "captcha_failed") {
+        toast.error("Verification failed. Please try again.");
+      } else {
+        toast.error(serverMessage);
+      }
       return;
     }
 
@@ -117,6 +145,8 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
                   <div className="flex items-center justify-between gap-3"><Label htmlFor="query-message" className="font-bold text-[#092b50] dark:text-white">Your Message <span className="text-red-500">*</span></Label><span className="text-xs text-slate-400">{message.length}/1000</span></div>
                   <Textarea id="query-message" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="How can the clinic help you?" rows={6} maxLength={1000} disabled={submitting} className="resize-none rounded-xl border-slate-200 bg-slate-50/70 px-4 py-3 shadow-none transition focus-visible:border-[#3C83FC] focus-visible:ring-[#3C83FC]/20 dark:border-gray-700 dark:bg-gray-950/60" />
                 </div>
+
+                <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
                 <div className="absolute -left-[9999px] top-0 opacity-0" aria-hidden="true">
                   <label htmlFor="query-website">Website</label>

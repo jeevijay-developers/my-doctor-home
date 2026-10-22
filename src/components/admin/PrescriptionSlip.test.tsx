@@ -1,16 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import PrescriptionSlip from "./PrescriptionSlip";
+import PrescriptionSlip, { type PrescriptionSlipData } from "./PrescriptionSlip";
 
 const profile = {
   full_name: "Test Doctor", specialization: "Dermatologist", qualifications: "MBBS, MD",
   clinic_name: "Test Clinic", address: "123 Main St", city: "Testville", phone: "9999999999",
 };
 
-const prescription = {
-  id: "rx-1", patient_name: "John Doe", diagnosis: "Acute bronchitis",
-  medications: "Amoxicillin 500mg\nTwice daily for 5 days", date: "2026-08-10",
+const prescription: PrescriptionSlipData = {
+  id: "rx-1", patient_id: null, patient_name: "John Doe", diagnosis: "Acute bronchitis",
+  medications: "Amoxicillin 500mg\nTwice daily for 5 days", medicines: [],
+  advice: null, diet_advice: null, lifestyle_advice: null,
+  follow_up_date: null, follow_up_instructions: null, date: "2026-08-10",
   patient_age: 34, patient_weight: 70, patient_gender: "male",
+  visit: null, vitals: null,
 };
 
 describe("PrescriptionSlip", () => {

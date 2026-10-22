@@ -4,10 +4,11 @@
 //       patient via { patient_token, patient_phone } in body
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
+
+const ZOOM_CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type",
+  allowMethods: "POST, OPTIONS",
 };
 
 const ZOOM_ACCOUNT_ID = Deno.env.get("ZOOM_ACCOUNT_ID");
@@ -68,7 +69,9 @@ function apptStartISO(date: string, time: string) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  bindCorsRequest(req, ZOOM_CORS);
+  const preflight = handleCors(req, ZOOM_CORS);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   try {

@@ -6,7 +6,7 @@
 // Mock mode: same as live — real HMAC check against mock secret, then
 // creates appointment + updates transfer + ledger + invoice identically.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { hmacHex, MOCK_SIGNING_SECRET, corsHeaders, json } from "../_shared/paymentMode.ts";
+import { hmacHex, timingSafeEqualHex, MOCK_SIGNING_SECRET, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -15,7 +15,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginPaymentRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   let body: any;
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
   // Signature verification — real secret for live, mock secret for mock
   if (payment.is_mock) {
     const expectedMockSignature = await hmacHex(MOCK_SIGNING_SECRET, `${razorpay_order_id}|${razorpay_payment_id}`);
-    if (expectedMockSignature !== razorpay_signature) {
+    if (!timingSafeEqualHex(expectedMockSignature, razorpay_signature)) {
       await admin.from("payments").update({ status: "failed", razorpay_payment_id, transfer_status: null }).eq("id", payment.id);
       await admin.from("transfers").update({ status: "failed", error: "Payment signature invalid" }).eq("payment_id", payment.id);
       return json(400, { error: "Signature verification failed" });
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
   } else {
     if (!RAZORPAY_KEY_SECRET) return json(501, { error: "Razorpay integration pending — platform API keys not configured" });
     const expectedSignature = await hmacHex(RAZORPAY_KEY_SECRET, `${razorpay_order_id}|${razorpay_payment_id}`);
-    if (expectedSignature !== razorpay_signature) {
+    if (!timingSafeEqualHex(expectedSignature, razorpay_signature)) {
       await admin.from("payments").update({ status: "failed", razorpay_payment_id, transfer_status: null }).eq("id", payment.id);
       await admin.from("transfers").update({ status: "failed", error: "Payment signature invalid" }).eq("payment_id", payment.id);
       return json(400, { error: "Signature verification failed" });

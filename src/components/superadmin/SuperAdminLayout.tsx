@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Shield } from "lucide-react";
@@ -10,6 +11,7 @@ const titles: Record<string, string> = {
   "/superadmin/doctors": "Doctors",
   "/superadmin/leads": "Leads",
   "/superadmin/subscriptions": "Subscriptions",
+  "/superadmin/payments": "Payments & Payouts",
   "/superadmin/tickets": "Support Tickets",
   "/superadmin/moderation": "Content Moderation",
   "/superadmin/billing": "Billing",
@@ -24,9 +26,17 @@ const SuperAdminLayout = () => {
   const title = Object.entries(titles).find(([k]) => location.pathname.startsWith(k))?.[1] || "Super Admin";
   const { mode, setTheme } = usePanelTheme("doctylia-superadmin-theme");
 
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = `${title} · Super Admin | Doctylia`;
+    return () => {
+      document.title = prevTitle;
+    };
+  }, [title]);
+
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full overflow-x-hidden">
         <SuperAdminSidebar />
         {/* min-w-0 stops this column's default min-width:auto from letting
             wide/unbreakable descendant content bloat it past the viewport. */}

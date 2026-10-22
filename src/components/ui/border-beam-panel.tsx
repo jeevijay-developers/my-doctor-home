@@ -241,7 +241,7 @@ function BorderBeamPanelBase({
       }}
       {...props}
     >
-      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <style dangerouslySetInnerHTML={{ __html: css.replace(/</g, "\\003c ") }} />
       {glow ? <div aria-hidden="true" className="mk-beam-glow" /> : null}
       <div aria-hidden="true" className="mk-beam-ring" />
       {children}
@@ -252,7 +252,7 @@ function BorderBeamPanelBase({
 export function BorderBeamPanel(props: BorderBeamPanelProps) {
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: MOTIQ_TOKENS }} />
+      <style dangerouslySetInnerHTML={{ __html: MOTIQ_TOKENS.replace(/</g, "\\003c ") }} />
       <BorderBeamPanelBase {...props} />
     </>
   );

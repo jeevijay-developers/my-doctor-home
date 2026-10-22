@@ -5,7 +5,7 @@
 // Can be called by the doctor themselves or a superadmin.
 // Also callable with no doctor_id to sync ALL doctors (superadmin only).
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders, json } from "../_shared/paymentMode.ts";
+import { beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
@@ -73,7 +73,8 @@ async function syncOne(doctorId: string, accountId: string, isMock: boolean) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginPaymentRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization");

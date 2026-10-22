@@ -1,6 +1,6 @@
 import { LayoutDashboard, Users, Inbox, CreditCard, Wallet, LifeBuoy, ShieldAlert, Receipt, Flag, ScrollText, UserCog, LogOut, Shield, FlaskConical } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -27,9 +27,10 @@ const items = [
 ];
 
 const SuperAdminSidebar = () => {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
+  const closeMobileSidebar = () => { if (isMobile) setOpenMobile(false); };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -40,27 +41,29 @@ const SuperAdminSidebar = () => {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarContent className="bg-sidebar">
         <div className="px-4 py-6 flex items-center gap-2">
-          {!collapsed ? (
-            <>
-              <img
-                src="/doctylia-logo.png"
-                alt="Doctylia"
-                className="h-12 w-[134px] object-contain object-left select-none block dark:hidden"
-                draggable={false}
-                style={{ imageRendering: "-webkit-optimize-contrast" }}
-              />
-              <img
-                src="/doctylia-logo-dark.png"
-                alt="Doctylia"
-                className="h-12 w-[134px] object-contain object-left select-none hidden dark:block"
-                draggable={false}
-                style={{ imageRendering: "-webkit-optimize-contrast" }}
-              />
-              <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-spark text-primary px-2 py-0.5 rounded">Super</span>
-            </>
-          ) : (
-            <Shield className="h-6 w-6 text-primary" />
-          )}
+          <Link to="/superadmin/overview" onClick={closeMobileSidebar} className="inline-flex items-center gap-2 w-full">
+            {!collapsed ? (
+              <>
+                <img
+                  src="/doctylia-logo.webp"
+                  alt="Doctylia"
+                  className="h-12 w-[134px] object-contain object-left select-none block dark:hidden"
+                  draggable={false}
+                  style={{ imageRendering: "-webkit-optimize-contrast" }}
+                />
+                <img
+                  src="/doctylia-logo-dark.webp"
+                  alt="Doctylia"
+                  className="h-12 w-[134px] object-contain object-left select-none hidden dark:block"
+                  draggable={false}
+                  style={{ imageRendering: "-webkit-optimize-contrast" }}
+                />
+                <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-spark text-primary px-2 py-0.5 rounded">Super</span>
+              </>
+            ) : (
+              <Shield className="h-6 w-6 text-primary" />
+            )}
+          </Link>
         </div>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/70 text-xs font-semibold uppercase tracking-wider">Platform</SidebarGroupLabel>
@@ -71,6 +74,7 @@ const SuperAdminSidebar = () => {
                   <SidebarMenuButton asChild className="rounded-xl h-11">
                     <NavLink
                       to={item.url}
+                      onClick={closeMobileSidebar}
                       className="text-sidebar-foreground/90 font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                       activeClassName="!bg-primary !text-primary-foreground !font-semibold shadow-lg shadow-primary/30"
                     >

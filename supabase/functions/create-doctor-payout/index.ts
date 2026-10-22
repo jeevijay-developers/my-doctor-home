@@ -7,7 +7,7 @@
 // waiting on real RazorpayX activation; PAYMENT_MODE=live still 501s if the
 // keys genuinely aren't configured yet.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolvePaymentMode, mockId, corsHeaders, json } from "../_shared/paymentMode.ts";
+import { resolvePaymentMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAYX_KEY_ID = Deno.env.get("RAZORPAYX_KEY_ID");
 const RAZORPAYX_KEY_SECRET = Deno.env.get("RAZORPAYX_KEY_SECRET");
@@ -19,7 +19,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginPaymentRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization");
@@ -68,6 +69,19 @@ Deno.serve(async (req) => {
       is_mock: true,
     }).eq("id", payout_id);
     await admin.from("doctor_ledger").update({ paid: true }).eq("payout_id", payout_id);
+    await admin.from("admin_audit_log").insert({
+      admin_user_id: uid,
+      action: "create_doctor_payout",
+      target_table: "payouts",
+      target_id: payout.id,
+      details: {
+        doctor_id: payout.doctor_id,
+        month: payout.month,
+        total_amount: payout.total_amount,
+        razorpay_payout_id: razorpayPayoutId,
+        is_mock: true,
+      },
+    });
 
     return json(200, { ok: true, payout_id, razorpay_payout_id: razorpayPayoutId, status: "processed", is_mock: true });
   }
@@ -106,6 +120,20 @@ Deno.serve(async (req) => {
       initiated_by: uid,
       is_mock: false,
     }).eq("id", payout_id);
+
+    await admin.from("admin_audit_log").insert({
+      admin_user_id: uid,
+      action: "create_doctor_payout",
+      target_table: "payouts",
+      target_id: payout.id,
+      details: {
+        doctor_id: payout.doctor_id,
+        month: payout.month,
+        total_amount: payout.total_amount,
+        razorpay_payout_id: result.id,
+        is_mock: false,
+      },
+    });
 
     return json(200, { ok: true, payout_id, razorpay_payout_id: result.id, status: "processing" });
   } catch (e) {

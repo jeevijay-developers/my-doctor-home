@@ -47,3 +47,9 @@ verify_jwt = false
 
 [functions.send-sms-hook]
 verify_jwt = false
+
+[functions.sitemap]
+verify_jwt = false
+
+[functions.submit-patient-query]
+verify_jwt = false

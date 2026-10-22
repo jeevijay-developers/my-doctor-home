@@ -78,7 +78,7 @@ const ContactSection = () => {
           <p className="text-sm md:text-base text-muted-foreground mt-3">Fill out the form and our team will get back to you within 24 hours.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 sm:gap-6 md:gap-10 max-w-5xl mx-auto">
-          {/* Right — Form (first on mobile) */}
+          {/* Right - Form (first on mobile) */}
           <div className="order-1 sm:order-2 col-span-1 sm:col-span-3 min-w-0">
             <form onSubmit={handleSubmit} className="bg-secondary rounded-lg sm:rounded-2xl p-4 sm:p-5 md:p-8 shadow-sm border border-border space-y-4 md:space-y-5">
               <div className="grid sm:grid-cols-2 gap-4">
@@ -118,7 +118,7 @@ const ContactSection = () => {
             </form>
           </div>
 
-          {/* Left — Contact Info (footer on mobile) */}
+          {/* Left - Contact Info (footer on mobile) */}
           <div className="order-2 sm:order-1 col-span-1 sm:col-span-2 min-w-0">
             <div className="bg-primary rounded-lg sm:rounded-2xl p-5 sm:p-6 md:p-8 text-white space-y-5 sm:space-y-6 md:space-y-8">
               <h3 className="font-heading font-bold text-xl">Get in Touch</h3>
@@ -127,14 +127,18 @@ const ContactSection = () => {
                   <Mail className="h-5 w-5 mt-0.5 text-accent shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-medium">Email</div>
-                    <div className="text-sm text-primary-foreground/70 break-words">support@doctylia.com</div>
+                    <a href="mailto:support@doctylia.com" className="text-sm text-primary-foreground/70 hover:text-white transition-colors break-words">
+                      support@doctylia.com
+                    </a>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Phone className="h-5 w-5 mt-0.5 text-accent shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-medium">Phone</div>
-                    <div className="text-sm text-primary-foreground/70">+91 86194 83010</div>
+                    <a href="tel:+918619483010" className="text-sm text-primary-foreground/70 hover:text-white transition-colors">
+                      +91 86194 83010
+                    </a>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -146,7 +150,7 @@ const ContactSection = () => {
                 </div>
               </div>
               <div className="pt-4 border-t border-primary-foreground/10">
-                <p className="text-xs text-primary-foreground/50">We typically respond within 2-4 hours during business hours (Mon-Sat, 9 AM - 7 PM IST)</p>
+                <p className="text-xs text-primary-foreground/50">We typically respond within 24 hours during business hours (Mon-Sat, 9 AM - 7 PM IST)</p>
               </div>
             </div>
           </div>

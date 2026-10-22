@@ -9,6 +9,8 @@
 // unset                    -> auto: mock if a channel's real key(s) aren't
 //                             configured, live if they are. This is what
 //                             makes "no keys yet" work with zero config.
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "./cors.ts";
+
 export type NotificationMode = "mock" | "live";
 
 export function resolveNotificationMode(hasLiveCredentials: boolean): NotificationMode {
@@ -89,10 +91,16 @@ export async function sendSms(to: string, message: string): Promise<SendResult> 
   }
 }
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+export { corsHeaders };
+
+const NOTIFICATION_CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type",
 };
+
+export function beginNotificationRequest(req: Request): Response | null {
+  bindCorsRequest(req, NOTIFICATION_CORS);
+  return handleCors(req, NOTIFICATION_CORS);
+}
 
 export function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });

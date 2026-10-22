@@ -6,6 +6,7 @@ import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
 import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
 import Footer from "@/components/doctor/Footer";
+import { jsonLdScript } from "@/lib/jsonLd";
 import { markdownToHtml } from "@/lib/markdown";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -15,10 +16,51 @@ type Doctor = Tables<"profiles">;
 const readingTime = (content: string | null) =>
   Math.max(1, Math.ceil((content || "").replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length / 200));
 
-const displayDoctorName = (doctor: Doctor) => {
+// `display_name` is an optional override that isn't a column in the generated
+// profiles type; the name falls back to `full_name` when it's absent.
+type DoctorWithDisplayName = Doctor & { display_name?: string | null };
+
+const displayDoctorName = (doctor: DoctorWithDisplayName) => {
   const name = (doctor.display_name || doctor.full_name || "Doctor").trim();
   return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
 };
+
+function stripMarkup(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[#*_`>~-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function upsertMeta(selector: string, attr: "name" | "property", key: string, content: string) {
+  let el = document.head.querySelector<HTMLMetaElement>(selector);
+  if (!el) {
+    el = document.createElement("meta");
+    el.setAttribute(attr, key);
+    document.head.appendChild(el);
+  }
+  const prev = el.content;
+  el.content = content;
+  return () => {
+    if (el) el.content = prev;
+  };
+}
+
+function upsertCanonical(href: string) {
+  let link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.setAttribute("rel", "canonical");
+    document.head.appendChild(link);
+  }
+  const prev = link.href;
+  link.href = href;
+  return () => {
+    if (link) link.href = prev || `${window.location.origin}/`;
+  };
+}
 
 const BlogPostPage = () => {
   const { slug, postId } = useParams<{ slug: string; postId: string }>();
@@ -66,10 +108,50 @@ const BlogPostPage = () => {
 
   useEffect(() => {
     if (!doctor) return;
+    const doctorName = displayDoctorName(doctor);
+    const title = `${post?.title ? `${post.title} · ` : ""}${doctorName} | Doctylia`;
+    const description =
+      post?.excerpt?.trim() ||
+      stripMarkup(post?.content).slice(0, 160) ||
+      `Read "${post?.title || "Health Article"}" by ${doctorName}${doctor.specialization ? ` (${doctor.specialization})` : ""} on Doctylia.`;
+    const canonicalUrl =
+      slug && post?.id
+        ? `${window.location.origin}/dr/${slug}/blog/${post.id}`
+        : window.location.href;
+    const shareImage = post?.featured_image_url || doctor.profile_photo_url || "";
+
     const previousTitle = document.title;
-    document.title = `${post?.title ? `${post.title} · ` : ""}${displayDoctorName(doctor)} | Doctylia`;
-    return () => { document.title = previousTitle; };
-  }, [doctor, post?.title]);
+    document.title = title;
+
+    const restoreCanonical = upsertCanonical(canonicalUrl);
+    const restoreDesc = upsertMeta('meta[name="description"]', "name", "description", description);
+    const restoreOgTitle = upsertMeta('meta[property="og:title"]', "property", "og:title", title);
+    const restoreOgDesc = upsertMeta('meta[property="og:description"]', "property", "og:description", description);
+    const restoreOgUrl = upsertMeta('meta[property="og:url"]', "property", "og:url", canonicalUrl);
+    const restoreOgType = upsertMeta('meta[property="og:type"]', "property", "og:type", "article");
+    const restoreTwTitle = upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", title);
+    const restoreTwDesc = upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", description);
+    const restoreOgImage = shareImage
+      ? upsertMeta('meta[property="og:image"]', "property", "og:image", shareImage)
+      : () => {};
+    const restoreTwImage = shareImage
+      ? upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", shareImage)
+      : () => {};
+
+    return () => {
+      document.title = previousTitle;
+      restoreCanonical();
+      restoreDesc();
+      restoreOgTitle();
+      restoreOgDesc();
+      restoreOgUrl();
+      restoreOgType();
+      restoreTwTitle();
+      restoreTwDesc();
+      restoreOgImage();
+      restoreTwImage();
+    };
+  }, [doctor, post?.id, post?.title, post?.excerpt, post?.content, post?.featured_image_url, slug]);
 
   const sanitizedContent = useMemo(() => {
     const content = post?.content || "";
@@ -79,6 +161,83 @@ const BlogPostPage = () => {
       ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling", "target"],
     });
   }, [post?.content]);
+
+  const structuredData = useMemo(() => {
+    if (!post || !doctor || !slug) return null;
+    const doctorName = displayDoctorName(doctor);
+    const doctorUrl = `${window.location.origin}/dr/${slug}`;
+    const blogUrl = `${doctorUrl}/blog`;
+    const postUrl = `${blogUrl}/${post.id}`;
+    const description =
+      post.excerpt?.trim() ||
+      stripMarkup(post.content).slice(0, 160) ||
+      post.title;
+    const datePublished = post.published_at || post.created_at || undefined;
+    const dateModified = post.updated_at || datePublished;
+    const imageUrl = post.featured_image_url || doctor.profile_photo_url || undefined;
+
+    return {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "BlogPosting",
+          "@id": `${postUrl}#article`,
+          headline: post.title,
+          description,
+          url: postUrl,
+          mainEntityOfPage: {
+            "@type": "WebPage",
+            "@id": postUrl,
+          },
+          ...(datePublished ? { datePublished } : {}),
+          ...(dateModified ? { dateModified } : {}),
+          ...(post.category ? { articleSection: post.category } : {}),
+          ...(imageUrl ? { image: [imageUrl] } : {}),
+          author: {
+            "@type": "Physician",
+            name: doctorName,
+            url: doctorUrl,
+            ...(doctor.specialization ? { medicalSpecialty: doctor.specialization } : {}),
+            ...(doctor.profile_photo_url ? { image: doctor.profile_photo_url } : {}),
+          },
+          reviewedBy: {
+            "@type": "Physician",
+            name: doctorName,
+            url: doctorUrl,
+            ...(doctor.specialization ? { medicalSpecialty: doctor.specialization } : {}),
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "Doctylia",
+            url: "https://doctylia.com/",
+          },
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: doctorName,
+              item: doctorUrl,
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Health Articles",
+              item: blogUrl,
+            },
+            {
+              "@type": "ListItem",
+              position: 3,
+              name: post.title,
+              item: postUrl,
+            },
+          ],
+        },
+      ],
+    };
+  }, [post, doctor, slug]);
 
   if (loading) {
     return (
@@ -111,6 +270,12 @@ const BlogPostPage = () => {
 
   return (
     <>
+      {structuredData && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData) }}
+        />
+      )}
       <main className="min-h-screen bg-slate-50 dark:bg-gray-950">
       <header className="relative overflow-hidden border-b border-blue-100 bg-white dark:border-blue-950 dark:bg-gray-950">
         <div className="absolute left-1/2 top-0 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-blue-100/60 blur-3xl dark:bg-blue-950/30" />
@@ -154,7 +319,7 @@ const BlogPostPage = () => {
           <div className="relative z-10 -mt-5 mb-10 flex items-center gap-3 rounded-2xl border border-blue-100 bg-white p-4 shadow-lg dark:border-blue-900/60 dark:bg-gray-900 sm:-mt-7 sm:p-5">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 ring-2 ring-blue-100 dark:bg-blue-950 dark:ring-blue-900">
               {doctor.profile_photo_url ? (
-                <img src={doctor.profile_photo_url} alt={doctorName} className="h-full w-full object-cover" />
+                <img src={doctor.profile_photo_url} alt={doctorName} width={48} height={48} decoding="async" className="h-full w-full object-cover" />
               ) : (
                 <User className="h-5 w-5 text-[#3C83FC]" />
               )}
@@ -185,10 +350,15 @@ const BlogPostPage = () => {
           <footer className="mt-14 rounded-3xl bg-gradient-to-br from-[#092b50] to-[#155ba5] p-6 text-white shadow-xl sm:p-8">
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-200">Keep learning</p>
             <h2 className="mt-2 font-heading text-2xl font-black">Explore more health guidance</h2>
-            <p className="mt-2 text-sm leading-6 text-blue-100">Read more practical articles from {doctorName}.</p>
-            <Link to={`/dr/${slug}/blog`} className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#3C83FC] px-5 py-3 text-sm font-extrabold text-white transition hover:bg-blue-500">
-              View all articles <ArrowRight className="h-4 w-4" />
-            </Link>
+            <p className="mt-2 text-sm leading-6 text-blue-100">Read more practical articles or book a consultation with {doctorName}.</p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link to={`/dr/${slug}/blog`} className="inline-flex items-center gap-2 rounded-full bg-[#3C83FC] px-5 py-3 text-sm font-extrabold text-white transition hover:bg-blue-500">
+                View all articles <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link to={`/dr/${slug}#booking`} className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-white/20">
+                Book appointment
+              </Link>
+            </div>
           </footer>
         </div>
         </div>

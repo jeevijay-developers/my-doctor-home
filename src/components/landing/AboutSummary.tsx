@@ -2,7 +2,8 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Check } from "lucide-react";
-import heroDoctor from "@/assets/hero-doctor.png";
+import heroAvif from "@/assets/hero-doctor.avif";
+import heroDoctor from "@/assets/hero-doctor.webp";
 
 const points = [
   "A branded website for your practice",
@@ -27,7 +28,7 @@ const AboutSummary = () => (
           </h2>
           <p className="text-sm md:text-base text-muted-foreground mt-3 leading-relaxed">
             Doctylia gives every doctor a professional online presence and gives every patient a simpler
-            way to find, book, and consult them — all in one place.
+            way to find, book, and consult them - all in one place.
           </p>
           <ul className="space-y-2 mt-4">
             {points.map((p) => (
@@ -51,11 +52,17 @@ const AboutSummary = () => (
           transition={{ duration: 0.5, delay: 0.1 }}
           className="order-1 sm:order-2 flex justify-center"
         >
-          <img
-            src={heroDoctor}
-            alt="Doctor using Doctylia"
-            className="h-[220px] sm:h-[260px] md:h-[300px] w-auto rounded-[20px] object-cover object-center shadow-lg"
-          />
+          <picture>
+            <source srcSet={heroAvif} type="image/avif" />
+            <source srcSet={heroDoctor} type="image/webp" />
+            <img
+              src={heroDoctor}
+              alt="Doctor using Doctylia on a tablet in clinic"
+              loading="lazy"
+              decoding="async"
+              className="h-[220px] sm:h-[260px] md:h-[300px] w-auto rounded-[20px] object-cover object-center shadow-lg"
+            />
+          </picture>
         </motion.div>
       </div>
     </div>

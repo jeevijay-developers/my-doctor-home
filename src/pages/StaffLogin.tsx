@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
 
 const StaffLogin = () => {
   const navigate = useNavigate();
@@ -13,16 +14,41 @@ const StaffLogin = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
+
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = "Staff Login | Doctylia";
+    const metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    if (metaDesc) {
+      metaDesc.setAttribute("content", "Sign in to your clinic's Doctylia staff portal using your assigned staff username and password.");
+    }
+    return () => {
+      document.title = prevTitle;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+    };
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!username.trim() || !password) { setError("Enter your username and password"); return; }
+    if (getTurnstileSiteKey() && !captchaToken) { setError("Please complete the verification check."); return; }
 
     setLoading(true);
     const { data, error: fnError } = await supabase.functions.invoke("staff-login", {
-      body: { username: username.trim(), password },
+      body: {
+        username: username.trim(),
+        password,
+        ...(captchaToken ? { captchaToken } : {}),
+      },
     });
+    if (captchaToken) {
+      setCaptchaToken("");
+      setTurnstileReset((n) => n + 1);
+    }
     if (fnError || !data?.session) {
       setLoading(false);
       setError("Invalid username or password");
@@ -39,11 +65,11 @@ const StaffLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-secondary px-4">
+    <div className="min-h-screen flex items-center justify-center bg-secondary px-4 overflow-x-hidden">
       <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-lg p-8">
         <div className="flex flex-col items-center text-center mb-6">
           <Link to="/">
-            <img src="/doctylia-logo.png" alt="Doctylia" className="h-10 mb-4" />
+            <img src="/doctylia-logo.webp" alt="Doctylia" className="h-10 mb-4" />
           </Link>
           <div className="w-11 h-11 rounded-full bg-royal/10 flex items-center justify-center mb-3">
             <ShieldCheck className="h-5.5 w-5.5 text-royal" />
@@ -78,6 +104,8 @@ const StaffLogin = () => {
           {error && (
             <p className="text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">{error}</p>
           )}
+
+          <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
           <Button type="submit" disabled={loading} className="w-full h-10 bg-royal hover:bg-royal/90">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Login"}

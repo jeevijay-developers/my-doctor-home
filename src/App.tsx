@@ -1,44 +1,62 @@
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import LandingPage from "./pages/LandingPage";
-import AboutPage from "./pages/AboutPage";
-import TermsOfService from "./pages/TermsOfService";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import RefundPolicy from "./pages/RefundPolicy";
-import Auth from "./pages/Auth";
-import StaffLogin from "./pages/StaffLogin";
-import ResetPassword from "./pages/ResetPassword";
-import Onboarding from "./pages/Onboarding";
-import AdminDashboard from "./pages/AdminDashboard";
-import DoctorPublicPage from "./pages/DoctorPublicPage";
-import BlogListPage from "./pages/BlogListPage";
-import BlogPostPage from "./pages/BlogPostPage";
-import ManageAppointment from "./pages/ManageAppointment";
-import OAuthConsent from "./pages/OAuthConsent";
 import ProtectedRoute from "./components/ProtectedRoute";
-import SuperAdminRoute from "./components/SuperAdminRoute";
-import SuperAdminLayout from "./components/superadmin/SuperAdminLayout";
-import SAOverview from "./components/superadmin/SAOverview";
-import SADoctors from "./components/superadmin/SADoctors";
-import SADoctorDetail from "./components/superadmin/SADoctorDetail";
-import SALeads from "./components/superadmin/SALeads";
-import SASubscriptions from "./components/superadmin/SASubscriptions";
-import SATickets from "./components/superadmin/SATickets";
-import SAModeration from "./components/superadmin/SAModeration";
-import SABilling from "./components/superadmin/SABilling";
-import SAPayments from "./components/superadmin/SAPayments";
-import SAFlags from "./components/superadmin/SAFlags";
-import SAAuditLog from "./components/superadmin/SAAuditLog";
-import SANotificationTesting from "./components/superadmin/SANotificationTesting";
-import SATeam from "./components/superadmin/SATeam";
 import MaintenanceGate from "./components/MaintenanceGate";
-import NotFound from "./pages/NotFound";
+import Analytics from "./components/shared/Analytics";
 
-const queryClient = new QueryClient();
+const AboutPage = lazy(() => import("./pages/AboutPage"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
+const Auth = lazy(() => import("./pages/Auth"));
+const StaffLogin = lazy(() => import("./pages/StaffLogin"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const DoctorPublicPage = lazy(() => import("./pages/DoctorPublicPage"));
+const BlogListPage = lazy(() => import("./pages/BlogListPage"));
+const BlogPostPage = lazy(() => import("./pages/BlogPostPage"));
+const ManageAppointment = lazy(() => import("./pages/ManageAppointment"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
+const SuperAdminRoute = lazy(() => import("./components/SuperAdminRoute"));
+const SuperAdminLayout = lazy(() => import("./components/superadmin/SuperAdminLayout"));
+const SAOverview = lazy(() => import("./components/superadmin/SAOverview"));
+const SADoctors = lazy(() => import("./components/superadmin/SADoctors"));
+const SADoctorDetail = lazy(() => import("./components/superadmin/SADoctorDetail"));
+const SALeads = lazy(() => import("./components/superadmin/SALeads"));
+const SASubscriptions = lazy(() => import("./components/superadmin/SASubscriptions"));
+const SATickets = lazy(() => import("./components/superadmin/SATickets"));
+const SAModeration = lazy(() => import("./components/superadmin/SAModeration"));
+const SABilling = lazy(() => import("./components/superadmin/SABilling"));
+const SAPayments = lazy(() => import("./components/superadmin/SAPayments"));
+const SAFlags = lazy(() => import("./components/superadmin/SAFlags"));
+const SAAuditLog = lazy(() => import("./components/superadmin/SAAuditLog"));
+const SANotificationTesting = lazy(() => import("./components/superadmin/SANotificationTesting"));
+const SATeam = lazy(() => import("./components/superadmin/SATeam"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+const RouteFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <Loader2 className="h-7 w-7 animate-spin text-royal" />
+  </div>
+);
 
 // Cross-page nav links (e.g. the footer's "About Us") land you at whatever
 // scroll position the target page's route last rendered at — React Router
@@ -62,41 +80,44 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <ScrollToTop />
+        <Analytics />
         <MaintenanceGate>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/refund-policy" element={<RefundPolicy />} />
-            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/staff-login" element={<StaffLogin />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-            <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/superadmin" element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
-              <Route index element={<Navigate to="overview" replace />} />
-              <Route path="overview" element={<SAOverview />} />
-              <Route path="doctors" element={<SADoctors />} />
-              <Route path="doctors/:id" element={<SADoctorDetail />} />
-              <Route path="leads" element={<SALeads />} />
-              <Route path="subscriptions" element={<SASubscriptions />} />
-              <Route path="tickets" element={<SATickets />} />
-              <Route path="moderation" element={<SAModeration />} />
-              <Route path="billing" element={<SABilling />} />
-              <Route path="payments" element={<SAPayments />} />
-              <Route path="flags" element={<SAFlags />} />
-              <Route path="audit-log" element={<SAAuditLog />} />
-              <Route path="notifications" element={<SANotificationTesting />} />
-              <Route path="team" element={<SATeam />} />
-            </Route>
-            <Route path="/dr/:slug" element={<DoctorPublicPage />} />
-            <Route path="/dr/:slug/blog" element={<BlogListPage />} />
-            <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
-            <Route path="/dr/:slug/manage" element={<ManageAppointment />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/refund-policy" element={<RefundPolicy />} />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/staff-login" element={<StaffLogin />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+              <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+              <Route path="/superadmin" element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
+                <Route index element={<Navigate to="overview" replace />} />
+                <Route path="overview" element={<SAOverview />} />
+                <Route path="doctors" element={<SADoctors />} />
+                <Route path="doctors/:id" element={<SADoctorDetail />} />
+                <Route path="leads" element={<SALeads />} />
+                <Route path="subscriptions" element={<SASubscriptions />} />
+                <Route path="tickets" element={<SATickets />} />
+                <Route path="moderation" element={<SAModeration />} />
+                <Route path="billing" element={<SABilling />} />
+                <Route path="payments" element={<SAPayments />} />
+                <Route path="flags" element={<SAFlags />} />
+                <Route path="audit-log" element={<SAAuditLog />} />
+                <Route path="notifications" element={<SANotificationTesting />} />
+                <Route path="team" element={<SATeam />} />
+              </Route>
+              <Route path="/dr/:slug" element={<DoctorPublicPage />} />
+              <Route path="/dr/:slug/blog" element={<BlogListPage />} />
+              <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
+              <Route path="/dr/:slug/manage" element={<ManageAppointment />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </MaintenanceGate>
       </BrowserRouter>
     </TooltipProvider>

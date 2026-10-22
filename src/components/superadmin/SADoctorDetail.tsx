@@ -126,7 +126,7 @@ const SADoctorDetail = () => {
       <Card>
         <CardContent className="p-6 flex flex-col md:flex-row gap-6 items-start">
           {p.profile_photo_url ? (
-            <img src={p.profile_photo_url} className="w-20 h-20 rounded-full object-cover border" alt="" />
+            <img src={p.profile_photo_url} className="w-20 h-20 rounded-full object-cover border" alt={p.full_name || "Doctor"} loading="lazy" decoding="async" />
           ) : (
             <div className="w-20 h-20 rounded-full bg-royal/10 flex items-center justify-center text-2xl font-bold text-royal">
               {p.full_name?.[0] ?? "D"}
@@ -135,7 +135,15 @@ const SADoctorDetail = () => {
           <div className="flex-1">
             <h1 className="font-heading font-bold text-2xl text-primary">{p.full_name}</h1>
             <p className="text-muted-foreground">{p.specialization} · {p.clinic_name}</p>
-            <p className="text-xs text-muted-foreground">{p.city} · {p.phone}</p>
+            <p className="text-xs text-muted-foreground">
+              {p.city}
+              {p.phone && (
+                <>
+                  {" · "}
+                  <a href={`tel:${p.phone}`} className="text-royal hover:underline">{p.phone}</a>
+                </>
+              )}
+            </p>
             <div className="flex gap-2 mt-2">
               <Badge variant="outline">{p.plan_status}</Badge>
               <Badge>{p.plan_tier || "free"}</Badge>

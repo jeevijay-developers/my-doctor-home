@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useProfile } from "@/hooks/useProfile";
 import { useLocation, useNavigate, Link } from "react-router-dom";
@@ -43,6 +43,8 @@ const pageTitles: Record<string, string> = {
   "/admin/my-website": "My Website",
   "/admin/appointments": "Appointments",
   "/admin/patients": "Patients",
+  "/admin/prescriptions": "Prescriptions",
+  "/admin/reviews": "Reviews",
   "/admin/blog": "Blog",
   "/admin/billing": "Billing",
   "/admin/settings": "Settings",
@@ -62,6 +64,14 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   const banner = typeof settings.announcement_banner === "string" ? settings.announcement_banner : "";
   const { mode, setTheme } = usePanelTheme("doctylia-admin-theme");
 
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = `${pageTitle} · Admin | Doctylia`;
+    return () => {
+      document.title = prevTitle;
+    };
+  }, [pageTitle]);
+
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useDoctorNotifications(authUserId ?? undefined);
   const trialStatus = useTrialStatus();
   const graceRemaining = trialStatus.accessLevel === "grace" ? formatGraceRemaining(trialStatus.graceEndsAt) : null;
@@ -77,7 +87,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full overflow-x-hidden">
         <AdminSidebar />
         {/* min-w-0 stops this column's default min-width:auto from letting
             wide/unbreakable descendant content bloat it past the viewport

@@ -8,7 +8,7 @@
 // Mock mode: if RAZORPAY_KEY_ID/SECRET aren't set, generates mock IDs and
 // sets status to 'active' immediately so the rest of the flow can be tested.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolvePaymentMode, mockId, corsHeaders, json } from "../_shared/paymentMode.ts";
+import { resolvePaymentMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
@@ -46,7 +46,8 @@ type OnboardPayload = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = beginPaymentRequest(req);
+  if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   // Auth
