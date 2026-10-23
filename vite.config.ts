@@ -33,9 +33,6 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("@radix-ui")) {
             return "vendor-radix";
           }
-          if (id.includes("recharts") || id.includes("d3-")) {
-            return "vendor-charts";
-          }
           if (id.includes("@tiptap") || id.includes("prosemirror")) {
             return "vendor-editor";
           }
