@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 
 const SCRIPT_ID = "cf-turnstile-script";
-const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const SCRIPT_SRC =
+  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
 type TurnstileApi = {
   render: (element: HTMLElement, options: Record<string, unknown>) => string;
@@ -20,7 +21,8 @@ export const TURNSTILE_SITE_KEY = "0x4AAAAAAEIBVX_7AEWMtPMj";
 
 export function getTurnstileSiteKey(): string | null {
   const fromEnv = import.meta.env.VITE_TURNSTILE_SITE_KEY;
-  if (typeof fromEnv === "string" && fromEnv.trim().length > 0) return fromEnv.trim();
+  if (typeof fromEnv === "string" && fromEnv.trim().length > 0)
+    return fromEnv.trim();
   return TURNSTILE_SITE_KEY;
 }
 
@@ -32,7 +34,9 @@ function loadTurnstileScript(): Promise<void> {
   if (scriptPromise) return scriptPromise;
 
   scriptPromise = new Promise((resolve, reject) => {
-    const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+    const existing = document.getElementById(
+      SCRIPT_ID,
+    ) as HTMLScriptElement | null;
     const finish = () => {
       if (window.turnstile) resolve();
       else reject(new Error("Turnstile failed to load"));
@@ -43,7 +47,11 @@ function loadTurnstileScript(): Promise<void> {
         return;
       }
       existing.addEventListener("load", finish, { once: true });
-      existing.addEventListener("error", () => reject(new Error("Turnstile failed to load")), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Turnstile failed to load")),
+        { once: true },
+      );
       return;
     }
     const script = document.createElement("script");
@@ -68,7 +76,11 @@ type TurnstileWidgetProps = {
   resetSignal?: number;
 };
 
-const TurnstileWidget = ({ action, onToken, resetSignal = 0 }: TurnstileWidgetProps) => {
+const TurnstileWidget = ({
+  action,
+  onToken,
+  resetSignal = 0,
+}: TurnstileWidgetProps) => {
   const siteKey = getTurnstileSiteKey();
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
@@ -81,13 +93,26 @@ const TurnstileWidget = ({ action, onToken, resetSignal = 0 }: TurnstileWidgetPr
 
     loadTurnstileScript()
       .then(() => {
-        if (cancelled || !containerRef.current || !window.turnstile || widgetIdRef.current) return;
-        widgetIdRef.current = window.turnstile.render(containerRef.current, {
-          sitekey: siteKey,
-          action,
-          callback: (token: string) => onTokenRef.current(token),
-          "expired-callback": () => onTokenRef.current(""),
-          "error-callback": () => onTokenRef.current(""),
+        if (cancelled) return;
+        // Wait a frame so the container has its final layout width before
+        // Turnstile measures it for `size: "flexible"` — rendering on the
+        // very first paint can snapshot a too-narrow width and never resize.
+        requestAnimationFrame(() => {
+          if (
+            cancelled ||
+            !containerRef.current ||
+            !window.turnstile ||
+            widgetIdRef.current
+          )
+            return;
+          widgetIdRef.current = window.turnstile.render(containerRef.current, {
+            sitekey: siteKey,
+            theme: "light",
+            size: "flexible",
+            callback: (token: string) => onTokenRef.current(token),
+            "expired-callback": () => onTokenRef.current(""),
+            "error-callback": () => onTokenRef.current(""),
+          });
         });
       })
       .catch(() => {
@@ -111,7 +136,7 @@ const TurnstileWidget = ({ action, onToken, resetSignal = 0 }: TurnstileWidgetPr
 
   if (!siteKey) return null;
 
-  return <div ref={containerRef} className="flex min-h-[65px] justify-center" />;
+  return <div ref={containerRef} className="flex min-h-[65px] w-full" />;
 };
 
 export default TurnstileWidget;
