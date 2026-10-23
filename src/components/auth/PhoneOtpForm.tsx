@@ -181,7 +181,7 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
             </button>
           )}
         </div>
-        <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
+        <TurnstileWidget action={mode} onToken={setCaptchaToken} resetSignal={turnstileReset} />
         <Button
           type="button"
           onClick={verifyOtp}
@@ -285,7 +285,7 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
           </Label>
         </div>
       )}
-      <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
+      <TurnstileWidget action={mode} onToken={setCaptchaToken} resetSignal={turnstileReset} />
       <Button
         type="button"
         onClick={sendOtp}

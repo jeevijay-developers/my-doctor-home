@@ -1024,7 +1024,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
             </div>
           </div>
 
-          <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
+          <TurnstileWidget action="booking" onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(4)}>

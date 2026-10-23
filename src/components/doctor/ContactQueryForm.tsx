@@ -146,7 +146,7 @@ const ContactQueryForm = ({ cardColor = "card" }: { cardColor?: CardColor }) => 
                   <Textarea id="query-message" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="How can the clinic help you?" rows={6} maxLength={1000} disabled={submitting} className="resize-none rounded-xl border-slate-200 bg-slate-50/70 px-4 py-3 shadow-none transition focus-visible:border-[#3C83FC] focus-visible:ring-[#3C83FC]/20 dark:border-gray-700 dark:bg-gray-950/60" />
                 </div>
 
-                <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
+                <TurnstileWidget action="contact" onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
                 <div className="absolute -left-[9999px] top-0 opacity-0" aria-hidden="true">
                   <label htmlFor="query-website">Website</label>

@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
   }
 
   // `captchaToken` — Cloudflare Turnstile token. Exact field name.
-  const captcha = await turnstileError(body?.captchaToken, ip);
+  const captcha = await turnstileError(body?.captchaToken, ip, "staff-login");
   if (captcha) return json(400, captcha);
 
   if (!username || !password) return json(400, { error: INVALID });

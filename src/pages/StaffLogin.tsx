@@ -105,7 +105,7 @@ const StaffLogin = () => {
             <p className="text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">{error}</p>
           )}
 
-          <TurnstileWidget onToken={setCaptchaToken} resetSignal={turnstileReset} />
+          <TurnstileWidget action="staff-login" onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
           <Button type="submit" disabled={loading} className="w-full h-10 bg-royal hover:bg-royal/90">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Login"}

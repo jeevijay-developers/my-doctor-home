@@ -15,11 +15,13 @@ declare global {
   }
 }
 
+/** Public widget sitekey. Override with VITE_TURNSTILE_SITE_KEY if needed. */
+export const TURNSTILE_SITE_KEY = "0x4AAAAAAEIBVX_7AEWMtPMj";
+
 export function getTurnstileSiteKey(): string | null {
-  const key = import.meta.env.VITE_TURNSTILE_SITE_KEY;
-  if (typeof key !== "string") return null;
-  const trimmed = key.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  const fromEnv = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+  if (typeof fromEnv === "string" && fromEnv.trim().length > 0) return fromEnv.trim();
+  return TURNSTILE_SITE_KEY;
 }
 
 let scriptPromise: Promise<void> | null = null;
@@ -61,11 +63,12 @@ function loadTurnstileScript(): Promise<void> {
 }
 
 type TurnstileWidgetProps = {
+  action: string;
   onToken: (token: string) => void;
   resetSignal?: number;
 };
 
-const TurnstileWidget = ({ onToken, resetSignal = 0 }: TurnstileWidgetProps) => {
+const TurnstileWidget = ({ action, onToken, resetSignal = 0 }: TurnstileWidgetProps) => {
   const siteKey = getTurnstileSiteKey();
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
@@ -81,6 +84,7 @@ const TurnstileWidget = ({ onToken, resetSignal = 0 }: TurnstileWidgetProps) => 
         if (cancelled || !containerRef.current || !window.turnstile || widgetIdRef.current) return;
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: siteKey,
+          action,
           callback: (token: string) => onTokenRef.current(token),
           "expired-callback": () => onTokenRef.current(""),
           "error-callback": () => onTokenRef.current(""),
@@ -97,7 +101,7 @@ const TurnstileWidget = ({ onToken, resetSignal = 0 }: TurnstileWidgetProps) => 
         widgetIdRef.current = null;
       }
     };
-  }, [siteKey]);
+  }, [siteKey, action]);
 
   useEffect(() => {
     if (!resetSignal || !widgetIdRef.current || !window.turnstile) return;

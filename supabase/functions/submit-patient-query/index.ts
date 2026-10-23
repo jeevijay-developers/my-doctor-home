@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     return json(200, { ok: true });
   }
 
-  const captcha = await turnstileError(body.captchaToken, ip);
+  const captcha = await turnstileError(body.captchaToken, ip, "contact");
   if (captcha) return json(400, captcha);
 
   if (typeof body.doctor_id !== "string" || !UUID_RE.test(body.doctor_id)) {

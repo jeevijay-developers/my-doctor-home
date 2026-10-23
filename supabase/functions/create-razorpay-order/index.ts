@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     return json(400, { error: "Bad request" });
   }
 
-  const captcha = await turnstileError(booking.captchaToken, ip);
+  const captcha = await turnstileError(booking.captchaToken, ip, "booking");
   if (captcha) return json(400, captcha);
 
   if (!isValidBooking(booking)) return json(400, { error: "Missing or invalid booking details" });
