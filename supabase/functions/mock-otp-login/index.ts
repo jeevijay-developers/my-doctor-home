@@ -52,19 +52,34 @@ Deno.serve(async (req) => {
   if (!phone || typeof phone !== "string") return json(400, { error: "Missing phone" });
   if (otp !== DEV_OTP_CODE) return json(400, { error: "Invalid OTP" });
 
+  // Clinic staff are real phone users (auth.users.phone), not dev.<phone>
+  // accounts — on login, match them by phone first so the dev OTP flow can
+  // sign them in like the production SMS flow does.
+  let devUser: { email?: string } | null = null;
+  if (!isSignup) {
+    const e164 = /^\+/.test(phone) ? phone : `+${phone}`;
+    const { data: staff } = await admin.from("staff_members").select("id, status").eq("phone", e164).maybeSingle();
+    if (staff) {
+      if (staff.status !== "active") return json(403, { error: "Your staff account is inactive. Please contact your clinic." });
+      const { data: staffUser } = await admin.auth.admin.getUserById(staff.id);
+      if (staffUser?.user?.email) devUser = { email: staffUser.user.email };
+    }
+  }
+
   // get_or_create_dev_user always derives a synthetic dev.<digits>@doctylia.com
   // address from `phone` itself — it never takes a client-supplied email — so
   // this can't be used to mint a session for a real user's account.
-  const { data: rpcData, error: rpcError } = await admin.rpc("get_or_create_dev_user", {
-    _phone: phone,
-    _full_name: fullName || (isSignup ? "Dev Doctor" : "Test User"),
-    _is_signup: !!isSignup,
-  });
-  if (rpcError) return json(500, { error: rpcError.message });
-
-  // Login attempts don't auto-create an account — no rows means this phone
-  // number has never signed up.
-  const devUser = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+  if (!devUser) {
+    const { data: rpcData, error: rpcError } = await admin.rpc("get_or_create_dev_user", {
+      _phone: phone,
+      _full_name: fullName || (isSignup ? "Dev Doctor" : "Test User"),
+      _is_signup: !!isSignup,
+    });
+    if (rpcError) return json(500, { error: rpcError.message });
+    // Login attempts don't auto-create an account — no rows means this phone
+    // number has never signed up.
+    devUser = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+  }
   if (!devUser?.email) {
     if (!isSignup) {
       return json(404, { error: "No account found with this phone number.", showSignupLink: true });

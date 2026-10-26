@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
-  UserCog, Plus, Pencil, KeyRound, Ban, CheckCircle2, Trash2, ShieldCheck, Loader2,
+  UserCog, Plus, Pencil, Ban, CheckCircle2, Trash2, ShieldCheck, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +16,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
+import { normalizePhoneNumber } from "@/lib/auth/otp/productionOtpService";
 import { PERMISSION_MODULES, type PermissionKey, type Permissions } from "@/lib/staffPermissions";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
@@ -25,12 +26,15 @@ import LockedFeatureCard from "./LockedFeatureCard";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 
 type StaffRow = {
-  id: string; staff_name: string; username: string; status: string;
+  id: string; staff_name: string; phone: string; status: string;
   permissions: Permissions; created_at: string; last_login_at: string | null;
 };
 
 const emptyPermissions: Permissions = {};
-const emptyForm = { staff_name: "", username: "", password: "", confirm_password: "", status: "active" as "active" | "inactive" };
+const emptyForm = { staff_name: "", phone: "", confirm_phone: "", status: "active" as "active" | "inactive" };
+const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
+// Shows only the last 4 digits in the roster, e.g. "+91 ••••• ••3210".
+const maskPhone = (p: string) => (p ? `${p.slice(0, 3)} ••••• ••${p.slice(-4)}` : "—");
 
 const StaffManagementPage = () => {
   const { profile, isStaff, can } = useProfile();
@@ -47,8 +51,6 @@ const StaffManagementPage = () => {
   const [permissions, setPermissions] = useState<Permissions>(emptyPermissions);
   const [saving, setSaving] = useState(false);
 
-  const [resetting, setResetting] = useState<StaffRow | null>(null);
-  const [newPassword, setNewPassword] = useState("");
   const [deleting, setDeleting] = useState<StaffRow | null>(null);
 
   const load = async () => {
@@ -71,7 +73,7 @@ const StaffManagementPage = () => {
 
   const openEdit = (s: StaffRow) => {
     setEditingId(s.id);
-    setForm({ staff_name: s.staff_name, username: s.username, password: "", confirm_password: "", status: s.status as "active" | "inactive" });
+    setForm({ staff_name: s.staff_name, phone: s.phone, confirm_phone: s.phone, status: s.status as "active" | "inactive" });
     setPermissions(s.permissions || {});
     setDialogOpen(true);
   };
@@ -80,40 +82,52 @@ const StaffManagementPage = () => {
 
   const save = async () => {
     if (!form.staff_name.trim()) { toast.error("Staff name is required"); return; }
-    if (!form.username.trim()) { toast.error("Username is required"); return; }
+    const phone = normalizePhoneNumber(form.phone);
+    if (!PHONE_REGEX.test(phone)) { toast.error("Enter a valid phone number, e.g. +919876543210"); return; }
+    if (phone !== normalizePhoneNumber(form.confirm_phone)) { toast.error("Phone numbers do not match"); return; }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const authHeaders = { Authorization: `Bearer ${session?.access_token}` };
 
     if (editingId) {
       setSaving(true);
+      const current = staff.find((s) => s.id === editingId);
       const { error } = await supabase.from("staff_members").update({
         staff_name: form.staff_name.trim(),
-        username: form.username.trim(),
         permissions,
       }).eq("id", editingId);
+      if (error) { setSaving(false); toast.error("Could not save changes"); return; }
+      if (current && current.phone !== phone) {
+        const { error: phoneError } = await supabase.functions.invoke("update-staff-phone", {
+          headers: authHeaders,
+          body: { staff_id: editingId, phone },
+        });
+        if (phoneError) {
+          setSaving(false);
+          toast.error(await edgeFunctionErrorMessage(phoneError, "Could not change phone number"));
+          load();
+          return;
+        }
+      }
       setSaving(false);
-      if (error) { toast.error("Could not save changes"); return; }
       toast.success("Staff account updated");
       setDialogOpen(false);
       load();
       return;
     }
 
-    if (form.password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
-    if (form.password !== form.confirm_password) { toast.error("Passwords do not match"); return; }
-
     setSaving(true);
-    const { data: { session } } = await supabase.auth.getSession();
     const { error } = await supabase.functions.invoke("create-staff-account", {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-      body: { staff_name: form.staff_name.trim(), username: form.username.trim(), password: form.password, status: form.status, permissions },
+      headers: authHeaders,
+      body: { staff_name: form.staff_name.trim(), phone, status: form.status, permissions },
     });
     setSaving(false);
     if (error) {
-      // Never logs the password — only the error object supabase-js gives back.
       console.error("create-staff-account failed:", error);
       toast.error(await edgeFunctionErrorMessage(error, "Could not create staff account. Check the browser console for details."));
       return;
     }
-    toast.success("Staff account created successfully.");
+    toast.success("Staff account created. They can now log in with their phone number.");
     setDialogOpen(false);
     load();
   };
@@ -124,20 +138,6 @@ const StaffManagementPage = () => {
     if (error) { toast.error("Could not update status"); return; }
     toast.success(nextStatus === "active" ? "Staff account activated" : "Staff account deactivated");
     load();
-  };
-
-  const submitReset = async () => {
-    if (!resetting) return;
-    if (newPassword.length < 8) { toast.error("Password must be at least 8 characters"); return; }
-    const { data: { session } } = await supabase.auth.getSession();
-    const { error } = await supabase.functions.invoke("reset-staff-password", {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-      body: { staff_id: resetting.id, new_password: newPassword },
-    });
-    if (error) { toast.error(await edgeFunctionErrorMessage(error, "Could not reset password")); return; }
-    toast.success("Password reset");
-    setResetting(null);
-    setNewPassword("");
   };
 
   const confirmDelete = async () => {
@@ -220,7 +220,7 @@ const StaffManagementPage = () => {
                 <thead className="bg-secondary/60 border-b border-border">
                   <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <th className="px-4 py-3">Staff Name</th>
-                    <th className="px-4 py-3">Username</th>
+                    <th className="px-4 py-3">Phone</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 hidden md:table-cell">Permissions</th>
                     <th className="px-4 py-3">Actions</th>
@@ -237,7 +237,7 @@ const StaffManagementPage = () => {
                           <span className="font-semibold text-foreground">{s.staff_name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-foreground">{s.username}</td>
+                      <td className="px-4 py-3 text-foreground">{maskPhone(s.phone)}</td>
                       <td className="px-4 py-3">
                         <Badge variant="secondary" className={`text-[10px] ${s.status === "active" ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>
                           {s.status === "active" ? "Active" : "Inactive"}
@@ -253,11 +253,6 @@ const StaffManagementPage = () => {
                           {can("staff.edit") && (
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(s)} aria-label="Edit">
                               <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          {can("staff.edit") && (
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setResetting(s); setNewPassword(""); }} aria-label="Reset Password">
-                              <KeyRound className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {can("staff.disable") && (
@@ -291,7 +286,7 @@ const StaffManagementPage = () => {
                       </div>
                       <div className="min-w-0">
                         <div className="font-semibold text-foreground truncate">{s.staff_name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{s.username}</div>
+                        <div className="text-xs text-muted-foreground truncate">{maskPhone(s.phone)}</div>
                       </div>
                     </div>
                     <Badge variant="secondary" className={`text-[10px] flex-shrink-0 ${s.status === "active" ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>
@@ -305,11 +300,6 @@ const StaffManagementPage = () => {
                     {can("staff.edit") && (
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(s)} aria-label="Edit">
                         <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    {can("staff.edit") && (
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setResetting(s); setNewPassword(""); }} aria-label="Reset Password">
-                        <KeyRound className="h-3.5 w-3.5" />
                       </Button>
                     )}
                     {can("staff.disable") && (
@@ -341,21 +331,14 @@ const StaffManagementPage = () => {
                 <Input value={form.staff_name} onChange={(e) => setForm({ ...form, staff_name: e.target.value })} className="h-10" />
               </div>
               <div className="space-y-1.5">
-                <Label>Username *</Label>
-                <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="e.g. reception1" className="h-10" />
+                <Label>Phone Number *</Label>
+                <FormattedPhoneInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91 98765 43210" className="h-10" />
               </div>
-              {!editingId && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>Password *</Label>
-                    <PasswordInput value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="h-10" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Confirm Password *</Label>
-                    <PasswordInput value={form.confirm_password} onChange={(e) => setForm({ ...form, confirm_password: e.target.value })} className="h-10" />
-                  </div>
-                </>
-              )}
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Confirm Phone Number *</Label>
+                <FormattedPhoneInput value={form.confirm_phone} onChange={(e) => setForm({ ...form, confirm_phone: e.target.value })} placeholder="Re-enter the number" className="h-10" />
+                <p className="text-xs text-muted-foreground">Staff log in at Doctylia's login page with this number and a one-time code. Double-check it — anyone holding this number gets this staff access.</p>
+              </div>
             </div>
 
             <div>
@@ -385,20 +368,6 @@ const StaffManagementPage = () => {
             <Button onClick={save} disabled={saving || writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">
               {saving ? "Saving…" : editingId ? "Save Changes" : "Create Staff"}
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reset Password */}
-      <Dialog open={!!resetting} onOpenChange={(o) => !o && setResetting(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Reset Password — {resetting?.staff_name}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>New Password</Label>
-              <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="h-10" />
-            </div>
-            <Button onClick={submitReset} className="w-full h-10 bg-royal hover:bg-royal/90">Reset Password</Button>
           </div>
         </DialogContent>
       </Dialog>

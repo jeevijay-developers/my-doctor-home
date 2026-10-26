@@ -11,6 +11,7 @@
 // Optional:
 //   MSG91_OTP_VAR          – template variable holding the code (default "number" for ##number##)
 import { Webhook } from "npm:standardwebhooks@1.0.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -34,12 +35,12 @@ Deno.serve(async (req) => {
   }
 
   const payload = await req.text();
-  let user: { phone?: string };
+  let user: { id?: string; phone?: string };
   let sms: { otp?: string };
   try {
     const wh = new Webhook(hookSecret.replace("v1,whsec_", ""));
     ({ user, sms } = wh.verify(payload, Object.fromEntries(req.headers)) as {
-      user: { phone?: string };
+      user: { id?: string; phone?: string };
       sms: { otp?: string };
     });
   } catch {
@@ -50,6 +51,26 @@ Deno.serve(async (req) => {
   const mobile = String(user?.phone || "").replace(/\D/g, "");
   const otp = sms?.otp;
   if (!mobile || !otp) return hookError(400, "Missing phone or OTP");
+
+  // Deactivated clinic staff can't log in, so don't spend an SMS on them
+  // (and fail closed if the lookup itself errors).
+  if (user?.id) {
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+      auth: { persistSession: false },
+    });
+    const { data: staff, error: staffErr } = await admin
+      .from("staff_members")
+      .select("status")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (staffErr) {
+      console.error("send-sms-hook: staff status lookup failed", staffErr.message);
+      return hookError(500, "Could not send OTP. Please try again.");
+    }
+    if (staff && staff.status !== "active") {
+      return hookError(403, "Your staff account is inactive. Please contact your clinic.");
+    }
+  }
 
   try {
     const res = await fetch("https://control.msg91.com/api/v5/flow", {

@@ -15,7 +15,6 @@ const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const Auth = lazy(() => import("./pages/Auth"));
-const StaffLogin = lazy(() => import("./pages/StaffLogin"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
@@ -91,7 +90,7 @@ const App = () => (
               <Route path="/refund-policy" element={<RefundPolicy />} />
               <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/staff-login" element={<StaffLogin />} />
+              <Route path="/staff-login" element={<Navigate to="/auth?mode=login" replace />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
               <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

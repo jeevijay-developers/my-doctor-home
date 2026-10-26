@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, ArrowRight, Loader2, CheckCircle, Shield, Calendar, Users, TrendingUp, Heart } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Session } from "@supabase/supabase-js";
+import { toast } from "sonner";
 import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
 import loginDoctor from "@/assets/login-doctor.png";
 import avatar1 from "@/assets/testimonial-doctor-1.webp";
@@ -24,7 +25,7 @@ const Auth = () => {
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = mode === "signup" ? "Create Doctor Account | Doctylia" : "Doctor Login | Doctylia";
+    document.title = mode === "signup" ? "Create Doctor Account | Doctylia" : "Doctor & Staff Login | Doctylia";
     const metaDesc = document.querySelector('meta[name="description"]');
     const prevDesc = metaDesc?.getAttribute("content") ?? null;
     if (metaDesc) {
@@ -32,7 +33,7 @@ const Auth = () => {
         "content",
         mode === "signup"
           ? "Start your 7-day free trial on Doctylia. Create your clinic booking website and practice management dashboard within 10 minutes."
-          : "Sign in to your Doctylia doctor dashboard to manage appointments, patients, prescriptions, and billing."
+          : "Sign in to your Doctylia dashboard as a doctor or clinic staff member to manage appointments, patients, prescriptions, and billing."
       );
     }
     return () => {
@@ -74,6 +75,23 @@ const Auth = () => {
     });
     if (isAdmin) {
       navigate("/superadmin");
+      return;
+    }
+    // Clinic staff sign in here too (phone + OTP) but have no profiles row, so
+    // they must skip doctor onboarding and go straight to the admin panel.
+    const { data: staffRow } = await supabase
+      .from("staff_members")
+      .select("status")
+      .eq("id", session.user.id)
+      .maybeSingle();
+    if (staffRow) {
+      if (staffRow.status !== "active") {
+        await supabase.auth.signOut();
+        toast.error("Your staff account is inactive. Please contact your clinic.");
+        return;
+      }
+      await supabase.rpc("touch_staff_login");
+      navigate("/admin/dashboard");
       return;
     }
     const { data: profile } = await supabase
@@ -250,7 +268,7 @@ const Auth = () => {
               <div className="text-center mb-6 relative">
                 <img src="/doctylia-logo.webp" alt="Doctylia" className="h-8 mx-auto mb-3" />
                 <span className="inline-block rounded-full bg-royal/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-royal mb-3">
-                  DOCTYLIA FOR DOCTORS
+                  DOCTYLIA FOR DOCTORS &amp; CLINIC STAFF
                 </span>
                 <h1 className="font-heading font-bold text-2xl text-primary">
                   {mode === "signup" ? "Start Your Free Trial" : "Welcome Back"}
@@ -258,7 +276,7 @@ const Auth = () => {
                 <p className="text-sm text-muted-foreground mt-1">
                   {mode === "signup"
                     ? "7 days free"
-                    : "Log in to your dashboard with your phone number."}
+                    : "Doctors and clinic staff: log in with your phone number."}
                 </p>
               </div>
 

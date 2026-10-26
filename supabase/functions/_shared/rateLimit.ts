@@ -4,7 +4,6 @@
 // Client IP: first x-forwarded-for entry, then cf-connecting-ip, else "unknown".
 //
 // Standard limits applied by callers:
-//   staff-login            5 / 15 min per IP, and 10 / 15 min per username
 //   create-razorpay-order  10 / 10 min per IP
 //   ai-blog-writer         20 / hour per authenticated doctor
 //   public form posts      5 / 10 min per IP (mock-otp-login, submit-patient-query)

@@ -2150,6 +2150,7 @@ export type Database = {
           id: string
           last_login_at: string | null
           permissions: Json
+          phone: string
           staff_name: string
           status: string
           updated_at: string
@@ -2162,6 +2163,7 @@ export type Database = {
           id: string
           last_login_at?: string | null
           permissions?: Json
+          phone: string
           staff_name: string
           status?: string
           updated_at?: string
@@ -2174,6 +2176,7 @@ export type Database = {
           id?: string
           last_login_at?: string | null
           permissions?: Json
+          phone?: string
           staff_name?: string
           status?: string
           updated_at?: string
@@ -2712,6 +2715,7 @@ export type Database = {
       send_plan_expiry_notifications: { Args: never; Returns: undefined }
       send_trial_warning_notifications: { Args: never; Returns: undefined }
       staff_doctor_id: { Args: { _user_id: string }; Returns: string }
+      touch_staff_login: { Args: never; Returns: undefined }
       staff_has_permission: {
         Args: { _permission: string; _user_id: string }
         Returns: boolean

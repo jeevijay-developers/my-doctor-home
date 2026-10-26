@@ -30,6 +30,16 @@ export function sanitizePermissions(input: unknown): Record<string, boolean> {
   return out;
 }
 
+// Mirrors normalizePhoneNumber in src/lib/auth/otp/productionOtpService.ts
+// (bare 10-digit numbers default to +91). Returns null unless the result is
+// valid E.164 — the form GoTrue stores in auth.users.phone (minus the "+")
+// and the staff_members.phone CHECK constraint expects.
+export function normalizeStaffPhone(input: unknown): string | null {
+  const cleaned = String(input || "").replace(/[\s-]/g, "");
+  const e164 = /^\d{10}$/.test(cleaned) ? `+91${cleaned}` : cleaned;
+  return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : null;
+}
+
 export { corsHeaders };
 
 const STAFF_CORS: CorsOptions = {
