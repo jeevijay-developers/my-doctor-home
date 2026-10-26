@@ -6,6 +6,7 @@
 // Also callable with no doctor_id to sync ALL doctors (superadmin only).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { hasSuperadminPermission } from "../_shared/superadminPermissions.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
@@ -87,7 +88,7 @@ Deno.serve(async (req) => {
   let body: { doctor_id?: string } = {};
   try { body = await req.json().catch(() => ({})); } catch { /* ok */ }
 
-  const { data: isAdmin } = await admin.rpc("has_role", { _user_id: uid, _role: "admin" });
+  const isAdmin = await hasSuperadminPermission(admin, uid, "payments.payout");
 
   // Sync a specific doctor
   const doctorId = body.doctor_id || uid;

@@ -9,6 +9,7 @@
 // refunded state for UI testing.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { hasSuperadminPermission } from "../_shared/superadminPermissions.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
   const { data: claims } = await scoped.auth.getClaims(authHeader.slice(7));
   const uid = claims?.claims?.sub as string | undefined;
   if (!uid) return json(401, { error: "Invalid token" });
-  const { data: isAdmin } = await admin.rpc("has_role", { _user_id: uid, _role: "admin" });
+  const isAdmin = await hasSuperadminPermission(admin, uid, "payments.refund");
   if (!isAdmin) return json(403, { error: "Admin only" });
 
   let payment_id: string | undefined;

@@ -2192,6 +2192,42 @@ export type Database = {
           },
         ]
       }
+      superadmin_team_members: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          last_login_at: string | null
+          name: string
+          permissions: Json
+          phone: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id: string
+          last_login_at?: string | null
+          name: string
+          permissions?: Json
+          phone: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          last_login_at?: string | null
+          name?: string
+          permissions?: Json
+          phone?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       support_tickets: {
         Row: {
           assigned_to: string | null
@@ -2715,6 +2751,10 @@ export type Database = {
       send_plan_expiry_notifications: { Args: never; Returns: undefined }
       send_trial_warning_notifications: { Args: never; Returns: undefined }
       staff_doctor_id: { Args: { _user_id: string }; Returns: string }
+      is_active_team_member: { Args: { _user_id: string }; Returns: boolean }
+      sa_has_any_permission: { Args: { _permissions: string[]; _user_id: string }; Returns: boolean }
+      sa_has_permission: { Args: { _permission: string; _user_id: string }; Returns: boolean }
+      touch_team_login: { Args: never; Returns: undefined }
       touch_staff_login: { Args: never; Returns: undefined }
       staff_has_permission: {
         Args: { _permission: string; _user_id: string }

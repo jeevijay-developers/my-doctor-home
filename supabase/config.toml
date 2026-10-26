@@ -33,6 +33,15 @@ verify_jwt = false
 [functions.update-staff-phone]
 verify_jwt = false
 
+[functions.create-team-member]
+verify_jwt = false
+
+[functions.update-team-member-phone]
+verify_jwt = false
+
+[functions.delete-team-member]
+verify_jwt = false
+
 [functions.checkup-reminder-worker]
 verify_jwt = false
 

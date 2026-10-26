@@ -38,6 +38,7 @@ const SAFlags = lazy(() => import("./components/superadmin/SAFlags"));
 const SAAuditLog = lazy(() => import("./components/superadmin/SAAuditLog"));
 const SANotificationTesting = lazy(() => import("./components/superadmin/SANotificationTesting"));
 const SATeam = lazy(() => import("./components/superadmin/SATeam"));
+const SAPermissionGate = lazy(() => import("./components/superadmin/SAPermissionGate"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -96,19 +97,19 @@ const App = () => (
               <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
               <Route path="/superadmin" element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
                 <Route index element={<Navigate to="overview" replace />} />
-                <Route path="overview" element={<SAOverview />} />
-                <Route path="doctors" element={<SADoctors />} />
-                <Route path="doctors/:id" element={<SADoctorDetail />} />
-                <Route path="leads" element={<SALeads />} />
-                <Route path="subscriptions" element={<SASubscriptions />} />
-                <Route path="tickets" element={<SATickets />} />
-                <Route path="moderation" element={<SAModeration />} />
-                <Route path="billing" element={<SABilling />} />
-                <Route path="payments" element={<SAPayments />} />
-                <Route path="flags" element={<SAFlags />} />
-                <Route path="audit-log" element={<SAAuditLog />} />
-                <Route path="notifications" element={<SANotificationTesting />} />
-                <Route path="team" element={<SATeam />} />
+                <Route path="overview" element={<SAPermissionGate permission={"overview.view"}><SAOverview /></SAPermissionGate>} />
+                <Route path="doctors" element={<SAPermissionGate permission={"doctors.view"}><SADoctors /></SAPermissionGate>} />
+                <Route path="doctors/:id" element={<SAPermissionGate permission={"doctors.view"}><SADoctorDetail /></SAPermissionGate>} />
+                <Route path="leads" element={<SAPermissionGate permission={"leads.view"}><SALeads /></SAPermissionGate>} />
+                <Route path="subscriptions" element={<SAPermissionGate permission={"subscriptions.view"}><SASubscriptions /></SAPermissionGate>} />
+                <Route path="tickets" element={<SAPermissionGate permission={"tickets.view"}><SATickets /></SAPermissionGate>} />
+                <Route path="moderation" element={<SAPermissionGate permission={"moderation.view"}><SAModeration /></SAPermissionGate>} />
+                <Route path="billing" element={<SAPermissionGate permission={"billing.view"}><SABilling /></SAPermissionGate>} />
+                <Route path="payments" element={<SAPermissionGate permission={"payments.view"}><SAPayments /></SAPermissionGate>} />
+                <Route path="flags" element={<SAPermissionGate permission={"flags.view"}><SAFlags /></SAPermissionGate>} />
+                <Route path="audit-log" element={<SAPermissionGate permission={"audit.view"}><SAAuditLog /></SAPermissionGate>} />
+                <Route path="notifications" element={<SAPermissionGate permission={"notifications.view"}><SANotificationTesting /></SAPermissionGate>} />
+                <Route path="team" element={<SAPermissionGate permission={null}><SATeam /></SAPermissionGate>} />
               </Route>
               <Route path="/dr/:slug" element={<DoctorPublicPage />} />
               <Route path="/dr/:slug/blog" element={<BlogListPage />} />

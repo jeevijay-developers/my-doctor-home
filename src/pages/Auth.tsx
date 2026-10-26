@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
+import { resolvePostLoginDestination } from "@/lib/auth/resolveDestination";
 import loginDoctor from "@/assets/login-doctor.png";
 import avatar1 from "@/assets/testimonial-doctor-1.webp";
 import avatar2 from "@/assets/testimonial-doctor-2.webp";
@@ -52,15 +53,14 @@ const Auth = () => {
         window.location.href = safeNext;
         return;
       }
-      const { data: isAdmin } = await supabase.rpc("has_role", {
-        _user_id: session.user.id,
-        _role: "admin",
-      });
-      if (isAdmin) {
-        navigate("/superadmin", { replace: true });
-      } else {
-        navigate("/admin/dashboard", { replace: true });
+      const dest = await resolvePostLoginDestination(session.user.id, { onboarding: false });
+      if ("error" in dest) {
+        await supabase.auth.signOut();
+        toast.error(dest.error);
+        setCheckingSession(false);
+        return;
       }
+      navigate(dest.to, { replace: true });
     });
   }, [navigate, safeNext]);
 
@@ -69,40 +69,13 @@ const Auth = () => {
       window.location.href = safeNext;
       return;
     }
-    const { data: isAdmin } = await supabase.rpc("has_role", {
-      _user_id: session.user.id,
-      _role: "admin",
-    });
-    if (isAdmin) {
-      navigate("/superadmin");
+    const dest = await resolvePostLoginDestination(session.user.id, { onboarding: true });
+    if ("error" in dest) {
+      await supabase.auth.signOut();
+      toast.error(dest.error);
       return;
     }
-    // Clinic staff sign in here too (phone + OTP) but have no profiles row, so
-    // they must skip doctor onboarding and go straight to the admin panel.
-    const { data: staffRow } = await supabase
-      .from("staff_members")
-      .select("status")
-      .eq("id", session.user.id)
-      .maybeSingle();
-    if (staffRow) {
-      if (staffRow.status !== "active") {
-        await supabase.auth.signOut();
-        toast.error("Your staff account is inactive. Please contact your clinic.");
-        return;
-      }
-      await supabase.rpc("touch_staff_login");
-      navigate("/admin/dashboard");
-      return;
-    }
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .single();
-    if (profile?.onboarding_completed) {
-      navigate("/admin/dashboard");
-    } else {
-      navigate("/onboarding");
-    }
+    navigate(dest.to);
   };
 
   const trustPoints = [
@@ -268,7 +241,7 @@ const Auth = () => {
               <div className="text-center mb-6 relative">
                 <img src="/doctylia-logo.webp" alt="Doctylia" className="h-8 mx-auto mb-3" />
                 <span className="inline-block rounded-full bg-royal/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-royal mb-3">
-                  DOCTYLIA FOR DOCTORS &amp; CLINIC STAFF
+                  DOCTYLIA FOR DOCTORS, CLINIC STAFF &amp; TEAM
                 </span>
                 <h1 className="font-heading font-bold text-2xl text-primary">
                   {mode === "signup" ? "Start Your Free Trial" : "Welcome Back"}

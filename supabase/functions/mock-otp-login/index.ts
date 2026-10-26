@@ -58,7 +58,13 @@ Deno.serve(async (req) => {
   let devUser: { email?: string } | null = null;
   if (!isSignup) {
     const e164 = /^\+/.test(phone) ? phone : `+${phone}`;
-    const { data: staff } = await admin.from("staff_members").select("id, status").eq("phone", e164).maybeSingle();
+    const { data: member } = await admin.from("superadmin_team_members").select("id, status").eq("phone", e164).maybeSingle();
+    if (member) {
+      if (member.status !== "active") return json(403, { error: "Your team account is inactive. Please contact an owner." });
+      const { data: memberUser } = await admin.auth.admin.getUserById(member.id);
+      if (memberUser?.user?.email) devUser = { email: memberUser.user.email };
+    }
+    const { data: staff } = devUser ? { data: null } : await admin.from("staff_members").select("id, status").eq("phone", e164).maybeSingle();
     if (staff) {
       if (staff.status !== "active") return json(403, { error: "Your staff account is inactive. Please contact your clinic." });
       const { data: staffUser } = await admin.auth.admin.getUserById(staff.id);

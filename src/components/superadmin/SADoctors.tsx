@@ -17,6 +17,7 @@ import { ExternalLink, KeyRound, MessageSquarePlus, Radio, Trash2, X } from "luc
 import { differenceInCalendarDays } from "date-fns";
 import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useSuperAdminAccess } from "@/contexts/SuperAdminAccessContext";
 
 type MessageTarget = { type: "single"; id: string; name: string } | { type: "broadcast" };
 
@@ -52,6 +53,7 @@ function PlanStatusBadge({ row }: { row: any }) {
 // action bar, and an AlertDialog confirmation with a type-the-count gate
 // at 10+ selected.
 const SADoctors = () => {
+  const { can } = useSuperAdminAccess();
   const [rows, setRows] = useState<any[]>([]);
   const [q, setQ] = useState("");
   const debouncedQ = useDebouncedValue(q, 300);
@@ -428,6 +430,8 @@ const SADoctors = () => {
               size="sm"
               className="h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-4"
               onClick={() => setBulkDeleteOpen(true)}
+              disabled={!can("doctors.delete")}
+              title={can("doctors.delete") ? undefined : "You don't have permission to delete doctors"}
             >
               <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Selected
             </Button>

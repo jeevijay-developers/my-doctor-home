@@ -47,6 +47,8 @@ Tests live colocated next to the source they cover (e.g. `src/lib/planFeatures.t
 
 Staff permissions are fine-grained keys like `"patients.view"` / `"billing.manage"`, defined in `src/lib/staffPermissions.ts` and gated twice: the admin sidebar hides links a staff member can't use, and each route in `AdminDashboard.tsx` is separately wrapped in `<PermissionGate permission="...">` so a manually-typed URL is still blocked. **`src/lib/staffPermissions.ts` must be kept in sync by hand with `supabase/functions/_shared/staffPermissions.ts`** — edge functions run on Deno and can't import from `src/`, so the permission keys are duplicated rather than shared.
 
+**Superadmin Team** (`/superadmin/team`, owner-only): permission-scoped platform admins who log in from the main login page with phone + OTP. They live only in `superadmin_team_members` (never `user_roles` 'admin', which means full owner access) and get access through additive `sa_has_permission(...)` RLS policies and `hasSuperadminPermission` checks in edge functions. **`src/lib/superadminPermissions.ts` must be kept in sync by hand with `supabase/functions/_shared/superadminPermissions.ts` and the policies in the `superadmin_team` migration.** Post-login routing for all four actor types (owner, team, clinic staff, doctor) lives in `src/lib/auth/resolveDestination.ts`.
+
 ### Supabase integration
 
 - `src/integrations/supabase/client.ts` and `types.ts` are **auto-generated** — don't hand-edit; regenerate via the Supabase MCP/CLI instead.

@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
   const otp = sms?.otp;
   if (!mobile || !otp) return hookError(400, "Missing phone or OTP");
 
-  // Deactivated clinic staff can't log in, so don't spend an SMS on them
+  // Deactivated clinic staff / team members can't log in, so don't spend an SMS on them
   // (and fail closed if the lookup itself errors).
   if (user?.id) {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
@@ -69,6 +69,19 @@ Deno.serve(async (req) => {
     }
     if (staff && staff.status !== "active") {
       return hookError(403, "Your staff account is inactive. Please contact your clinic.");
+    }
+
+    const { data: member, error: memberErr } = await admin
+      .from("superadmin_team_members")
+      .select("status")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (memberErr) {
+      console.error("send-sms-hook: team status lookup failed", memberErr.message);
+      return hookError(500, "Could not send OTP. Please try again.");
+    }
+    if (member && member.status !== "active") {
+      return hookError(403, "Your team account is inactive. Please contact an owner.");
     }
   }
 

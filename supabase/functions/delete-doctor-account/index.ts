@@ -29,6 +29,7 @@
 // never weakens the admin gate above.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { hasSuperadminPermission } from "../_shared/superadminPermissions.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
   const { data: claims } = await scoped.auth.getClaims(authHeader.slice(7));
   const callerId = claims?.claims?.sub as string | undefined;
   if (!callerId) return json(401, { error: "Invalid token" });
-  const { data: isAdmin } = await admin.rpc("has_role", { _user_id: callerId, _role: "admin" });
+  const isAdmin = await hasSuperadminPermission(admin, callerId, "doctors.delete");
   if (!isAdmin) return json(403, { error: "Admin only" });
 
   let doctor_ids: unknown;

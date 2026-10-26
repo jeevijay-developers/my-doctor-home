@@ -17,6 +17,7 @@ import { toast as sonnerToast } from "sonner";
 import { logAdminAction } from "@/lib/adminAudit";
 import { TIER_LABELS } from "@/lib/planFeatures";
 import { Trash2, X } from "lucide-react";
+import { useSuperAdminAccess } from "@/contexts/SuperAdminAccessContext";
 
 const STATUSES = ["open", "in_progress", "resolved", "closed"];
 const PRIORITIES = ["low", "normal", "high", "urgent"];
@@ -45,6 +46,7 @@ const submitterInfo = (r: TicketWithSubmitter) => {
 };
 
 const SATickets = () => {
+  const { can } = useSuperAdminAccess();
   const [rows, setRows] = useState<any[]>([]);
   const [statusF, setStatusF] = useState("all");
   const [priorityF, setPriorityF] = useState("all");
@@ -175,6 +177,7 @@ const SATickets = () => {
               </Button>
             )}
             <TooltipProvider delayDuration={200}>
+              {can("tickets.delete") && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -190,6 +193,7 @@ const SATickets = () => {
                 </TooltipTrigger>
                 <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
               </Tooltip>
+              )}
             </TooltipProvider>
           </div>
         </div>

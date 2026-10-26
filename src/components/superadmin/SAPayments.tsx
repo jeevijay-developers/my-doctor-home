@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { usePaymentMode } from "@/hooks/usePaymentMode";
 import TestModeBadge from "@/components/shared/TestModeBadge";
 import type { Tables } from "@/integrations/supabase/types";
+import { useSuperAdminAccess } from "@/contexts/SuperAdminAccessContext";
 
 type Payment = Tables<"payments">;
 type Ledger = Tables<"doctor_ledger">;
@@ -98,6 +99,7 @@ const transferStatusStyle: Record<
 };
 
 const SAPayments = () => {
+  const { can } = useSuperAdminAccess();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -383,7 +385,7 @@ const SAPayments = () => {
           size="sm"
           variant="outline"
           onClick={runMonthlyCalculation}
-          disabled={runningCalc}
+          disabled={runningCalc || !can("payments.payout")}
           className="gap-1.5"
         >
           <RefreshCw
@@ -915,7 +917,7 @@ const SAPayments = () => {
                       <Button
                         size="sm"
                         className="bg-royal hover:bg-royal/90 h-8 text-xs"
-                        disabled={p.status !== "pending" || payingOut === p.id}
+                        disabled={p.status !== "pending" || payingOut === p.id || !can("payments.payout")}
                         onClick={() => approvePayout(p.id)}
                       >
                         {payingOut === p.id ? "Sending..." : "Approve & Pay"}

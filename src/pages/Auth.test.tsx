@@ -68,11 +68,13 @@ describe("Auth page - phone OTP only", () => {
   });
 
   describe("after OTP verification", () => {
-    const mockStaffRow = (row: { status: string } | null) => {
+    // Each table resolves to its own row (or null) so staff and team lookups
+    // can be set independently.
+    const mockRows = (rows: { superadmin_team_members?: { status: string } | null; staff_members?: { status: string } | null }) => {
       vi.mocked(supabase.rpc).mockResolvedValue({ data: false, error: null } as never);
-      vi.mocked(supabase.from).mockReturnValue({
-        select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: row }) }) }),
-      } as never);
+      vi.mocked(supabase.from).mockImplementation(((table: keyof typeof rows) => ({
+        select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: rows[table] ?? null }) }) }),
+      })) as never);
     };
 
     const loginAs = async () => {
@@ -81,6 +83,7 @@ describe("Auth page - phone OTP only", () => {
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/admin/dashboard" element={<div>admin dashboard</div>} />
+            <Route path="/superadmin" element={<div>superadmin console</div>} />
             <Route path="/onboarding" element={<div>onboarding</div>} />
           </Routes>
         </MemoryRouter>
@@ -89,17 +92,31 @@ describe("Auth page - phone OTP only", () => {
     };
 
     it("sends an active staff member straight to the admin dashboard", async () => {
-      mockStaffRow({ status: "active" });
+      mockRows({ staff_members: { status: "active" } });
       await loginAs();
       expect(await screen.findByText("admin dashboard")).toBeInTheDocument();
       expect(supabase.rpc).toHaveBeenCalledWith("touch_staff_login");
     });
 
     it("signs out an inactive staff member instead of entering the panel", async () => {
-      mockStaffRow({ status: "inactive" });
+      mockRows({ staff_members: { status: "inactive" } });
       await loginAs();
       await waitFor(() => expect(supabase.auth.signOut).toHaveBeenCalled());
       expect(screen.queryByText("admin dashboard")).not.toBeInTheDocument();
+    });
+
+    it("sends an active superadmin Team member to the superadmin console", async () => {
+      mockRows({ superadmin_team_members: { status: "active" } });
+      await loginAs();
+      expect(await screen.findByText("superadmin console")).toBeInTheDocument();
+      expect(supabase.rpc).toHaveBeenCalledWith("touch_team_login");
+    });
+
+    it("signs out an inactive Team member", async () => {
+      mockRows({ superadmin_team_members: { status: "inactive" } });
+      await loginAs();
+      await waitFor(() => expect(supabase.auth.signOut).toHaveBeenCalled());
+      expect(screen.queryByText("superadmin console")).not.toBeInTheDocument();
     });
   });
 });

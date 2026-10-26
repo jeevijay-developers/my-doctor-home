@@ -9,6 +9,7 @@
 // sets status to 'active' immediately so the rest of the flow can be tested.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolvePaymentMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { hasSuperadminPermission } from "../_shared/superadminPermissions.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
   // on behalf of a doctor.
   let doctorId = uid;
   if (body.doctor_id && body.doctor_id !== uid) {
-    const { data: isAdmin } = await admin.rpc("has_role", { _user_id: uid, _role: "admin" });
+    const isAdmin = await hasSuperadminPermission(admin, uid, "payments.payout");
     if (!isAdmin) return json(403, { error: "Only the doctor or a superadmin can onboard a payment account" });
     doctorId = body.doctor_id;
   }

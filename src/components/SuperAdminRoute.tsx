@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import {
+  SuperAdminAccessProvider,
+  buildSuperAdminAccess,
+  type SuperAdminAccess,
+} from "@/contexts/SuperAdminAccessContext";
+import type { SAPermissions } from "@/lib/superadminPermissions";
 
 type Status = "loading" | "no-session" | "not-admin" | "ok";
 
@@ -9,6 +15,7 @@ const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
   const [status, setStatus] = useState<Status>("loading");
   const statusRef = useRef<Status>("loading");
   const resolvedRef = useRef(false);
+  const [access, setAccess] = useState<SuperAdminAccess>(() => buildSuperAdminAccess(false, {}));
 
   const update = (next: Status) => {
     statusRef.current = next;
@@ -36,7 +43,25 @@ const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
           _role: "admin",
         });
         if (!mounted) return;
-        update(isAdmin ? "ok" : "not-admin");
+        if (isAdmin) {
+          setAccess(buildSuperAdminAccess(true, {}));
+          update("ok");
+          return;
+        }
+        // Not an owner: an active Team member may still enter, limited to
+        // their own permission flags (RLS lets them read only their own row).
+        const { data: member } = await supabase
+          .from("superadmin_team_members")
+          .select("status, permissions")
+          .eq("id", session.user.id)
+          .maybeSingle();
+        if (!mounted) return;
+        if (member?.status === "active") {
+          setAccess(buildSuperAdminAccess(false, (member.permissions ?? {}) as SAPermissions));
+          update("ok");
+        } else {
+          update("not-admin");
+        }
       }, 0);
     };
 
@@ -65,7 +90,7 @@ const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
   }
   if (status === "no-session") return <Navigate to="/auth?mode=login" replace />;
   if (status === "not-admin") return <Navigate to="/" replace />;
-  return <>{children}</>;
+  return <SuperAdminAccessProvider value={access}>{children}</SuperAdminAccessProvider>;
 };
 
 export default SuperAdminRoute;

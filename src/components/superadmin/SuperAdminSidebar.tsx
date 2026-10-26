@@ -2,6 +2,8 @@ import { LayoutDashboard, Users, Inbox, CreditCard, Wallet, LifeBuoy, ShieldAler
 import { NavLink } from "@/components/NavLink";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useSuperAdminAccess } from "@/contexts/SuperAdminAccessContext";
+import { SA_ROUTE_PERMISSIONS } from "@/lib/superadminPermissions";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -30,6 +32,11 @@ const SuperAdminSidebar = () => {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
+  const { isOwner, can } = useSuperAdminAccess();
+  const visibleItems = items.filter((item) => {
+    const required = SA_ROUTE_PERMISSIONS.find((r) => item.url.startsWith(r.prefix))?.permission;
+    return isOwner || (required != null && can(required));
+  });
   const closeMobileSidebar = () => { if (isMobile) setOpenMobile(false); };
 
   const handleLogout = async () => {
@@ -69,7 +76,7 @@ const SuperAdminSidebar = () => {
           <SidebarGroupLabel className="text-sidebar-foreground/70 text-xs font-semibold uppercase tracking-wider">Platform</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className="rounded-xl h-11">
                     <NavLink
