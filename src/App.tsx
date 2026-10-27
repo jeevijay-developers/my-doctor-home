@@ -19,6 +19,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const DoctorPublicPage = lazy(() => import("./pages/DoctorPublicPage"));
+const DoctorDirectory = lazy(() => import("./pages/DoctorDirectory"));
 const BlogListPage = lazy(() => import("./pages/BlogListPage"));
 const BlogPostPage = lazy(() => import("./pages/BlogPostPage"));
 const ManageAppointment = lazy(() => import("./pages/ManageAppointment"));
@@ -111,6 +112,9 @@ const App = () => (
                 <Route path="notifications" element={<SAPermissionGate permission={"notifications.view"}><SANotificationTesting /></SAPermissionGate>} />
                 <Route path="team" element={<SAPermissionGate permission={null}><SATeam /></SAPermissionGate>} />
               </Route>
+              <Route path="/doctors" element={<DoctorDirectory />} />
+              <Route path="/doctors/:city" element={<DoctorDirectory />} />
+              <Route path="/doctors/:city/:specialty" element={<DoctorDirectory />} />
               <Route path="/dr/:slug" element={<DoctorPublicPage />} />
               <Route path="/dr/:slug/blog" element={<BlogListPage />} />
               <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />

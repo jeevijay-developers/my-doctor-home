@@ -32,6 +32,10 @@
   ],
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "https://atmelijhxsjzjixhdfcu.supabase.co/functions/v1/sitemap" },
+    { "source": "/dr/:slug", "destination": "/api/seo?kind=doctor&slug=:slug" },
+    { "source": "/doctors", "destination": "/api/seo?kind=hub" },
+    { "source": "/doctors/:city", "destination": "/api/seo?kind=hub&city=:city" },
+    { "source": "/doctors/:city/:specialty", "destination": "/api/seo?kind=hub&city=:city&specialty=:specialty" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

@@ -36,6 +36,7 @@ const ProfilePage = () => {
     phone: "", clinic_name: "", city: "", state: "", address: "",
     consultation_fee: 0, gstin: "", gst_registered: false,
     registration_number: "", clinic_email: "",
+    locality: "", pincode: "", directory_listed: true,
   });
   const [servicesCount, setServicesCount] = useState(0);
   const [blogCount, setBlogCount] = useState(0);
@@ -60,6 +61,9 @@ const ProfilePage = () => {
         gst_registered: Boolean((profile as any).gst_registered),
         registration_number: profile.registration_number || "",
         clinic_email: profile.clinic_email || "",
+        locality: (profile as any).locality || "",
+        pincode: (profile as any).pincode || "",
+        directory_listed: (profile as any).directory_listed !== false,
       });
     }
   }, [profile]);
@@ -96,8 +100,13 @@ const ProfilePage = () => {
     if (form.experience_years < 0) { toast.error("Years of experience cannot be negative."); return; }
     if (form.consultation_fee < 0) { toast.error("Consultation fee cannot be negative."); return; }
     if (form.phone && !isValidIndianPhone(form.phone)) { toast.error(phoneErrorMessage); return; }
+    const pincode = form.pincode.trim();
+    if (pincode && !/^[1-9][0-9]{5}$/.test(pincode)) { toast.error("Enter a valid 6-digit pincode."); return; }
     setSaving(true);
-    const payload: any = { ...form, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
+    // Directory fields are saved in a second update (below) so a database that has not
+    // been migrated yet can never block the rest of the profile from saving.
+    const { locality, pincode: _pincode, directory_listed, ...core } = form;
+    const payload: any = { ...core, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
 
     // BUG-M05: keep public URL slug in sync when the doctor's name changes.
     let oldSlugToArchive: string | null = null;
@@ -112,8 +121,16 @@ const ProfilePage = () => {
     }
 
     const { error } = await supabase.from("profiles").update(payload).eq("id", profile.id);
+    if (error) { setSaving(false); toast.error("Could not save profile"); return; }
+    const { error: dirError } = await supabase
+      .from("profiles")
+      .update({ locality: locality.trim() || null, pincode: pincode || null, directory_listed } as any)
+      .eq("id", profile.id);
     setSaving(false);
-    if (error) { toast.error("Could not save profile"); return; }
+    if (dirError) {
+      console.warn("Directory fields not saved", dirError.message);
+      toast.warning("Profile saved, but location/directory settings could not be saved yet.");
+    }
     // Archive old slug so old URLs keep working via redirect.
     if (oldSlugToArchive && payload.slug) {
       await supabase.from("slug_history" as any).insert({ doctor_id: profile.id, old_slug: oldSlugToArchive });
@@ -300,6 +317,23 @@ const ProfilePage = () => {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Area / Locality</Label>
+              <Input value={form.locality} onChange={(e) => setForm({ ...form, locality: e.target.value })} placeholder="e.g. Talwandi" className="h-10" maxLength={80} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Pincode</Label>
+              <Input value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} inputMode="numeric" placeholder="6-digit pincode" className="h-10" />
+            </div>
+          </div>
+          <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+            <div>
+              <Label htmlFor="directory-listed">List me in the Doctylia doctor directory</Label>
+              <p className="text-[11px] text-muted-foreground mt-1">Lets patients find you by name, specialty and city at doctylia.com/doctors. Your own website stays online either way.</p>
+            </div>
+            <Switch id="directory-listed" checked={form.directory_listed} onCheckedChange={(v) => setForm({ ...form, directory_listed: v })} />
           </div>
           <div className="space-y-1.5">
             <Label>Full Address</Label>

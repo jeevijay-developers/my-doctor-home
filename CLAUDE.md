@@ -57,6 +57,14 @@ Staff permissions are fine-grained keys like `"patients.view"` / `"billing.manag
 - Payments run through Razorpay (`create-razorpay-order`, `verify-razorpay-payment`, `razorpay-webhook`, refunds, payouts) — in addition to doctor subscription plans, online patient payments for consultations and clinical services deduct the configured platform service charge percentage (`profiles.commission_percent` override or `platform_settings.default_commission_percent`) and automatically route the net doctor share (`doctor_share`) to the doctor's Razorpay Route Linked Account (`transfers[]` on order creation, reversed via `reverse_all: 1` on refund). See `CONTEXT.md` and `docs/adr/0001-razorpay-route-commission-split.md`.
 - Migrations are in `supabase/migrations/` (sequential, timestamped) — this is the source of truth for schema, not the generated `types.ts`.
 
+### Doctor discovery & SEO
+
+Full plan in `docs/doctor-discovery-plan.md`. The app is a client-rendered SPA, so crawlers and link previews would only see the generic `index.html`. `vercel.json` rewrites `/dr/:slug` and `/doctors[/:city[/:specialty]]` to the Vercel Edge function `api/seo.ts` (logic in `src/lib/seo/handleSeoRequest.ts`), which injects page-specific head tags, JSON-LD and crawlable body into the built `index.html`, and falls back to the plain shell on any upstream failure. `DoctorPublicPage` and the Edge function share `src/lib/seo/doctorSeo.ts`.
+
+- Files under `src/lib/seo/` and `src/lib/directory/` are bundled by Vercel: **use relative imports only (no `@/`)**.
+- `src/lib/directory/slug.ts` must stay byte-identical to `supabase/functions/_shared/directorySlug.ts` (a test enforces it) and match SQL `directory_slugify()` in the `doctor_directory` migration.
+- Directory search runs through the `search_doctors` / `directory_facets` SECURITY DEFINER RPCs (safe columns only); `profiles.directory_listed` is the doctor's opt-out. Hubs with fewer than `DIRECTORY_MIN_INDEXABLE` doctors are `noindex` and left out of the sitemap.
+
 ### Plan tiers & gating
 
 Doctors are on `free`/`pro`/`premium` plan tiers (`profiles.plan_tier`, `profiles.plan_status`). `src/hooks/usePlanAccess.ts` + `src/lib/planFeatures.ts` centralize tier feature lists and upgrade-prompt logic; UI that should be tier-gated should go through this rather than checking `plan_tier` inline.

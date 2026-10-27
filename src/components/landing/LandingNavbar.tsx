@@ -74,6 +74,12 @@ const LandingNavbar = () => {
           >
             About
           </Link>
+          <Link
+            to="/doctors"
+            className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
+          >
+            Find a Doctor
+          </Link>
           {navLinks.map((link) => {
             const linkClassName = "text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full";
             return onLandingPage ? (
@@ -128,6 +134,13 @@ const LandingNavbar = () => {
           className="block text-sm font-medium text-muted-foreground py-1"
         >
           About
+        </Link>
+        <Link
+          to="/doctors"
+          onClick={() => setMobileOpen(false)}
+          className="block text-sm font-medium text-muted-foreground py-1"
+        >
+          Find a Doctor
         </Link>
         {navLinks.map((link) => {
           const mobileLinkClassName = "block text-sm font-medium text-muted-foreground py-1";

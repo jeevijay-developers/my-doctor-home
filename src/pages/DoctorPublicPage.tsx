@@ -15,17 +15,8 @@ import Footer from "@/components/doctor/Footer";
 import AnimatedSection from "@/components/landing/AnimatedSection";
 import SectionCard from "@/components/doctor/SectionCard";
 import { jsonLdScript } from "@/lib/jsonLd";
+import { DEFAULT_TITLE, buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName } from "@/lib/seo/doctorSeo";
 import { scrollToSection } from "@/lib/scrollToSection";
-
-const DEFAULT_TITLE = "Doctylia - India's #1 Practice Management & Website Platform for Doctors";
-const DEFAULT_DESCRIPTION =
-  "Doctylia gives doctors in India their own branded website, 24/7 online appointment booking, patient medical records, GST billing, AI blog writer, and WhatsApp reminders. Start your 7-day free trial.";
-
-function formatDoctorName(rawName: string): string {
-  const trimmed = rawName.trim();
-  if (!trimmed) return "";
-  return /^dr\.?\s/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`;
-}
 
 function upsertMeta(selector: string, attr: "name" | "property", key: string, content: string) {
   let el = document.head.querySelector<HTMLMetaElement>(selector);
@@ -59,47 +50,22 @@ const DoctorPageContent = () => {
   const { profile, settings, loading, services, reviews, gallery } = useDoctorData();
   const { hash } = useLocation();
 
-  const doctorName = useMemo(() => {
-    const raw = (profile?.display_name || profile?.full_name || "").trim();
-    return formatDoctorName(raw);
-  }, [profile?.display_name, profile?.full_name]);
+  const doctorName = useMemo(() => doctorDisplayName(profile), [profile]);
 
-  const pageTitle = useMemo(() => {
-    if (settings?.seo_title?.trim()) return settings.seo_title.trim();
-    if (!doctorName) return "";
-    const specPart = profile?.specialization ? ` - ${profile.specialization}` : "";
-    const cityPart = profile?.city ? ` in ${profile.city}` : "";
-    return `${doctorName}${specPart}${cityPart} | Doctylia`;
-  }, [settings?.seo_title, doctorName, profile?.specialization, profile?.city]);
-
-  const pageDescription = useMemo(() => {
-    if (settings?.seo_description?.trim()) return settings.seo_description.trim();
-    if (profile?.bio?.trim()) return profile.bio.trim().slice(0, 160);
-    if (settings?.hero_description?.trim()) return settings.hero_description.trim().slice(0, 160);
-    if (!doctorName) return DEFAULT_DESCRIPTION;
-    const specPart = profile?.specialization ? `, ${profile.specialization}` : "";
-    const cityPart = profile?.city ? ` in ${profile.city}` : "";
-    const expPart = profile?.experience_years ? ` (${profile.experience_years}+ years experience)` : "";
-    return `Book an appointment with ${doctorName}${specPart}${cityPart}${expPart}. View clinic timings, consultation fees, services, and verified patient reviews on Doctylia.`;
-  }, [
-    settings?.seo_description,
-    settings?.hero_description,
-    profile?.bio,
-    profile?.specialization,
-    profile?.city,
-    profile?.experience_years,
-    doctorName,
-  ]);
+  const seoMeta = useMemo(
+    () => buildDoctorMeta({ origin: window.location.origin, profile, settings }),
+    [profile, settings],
+  );
+  const pageTitle = seoMeta.title;
+  const pageDescription = seoMeta.description;
 
   useEffect(() => {
     if (!pageTitle) return;
     const previousTitle = document.title;
     document.title = pageTitle;
 
-    const canonicalUrl = profile?.slug
-      ? `${window.location.origin}/dr/${profile.slug}`
-      : window.location.href;
-    const shareImage = profile?.profile_photo_url || settings?.hero_photo_url || "";
+    const canonicalUrl = seoMeta.canonical || window.location.href;
+    const shareImage = seoMeta.image;
 
     const restoreCanonical = upsertCanonical(canonicalUrl);
     const restoreDesc = upsertMeta('meta[name="description"]', "name", "description", pageDescription);
@@ -129,106 +95,12 @@ const DoctorPageContent = () => {
       restoreOgImage();
       restoreTwImage();
     };
-  }, [
-    pageTitle,
-    pageDescription,
-    profile?.slug,
-    profile?.profile_photo_url,
-    settings?.hero_photo_url,
-  ]);
+  }, [pageTitle, pageDescription, seoMeta.canonical, seoMeta.image]);
 
-  const structuredData = useMemo(() => {
-    if (!profile || !doctorName) return null;
-    const canonicalUrl = profile.slug
-      ? `${window.location.origin}/dr/${profile.slug}`
-      : window.location.href;
-    const validReviews = (reviews || []).filter((r: any) => typeof r.rating === "number" && r.rating > 0);
-    const avgRating =
-      validReviews.length > 0
-        ? (validReviews.reduce((acc: number, r: any) => acc + Number(r.rating), 0) / validReviews.length).toFixed(1)
-        : null;
-
-    const physicianEntity: Record<string, unknown> = {
-      "@type": ["Physician", "MedicalBusiness"],
-      "@id": `${canonicalUrl}#physician`,
-      name: doctorName,
-      url: canonicalUrl,
-      description: pageDescription,
-      ...(profile.specialization ? { medicalSpecialty: profile.specialization } : {}),
-      ...(profile.profile_photo_url || settings?.hero_photo_url
-        ? { image: profile.profile_photo_url || settings?.hero_photo_url }
-        : {}),
-      ...(profile.clinic_phone || profile.phone
-        ? { telephone: profile.clinic_phone || profile.phone }
-        : {}),
-      ...(profile.consultation_fee
-        ? { priceRange: `₹${profile.consultation_fee}` }
-        : {}),
-      ...(profile.address || profile.city || profile.state
-        ? {
-            address: {
-              "@type": "PostalAddress",
-              ...(profile.address ? { streetAddress: profile.address } : {}),
-              ...(profile.city ? { addressLocality: profile.city } : {}),
-              ...(profile.state ? { addressRegion: profile.state } : {}),
-              addressCountry: "IN",
-            },
-          }
-        : {}),
-      ...(Array.isArray(services) && services.length > 0
-        ? {
-            availableService: services.slice(0, 12).map((s: any) => ({
-              "@type": "MedicalProcedure",
-              name: s.name,
-              ...(s.description ? { description: s.description } : {}),
-              ...(s.price
-                ? {
-                    offers: {
-                      "@type": "Offer",
-                      price: String(s.price),
-                      priceCurrency: "INR",
-                    },
-                  }
-                : {}),
-            })),
-          }
-        : {}),
-      ...(avgRating && validReviews.length > 0
-        ? {
-            aggregateRating: {
-              "@type": "AggregateRating",
-              ratingValue: avgRating,
-              reviewCount: String(validReviews.length),
-              bestRating: "5",
-              worstRating: "1",
-            },
-          }
-        : {}),
-    };
-
-    const breadcrumbEntity = {
-      "@type": "BreadcrumbList",
-      itemListElement: [
-        {
-          "@type": "ListItem",
-          position: 1,
-          name: "Doctylia",
-          item: `${window.location.origin}/`,
-        },
-        {
-          "@type": "ListItem",
-          position: 2,
-          name: doctorName,
-          item: canonicalUrl,
-        },
-      ],
-    };
-
-    return {
-      "@context": "https://schema.org",
-      "@graph": [physicianEntity, breadcrumbEntity],
-    };
-  }, [profile, doctorName, pageDescription, settings?.hero_photo_url, services, reviews]);
+  const structuredData = useMemo(
+    () => buildDoctorJsonLd({ origin: window.location.origin, profile, settings, services, reviews }),
+    [profile, settings, services, reviews],
+  );
 
   useEffect(() => {
     if (loading || !profile || !hash) return;

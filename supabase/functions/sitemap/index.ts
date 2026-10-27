@@ -12,16 +12,26 @@
 // Doctor and post URLs include <lastmod> from updated_at.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { buildCorsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
+import { DIRECTORY_MIN_INDEXABLE, directorySlug } from "../_shared/directorySlug.ts";
 
 const SITE = "https://doctylia.com";
 const PAGE_SIZE = 1000;
+// Sitemaps hold at most 50,000 URLs; split well before that and serve an index.
+const MAX_URLS_PER_SITEMAP = 45000;
 
 const SITEMAP_CORS: CorsOptions = {
   allowHeaders: "authorization, x-client-info, apikey, content-type",
   allowMethods: "GET, OPTIONS",
 };
 
-type DoctorRow = { id: string; slug: string; updated_at: string };
+type DoctorRow = {
+  id: string;
+  slug: string;
+  updated_at: string;
+  city: string | null;
+  specialization: string | null;
+  directory_listed: boolean;
+};
 type PostRow = { id: string; doctor_id: string; updated_at: string | null; published_at: string | null };
 
 function xmlEscape(value: string): string {
@@ -112,13 +122,36 @@ Deno.serve(async (req) => {
       ));
     }
 
-    const xml = [
-      `<?xml version="1.0" encoding="UTF-8"?>`,
-      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
-      ...urls,
-      `</urlset>`,
-      ``,
-    ].join("\n");
+    // Directory hubs: /doctors, /doctors/:city, /doctors/:city/:specialty. Thin hubs
+    // (< DIRECTORY_MIN_INDEXABLE doctors) are served noindex, so they stay out of here too.
+    const listed = doctors.filter((doctor) => doctor.directory_listed);
+    if (listed.length > 0) urls.push(urlEntry("/doctors", "daily", "0.7"));
+    for (const path of indexableHubPaths(listed)) urls.push(urlEntry(path, "daily", "0.7"));
+
+    // Sitemaps hold at most 50,000 URLs: past MAX_URLS_PER_SITEMAP serve an index of ?part=N files.
+    const partParam = new URL(req.url).searchParams.get("part");
+    const partCount = Math.max(1, Math.ceil(urls.length / MAX_URLS_PER_SITEMAP));
+    let xml: string;
+    if (partCount > 1 && !partParam) {
+      xml = [
+        `<?xml version="1.0" encoding="UTF-8"?>`,
+        `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+        ...Array.from({ length: partCount }, (_, i) =>
+          `<sitemap><loc>${xmlEscape(`${SITE}/sitemap.xml?part=${i + 1}`)}</loc></sitemap>`),
+        `</sitemapindex>`,
+        ``,
+      ].join("\n");
+    } else {
+      const part = Math.min(Math.max(1, Number.parseInt(partParam ?? "1", 10) || 1), partCount);
+      const slice = urls.slice((part - 1) * MAX_URLS_PER_SITEMAP, part * MAX_URLS_PER_SITEMAP);
+      xml = [
+        `<?xml version="1.0" encoding="UTF-8"?>`,
+        `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+        ...slice,
+        `</urlset>`,
+        ``,
+      ].join("\n");
+    }
 
     return xmlResponse(200, xml, req, "public, max-age=3600, s-maxage=21600");
   } catch (err) {
@@ -127,22 +160,48 @@ Deno.serve(async (req) => {
   }
 });
 
+function indexableHubPaths(doctors: DoctorRow[]): string[] {
+  const cities = new Map<string, number>();
+  const combos = new Map<string, number>();
+  for (const doctor of doctors) {
+    const city = directorySlug(doctor.city);
+    if (!city) continue;
+    cities.set(city, (cities.get(city) ?? 0) + 1);
+    const specialty = directorySlug(doctor.specialization);
+    if (specialty) combos.set(`${city}/${specialty}`, (combos.get(`${city}/${specialty}`) ?? 0) + 1);
+  }
+  const paths: string[] = [];
+  for (const [city, n] of cities) if (n >= DIRECTORY_MIN_INDEXABLE) paths.push(`/doctors/${city}`);
+  for (const [combo, n] of combos) if (n >= DIRECTORY_MIN_INDEXABLE) paths.push(`/doctors/${combo}`);
+  return paths;
+}
+
 async function fetchDoctors(admin: SupabaseClient): Promise<DoctorRow[]> {
+  type Raw = Omit<DoctorRow, "slug" | "directory_listed"> & { slug: string | null; directory_listed?: boolean | null };
+  // directory_listed ships in a migration; until it is applied, fall back to the
+  // original column set so the sitemap keeps working (every doctor counts as listed).
+  let columns = "id, slug, updated_at, city, specialization, directory_listed";
   const rows: DoctorRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await admin
-      .from("profiles")
-      .select("id, slug, updated_at")
-      .not("slug", "is", null)
-      .eq("onboarding_completed", true)
-      .neq("plan_status", "cancelled")
-      .order("id", { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
+    const run = (cols: string) =>
+      admin
+        .from("profiles")
+        .select(cols)
+        .not("slug", "is", null)
+        .eq("onboarding_completed", true)
+        .neq("plan_status", "cancelled")
+        .order("id", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+    let { data, error } = await run(columns);
+    if (error && columns.includes("directory_listed")) {
+      columns = "id, slug, updated_at, city, specialization";
+      ({ data, error } = await run(columns));
+    }
     if (error) throw new Error(error.message);
-    const batch = (data ?? []) as Array<{ id: string; slug: string | null; updated_at: string }>;
+    const batch = (data ?? []) as unknown as Raw[];
     for (const row of batch) {
       const slug = row.slug?.trim();
-      if (slug) rows.push({ id: row.id, slug, updated_at: row.updated_at });
+      if (slug) rows.push({ ...row, slug, directory_listed: row.directory_listed !== false });
     }
     if (batch.length < PAGE_SIZE) break;
   }

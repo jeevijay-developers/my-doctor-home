@@ -81,6 +81,7 @@ const LandingFooter = () => {
             <h4 className="font-heading font-semibold text-white mb-3 md:mb-4 text-sm">Company</h4>
             <ul className="space-y-2 md:space-y-2.5 text-sm text-primary-foreground/60">
               <li><Link to="/about" onClick={handleAboutUsClick} className="hover:text-white transition-colors">About Us</Link></li>
+              <li><Link to="/doctors" className="hover:text-white transition-colors">Find a Doctor</Link></li>
               <li>{renderSectionLink("#contact", "Contact")}</li>
             </ul>
           </div>
