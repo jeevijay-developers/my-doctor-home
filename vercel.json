@@ -33,6 +33,8 @@
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/dr/:slug", "destination": "/api/seo?kind=doctor&slug=:slug" },
+    { "source": "/dr/:slug/blog", "destination": "/api/seo?kind=blog&slug=:slug" },
+    { "source": "/dr/:slug/blog/:post", "destination": "/api/seo?kind=post&slug=:slug&post=:post" },
     { "source": "/doctors", "destination": "/api/seo?kind=hub" },
     { "source": "/doctors/:city", "destination": "/api/seo?kind=hub&city=:city" },
     { "source": "/doctors/:city/:specialty", "destination": "/api/seo?kind=hub&city=:city&specialty=:specialty" },

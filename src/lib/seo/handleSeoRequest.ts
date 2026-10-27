@@ -7,6 +7,7 @@
 import { directorySlug } from "../directory/slug";
 import { buildDoctorBody, buildHubHead, isHubIndexable, type DirectoryDoctor, type DirectoryFacet } from "./directorySeo";
 import { buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName, doctorHubPaths } from "./doctorSeo";
+import { buildBlogListHead, buildBlogPostHead, blogPostPath, UUID_RE } from "./blogSeo";
 import { INDEXABLE, NOINDEX, renderPage } from "./injectHead";
 
 export interface SeoEnv {
@@ -160,6 +161,33 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
   );
 }
 
+async function blogPage(up: Upstream, template: string, origin: string, slug: string, postKey?: string): Promise<Response> {
+  const path = postKey ? `/dr/${slug}/blog/${postKey}` : `/dr/${slug}/blog`;
+  const profiles = await up.select("profiles", `select=*&slug=eq.${enc(slug)}&onboarding_completed=eq.true&limit=1`);
+  const doctor = profiles?.[0];
+  if (!doctor || doctor.plan_status === "cancelled") return notFound(template, origin, path);
+  const doctorId = enc(doctor.id);
+
+  if (!postKey) {
+    const posts = await up.select("blog_posts", `select=id,slug,title&doctor_id=eq.${doctorId}&is_published=eq.true&order=published_at.desc&limit=50`);
+    return htmlResponse(renderPage(template, buildBlogListHead({ origin, doctor, posts: posts ?? [] })), 200, SITE_CACHE);
+  }
+
+  const match = UUID_RE.test(postKey) ? `id=eq.${enc(postKey)}` : `slug=eq.${enc(postKey)}`;
+  const rows = await up.select("blog_posts", `select=*&doctor_id=eq.${doctorId}&is_published=eq.true&${match}&limit=1`);
+  const post = rows?.[0];
+  if (!post) return notFound(template, origin, path);
+
+  // Legacy UUID links permanently redirect to the readable slug URL.
+  if (UUID_RE.test(postKey) && post.slug) {
+    return new Response(null, {
+      status: 301,
+      headers: { Location: `${origin}${blogPostPath(doctor.slug, post)}`, "Cache-Control": "public, max-age=0, s-maxage=3600" },
+    });
+  }
+  return htmlResponse(renderPage(template, buildBlogPostHead({ origin, doctor, post })), 200, SITE_CACHE);
+}
+
 async function hubPage(up: Upstream, template: string, origin: string, citySlug?: string, specialtySlug?: string): Promise<Response> {
   const path = !citySlug ? "/doctors" : specialtySlug ? `/doctors/${citySlug}/${specialtySlug}` : `/doctors/${citySlug}`;
 
@@ -202,6 +230,13 @@ export async function handleSeoRequest(
       const slug = url.searchParams.get("slug")?.trim();
       if (!slug) return notFound(template, origin, "/");
       return await doctorPage(up, template, origin, slug);
+    }
+    if (kind === "blog" || kind === "post") {
+      const slug = url.searchParams.get("slug")?.trim();
+      if (!slug) return notFound(template, origin, "/");
+      const postKey = kind === "post" ? url.searchParams.get("post")?.trim() : undefined;
+      if (kind === "post" && !postKey) return notFound(template, origin, `/dr/${slug}/blog`);
+      return await blogPage(up, template, origin, slug, postKey);
     }
     if (kind === "hub") {
       // Params arrive as typed in the URL; only canonical slugs are served as 200.

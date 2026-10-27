@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowRight, Calendar, Clock3, Tag } from "lucide-react";
 import { format } from "date-fns";
+import { blogPostPath } from "@/lib/seo/blogSeo";
 import { supabase } from "@/integrations/supabase/client";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import BlogImagePlaceholder from "./BlogImagePlaceholder";
@@ -24,7 +25,7 @@ const ArticleCard = ({ post, slug }: { post: BlogPost; slug: string }) => {
 
   return (
     <Link
-      to={`/dr/${slug}/blog/${post.id}`}
+      to={blogPostPath(slug, post as { id: string; slug?: string | null })}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-[0_10px_30px_rgba(15,43,80,0.07)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_18px_38px_rgba(60,131,252,0.15)] dark:border-blue-900/60 dark:bg-gray-900 dark:hover:border-blue-700"
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-blue-50 dark:bg-gray-800">

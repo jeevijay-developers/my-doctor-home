@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { User, MapPin, Upload, UserCircle, ArrowRight, CheckCircle2, Circle } from "lucide-react";
@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { INDIAN_STATES } from "@/lib/formatClinicLocation";
+import { getCitiesForState } from "@/lib/indiaStatesCities";
 
 
 const specializations = [
@@ -91,6 +92,12 @@ const ProfilePage = () => {
     { label: "Write your first blog", done: blogCount > 0, href: "/admin/blog" },
   ];
   const completedSteps = checklist.filter((c) => c.done).length;
+
+  // Keep a legacy free-text city selectable so existing profiles don't silently lose it.
+  const cityOptions = useMemo(() => {
+    const list = getCitiesForState(form.state);
+    return form.city && !list.includes(form.city) ? [form.city, ...list] : list;
+  }, [form.state, form.city]);
 
   const generateSlug = (name: string) =>
     name.toLowerCase().trim().replace(/^dr\.?\s*/i, "dr-").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -303,14 +310,13 @@ const ProfilePage = () => {
               <Input value={form.clinic_name} onChange={(e) => setForm({ ...form, clinic_name: e.target.value })} className="h-10" />
             </div>
             <div className="space-y-1.5">
-              <Label>City</Label>
-              <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="h-10" />
-            </div>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
               <Label>State</Label>
-              <Select value={form.state} onValueChange={(v) => setForm({ ...form, state: v })}>
+              <Select
+                value={form.state}
+                onValueChange={(v) =>
+                  setForm({ ...form, state: v, city: getCitiesForState(v).includes(form.city) ? form.city : "" })
+                }
+              >
                 <SelectTrigger className="h-10"><SelectValue placeholder="Select State" /></SelectTrigger>
                 <SelectContent>
                   {INDIAN_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -320,9 +326,21 @@ const ProfilePage = () => {
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
+              <Label>City</Label>
+              {/* A dropdown (not free text) so "Kota", "kota " and "Kota, Rajasthan" can't split the doctor directory into separate city pages. */}
+              <Select value={form.city} onValueChange={(v) => setForm({ ...form, city: v })} disabled={cityOptions.length === 0}>
+                <SelectTrigger className="h-10"><SelectValue placeholder={form.state ? "Select City" : "Select a state first"} /></SelectTrigger>
+                <SelectContent>
+                  {cityOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label>Area / Locality</Label>
               <Input value={form.locality} onChange={(e) => setForm({ ...form, locality: e.target.value })} placeholder="e.g. Talwandi" className="h-10" maxLength={80} />
             </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Pincode</Label>
               <Input value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} inputMode="numeric" placeholder="6-digit pincode" className="h-10" />

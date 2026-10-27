@@ -129,3 +129,53 @@ describe("handleSeoRequest - hubs", () => {
     expect(res.headers.get("X-Robots-Tag")).toBe("noindex");
   });
 });
+
+describe("handleSeoRequest - blog", () => {
+  const doctor = { id: "d1", slug: "dr-a", full_name: "A Sharma", specialization: "ENT", plan_status: "active" };
+  const uuid = "11111111-1111-1111-1111-111111111111";
+  const post = { id: uuid, slug: "healthy-heart", title: "Healthy Heart", content: "Eat well.", is_published: true };
+
+  it("renders a post by slug, filtering on slug and doctor", async () => {
+    const handler = await fresh();
+    const seen: string[] = [];
+    const f = fakeFetch({
+      "/profiles": () => [doctor],
+      "/blog_posts": (u) => { seen.push(u.search); return [post]; },
+    });
+    const res = await handler(req("kind=post&slug=dr-a&post=healthy-heart"), env, f);
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(seen[0]).toContain("slug=eq.healthy-heart");
+    expect(seen[0]).toContain("is_published=eq.true");
+    expect(html).toContain("<title>Healthy Heart · Dr. A Sharma | Doctylia</title>");
+    expect(html).toContain('"@type":"BlogPosting"');
+  });
+
+  it("301s a legacy uuid url to the slug url", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/profiles": () => [doctor], "/blog_posts": (u) => (u.search.includes(`id=eq.${uuid}`) ? [post] : []) });
+    const res = await handler(req(`kind=post&slug=dr-a&post=${uuid}`), env, f);
+    expect(res.status).toBe(301);
+    expect(res.headers.get("Location")).toBe("https://doctylia.com/dr/dr-a/blog/healthy-heart");
+  });
+
+  it("serves a uuid url directly when the post has no slug yet", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/profiles": () => [doctor], "/blog_posts": () => [{ ...post, slug: null }] });
+    expect((await handler(req(`kind=post&slug=dr-a&post=${uuid}`), env, f)).status).toBe(200);
+  });
+
+  it("404s unknown posts and cancelled doctors", async () => {
+    const handler = await fresh();
+    expect((await handler(req("kind=post&slug=dr-a&post=nope"), env, fakeFetch({ "/profiles": () => [doctor], "/blog_posts": () => [] }))).status).toBe(404);
+    expect((await handler(req("kind=blog&slug=dr-a"), env, fakeFetch({ "/profiles": () => [{ ...doctor, plan_status: "cancelled" }] }))).status).toBe(404);
+  });
+
+  it("lists published posts on the blog index", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/profiles": () => [doctor], "/blog_posts": () => [post] });
+    const html = await (await handler(req("kind=blog&slug=dr-a"), env, f)).text();
+    expect(html).toContain("<title>Health Articles · Dr. A Sharma | Doctylia</title>");
+    expect(html).toContain('href="/dr/dr-a/blog/healthy-heart"');
+  });
+});

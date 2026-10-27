@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock3, Tag, User } from "lucide-react";
 import { format } from "date-fns";
 import DOMPurify from "dompurify";
@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
 import Footer from "@/components/doctor/Footer";
 import { jsonLdScript } from "@/lib/jsonLd";
+import { UUID_RE, blogPostPath, buildBlogPostJsonLd, buildBlogPostMeta, stripMarkup } from "@/lib/seo/blogSeo";
 import { markdownToHtml } from "@/lib/markdown";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -24,15 +25,6 @@ const displayDoctorName = (doctor: DoctorWithDisplayName) => {
   const name = (doctor.display_name || doctor.full_name || "Doctor").trim();
   return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
 };
-
-function stripMarkup(raw: string | null | undefined): string {
-  if (!raw) return "";
-  return raw
-    .replace(/<[^>]+>/g, " ")
-    .replace(/[#*_`>~-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function upsertMeta(selector: string, attr: "name" | "property", key: string, content: string) {
   let el = document.head.querySelector<HTMLMetaElement>(selector);
@@ -92,7 +84,8 @@ const BlogPostPage = () => {
       const { data } = await supabase
         .from("blog_posts")
         .select("*")
-        .eq("id", postId)
+        // `slug` exists in the DB but not in the (stale) generated types, hence the cast.
+        .eq((UUID_RE.test(postId) ? "id" : "slug") as "id", postId)
         .eq("doctor_id", profile.id)
         .eq("is_published", true)
         .single();
@@ -108,17 +101,14 @@ const BlogPostPage = () => {
 
   useEffect(() => {
     if (!doctor) return;
-    const doctorName = displayDoctorName(doctor);
-    const title = `${post?.title ? `${post.title} · ` : ""}${doctorName} | Doctylia`;
+    const seoMeta = post
+      ? buildBlogPostMeta({ origin: window.location.origin, doctor, post })
+      : null;
+    const title = seoMeta?.title ?? `${displayDoctorName(doctor)} | Doctylia`;
     const description =
-      post?.excerpt?.trim() ||
-      stripMarkup(post?.content).slice(0, 160) ||
-      `Read "${post?.title || "Health Article"}" by ${doctorName}${doctor.specialization ? ` (${doctor.specialization})` : ""} on Doctylia.`;
-    const canonicalUrl =
-      slug && post?.id
-        ? `${window.location.origin}/dr/${slug}/blog/${post.id}`
-        : window.location.href;
-    const shareImage = post?.featured_image_url || doctor.profile_photo_url || "";
+      seoMeta?.description ?? `Read "Health Article" by ${displayDoctorName(doctor)} on Doctylia.`;
+    const canonicalUrl = seoMeta?.canonical || window.location.href;
+    const shareImage = seoMeta?.image ?? (doctor.profile_photo_url || "");
 
     const previousTitle = document.title;
     document.title = title;
@@ -151,7 +141,7 @@ const BlogPostPage = () => {
       restoreOgImage();
       restoreTwImage();
     };
-  }, [doctor, post?.id, post?.title, post?.excerpt, post?.content, post?.featured_image_url, slug]);
+  }, [doctor, post]);
 
   const sanitizedContent = useMemo(() => {
     const content = post?.content || "";
@@ -163,81 +153,9 @@ const BlogPostPage = () => {
   }, [post?.content]);
 
   const structuredData = useMemo(() => {
-    if (!post || !doctor || !slug) return null;
-    const doctorName = displayDoctorName(doctor);
-    const doctorUrl = `${window.location.origin}/dr/${slug}`;
-    const blogUrl = `${doctorUrl}/blog`;
-    const postUrl = `${blogUrl}/${post.id}`;
-    const description =
-      post.excerpt?.trim() ||
-      stripMarkup(post.content).slice(0, 160) ||
-      post.title;
-    const datePublished = post.published_at || post.created_at || undefined;
-    const dateModified = post.updated_at || datePublished;
-    const imageUrl = post.featured_image_url || doctor.profile_photo_url || undefined;
-
-    return {
-      "@context": "https://schema.org",
-      "@graph": [
-        {
-          "@type": "BlogPosting",
-          "@id": `${postUrl}#article`,
-          headline: post.title,
-          description,
-          url: postUrl,
-          mainEntityOfPage: {
-            "@type": "WebPage",
-            "@id": postUrl,
-          },
-          ...(datePublished ? { datePublished } : {}),
-          ...(dateModified ? { dateModified } : {}),
-          ...(post.category ? { articleSection: post.category } : {}),
-          ...(imageUrl ? { image: [imageUrl] } : {}),
-          author: {
-            "@type": "Physician",
-            name: doctorName,
-            url: doctorUrl,
-            ...(doctor.specialization ? { medicalSpecialty: doctor.specialization } : {}),
-            ...(doctor.profile_photo_url ? { image: doctor.profile_photo_url } : {}),
-          },
-          reviewedBy: {
-            "@type": "Physician",
-            name: doctorName,
-            url: doctorUrl,
-            ...(doctor.specialization ? { medicalSpecialty: doctor.specialization } : {}),
-          },
-          publisher: {
-            "@type": "Organization",
-            name: "Doctylia",
-            url: "https://doctylia.com/",
-          },
-        },
-        {
-          "@type": "BreadcrumbList",
-          itemListElement: [
-            {
-              "@type": "ListItem",
-              position: 1,
-              name: doctorName,
-              item: doctorUrl,
-            },
-            {
-              "@type": "ListItem",
-              position: 2,
-              name: "Health Articles",
-              item: blogUrl,
-            },
-            {
-              "@type": "ListItem",
-              position: 3,
-              name: post.title,
-              item: postUrl,
-            },
-          ],
-        },
-      ],
-    };
-  }, [post, doctor, slug]);
+    if (!post || !doctor) return null;
+    return buildBlogPostJsonLd({ origin: window.location.origin, doctor, post });
+  }, [post, doctor]);
 
   if (loading) {
     return (
@@ -248,6 +166,10 @@ const BlogPostPage = () => {
         </div>
       </div>
     );
+  }
+
+  if (post && doctor && slug && postId && UUID_RE.test(postId) && (post as { slug?: string | null }).slug) {
+    return <Navigate to={blogPostPath(slug, post as { id: string; slug?: string | null })} replace />;
   }
 
   if (!post || !doctor) {

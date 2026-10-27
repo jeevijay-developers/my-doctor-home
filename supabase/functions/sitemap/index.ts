@@ -5,8 +5,10 @@
 // 'cancelled'. There is no is_suspended column. razorpay_account_status
 // 'suspended' is a payout-account state, not an account ban, so it is ignored.
 //
-// Blog posts have no slug column. Publication is is_published (not a status
-// enum). The public route is /dr/:slug/blog/:postId (the post UUID).
+// Blog posts: publication is is_published (not a status enum). The public route
+// is /dr/:slug/blog/:slugOrId; blog_posts.slug (trigger-generated) is preferred
+// and the post UUID is the legacy fallback. Doctors with at least one published
+// post also get their /dr/:slug/blog index page listed.
 //
 // Marketing URLs have no content timestamp, so they omit <lastmod>.
 // Doctor and post URLs include <lastmod> from updated_at.
@@ -32,7 +34,7 @@ type DoctorRow = {
   specialization: string | null;
   directory_listed: boolean;
 };
-type PostRow = { id: string; doctor_id: string; updated_at: string | null; published_at: string | null };
+type PostRow = { id: string; slug?: string | null; doctor_id: string; updated_at: string | null; published_at: string | null };
 
 function xmlEscape(value: string): string {
   return value
@@ -111,11 +113,16 @@ Deno.serve(async (req) => {
       ));
     }
 
+    const doctorsWithPosts = new Set<string>();
     for (const post of posts) {
       const doctor = doctorById.get(post.doctor_id);
       if (!doctor) continue;
+      if (!doctorsWithPosts.has(doctor.id)) {
+        doctorsWithPosts.add(doctor.id);
+        urls.push(urlEntry(`/dr/${encodeURIComponent(doctor.slug)}/blog`, "weekly", "0.5"));
+      }
       urls.push(urlEntry(
-        `/dr/${encodeURIComponent(doctor.slug)}/blog/${post.id}`,
+        `/dr/${encodeURIComponent(doctor.slug)}/blog/${encodeURIComponent(post.slug || post.id)}`,
         "monthly",
         "0.6",
         lastMod(post.updated_at || post.published_at),
@@ -209,16 +216,24 @@ async function fetchDoctors(admin: SupabaseClient): Promise<DoctorRow[]> {
 }
 
 async function fetchPosts(admin: SupabaseClient): Promise<PostRow[]> {
+  // `slug` ships in a migration; fall back to ids if it is not there yet.
+  let columns = "id, slug, doctor_id, updated_at, published_at";
   const rows: PostRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await admin
-      .from("blog_posts")
-      .select("id, doctor_id, updated_at, published_at")
-      .eq("is_published", true)
-      .order("id", { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
+    const run = (cols: string) =>
+      admin
+        .from("blog_posts")
+        .select(cols)
+        .eq("is_published", true)
+        .order("id", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+    let { data, error } = await run(columns);
+    if (error && columns.includes("slug")) {
+      columns = "id, doctor_id, updated_at, published_at";
+      ({ data, error } = await run(columns));
+    }
     if (error) throw new Error(error.message);
-    const batch = (data ?? []) as PostRow[];
+    const batch = (data ?? []) as unknown as PostRow[];
     rows.push(...batch);
     if (batch.length < PAGE_SIZE) break;
   }

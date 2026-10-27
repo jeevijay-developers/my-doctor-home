@@ -123,3 +123,42 @@ describe("buildHubHead", () => {
     expect(h.canonical).toBe("https://doctylia.com/doctors/kota/ent");
   });
 });
+
+import { UUID_RE, blogPostPath, buildBlogListHead, buildBlogPostHead, buildBlogPostMeta, stripMarkup } from "./blogSeo";
+
+describe("blogSeo", () => {
+  const doctor = { slug: "dr-a", full_name: "anita sharma", specialization: "ENT", profile_photo_url: "https://x/p.jpg" };
+  const post = { id: "11111111-1111-1111-1111-111111111111", slug: "healthy-heart", title: "Healthy <Heart>", content: "# Hi\n\nSome **bold** text <b>x</b>", excerpt: null, published_at: "2026-10-01T00:00:00Z" };
+
+  it("detects uuids and prefers slugs in paths", () => {
+    expect(UUID_RE.test(post.id)).toBe(true);
+    expect(UUID_RE.test("healthy-heart")).toBe(false);
+    expect(blogPostPath("dr-a", post)).toBe("/dr/dr-a/blog/healthy-heart");
+    expect(blogPostPath("dr-a", { id: post.id, slug: null })).toBe(`/dr/dr-a/blog/${post.id}`);
+  });
+
+  it("strips markup", () => {
+    expect(stripMarkup("# Hi\n\nSome **bold** text <b>x</b>")).toBe("Hi Some bold text x");
+  });
+
+  it("builds meta with title-cased doctor name and slug canonical", () => {
+    const m = buildBlogPostMeta({ origin, doctor, post });
+    expect(m.title).toBe("Healthy <Heart> · Dr. Anita Sharma | Doctylia");
+    expect(m.canonical).toBe("https://doctylia.com/dr/dr-a/blog/healthy-heart");
+    expect(m.description).toBe("Hi Some bold text x");
+  });
+
+  it("renders an escaped article head with BlogPosting JSON-LD", () => {
+    const h = buildBlogPostHead({ origin, doctor, post });
+    expect(h.ogType).toBe("article");
+    expect(h.bodyHtml).toContain("<h1>Healthy &lt;Heart&gt;</h1>");
+    expect((h.jsonLd![0] as any)["@graph"][0]["@type"]).toBe("BlogPosting");
+  });
+
+  it("noindexes an empty blog list and indexes one with posts", () => {
+    expect(buildBlogListHead({ origin, doctor, posts: [] }).robots).toBe("noindex, follow");
+    const h = buildBlogListHead({ origin, doctor, posts: [post] });
+    expect(h.robots).toContain("index, follow");
+    expect(h.bodyHtml).toContain('href="/dr/dr-a/blog/healthy-heart"');
+  });
+});

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock3, Tag, User } from "lucide-react";
 import { format } from "date-fns";
+import { blogPostPath } from "@/lib/seo/blogSeo";
 import { supabase } from "@/integrations/supabase/client";
 import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
 import Footer from "@/components/doctor/Footer";
@@ -309,7 +310,7 @@ const BlogListPage = () => {
               return (
                 <Link
                   key={post.id}
-                  to={`/dr/${slug}/blog/${post.id}`}
+                  to={blogPostPath(slug, post as { id: string; slug?: string | null })}
                   className="group flex min-w-0 flex-col overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-[0_10px_30px_rgba(15,43,80,0.07)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_18px_40px_rgba(60,131,252,0.16)] dark:border-blue-900/60 dark:bg-gray-900"
                 >
                   <div className="relative aspect-[16/10] overflow-hidden bg-blue-50 dark:bg-gray-800">
