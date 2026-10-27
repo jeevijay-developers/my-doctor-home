@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Inbox, CreditCard, Wallet, LifeBuoy, ShieldAlert, Receipt, Flag, ScrollText, UserCog, LogOut, Shield, FlaskConical } from "lucide-react";
+import { LayoutDashboard, Users, Inbox, CreditCard, Wallet, LifeBuoy, ShieldAlert, Receipt, Flag, ScrollText, UserCog, LogOut, Shield, FlaskConical, SlidersHorizontal } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ const items = [
   { title: "Doctors", url: "/superadmin/doctors", icon: Users },
   { title: "Leads", url: "/superadmin/leads", icon: Inbox },
   { title: "Subscriptions", url: "/superadmin/subscriptions", icon: CreditCard },
+  { title: "Plan Requests", url: "/superadmin/plan-requests", icon: SlidersHorizontal },
   { title: "Payments & Payouts", url: "/superadmin/payments", icon: Wallet },
   { title: "Support Tickets", url: "/superadmin/tickets", icon: LifeBuoy },
   { title: "Moderation", url: "/superadmin/moderation", icon: ShieldAlert },

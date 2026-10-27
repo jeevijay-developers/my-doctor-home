@@ -13,6 +13,8 @@ export const SA_PERMISSION_KEYS = [
   "leads.manage",
   "subscriptions.view",
   "subscriptions.manage",
+  "plan_requests.view",
+  "plan_requests.manage",
   "payments.view",
   "payments.refund",
   "payments.payout",

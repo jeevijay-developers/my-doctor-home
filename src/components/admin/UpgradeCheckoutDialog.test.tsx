@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 
+vi.mock("@/hooks/useCustomPlan", () => ({
+  useCustomPlan: () => ({ customPlan: null, requests: [], pendingRequest: null, latestDecided: null, loading: false, refetch: () => {} }),
+}));
 const { invokeMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
 }));

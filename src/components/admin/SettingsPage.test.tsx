@@ -13,6 +13,12 @@ const renderSettingsPage = () => render(<SettingsPage />, {
   wrapper: ({ children }) => <MemoryRouter initialEntries={["/admin/settings?tab=subscription"]}>{children}</MemoryRouter>,
 });
 
+vi.mock("@/hooks/useCustomPlan", () => ({
+  useCustomPlan: () => ({ customPlan: null, requests: [], pendingRequest: null, latestDecided: null, loading: false, refetch: () => {} }),
+}));
+vi.mock("@/hooks/useFeatureAccess", () => ({
+  useFeatureAccess: () => ({ rows: [], hasFeature: () => false, loading: false, refetch: () => {} }),
+}));
 vi.mock("@/hooks/usePlanAccess", () => ({ usePlanAccess: vi.fn() }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => {

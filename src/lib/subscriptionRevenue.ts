@@ -1,5 +1,5 @@
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { DEFAULT_PLAN_PRICES } from "@/components/superadmin/SASubscriptions";
+import { DEFAULT_PLAN_PRICES } from "@/lib/planPrices";
 
 // When live DB prices are available, callers should pass them as the second
 // argument.  The static fallback keeps tests and legacy call sites working.

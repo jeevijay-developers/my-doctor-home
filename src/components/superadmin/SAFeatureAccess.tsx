@@ -22,6 +22,8 @@ type FeatureAccessRow = {
   override_expires_at: string | null;
   override_active: boolean;
   effective_enabled: boolean;
+  source?: "override" | "custom_plan" | "plan";
+  custom_plan_effect?: "added" | "removed" | null;
 };
 
 // "default" = no override row (follow the plan), "on"/"off" = force an
@@ -163,6 +165,11 @@ const SAFeatureAccess = ({ doctorId }: { doctorId: string }) => {
                     {row.override_active && (
                       <Badge className="text-[10px] bg-amber-500/15 text-amber-700 border border-amber-500/30 hover:bg-amber-500/15">
                         Overridden
+                      </Badge>
+                    )}
+                    {row.source === "custom_plan" && (
+                      <Badge className="text-[10px] bg-royal/10 text-royal border border-royal/30 hover:bg-royal/10">
+                        Custom plan: {row.custom_plan_effect}
                       </Badge>
                     )}
                     <Badge

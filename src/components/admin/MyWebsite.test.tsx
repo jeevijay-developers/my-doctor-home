@@ -4,6 +4,9 @@ import { MemoryRouter } from "react-router-dom";
 import MyWebsite from "./MyWebsite";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
+vi.mock("@/hooks/useCustomPlan", () => ({
+  useCustomPlan: () => ({ customPlan: null, requests: [], pendingRequest: null, latestDecided: null, loading: false, refetch: () => {} }),
+}));
 vi.mock("@/hooks/useProfile", () => {
   // Stable identity: MyWebsite reloads whenever `profile` changes, and a fresh
   // object on every render retriggers that effect forever.

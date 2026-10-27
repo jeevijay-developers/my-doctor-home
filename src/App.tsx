@@ -39,6 +39,7 @@ const SAFlags = lazy(() => import("./components/superadmin/SAFlags"));
 const SAAuditLog = lazy(() => import("./components/superadmin/SAAuditLog"));
 const SANotificationTesting = lazy(() => import("./components/superadmin/SANotificationTesting"));
 const SATeam = lazy(() => import("./components/superadmin/SATeam"));
+const SAPlanRequests = lazy(() => import("./components/superadmin/SAPlanRequests"));
 const SAPermissionGate = lazy(() => import("./components/superadmin/SAPermissionGate"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -103,6 +104,7 @@ const App = () => (
                 <Route path="doctors/:id" element={<SAPermissionGate permission={"doctors.view"}><SADoctorDetail /></SAPermissionGate>} />
                 <Route path="leads" element={<SAPermissionGate permission={"leads.view"}><SALeads /></SAPermissionGate>} />
                 <Route path="subscriptions" element={<SAPermissionGate permission={"subscriptions.view"}><SASubscriptions /></SAPermissionGate>} />
+                <Route path="plan-requests" element={<SAPermissionGate permission={"plan_requests.view"}><SAPlanRequests /></SAPermissionGate>} />
                 <Route path="tickets" element={<SAPermissionGate permission={"tickets.view"}><SATickets /></SAPermissionGate>} />
                 <Route path="moderation" element={<SAPermissionGate permission={"moderation.view"}><SAModeration /></SAPermissionGate>} />
                 <Route path="billing" element={<SAPermissionGate permission={"billing.view"}><SABilling /></SAPermissionGate>} />

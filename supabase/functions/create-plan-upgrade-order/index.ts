@@ -83,6 +83,24 @@ Deno.serve(async (req) => {
   if (customPrice != null && (fromTier === targetTier || ((fromTier === "free" || fromTier === "trial") && targetTier === "pro"))) {
     amountRupees = customPrice;
   }
+
+  // An approved custom plan (Superadmin → Plan Requests) outranks the manual
+  // per-doctor price, but only for the tier it was approved on. The price is
+  // read here, server-side, at order creation — never taken from the client.
+  const { data: customPlan } = await admin
+    .from("doctor_custom_plans")
+    .select("base_tier, monthly_price, valid_from, valid_until, status")
+    .eq("doctor_id", doctorId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (
+    customPlan &&
+    customPlan.base_tier === targetTier &&
+    new Date(customPlan.valid_from) <= new Date() &&
+    (!customPlan.valid_until || new Date(customPlan.valid_until) > new Date())
+  ) {
+    amountRupees = Number(customPlan.monthly_price);
+  }
   const amountPaise = Math.round(amountRupees * 100);
   const hasLiveKeys = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
   const mode = resolvePaymentMode(hasLiveKeys);

@@ -11,6 +11,7 @@ export type SAPermissionKey =
   | "doctors.view" | "doctors.edit" | "doctors.delete"
   | "leads.view" | "leads.manage"
   | "subscriptions.view" | "subscriptions.manage"
+  | "plan_requests.view" | "plan_requests.manage"
   | "payments.view" | "payments.refund" | "payments.payout"
   | "tickets.view" | "tickets.reply" | "tickets.delete"
   | "moderation.view" | "moderation.manage"
@@ -44,6 +45,10 @@ export const SA_PERMISSION_MODULES: SAPermissionModule[] = [
   { key: "subscriptions", label: "Subscriptions", permissions: [
     { key: "subscriptions.view", label: "View Subscriptions" },
     { key: "subscriptions.manage", label: "Manage Subscriptions" },
+  ]},
+  { key: "plan_requests", label: "Plan Requests", permissions: [
+    { key: "plan_requests.view", label: "View Plan Requests" },
+    { key: "plan_requests.manage", label: "Approve / Reject Plan Requests" },
   ]},
   { key: "payments", label: "Payments & Payouts", permissions: [
     { key: "payments.view", label: "View Payments & Payouts" },
@@ -83,8 +88,8 @@ export const ALL_SA_PERMISSION_KEYS: SAPermissionKey[] = SA_PERMISSION_MODULES.f
 // Quick-start sets for the Team form; the checkboxes stay fully editable.
 export const SA_PERMISSION_PRESETS: { label: string; permissions: SAPermissionKey[] }[] = [
   { label: "Support", permissions: ["overview.view", "doctors.view", "tickets.view", "tickets.reply", "leads.view"] },
-  { label: "Finance", permissions: ["overview.view", "doctors.view", "payments.view", "payments.refund", "payments.payout", "billing.view", "subscriptions.view"] },
-  { label: "Sales", permissions: ["overview.view", "doctors.view", "leads.view", "leads.manage", "subscriptions.view", "subscriptions.manage"] },
+  { label: "Finance", permissions: ["overview.view", "doctors.view", "payments.view", "payments.refund", "payments.payout", "billing.view", "subscriptions.view", "plan_requests.view"] },
+  { label: "Sales", permissions: ["overview.view", "doctors.view", "leads.view", "leads.manage", "subscriptions.view", "subscriptions.manage", "plan_requests.view", "plan_requests.manage"] },
   { label: "Content Moderator", permissions: ["moderation.view", "moderation.manage"] },
 ];
 
@@ -94,6 +99,7 @@ export const SA_ROUTE_PERMISSIONS: { prefix: string; permission: SAPermissionKey
   { prefix: "/superadmin/doctors", permission: "doctors.view" },
   { prefix: "/superadmin/leads", permission: "leads.view" },
   { prefix: "/superadmin/subscriptions", permission: "subscriptions.view" },
+  { prefix: "/superadmin/plan-requests", permission: "plan_requests.view" },
   { prefix: "/superadmin/payments", permission: "payments.view" },
   { prefix: "/superadmin/tickets", permission: "tickets.view" },
   { prefix: "/superadmin/moderation", permission: "moderation.view" },

@@ -2,6 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import LockedFeatureCard from "./LockedFeatureCard";
 
+vi.mock("@/hooks/useCustomPlan", () => ({
+  useCustomPlan: () => ({ customPlan: null, requests: [], pendingRequest: null, latestDecided: null, loading: false, refetch: () => {} }),
+}));
 vi.mock("@/hooks/useProfile", () => ({
   useProfile: () => ({ profile: { plan_tier: "pro", plan_status: "active" }, loading: false, refetch: vi.fn() }),
 }));

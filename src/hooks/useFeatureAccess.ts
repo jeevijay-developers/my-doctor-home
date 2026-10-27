@@ -16,6 +16,9 @@ export type FeatureAccessRow = {
   override_expires_at: string | null;
   override_active: boolean;
   effective_enabled: boolean;
+  source?: "override" | "custom_plan" | "plan";
+  custom_plan_effect?: "added" | "removed" | null;
+  is_requestable?: boolean;
 };
 
 // Doctor/staff-side entitlement check — layers Superadmin per-doctor
@@ -45,6 +48,12 @@ export function useFeatureAccess() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "doctor_feature_overrides", filter: `doctor_id=eq.${profile.id}` },
+        () => refetch()
+      )
+      // An approved/cancelled/expired custom plan changes effective access too.
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "doctor_custom_plans", filter: `doctor_id=eq.${profile.id}` },
         () => refetch()
       )
       .subscribe();

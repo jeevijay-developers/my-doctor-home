@@ -4,6 +4,9 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import BillingPage from "./BillingPage";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
+vi.mock("@/hooks/useCustomPlan", () => ({
+  useCustomPlan: () => ({ customPlan: null, requests: [], pendingRequest: null, latestDecided: null, loading: false, refetch: () => {} }),
+}));
 vi.mock("@/hooks/useProfile", () => {
   // Stable identity: BillingPage reloads when `profile` changes. A new object
   // on every render retriggers loadData after the extra ledger/payment queries.

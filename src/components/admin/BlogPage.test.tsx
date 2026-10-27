@@ -4,6 +4,9 @@ import { MemoryRouter } from "react-router-dom";
 import BlogPage from "./BlogPage";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 
+vi.mock("@/hooks/useCustomPlan", () => ({
+  useCustomPlan: () => ({ customPlan: null, requests: [], pendingRequest: null, latestDecided: null, loading: false, refetch: () => {} }),
+}));
 vi.mock("./RichTextEditor", () => ({
   default: ({ value }: { value: string }) => <textarea aria-label="Content" value={value} readOnly />,
 }));

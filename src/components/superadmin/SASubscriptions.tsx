@@ -18,21 +18,11 @@ import { Search, RotateCcw, Save, Trash2, X } from "lucide-react";
 import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
 import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { isCustomPlanActive, type CustomPlan } from "@/lib/customPlan";
 
-// Default plan prices (INR / month). Single source of truth for default pricing.
-// Kept as a static export so existing importers (subscriptionRevenue.ts,
-// planFeatures.ts) can still reference it as a fallback constant while they
-// transition to reading from the DB via usePlanPrices.
-export const DEFAULT_PLAN_PRICES: Record<string, number> = {
-  free: 0,
-  pro: 1499,
-  premium: 3999,
-};
-
-export const getEffectivePlanPrice = (profile: { plan_tier?: string | null; custom_plan_price?: number | null }, defaultPrices: Record<string, number> = DEFAULT_PLAN_PRICES) => {
-  if (profile.custom_plan_price != null) return Number(profile.custom_plan_price);
-  return defaultPrices[profile.plan_tier || "free"] ?? 0;
-};
+// Single source of truth lives in lib/planPrices; re-exported for existing importers.
+import { getEffectivePlanPrice } from "@/lib/planPrices";
+export { DEFAULT_PLAN_PRICES, getEffectivePlanPrice } from "@/lib/planPrices";
 
 const SASubscriptions = () => {
   const { proPrice, premiumPrice } = usePlanPrices();
@@ -48,6 +38,10 @@ const SASubscriptions = () => {
 
   const [upgradePayments, setUpgradePayments] = useState<any[]>([]);
   const [pendingPlansMap, setPendingPlansMap] = useState<Record<string, any>>({});
+  // Active approved custom plans (Plan Requests module), keyed by doctor. When
+  // one applies it outranks the manual custom price, so show it here instead
+  // of letting the two screens disagree.
+  const [customPlansMap, setCustomPlansMap] = useState<Record<string, CustomPlan>>({});
 
   // Bulk selection/delete mirrors the Doctor Side → Patients pattern
   // (PatientsPage.tsx) exactly.
@@ -94,7 +88,17 @@ const SASubscriptions = () => {
         setPendingPlansMap(map);
       });
 
-  useEffect(() => { load(); loadUpgradePayments(); loadPendingPlans(); }, []);
+  const loadCustomPlans = () =>
+    supabase
+      .from("doctor_custom_plans" as any)
+      .select("*")
+      .then(({ data }) => {
+        const map: Record<string, CustomPlan> = {};
+        ((data as unknown as CustomPlan[]) || []).forEach((p) => { if (isCustomPlanActive(p)) map[p.doctor_id] = p; });
+        setCustomPlansMap(map);
+      });
+
+  useEffect(() => { load(); loadUpgradePayments(); loadPendingPlans(); loadCustomPlans(); }, []);
   const trialCount = rows.filter((r) => r.plan_status === "trial").length;
   const tiers = ["free", "pro", "premium"];
   const tierCounts = Object.fromEntries(tiers.map((t) => [t, rows.filter((r) => r.plan_status === "active" && (r.plan_tier || "free") === t).length]));
@@ -320,7 +324,8 @@ const SASubscriptions = () => {
               {filtered.map((r) => {
                 const tier = r.plan_tier || "free";
                 const hasCustom = r.custom_plan_price != null;
-                const effective = getEffectivePlanPrice(r);
+                const activeCustomPlan = customPlansMap[r.id];
+                const effective = activeCustomPlan ? Number(activeCustomPlan.monthly_price) : getEffectivePlanPrice(r);
                 return (
                   <tr key={r.id} className={`border-t align-top ${selectedIds.has(r.id) ? "bg-destructive/5" : ""}`}>
                     {selectMode && (
@@ -350,7 +355,9 @@ const SASubscriptions = () => {
                     </td>
                     <td className="p-3">
                       <div className="font-semibold">₹{effective}</div>
-                      {hasCustom ? (
+                      {activeCustomPlan ? (
+                        <Badge className="mt-1 bg-royal/10 text-royal hover:bg-royal/10 border-royal/30 text-[10px]">Custom Plan (approved)</Badge>
+                      ) : hasCustom ? (
                         <Badge className="mt-1 bg-spark/15 text-spark hover:bg-spark/15 border-spark/30 text-[10px]">Custom Pricing</Badge>
                       ) : (
                         <div className="text-[10px] text-muted-foreground mt-1">Default</div>

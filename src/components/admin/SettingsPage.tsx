@@ -19,6 +19,9 @@ import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, getDoctorTierPrice, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP, hasNoActivePlan } from "@/lib/planFeatures";
 import ProfilePage from "./ProfilePage";
+import CustomPlanSection from "./CustomPlanSection";
+import { useCustomPlan } from "@/hooks/useCustomPlan";
+import { applyCustomPlanToBullets } from "@/lib/customPlan";
 
 const SettingsPage = () => {
   const { profile, isStaff } = useProfile();
@@ -68,10 +71,9 @@ const SettingsPage = () => {
     if (!profile) return;
     setReactivating(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ plan_status: "active" })
-        .eq("id", profile.id);
+      // Plan columns are locked against direct client writes; resuming goes
+      // through an RPC that only works while the paid period is still running.
+      const { error } = await supabase.rpc("resume_subscription" as any);
       if (error) throw error;
       toast.success("Subscription reactivated successfully!");
       setTimeout(() => window.location.reload(), 1000);
@@ -89,8 +91,9 @@ const SettingsPage = () => {
   const planTier = profile?.plan_tier || "free";
   const planStatus = profile?.plan_status || "trial";
   const { basic, premium } = getSubscriptionCardStates(planStatus, planTier, isPremium);
-  const basicFeatures = getTierFeatures("pro", appointmentsCap || DEFAULT_APPOINTMENT_CAP);
-  const premiumFeatures = getTierFeatures("premium", appointmentsCap || DEFAULT_APPOINTMENT_CAP);
+  const { customPlan } = useCustomPlan();
+  const basicFeatures = applyCustomPlanToBullets(getTierFeatures("pro", appointmentsCap || DEFAULT_APPOINTMENT_CAP), customPlan, "pro");
+  const premiumFeatures = applyCustomPlanToBullets(getTierFeatures("premium", appointmentsCap || DEFAULT_APPOINTMENT_CAP), customPlan, "premium");
 
   if (isStaff) {
     return (
@@ -232,11 +235,13 @@ const SettingsPage = () => {
                 </div>
               )}
 
+              <CustomPlanSection />
+
               {(() => {
-                const proPrice = getDoctorTierPrice("pro", profile, livePrices);
-                const premiumPrice = getDoctorTierPrice("premium", profile, livePrices);
-                const hasProCustom = profile?.custom_plan_price != null && proPrice !== livePrices.pro;
-                const hasPremiumCustom = profile?.custom_plan_price != null && premiumPrice !== livePrices.premium;
+                const proPrice = getDoctorTierPrice("pro", profile, livePrices, customPlan);
+                const premiumPrice = getDoctorTierPrice("premium", profile, livePrices, customPlan);
+                const hasProCustom = (profile?.custom_plan_price != null || customPlan?.base_tier === "pro") && proPrice !== livePrices.pro;
+                const hasPremiumCustom = (profile?.custom_plan_price != null || customPlan?.base_tier === "premium") && premiumPrice !== livePrices.premium;
 
                 return (
                   <div className="grid sm:grid-cols-2 gap-4">
@@ -257,8 +262,8 @@ const SettingsPage = () => {
                         </p>
                         <ul className="space-y-1.5 text-sm text-muted-foreground">
                           {basicFeatures.map(f => (
-                            <li key={f} className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-royal" />{f}
+                            <li key={f.text} className={`flex items-center gap-2 ${f.kind === "removed" ? "line-through opacity-60" : ""}`}>
+                              <div className={`w-1.5 h-1.5 rounded-full ${f.kind === "added" ? "bg-success" : f.kind === "removed" ? "bg-muted-foreground" : "bg-royal"}`} />{f.kind === "added" ? `+ ${f.text}` : f.text}
                             </li>
                           ))}
                         </ul>
@@ -289,8 +294,8 @@ const SettingsPage = () => {
                         </p>
                         <ul className="space-y-1.5 text-sm text-muted-foreground">
                           {premiumFeatures.map(f => (
-                            <li key={f} className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-royal" />{f}
+                            <li key={f.text} className={`flex items-center gap-2 ${f.kind === "removed" ? "line-through opacity-60" : ""}`}>
+                              <div className={`w-1.5 h-1.5 rounded-full ${f.kind === "added" ? "bg-success" : f.kind === "removed" ? "bg-muted-foreground" : "bg-royal"}`} />{f.kind === "added" ? `+ ${f.text}` : f.text}
                             </li>
                           ))}
                         </ul>

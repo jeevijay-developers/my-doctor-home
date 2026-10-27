@@ -1,4 +1,5 @@
-import { DEFAULT_PLAN_PRICES } from "@/components/superadmin/SASubscriptions";
+import { DEFAULT_PLAN_PRICES } from "@/lib/planPrices";
+import { isCustomPlanActive, type CustomPlan } from "@/lib/customPlan";
 
 export const TIER_LABELS: Record<string, string> = {
   free: "Pro",
@@ -17,7 +18,13 @@ export function getDoctorTierPrice(
   tier: "pro" | "premium",
   profile?: { plan_tier?: string | null; custom_plan_price?: number | null } | null,
   defaultPrices: Record<string, number> = TIER_PRICES,
+  customPlan?: CustomPlan | null,
 ): number {
+  // An approved custom plan outranks the manual per-doctor price, but only for
+  // its own base tier — same scoping rule as custom_plan_price below.
+  if (isCustomPlanActive(customPlan) && customPlan.base_tier === tier) {
+    return Number(customPlan.monthly_price);
+  }
   if (!profile || profile.custom_plan_price == null) {
     return defaultPrices[tier] ?? 0;
   }
