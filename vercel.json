@@ -31,7 +31,7 @@
     }
   ],
   "rewrites": [
-    { "source": "/sitemap.xml", "destination": "https://atmelijhxsjzjixhdfcu.supabase.co/functions/v1/sitemap" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/dr/:slug", "destination": "/api/seo?kind=doctor&slug=:slug" },
     { "source": "/doctors", "destination": "/api/seo?kind=hub" },
     { "source": "/doctors/:city", "destination": "/api/seo?kind=hub&city=:city" },
