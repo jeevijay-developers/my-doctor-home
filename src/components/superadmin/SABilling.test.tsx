@@ -17,6 +17,7 @@ vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn() }));
 const mockData = (payments: any[], profiles: any[]) => {
   const chain = (resolved: any): any => ({
     select: () => chain(resolved),
+    eq: () => Promise.resolve(resolved),
     order: () => Promise.resolve(resolved),
   });
   vi.mocked(supabase.from).mockImplementation((table: string) => {
@@ -35,6 +36,7 @@ describe("SABilling", () => {
   it("surfaces a query error via toast instead of silently showing an empty page", async () => {
     const chain = (resolved: any): any => ({
       select: () => chain(resolved),
+      eq: () => Promise.resolve(resolved),
       order: () => Promise.resolve(resolved),
     });
     vi.mocked(supabase.from).mockImplementation((table: string) => {

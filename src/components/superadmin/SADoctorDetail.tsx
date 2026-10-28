@@ -53,33 +53,60 @@ const SADoctorDetail = () => {
 
   useEffect(() => { load(); }, [id]);
 
+  // Lifting a suspension must put the doctor back where they were, not
+  // blindly on "active": a suspended trial doctor returns to their trial, and
+  // someone whose paid period ran out meanwhile returns to "expired".
+  const statusAfterReactivation = (): "trial" | "active" | "expired" => {
+    const now = Date.now();
+    if (p.plan_tier === "free" && p.trial_end && new Date(p.trial_end).getTime() > now) return "trial";
+    if (p.plan_tier !== "free" && (!p.plan_end || new Date(p.plan_end).getTime() > now)) return "active";
+    return "expired";
+  };
+
   const suspend = async () => {
-    const next = p.plan_status === "cancelled" ? "active" : "cancelled";
+    const next = p.plan_status === "cancelled" ? statusAfterReactivation() : "cancelled";
     const { error } = await supabase.from("profiles").update({ plan_status: next }).eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     await logAdminAction(next === "cancelled" ? "suspend_doctor" : "reactivate_doctor", "profiles", id, { from: p.plan_status, to: next });
-    toast({ title: next === "cancelled" ? "Doctor suspended" : "Doctor reactivated" });
+    toast({
+      title: next === "cancelled" ? "Doctor suspended" : "Doctor reactivated",
+      description: next === "expired" ? "Their plan had already run out, so the account is back as expired." : undefined,
+    });
     load();
   };
 
   const changeTier = async (tier: string) => {
     const wasTrial = p.plan_status === "trial";
+    // Changing the tier of a suspended account must not lift the suspension.
+    const keepSuspended = p.plan_status === "cancelled";
     const { error } = await supabase
       .from("profiles")
-      .update({ plan_tier: tier, plan_status: "active", trial_end: null })
+      .update({ plan_tier: tier, ...(keepSuspended ? {} : { plan_status: "active", trial_end: null }) })
       .eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     await logAdminAction("change_plan_tier", "profiles", id, { from: p.plan_tier, to: tier, ended_trial: wasTrial });
-    toast({ title: "Plan tier updated", description: wasTrial ? "Trial ended — new tier applied immediately." : undefined });
+    toast({
+      title: "Plan tier updated",
+      description: keepSuspended ? "The account is still suspended." : wasTrial ? "Trial ended — new tier applied immediately." : undefined,
+    });
     load();
   };
 
+  // A trial can only be extended for someone who is not on a paid plan, and
+  // never in the past. A suspended account stays suspended.
+  const canExtendTrial = p?.plan_status !== "active";
   const extendTrial = async () => {
-    if (!newTrialEnd) return;
-    const { error } = await supabase.from("profiles").update({ trial_end: newTrialEnd, plan_status: "trial" }).eq("id", id);
+    if (!newTrialEnd || !canExtendTrial) return;
+    const newEnd = new Date(`${newTrialEnd}T23:59:59+05:30`);
+    if (newEnd.getTime() <= Date.now()) {
+      return toast({ title: "Pick a future date", variant: "destructive" });
+    }
+    const patch: Record<string, string> = { trial_end: newEnd.toISOString() };
+    if (p.plan_status !== "cancelled") patch.plan_status = "trial";
+    const { error } = await supabase.from("profiles").update(patch).eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
-    await logAdminAction("extend_trial", "profiles", id, { new_trial_end: newTrialEnd });
-    toast({ title: "Trial extended" });
+    await logAdminAction("extend_trial", "profiles", id, { new_trial_end: patch.trial_end });
+    toast({ title: "Trial extended", description: p.plan_status === "cancelled" ? "The account is still suspended." : undefined });
     setNewTrialEnd("");
     load();
   };
@@ -184,7 +211,7 @@ const SADoctorDetail = () => {
             <div className="text-xs font-medium mb-2">Extend trial (current: {p.trial_end ? new Date(p.trial_end).toLocaleDateString() : "—"})</div>
             <div className="flex gap-2">
               <Input type="date" value={newTrialEnd} onChange={(e) => setNewTrialEnd(e.target.value)} className="h-9" />
-              <Button onClick={extendTrial} size="sm" disabled={!newTrialEnd}><CalendarPlus className="h-4 w-4" /></Button>
+              <Button onClick={extendTrial} size="sm" disabled={!newTrialEnd || !canExtendTrial}><CalendarPlus className="h-4 w-4" /></Button>
             </div>
           </div>
           <div>

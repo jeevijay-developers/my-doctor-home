@@ -13,7 +13,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { differenceInDays, format } from "date-fns";
+import { format } from "date-fns";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
@@ -32,7 +32,6 @@ const SettingsPage = () => {
 
   const [pendingPlan, setPendingPlan] = useState<any>(null);
   const [cancellingScheduled, setCancellingScheduled] = useState(false);
-  const [reactivating, setReactivating] = useState(false);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -57,7 +56,7 @@ const SettingsPage = () => {
         toast.error(error?.message || data?.error || "Could not cancel scheduled plan");
         return;
       }
-      toast.success("Scheduled plan cancelled and payment marked for refund.");
+      toast.success(data?.message || "Scheduled plan cancelled.");
       setPendingPlan(null);
       setTimeout(() => window.location.reload(), 1000);
     } catch (e: any) {
@@ -67,25 +66,8 @@ const SettingsPage = () => {
     }
   };
 
-  const handleReactivateSubscription = async () => {
-    if (!profile) return;
-    setReactivating(true);
-    try {
-      // Plan columns are locked against direct client writes; resuming goes
-      // through an RPC that only works while the paid period is still running.
-      const { error } = await supabase.rpc("resume_subscription" as any);
-      if (error) throw error;
-      toast.success("Subscription reactivated successfully!");
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (e: any) {
-      toast.error("Failed to reactivate: " + (e?.message || "Unknown error"));
-    } finally {
-      setReactivating(false);
-    }
-  };
-
-  const daysLeft = profile?.trial_end ? Math.max(0, differenceInDays(new Date(profile.trial_end), new Date())) : 7;
-  const trialProgress = ((7 - daysLeft) / 7) * 100;
+  const daysLeft = profile?.trial_end ? Math.max(0, Math.ceil((new Date(profile.trial_end).getTime() - Date.now()) / 86400000)) : 0;
+  const trialProgress = Math.min(100, Math.max(0, ((7 - daysLeft) / 7) * 100));
 
   const { isPremium, appointmentsCap } = usePlanAccess();
   const planTier = profile?.plan_tier || "free";
@@ -143,21 +125,26 @@ const SettingsPage = () => {
                     )}
                     {profile?.plan_status === "active" && (
                       <p className="text-sm text-muted-foreground mt-1">
-                        Active until{" "}
-                        <span className="font-medium text-foreground">
-                          {profile?.plan_end
-                            ? format(new Date(profile.plan_end), "MMM d, yyyy")
-                            : format(new Date(Date.now() + 30 * 86400000), "MMM d, yyyy")}
-                        </span>{" "}
-                        ({Math.max(0, profile?.plan_end ? differenceInDays(new Date(profile.plan_end), new Date()) : 30)} days remaining)
+                        {profile?.plan_end ? (
+                          <>
+                            Active until{" "}
+                            <span className="font-medium text-foreground">{format(new Date(profile.plan_end), "MMM d, yyyy")}</span>{" "}
+                            ({Math.max(0, Math.ceil((new Date(profile.plan_end).getTime() - Date.now()) / 86400000))} days remaining)
+                          </>
+                        ) : (
+                          "Your plan is active."
+                        )}
                       </p>
                     )}
-                    {(profile?.plan_status === "cancelled" || profile?.plan_status === "expired") && (
-                      <p className="text-sm text-destructive mt-1 font-medium">Your subscription is currently inactive/cancelled.</p>
+                    {profile?.plan_status === "expired" && (
+                      <p className="text-sm text-destructive mt-1 font-medium">Your plan has expired. Renew to keep your plan features.</p>
+                    )}
+                    {profile?.plan_status === "cancelled" && (
+                      <p className="text-sm text-destructive mt-1 font-medium">Your account is currently suspended. Please contact support.</p>
                     )}
                   </div>
 
-                  {(hasNoActivePlan(planStatus) || planStatus === "cancelled" || planStatus === "expired") && (
+                  {(hasNoActivePlan(planStatus) || planStatus === "expired") && planStatus !== "cancelled" && (
                     <div className="flex items-center gap-2">
                       <UpgradeCheckoutDialog
                         targetTier={planTier === "premium" ? "premium" : "pro"}
@@ -167,11 +154,6 @@ const SettingsPage = () => {
                           </Button>
                         }
                       />
-                      {profile?.plan_end && new Date(profile.plan_end) > new Date() && (
-                        <Button size="sm" variant="outline" onClick={handleReactivateSubscription} disabled={reactivating}>
-                          {reactivating ? "Reactivating…" : "Resume Subscription"}
-                        </Button>
-                      )}
                     </div>
                   )}
                 </div>

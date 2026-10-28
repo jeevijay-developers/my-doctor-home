@@ -59,13 +59,13 @@ function renderMyWebsite() {
 
 describe("MyWebsite - Online Consultation gating", () => {
   it("shows LockedFeatureCard instead of the toggle for a Basic-tier doctor", async () => {
-    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
     renderMyWebsite();
     expect(await screen.findByRole("button", { name: /upgrade now/i })).toBeInTheDocument();
   });
 
   it("shows the real Online Consultation toggle for a Premium doctor", async () => {
-    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
     renderMyWebsite();
     await screen.findByText(/online consultation/i);
     expect(screen.queryByRole("button", { name: /upgrade now/i })).not.toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("MyWebsite - Online Consultation gating", () => {
 
 describe("MyWebsite - Services editor", () => {
   it("renders service identity fields including the configurable service price", async () => {
-    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
     renderMyWebsite();
 
     fireEvent.click(screen.getByRole("button", { name: "Services" }));

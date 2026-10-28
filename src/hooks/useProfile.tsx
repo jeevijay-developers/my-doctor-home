@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useState, useCallback, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Permissions, PermissionKey } from "@/lib/staffPermissions";
@@ -33,6 +33,10 @@ export type ProfileState = {
   authUserId: string | null;
 };
 
+// Realtime refetches keep the existing object when nothing changed, so
+// components holding form state keyed on `profile` don't reset under the user.
+const sameRow = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 // The actual fetch + local state, shared by both the context provider below
 // and the standalone fallback. `enabled=false` skips the fetch entirely
 // (used when a ProfileContext higher up the tree already owns it) — hooks
@@ -53,7 +57,7 @@ function useProfileState(enabled: boolean): ProfileState {
 
     const { data: ownProfile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
     if (ownProfile) {
-      setProfile(ownProfile);
+      setProfile((prev) => (sameRow(prev, ownProfile) ? prev : ownProfile));
       setIsStaff(false);
       setStaffPermissions({});
       setStaffName(null);
@@ -72,7 +76,8 @@ function useProfileState(enabled: boolean): ProfileState {
       setStaffPermissions((staffRow.permissions as Permissions) || {});
       setStaffName(staffRow.staff_name);
       const { data: doctorProfile } = await supabase.from("profiles").select("*").eq("id", staffRow.doctor_id).maybeSingle();
-      setProfile(doctorProfile ?? ({ id: staffRow.doctor_id } as Tables<"profiles">));
+      const next = doctorProfile ?? ({ id: staffRow.doctor_id } as Tables<"profiles">);
+      setProfile((prev) => (sameRow(prev, next) ? prev : next));
     } else {
       setProfile(null);
       setIsStaff(false);
@@ -86,6 +91,25 @@ function useProfileState(enabled: boolean): ProfileState {
     if (!enabled) return;
     fetchProfile();
   }, [enabled, fetchProfile]);
+
+  // Keep the profile live: a plan change made elsewhere (superadmin edit,
+  // payment webhook, expiry cron) shows up without a reload. If the viewer
+  // can't read the row (staff without "View Profile"), no events arrive and
+  // nothing changes.
+  const channelId = useId();
+  const profileId = profile?.id;
+  useEffect(() => {
+    if (!enabled || !profileId) return;
+    const channel = supabase
+      .channel(`profile-live-${profileId}-${channelId}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${profileId}` }, () => {
+        fetchProfile();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [enabled, profileId, channelId, fetchProfile]);
 
   // Doctors always pass every check — the permission system exists
   // exclusively to restrict staff, never the doctor's own account.

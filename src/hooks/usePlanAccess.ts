@@ -23,11 +23,19 @@ export function usePlanAccess(): PlanAccess {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!profile?.id) return;
+    if (!profile?.id) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
 
-    supabase.rpc("get_appointment_cap_usage", { _doctor_id: profile.id }).then(({ data }) => {
+    supabase.rpc("get_appointment_cap_usage", { _doctor_id: profile.id }).then(({ data, error }) => {
       if (cancelled) return;
+      if (error) {
+        // Keep the previous answer rather than silently downgrading to "not premium".
+        setLoading(false);
+        return;
+      }
       const row = data?.[0];
       const isPremium = row?.is_premium ?? false;
       const appointmentsUsed = row?.appointments_used ?? 0;
@@ -40,11 +48,11 @@ export function usePlanAccess(): PlanAccess {
     return () => {
       cancelled = true;
     };
-    // profile?.plan_tier is included so a tier change (self-service upgrade,
+    // plan_tier / plan_status / plan_end are included so a tier change (self-service upgrade,
     // or any other update to the doctor's own profile) re-fetches premium
     // status immediately — profile?.id alone doesn't change on a tier flip,
     // so without this, isPremium stayed stale until a full page reload.
-  }, [profile?.id, profile?.plan_tier]);
+  }, [profile?.id, profile?.plan_tier, profile?.plan_status, profile?.plan_end]);
 
   return { ...state, loading };
 }

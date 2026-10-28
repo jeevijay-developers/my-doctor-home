@@ -1,11 +1,12 @@
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { DEFAULT_PLAN_PRICES } from "@/lib/planPrices";
+import { isCustomPlanActive, type CustomPlan } from "@/lib/customPlan";
 
 // When live DB prices are available, callers should pass them as the second
 // argument.  The static fallback keeps tests and legacy call sites working.
 
-export type PaymentTxnStatus = "created" | "authorized" | "captured" | "failed" | "refunded";
-export type PaymentStatusBucket = "Paid" | "Pending" | "Failed" | "Refunded";
+export type PaymentTxnStatus = "created" | "authorized" | "captured" | "failed" | "refunded" | "abandoned";
+export type PaymentStatusBucket = "Paid" | "Pending" | "Failed" | "Refunded" | "Abandoned";
 
 export const bucketPaymentStatus = (status: PaymentTxnStatus): PaymentStatusBucket => {
   switch (status) {
@@ -18,6 +19,8 @@ export const bucketPaymentStatus = (status: PaymentTxnStatus): PaymentStatusBuck
       return "Failed";
     case "refunded":
       return "Refunded";
+    case "abandoned":
+      return "Abandoned";
   }
 };
 
@@ -51,15 +54,29 @@ export const computeRevenueTotals = (payments: UpgradePayment[], now: Date = new
 };
 
 export interface SubscriberProfile {
+  id?: string;
   plan_status: string | null;
   plan_tier: string | null;
   custom_plan_price: number | null;
+  plan_end?: string | null;
 }
 
+// Same price precedence checkout uses: an approved custom plan (for the tier it
+// was approved on) > the doctor's manual custom price > the platform default.
+// Doctors whose paid period has already ended are not recurring revenue.
 export const computeEstimatedMRR = (
   profiles: SubscriberProfile[],
   defaultPrices: Record<string, number> = DEFAULT_PLAN_PRICES,
+  customPlans: Map<string, CustomPlan> = new Map(),
+  now: Date = new Date(),
 ): number =>
   profiles
     .filter((p) => p.plan_status === "active" && (p.plan_tier === "pro" || p.plan_tier === "premium"))
-    .reduce((sum, p) => sum + (p.custom_plan_price ?? defaultPrices[p.plan_tier || "free"] ?? 0), 0);
+    .filter((p) => !p.plan_end || new Date(p.plan_end) > now)
+    .reduce((sum, p) => {
+      const plan = p.id ? customPlans.get(p.id) : undefined;
+      if (isCustomPlanActive(plan, now) && plan.base_tier === p.plan_tier) {
+        return sum + Number(plan.monthly_price);
+      }
+      return sum + (p.custom_plan_price ?? defaultPrices[p.plan_tier || "free"] ?? 0);
+    }, 0);

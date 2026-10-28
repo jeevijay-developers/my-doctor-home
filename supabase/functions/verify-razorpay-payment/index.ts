@@ -6,7 +6,7 @@
 // Mock mode: same as live — real HMAC check against mock secret, then
 // creates appointment + updates transfer + ledger + invoice identically.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { hmacHex, timingSafeEqualHex, MOCK_SIGNING_SECRET, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { hmacHex, timingSafeEqualHex, MOCK_SIGNING_SECRET, isExplicitMockMode, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -63,6 +63,9 @@ Deno.serve(async (req) => {
 
   // Signature verification — real secret for live, mock secret for mock
   if (payment.is_mock) {
+    // A mock order confirms a real booking, so it is honoured only while mock
+    // mode was switched on deliberately (PAYMENT_MODE=mock).
+    if (!isExplicitMockMode()) return json(400, { error: "Mock payments are disabled" });
     const expectedMockSignature = await hmacHex(MOCK_SIGNING_SECRET, `${razorpay_order_id}|${razorpay_payment_id}`);
     if (!timingSafeEqualHex(expectedMockSignature, razorpay_signature)) {
       await admin.from("payments").update({ status: "failed", razorpay_payment_id, transfer_status: null }).eq("id", payment.id);

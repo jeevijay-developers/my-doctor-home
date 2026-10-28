@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { CustomPlan } from "@/lib/customPlan";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,25 +33,29 @@ interface UpgradePaymentRow {
 }
 
 interface SubscriberProfileRow {
+  id: string;
   plan_status: string | null;
   plan_tier: string | null;
   custom_plan_price: number | null;
+  plan_end: string | null;
 }
 
 type StatusFilter = "all" | PaymentStatusBucket;
-const STATUS_FILTERS: StatusFilter[] = ["all", "Paid", "Pending", "Failed", "Refunded"];
+const STATUS_FILTERS: StatusFilter[] = ["all", "Paid", "Pending", "Failed", "Refunded", "Abandoned"];
 
 const BADGE_CLASS: Record<PaymentStatusBucket, string> = {
   Paid: "bg-success/10 text-success",
   Pending: "bg-warning/10 text-warning",
   Failed: "bg-destructive/10 text-destructive",
   Refunded: "bg-royal/10 text-royal",
+  Abandoned: "bg-muted text-muted-foreground",
 };
 
 const SABilling = () => {
   const { proPrice, premiumPrice } = usePlanPrices();
   const [payments, setPayments] = useState<UpgradePaymentRow[]>([]);
   const [subscribers, setSubscribers] = useState<SubscriberProfileRow[]>([]);
+  const [customPlans, setCustomPlans] = useState<Map<string, CustomPlan>>(new Map());
   const [filter, setFilter] = useState<StatusFilter>("all");
 
   const loadPayments = async () => {
@@ -66,8 +71,12 @@ const SABilling = () => {
   };
 
   const loadSubscribers = async () => {
-    const { data } = await supabase.from("profiles").select("plan_status, plan_tier, custom_plan_price");
+    const [{ data }, { data: plans }] = await Promise.all([
+      supabase.from("profiles").select("id, plan_status, plan_tier, custom_plan_price, plan_end"),
+      supabase.from("doctor_custom_plans" as any).select("*").eq("status", "active"),
+    ]);
     setSubscribers((data ?? []) as SubscriberProfileRow[]);
+    setCustomPlans(new Map(((plans ?? []) as unknown as CustomPlan[]).map((c) => [c.doctor_id, c])));
   };
 
   useEffect(() => {
@@ -88,7 +97,7 @@ const SABilling = () => {
   }, []);
 
   const totals = computeRevenueTotals(payments);
-  const estimatedMRR = computeEstimatedMRR(subscribers, planPricesToRecord({ proPrice, premiumPrice }));
+  const estimatedMRR = computeEstimatedMRR(subscribers, planPricesToRecord({ proPrice, premiumPrice }), customPlans);
 
   const statCards = [
     { label: "Today's Subscription Revenue", value: `₹${totals.today.toLocaleString("en-IN")}`, icon: Calendar, gradient: "from-royal to-teal" },
@@ -100,7 +109,7 @@ const SABilling = () => {
   const bucketed = payments.map((p) => ({ ...p, bucket: bucketPaymentStatus(p.status) }));
   const filtered = filter === "all" ? bucketed : bucketed.filter((p) => p.bucket === filter);
 
-  const bucketCounts: Record<PaymentStatusBucket, number> = { Paid: 0, Pending: 0, Failed: 0, Refunded: 0 };
+  const bucketCounts: Record<PaymentStatusBucket, number> = { Paid: 0, Pending: 0, Failed: 0, Refunded: 0, Abandoned: 0 };
   bucketed.forEach((p) => {
     bucketCounts[p.bucket] += 1;
   });
@@ -109,6 +118,7 @@ const SABilling = () => {
     { label: "Pending", count: bucketCounts.Pending, color: "hsl(var(--warning))" },
     { label: "Failed", count: bucketCounts.Failed, color: "hsl(var(--destructive))" },
     { label: "Refunded", count: bucketCounts.Refunded, color: "hsl(var(--royal))" },
+    { label: "Abandoned", count: bucketCounts.Abandoned, color: "hsl(var(--muted-foreground))" },
   ];
 
   const exportTransactionsCSV = () => {

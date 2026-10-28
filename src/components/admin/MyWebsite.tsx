@@ -34,7 +34,7 @@ const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 const MyWebsite = () => {
   const nav = useNavigate();
   const { profile, isStaff, can } = useProfile();
-  const { hasFeature } = useFeatureAccess();
+  const { hasFeature, sourceOf, loading: featuresLoading } = useFeatureAccess();
   const isPremium = hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION);
   // This page is route-gated only on "View My Website" (website.view), so a
   // staff member with just that checkbox reaches it — but everything below
@@ -711,11 +711,14 @@ const MyWebsite = () => {
                 </div>
               </AccordionContent>
             </AccordionItem>
+            ) : featuresLoading ? (
+              <div className="border rounded-xl px-4 py-3 text-sm text-muted-foreground">Checking your plan…</div>
             ) : (
               <div className="border rounded-xl px-4 py-3">
                 <LockedFeatureCard
                   featureName="Online Consultation"
                   description="Video consultations via Zoom, with fee and duration settings. Available on Premium."
+                  source={sourceOf(FEATURE_KEYS.ONLINE_CONSULTATION)}
                 />
               </div>
             )}

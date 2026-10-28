@@ -4,6 +4,7 @@ import { bucketPaymentStatus, computeRevenueTotals, computeEstimatedMRR } from "
 describe("bucketPaymentStatus", () => {
   it("maps each raw payment_txn_status value to its UI bucket", () => {
     expect(bucketPaymentStatus("captured")).toBe("Paid");
+    expect(bucketPaymentStatus("abandoned")).toBe("Abandoned");
     expect(bucketPaymentStatus("created")).toBe("Pending");
     expect(bucketPaymentStatus("authorized")).toBe("Pending");
     expect(bucketPaymentStatus("failed")).toBe("Failed");
@@ -54,5 +55,29 @@ describe("computeEstimatedMRR", () => {
     ];
     const customDefaults = { free: 0, pro: 1999, premium: 4999 };
     expect(computeEstimatedMRR(profiles, customDefaults)).toBe(1999 + 4999);
+  });
+});
+
+describe("computeEstimatedMRR with custom plans and lapsed plans", () => {
+  const now = new Date("2026-06-01T00:00:00Z");
+  const plan = (over: Record<string, unknown> = {}) => ({
+    doctor_id: "d1", request_id: "r1", base_tier: "premium", extra_features: [], removed_features: [],
+    monthly_price: 800, valid_from: "2026-01-01T00:00:00Z", valid_until: null, status: "active" as const, ...over,
+  });
+
+  it("counts an active approved custom plan at its price, ahead of the manual and default price", () => {
+    const profiles = [{ id: "d1", plan_status: "active", plan_tier: "premium", custom_plan_price: 2999, plan_end: null }];
+    expect(computeEstimatedMRR(profiles, undefined, new Map([["d1", plan()]]), now)).toBe(800);
+  });
+
+  it("ignores a custom plan that has expired or belongs to another tier", () => {
+    const profiles = [{ id: "d1", plan_status: "active", plan_tier: "premium", custom_plan_price: null, plan_end: null }];
+    expect(computeEstimatedMRR(profiles, undefined, new Map([["d1", plan({ valid_until: "2026-05-01T00:00:00Z" })]]), now)).toBe(3999);
+    expect(computeEstimatedMRR(profiles, undefined, new Map([["d1", plan({ base_tier: "pro" })]]), now)).toBe(3999);
+  });
+
+  it("does not count a doctor whose paid period has already ended", () => {
+    const profiles = [{ id: "d1", plan_status: "active", plan_tier: "pro", custom_plan_price: null, plan_end: "2026-05-01T00:00:00Z" }];
+    expect(computeEstimatedMRR(profiles, undefined, new Map(), now)).toBe(0);
   });
 });

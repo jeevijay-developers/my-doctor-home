@@ -73,6 +73,14 @@ export function getSubscriptionCardStates(
   planTier: string,
   isPremium: boolean
 ): { basic: CardState; premium: CardState } {
+  // 'cancelled' is how Superadmin suspends an account: nothing here can be bought
+  // until support lifts it (checkout refuses suspended accounts too).
+  if (planStatus === "cancelled") {
+    return {
+      basic: { badge: "Account suspended", isCurrent: false, showCta: false },
+      premium: { badge: "", isCurrent: false, showCta: false },
+    };
+  }
   if (planStatus === "trial") {
     return {
       premium: { badge: "Included via your trial", isCurrent: true, showCta: true, ctaLabel: "Subscribe to Premium" },
@@ -91,7 +99,7 @@ export function getSubscriptionCardStates(
       premium: { badge: "", isCurrent: false, showCta: true, ctaLabel: "Upgrade to Premium" },
     };
   }
-  // hasNoActivePlan(planStatus): expired or cancelled
+  // expired
   return {
     basic: { badge: "Your access level", isCurrent: false, showCta: true, ctaLabel: "Reactivate" },
     premium: { badge: "", isCurrent: false, showCta: true, ctaLabel: "Reactivate" },

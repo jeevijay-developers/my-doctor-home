@@ -31,7 +31,10 @@ const DOC_COLS = "profiles(full_name, clinic_name, plan_tier, plan_status, plan_
 const fmt = (d: string | null) => (d ? format(new Date(d), "MMM d, yyyy") : "—");
 const istStart = (d: string) => new Date(`${d}T00:00:00+05:30`).toISOString();
 const istEnd = (d: string) => new Date(`${d}T23:59:59+05:30`).toISOString();
-const today = () => new Date().toISOString().slice(0, 10);
+// IST calendar date of an instant (a plain slice(0,10) gives the UTC date, a day early for evening-UTC ends).
+const istDate = (iso: string) => new Date(new Date(iso).getTime() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+// Business timezone is IST: "today" for the date pickers is the IST calendar day.
+const today = () => new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
 
 const statusBadge = (s: string) => {
   const cls: Record<string, string> = {
@@ -80,6 +83,8 @@ const SAPlanRequests = () => {
     const channel = supabase
       .channel("sa-plan-requests")
       .on("postgres_changes", { event: "*", schema: "public", table: "plan_requests" }, () => load())
+      // A doctor cancelling, or a plan expiring, must drop out of "Active plans" live.
+      .on("postgres_changes", { event: "*", schema: "public", table: "doctor_custom_plans" }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
@@ -277,7 +282,7 @@ const ReviewDialog = ({
   const [current, setCurrent] = useState<Set<string>>(new Set());
   const [price, setPrice] = useState(String(standardPrice));
   const [from, setFrom] = useState("");
-  const [until, setUntil] = useState(request.profiles?.plan_end ? request.profiles.plan_end.slice(0, 10) : "");
+  const [until, setUntil] = useState(request.profiles?.plan_end ? istDate(request.profiles.plan_end) : "");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -402,7 +407,7 @@ const ReviewDialog = ({
 
 const EditTermsDialog = ({ plan, onClose, onDone }: { plan: PlanRow; onClose: () => void; onDone: () => void }) => {
   const [price, setPrice] = useState(String(plan.monthly_price));
-  const [until, setUntil] = useState(plan.valid_until ? plan.valid_until.slice(0, 10) : "");
+  const [until, setUntil] = useState(plan.valid_until ? istDate(plan.valid_until) : "");
   const [busy, setBusy] = useState(false);
 
   const save = async () => {

@@ -21,6 +21,14 @@ export function resolvePaymentMode(hasLiveCredentials: boolean): PaymentMode {
   return hasLiveCredentials ? "live" : "mock";
 }
 
+// Stricter than resolvePaymentMode: true ONLY when PAYMENT_MODE=mock is set
+// explicitly. Used where a mock outcome grants something of real value (a
+// plan upgrade), so a missing/misnamed Razorpay secret fails closed instead of
+// silently turning every upgrade into a free one.
+export function isExplicitMockMode(): boolean {
+  return (Deno.env.get("PAYMENT_MODE") || "").trim().toLowerCase() === "mock";
+}
+
 // Never used for anything real — mock orders/payments only ever move fake
 // money between mock records, so this does not need to be kept secret the
 // way RAZORPAY_KEY_SECRET does. It exists purely so the mock signature check

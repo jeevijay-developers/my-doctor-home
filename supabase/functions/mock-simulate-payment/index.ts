@@ -13,7 +13,7 @@
 // (public.plan_upgrade_payments) — the caller doesn't know or care which
 // table `payment_id` belongs to, so this tries both.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { hmacHex, MOCK_SIGNING_SECRET, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { hmacHex, MOCK_SIGNING_SECRET, mockId, isExplicitMockMode, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -46,6 +46,11 @@ Deno.serve(async (req) => {
       .from("plan_upgrade_payments").select("id, razorpay_order_id, status, is_mock").eq("id", payment_id).maybeSingle();
     if (upgradeErr) return json(500, { error: upgradeErr.message });
     payment = upgradePayment;
+    // A mock "payment" for a plan upgrade grants a real tier, so it only works
+    // when mock mode was switched on explicitly — never by accident in production.
+    if (payment && !isExplicitMockMode()) {
+      return json(400, { error: "Mock payments are disabled" });
+    }
   }
   if (!payment) return json(404, { error: "No matching mock order found" });
   if (!payment.is_mock) return json(400, { error: "This payment was not created in mock mode" });

@@ -99,6 +99,34 @@ Deno.serve(async (req) => {
           .update({ status: "captured", razorpay_payment_id: paymentId })
           .eq("razorpay_order_id", orderId)
           .neq("status", "captured");
+
+        // Doctor plan-upgrade orders live in plan_upgrade_payments. If the doctor
+        // paid but never came back to verify (closed the tab, lost network), this
+        // applies the plan. The same atomic SQL function backs
+        // verify-plan-upgrade-payment, so whichever arrives first wins and the
+        // other is a no-op.
+        if (paymentId) {
+          const { data: planPay } = await admin
+            .from("plan_upgrade_payments")
+            .select("id, is_mock, amount, status")
+            .eq("razorpay_order_id", orderId)
+            .maybeSingle();
+          if (
+            planPay && !planPay.is_mock && planPay.status !== "captured" &&
+            paymentEntity?.status === "captured" &&
+            Number(paymentEntity?.amount) === Math.round(Number(planPay.amount) * 100)
+          ) {
+            const { error: applyErr } = await admin.rpc("apply_plan_upgrade_payment", {
+              _payment_id: planPay.id,
+              _razorpay_payment_id: paymentId,
+            });
+            if (applyErr) {
+              console.error("razorpay-webhook: apply_plan_upgrade_payment failed", applyErr);
+              // Non-2xx so Razorpay retries; the event stays 'received', not 'processed'.
+              return json(500, { error: "plan_apply_failed" });
+            }
+          }
+        }
       }
     }
 

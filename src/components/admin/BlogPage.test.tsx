@@ -50,7 +50,7 @@ global.fetch = vi.fn().mockResolvedValue({
 describe("BlogPage - AI writer auth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
   });
 
   it("sends the doctor's real session access_token as the bearer, not the anon key", async () => {
@@ -97,7 +97,7 @@ describe("BlogPage - AI writer auth", () => {
 
 describe("BlogPage - AI Blog Writer gating", () => {
   it("shows LockedFeatureCard instead of the AI writer inputs for a Basic-tier doctor", async () => {
-    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
     render(
       <MemoryRouter>
         <BlogPage />
@@ -109,7 +109,7 @@ describe("BlogPage - AI Blog Writer gating", () => {
   });
 
   it("shows the real AI writer inputs for a Premium doctor", async () => {
-    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
     render(
       <MemoryRouter>
         <BlogPage />

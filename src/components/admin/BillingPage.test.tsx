@@ -54,7 +54,7 @@ vi.mock("@/integrations/supabase/client", () => {
 
 describe("BillingPage - plan gating", () => {
   it("shows LockedFeatureCard instead of billing content for a Basic-tier doctor", () => {
-    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => false, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
     render(
       <MemoryRouter>
         <BillingPage />
@@ -65,7 +65,7 @@ describe("BillingPage - plan gating", () => {
   });
 
   it("shows real billing content for a Premium doctor", () => {
-    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
     render(
       <MemoryRouter>
         <BillingPage />
@@ -76,7 +76,7 @@ describe("BillingPage - plan gating", () => {
   });
 
   it("shows a Test Mode badge for a transaction whose appointment was paid via razorpay_mock", async () => {
-    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
     // Billing's Transactions list defaults to the current month, so the fixture
     // date must fall within it rather than being pinned to a fixed date.
     const today = new Date().toISOString().slice(0, 10);

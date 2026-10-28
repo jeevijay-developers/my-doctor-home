@@ -95,6 +95,15 @@ const SAFeatureAccess = ({ doctorId }: { doctorId: string }) => {
       await logAdminAction("remove_feature_override", "doctor_feature_overrides", doctorId, { feature_key: row.feature_key });
       toast({ title: `${row.label} reverted to plan default` });
     } else {
+      // End-of-day IST, like every other date in the superadmin panel: a bare
+      // "YYYY-MM-DD" is UTC midnight, which expired the override ~18 hours
+      // before the date the admin picked.
+      const expiresIso = draft.expiresAt ? new Date(`${draft.expiresAt}T23:59:59+05:30`).toISOString() : null;
+      if (expiresIso && new Date(expiresIso).getTime() <= Date.now()) {
+        toast({ title: "Expiry must be in the future", variant: "destructive" });
+        setSavingKey(null);
+        return;
+      }
       const { data: { user } } = await supabase.auth.getUser();
       const enabled = draft.choice === "on";
       const { error } = await supabase.from("doctor_feature_overrides").upsert(
@@ -104,7 +113,7 @@ const SAFeatureAccess = ({ doctorId }: { doctorId: string }) => {
           enabled,
           granted_by: user?.id,
           reason: draft.reason.trim() || null,
-          expires_at: draft.expiresAt ? new Date(draft.expiresAt).toISOString() : null,
+          expires_at: expiresIso,
         },
         { onConflict: "doctor_id,feature_key" }
       );

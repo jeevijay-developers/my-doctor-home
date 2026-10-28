@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,28 +28,43 @@ const UpgradeCheckoutDialog = ({
   const { profile } = useProfile();
   const { appointmentsCap } = usePlanAccess();
   const { isMock } = usePaymentMode();
-  const { proPrice, premiumPrice } = usePlanPrices();
+  const { proPrice, premiumPrice, loading: pricesLoading } = usePlanPrices();
   const livePrices = planPricesToRecord({ proPrice, premiumPrice });
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
   const [mockOpen, setMockOpen] = useState(false);
 
-  const fromStatus = profile?.plan_status || "trial";
-  const noActivePlan = hasNoActivePlan(fromStatus);
+  // Staff without profile access get a stub profile with no plan fields; never
+  // guess "trial" for them (that made the dialog promise an instant upgrade).
+  const fromStatus = profile?.plan_status ?? null;
+  const noActivePlan = fromStatus !== null && hasNoActivePlan(fromStatus);
+  // The Razorpay amount comes from the server; this only guards a Pay button
+  // showing the default price for a moment before the real one has loaded.
+  const verifying = useRef(false);
   const toLabel = TIER_LABELS[targetTier];
   const features = getTierFeatures(targetTier, appointmentsCap || DEFAULT_APPOINTMENT_CAP);
-  const { customPlan } = useCustomPlan();
+  const { customPlan, loading: customPlanLoading } = useCustomPlan();
   const price = getDoctorTierPrice(targetTier, profile, livePrices, customPlan);
 
   // Check if plan will be scheduled or activated immediately
   const planEnd = profile?.plan_end ? parseISO(profile.plan_end) : null;
-  const willBeScheduled = fromStatus === "active" && planEnd;
-  const schedulingMessage = willBeScheduled 
+  // Only a LIVE paid period schedules the new plan for later; an active plan
+  // whose end already passed is applied immediately (server rule).
+  const willBeScheduled = Boolean(fromStatus === "active" && planEnd && planEnd.getTime() > Date.now());
+  const schedulingMessage = willBeScheduled && planEnd
     ? `Plan will activate in ${formatDistanceToNow(planEnd)} when your current plan expires.`
-    : "Your plan updates immediately after payment.";
+    : fromStatus === null
+      ? "Your plan updates after payment."
+      : "Your plan updates immediately after payment.";
+  const checkoutReady = !pricesLoading && !customPlanLoading;
 
   const handleResult = async (o: Order, response: CheckoutResponse) => {
+    // Razorpay can deliver the success handler and the modal dismissal close
+    // together; only one verification may run, and a dismiss during it must not
+    // re-enable Pay (that allowed a second payment while the first was in flight).
+    if (verifying.current) return;
+    verifying.current = true;
     const { data, error } = await supabase.functions.invoke("verify-plan-upgrade-payment", {
       body: {
         payment_id: o.payment_id,
@@ -58,6 +73,7 @@ const UpgradeCheckoutDialog = ({
         razorpay_signature: response.razorpay_signature,
       },
     });
+    verifying.current = false;
     if (error || !data?.ok) {
       const message = await edgeFunctionErrorMessage(error, "Payment verification failed. Please contact support with your payment ID.");
       toast.error(message);
@@ -94,11 +110,13 @@ const UpgradeCheckoutDialog = ({
   };
 
   const handleDismiss = () => {
+    if (verifying.current) return;
     setMockOpen(false);
     setBusy(false);
   };
 
   const startCheckout = async () => {
+    if (busy || !checkoutReady) return;
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("create-plan-upgrade-order", {
       body: { target_tier: targetTier },
@@ -166,7 +184,7 @@ const UpgradeCheckoutDialog = ({
               ))}
             </ul>
           </div>
-          <Button onClick={startCheckout} disabled={busy} className="w-full">
+          <Button onClick={startCheckout} disabled={busy || !checkoutReady} className="w-full">
             {busy ? "Processing…" : `Pay ₹${price} & ${willBeScheduled ? "Schedule" : "Upgrade"}`}
           </Button>
         </div>
@@ -175,7 +193,7 @@ const UpgradeCheckoutDialog = ({
           <MockCheckoutModal
             open={mockOpen}
             paymentId={order.payment_id}
-            amount={price}
+            amount={order.amount / 100}
             doctorName="Doctylia"
             onResult={(response) => handleResult(order, response)}
             onFailed={handleFailed}

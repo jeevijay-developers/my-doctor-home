@@ -132,7 +132,11 @@ const SASubscriptions = () => {
     if (!pendingTierChange) return;
     const { id, tier, prev, wasTrial, hasCustom } = pendingTierChange;
 
-    const planEnd = new Date(Date.now() + 30 * 86400000).toISOString();
+    // Switching tier must not shorten or lengthen a paid period that is still
+    // running; only start a fresh 30 days when there is none (trial/expired/no end).
+    const current = rows.find((r) => r.id === id);
+    const stillPaid = current?.plan_status === "active" && current?.plan_end && new Date(current.plan_end).getTime() > Date.now();
+    const planEnd = stillPaid ? current!.plan_end! : new Date(Date.now() + 30 * 86400000).toISOString();
     const update: any = { plan_tier: tier, plan_status: "active", trial_end: null, plan_end: planEnd };
     if (hasCustom && !keepCustomPrice) update.custom_plan_price = null;
 
@@ -164,13 +168,18 @@ const SASubscriptions = () => {
     // this instant — server or client, whatever viewer timezone — lands on
     // the calendar date actually picked here.
     const isoDate = new Date(`${d}T23:59:59+05:30`).toISOString();
+    if (new Date(isoDate).getTime() <= Date.now()) {
+      return toast({ title: "Pick a future date", description: "An expiry in the past would lock the doctor out immediately.", variant: "destructive" });
+    }
     const updateData: any = {};
 
     if (row.plan_status === "trial") {
       updateData.trial_end = isoDate;
     } else {
       updateData.plan_end = isoDate;
-      if (row.plan_status === "expired" || row.plan_status === "cancelled") {
+      // Extending revives an EXPIRED plan; a suspended ('cancelled') account stays
+      // suspended until support lifts the suspension explicitly.
+      if (row.plan_status === "expired") {
         updateData.plan_status = "active";
       }
     }

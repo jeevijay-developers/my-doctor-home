@@ -28,4 +28,16 @@ describe("LockedFeatureCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /upgrade now/i }));
     expect(screen.getByText(/upgrade to premium/i)).toBeInTheDocument();
   });
+
+  it("does not sell an upgrade when the feature was turned off on purpose (custom plan / override)", () => {
+    const { rerender } = render(<LockedFeatureCard featureName="AI Blog Writer" description="desc" source="custom_plan" />);
+    expect(screen.queryByRole("button", { name: /upgrade now/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/turned off on your current plan/i)).toBeInTheDocument();
+
+    rerender(<LockedFeatureCard featureName="AI Blog Writer" description="desc" source="override" />);
+    expect(screen.queryByRole("button", { name: /upgrade now/i })).not.toBeInTheDocument();
+
+    rerender(<LockedFeatureCard featureName="AI Blog Writer" description="desc" source="plan" />);
+    expect(screen.getByRole("button", { name: /upgrade now/i })).toBeInTheDocument();
+  });
 });

@@ -89,9 +89,10 @@ describe("planFeatures", () => {
     expect(premium.showCta).toBe(true);
   });
 
-  it("cancelled: same treatment as expired", () => {
+  it("cancelled (suspended): nothing can be bought until support lifts it", () => {
     const { basic, premium } = getSubscriptionCardStates("cancelled", "free", false);
-    expect(basic.showCta).toBe(true);
-    expect(premium.showCta).toBe(true);
+    expect(basic.showCta).toBe(false);
+    expect(premium.showCta).toBe(false);
+    expect(basic.badge).toMatch(/suspended/i);
   });
 });

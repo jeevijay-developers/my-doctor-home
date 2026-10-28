@@ -41,7 +41,7 @@ const MAX_IMAGE_MB = 5;
 
 const BlogPage = () => {
   const { profile, can } = useProfile();
-  const { hasFeature } = useFeatureAccess();
+  const { hasFeature, sourceOf, loading: featuresLoading } = useFeatureAccess();
   const isPremium = hasFeature(FEATURE_KEYS.AI_BLOG_WRITER);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [search, setSearch] = useState("");
@@ -377,10 +377,13 @@ const BlogPage = () => {
                   </Button>
                 </div>
               </div>
+            ) : featuresLoading ? (
+              <div className="p-4 rounded-xl bg-secondary/50 text-sm text-muted-foreground">Checking your plan…</div>
             ) : (
               <LockedFeatureCard
                 featureName="AI Blog Writer"
                 description="Generate patient-friendly health articles with AI in seconds. Available on Pro and Premium."
+                source={sourceOf(FEATURE_KEYS.AI_BLOG_WRITER)}
               />
             )}
 

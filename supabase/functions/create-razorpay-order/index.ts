@@ -12,7 +12,7 @@
 //
 // Mock mode: no real Razorpay call; generates fake IDs; same response shape.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolvePaymentMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { resolvePaymentMode, isExplicitMockMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";
 import { turnstileError } from "../_shared/turnstile.ts";
 import {
@@ -94,6 +94,10 @@ Deno.serve(async (req) => {
 
   const hasLiveKeys = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
   const mode = resolvePaymentMode(hasLiveKeys);
+  // Missing keys must not silently turn real bookings into free mock ones.
+  if (mode === "mock" && !isExplicitMockMode()) {
+    return json(501, { error: "Payments are not configured" });
+  }
 
   // In live mode, enforce Route readiness. In mock mode, skip this check so
   // the full booking flow can be tested without a real linked account.
