@@ -120,9 +120,10 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create") {
-      const { data: isPremium } = await admin.rpc("doctor_has_premium_access", { _doctor_id: appt.doctor_id });
-      if (!isPremium) {
-        return json(403, { error: "Online Consultation is a Premium-only feature" });
+      // Same entitlement rule as the UI: per-doctor override > custom plan > tier default.
+      const { data: hasOnline } = await admin.rpc("doctor_has_feature", { _doctor_id: appt.doctor_id, _feature_key: "online_consultation" });
+      if (!hasOnline) {
+        return json(403, { error: "Online Consultation is not included in this doctor's plan" });
       }
     }
 

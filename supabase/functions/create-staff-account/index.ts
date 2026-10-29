@@ -49,6 +49,10 @@ Deno.serve(async (req) => {
   }
   if (!doctorId) return json(403, { error: "Not authorized to create staff accounts" });
 
+  // Staff management is a plan feature; the page hides it, so the server must too.
+  const { data: hasStaffFeature } = await admin.rpc("doctor_has_feature", { _doctor_id: doctorId, _feature_key: "staff_management" });
+  if (!hasStaffFeature) return json(403, { error: "Staff management is not included in this plan" });
+
   let body: any;
   try {
     body = await req.json();

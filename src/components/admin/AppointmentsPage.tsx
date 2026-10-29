@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
-import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Trash2, X, Calendar as CalendarIcon, MoreVertical } from "lucide-react";
+import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Trash2, X, Calendar as CalendarIcon, MoreVertical, ListChecks, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -21,7 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format, isSameDay, parseISO } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
-import { ensureInvoiceForAppointment } from "@/lib/invoiceGeneration";
+import LiveQueue from "./LiveQueue";
+import { PAYMENT_METHODS } from "@/lib/queue";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -43,8 +44,19 @@ type Appointment = {
   date: string; time_slot: string | null; status: string; payment_status: string;
   amount: number; token_number: string | null; chief_complaint: string | null; notes: string | null;
   reschedule_count?: number | null;
+  queue_number?: number | null;
+  payment_method?: string | null;
   zoom_meeting_id?: string | null;
   zoom_join_url?: string | null;
+};
+
+const paymentLabel = (a: { payment_status: string; payment_method?: string | null }) => {
+  switch (a.payment_status) {
+    case "paid": return a.payment_method ? `Paid · ${a.payment_method.toUpperCase()}` : "Paid";
+    case "pay_at_clinic": return "Due at clinic";
+    case "refunded": return "Refunded";
+    default: return "Unpaid";
+  }
 };
 
 const statusConfig: Record<string, { bg: string; dot: string; label: string }> = {
@@ -95,9 +107,14 @@ const AppointmentsPage = () => {
     status: "pending",
   });
   const [newAppt, setNewAppt] = useState(blankNewAppt);
+  // Walk-ins pay on the spot, so the booking dialog records the payment by default.
+  const [countersPaid, setCountersPaid] = useState(true);
+  const [payMethod, setPayMethod] = useState<string>("cash");
+  const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<"list" | "queue">("list");
   const handleNewOpenChange = (open: boolean) => {
     setShowNew(open);
-    if (open) setNewAppt(blankNewAppt());
+    if (open) { setNewAppt(blankNewAppt()); setCountersPaid(true); setPayMethod("cash"); }
   };
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -115,6 +132,9 @@ const AppointmentsPage = () => {
     if (!viewing) return;
     const fresh = appointments.find((a) => a.id === viewing.id);
     if (fresh && fresh !== viewing) setViewing(fresh);
+    // The row left this list (e.g. filtered out after a status change): don't leave a
+    // stale sheet with buttons that act on old data.
+    if (!fresh) setViewing(null);
   }, [appointments]);
 
   const toggleSelected = (id: string) => {
@@ -138,30 +158,20 @@ const AppointmentsPage = () => {
     load();
   };
 
-  // BUG-006: Auto-mark past pending/confirmed appointments as no_show. Runs
-  // as its own unconditional update against the whole table (not just the
-  // current page) so overdue appointments on other pages still get flagged
-  // even though the list itself is now paginated.
-  const expireOverdueAppointments = async () => {
-    if (!profile) return;
-    const now = new Date();
-    const todayStr = format(now, "yyyy-MM-dd");
-    const nowTime = format(now, "HH:mm");
-    await supabase
-      .from("appointments")
-      .update({ status: "no_show" as any })
-      .eq("doctor_id", profile.id)
-      .in("status", ["pending", "confirmed"])
-      .or(`date.lt.${todayStr},and(date.eq.${todayStr},time_slot.lt.${nowTime})`);
-  };
+  // Overdue appointments (never-called -> no-show, called-but-never-closed -> completed)
+  // are closed by the nightly expire_overdue_appointments() job on the server. The page
+  // used to do it from whichever browser opened it, using that browser's clock, which
+  // could flip a patient who was still waiting to "no show".
 
   const load = async () => {
     if (!profile) return;
-    await expireOverdueAppointments();
+    const seq = ++loadSeq.current;
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
     let q = supabase.from("appointments").select("*", { count: "exact" }).eq("doctor_id", profile.id);
-    if (statusFilter !== "all") q = q.eq("status", statusFilter as any);
+    // "Pending" means pending OR confirmed, matching the Pending summary tile.
+    if (statusFilter === "pending") q = q.in("status", ["pending", "confirmed"] as any);
+    else if (statusFilter !== "all") q = q.eq("status", statusFilter as any);
     if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`patient_name.ilike.%${term}%,service_name.ilike.%${term}%`);
@@ -170,11 +180,21 @@ const AppointmentsPage = () => {
       .order("sort_time", { ascending: true })
       .order("created_at", { ascending: true })
       .range(from, to);
-    const { data, count } = await q;
+    const { data, count, error } = await q;
+    // A slower, older response must not overwrite a newer one.
+    if (seq !== loadSeq.current) return;
+    if (error) { console.error("Appointments load failed:", error.message); return; }
     setAppointments((data || []) as Appointment[]);
     setTotalCount(count ?? 0);
   };
+  // The realtime listener is created once; it must always call the CURRENT load
+  // (current page, filter and date), not the first render's.
+  const loadRef = useRef<() => Promise<void>>(async () => {});
+  loadRef.current = load;
+  const loadSeq = useRef(0);
 
+  const loadStatusCountsRef = useRef<() => Promise<void>>(async () => {});
+  const loadDatesRef = useRef<() => Promise<void>>(async () => {});
   const loadStatusCounts = async () => {
     if (!profile) return;
     const base = () => {
@@ -195,6 +215,7 @@ const AppointmentsPage = () => {
   useEffect(() => { setPage(1); }, [statusFilter, selectedDate, dateFilterActive, debouncedSearch]);
 
   useEffect(() => { load(); }, [profile, statusFilter, selectedDate, dateFilterActive, debouncedSearch, page]);
+  loadStatusCountsRef.current = loadStatusCounts;
   useEffect(() => { loadStatusCounts(); }, [profile, selectedDate, dateFilterActive]);
 
   // If the current page no longer exists (e.g. after deleting the last row
@@ -207,52 +228,33 @@ const AppointmentsPage = () => {
   // Load distinct dates that have any appointments (for calendar dot indicators)
   const loadDatesWithAppointments = async () => {
     if (!profile) return;
-    const { data } = await supabase.from("appointments").select("date").eq("doctor_id", profile.id);
-    setDatesWithAppointments(new Set((data || []).map((r: any) => r.date)));
+    // Page through the dates: a single select stops at 1000 rows and would hide the rest.
+    const dates = new Set<string>();
+    for (let start = 0; ; start += 1000) {
+      const { data, error } = await supabase
+        .from("appointments").select("date").eq("doctor_id", profile.id).range(start, start + 999);
+      if (error || !data) break;
+      data.forEach((r: any) => dates.add(r.date));
+      if (data.length < 1000) break;
+    }
+    setDatesWithAppointments(dates);
   };
+  loadDatesRef.current = loadDatesWithAppointments;
 
   useEffect(() => { loadDatesWithAppointments(); }, [profile]);
 
   useEffect(() => {
     if (!profile) return;
     const channel = supabase.channel("appointments-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => { load(); loadStatusCounts(); loadDatesWithAppointments(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => { loadRef.current(); loadStatusCountsRef.current(); loadDatesRef.current(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
-  const upsertPatientForCompletion = async (appt: Appointment) => {
-    if (!profile) return;
-    // Identify a patient by (phone + normalized name) so that two different
-    // people sharing a mobile number remain distinct patient records. The
-    // patient's UUID (patients.id) is the true identity; phone is contact info.
-    const normalizedName = (appt.patient_name || "").trim().toLowerCase();
-    const { data: candidates } = await supabase
-      .from("patients").select("id, name, email, total_visits, first_visit")
-      .eq("doctor_id", profile.id).eq("phone", appt.patient_phone);
-    const existing = (candidates || []).find(
-      (p: any) => (p.name || "").trim().toLowerCase() === normalizedName
-    );
-    if (existing) {
-      await supabase.from("patients").update({
-        total_visits: (existing.total_visits || 0) + 1,
-        last_visit: appt.date,
-        first_visit: existing.first_visit || appt.date,
-        // Backfill a missing email from the appointment, but never clobber an
-        // email the patient record already has with a blank/older value.
-        ...((existing as any).email ? {} : { email: appt.patient_email || (existing as any).email }),
-      } as any).eq("id", existing.id);
-    } else {
-      await supabase.from("patients").insert({
-        doctor_id: profile.id, name: appt.patient_name, phone: appt.patient_phone,
-        first_visit: appt.date, last_visit: appt.date, total_visits: 1,
-        age: appt.patient_age, gender: appt.patient_gender, email: appt.patient_email,
-      });
-    }
-  };
-
-  // BUG-014: status can be changed at any time. On transition INTO "completed",
-  // the patient is added / their visit count incremented.
+  // BUG-014: status can be changed at any time. The patient record, the visit count and
+  // the invoice are handled by the database when an appointment becomes completed
+  // (sync_appointment_patient / invoice_on_appointment_billable), so the same result
+  // follows whichever screen changes the status, and a double click cannot count twice.
   const syncZoom = async (appointmentId: string, action: "update" | "delete") => {
     try {
       await supabase.functions.invoke("create-zoom-meeting", {
@@ -263,31 +265,35 @@ const AppointmentsPage = () => {
     }
   };
 
+  const statusBusy = useRef(false);
   const updateStatus = async (id: string, status: string) => {
-    const current = appointments.find((a) => a.id === id);
-    await supabase.from("appointments").update({ status: status as any }).eq("id", id);
-    if (status === "completed" && current && current.status !== "completed") {
-      await upsertPatientForCompletion(current);
-      // Persist an invoice now so Revenue/Billing remain intact even if the
-      // appointment is deleted later.
-      try {
-        await ensureInvoiceForAppointment({
-          id: current.id,
-          doctor_id: (profile as any).id,
-          patient_name: current.patient_name,
-          service_name: current.service_name,
-          amount: current.amount,
-        });
-      } catch (e) {
-        console.warn("Invoice generation failed", e);
+    if (statusBusy.current) return;
+    statusBusy.current = true;
+    try {
+      const current = appointments.find((a) => a.id === id);
+      // .select() so a row the policies silently refused to touch shows up as "0 rows".
+      const { data, error } = await supabase.from("appointments").update({ status: status as any }).eq("id", id).select("id");
+      if (error || !data || data.length === 0) {
+        toast.error(error?.message?.includes("Not authorized") ? "You don't have permission to change this appointment." : "Could not update the appointment.");
+        load();
+        return;
       }
+      // Delete Zoom meeting if the appointment is cancelled or a no-show.
+      if ((status === "cancelled" || status === "no_show") && current?.zoom_meeting_id) {
+        await syncZoom(id, "delete");
+      }
+      await load();
+      toast.success(`Marked ${status.replace("_", " ")}`);
+    } finally {
+      statusBusy.current = false;
     }
-    // Delete Zoom meeting if the appointment is cancelled or a no-show.
-    if ((status === "cancelled" || status === "no_show") && current?.zoom_meeting_id) {
-      await syncZoom(id, "delete");
-    }
+  };
+
+  const markPaid = async (id: string, method: string) => {
+    const { data, error } = await (supabase as any).rpc("queue_action", { _action: "mark_paid", _appointment_id: id, _payment_method: method });
+    if (error || !data?.ok) { toast.error(data?.error === "ALREADY_SETTLED" ? "This payment is already settled." : "Could not record the payment."); return; }
+    toast.success("Payment recorded");
     load();
-    toast.success(`Marked ${status.replace("_", " ")}`);
   };
 
   // Shared by both the card kebab menu and the detail panel so the two
@@ -344,7 +350,7 @@ const AppointmentsPage = () => {
 
 
   const addAppointment = async () => {
-    if (!profile) return;
+    if (!profile || adding) return;
     if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
     if (newAppt.patient_phone.trim() && !isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
     if (newAppt.amount < 0) { toast.error("Amount cannot be negative"); return; }
@@ -371,12 +377,17 @@ const AppointmentsPage = () => {
     const token = `T${Math.floor(Math.random() * 900) + 100}`;
     const { status, time_slot, ...rest } = newAppt;
     const serviceName = rest.service_name.trim() || "Clinic Visit";
+    const paidNow = countersPaid && Number(rest.amount) > 0;
+    setAdding(true);
     const { error } = await supabase.from("appointments").insert({
       doctor_id: profile.id, ...rest, time_slot: isWalkIn ? null : time_slot, service_name: serviceName,
       appointment_type: "clinic",
       patient_phone: normalizedPhone,
-      token_number: token, status: status as any, payment_status: "pending" as any,
-    });
+      token_number: token, status: status as any,
+      payment_status: (paidNow ? "paid" : "pending") as any,
+      ...(paidNow ? { payment_method: payMethod, paid_at: new Date().toISOString() } : {}),
+    } as any);
+    setAdding(false);
     if (error) {
       if (error.message.includes("MONTHLY_APPOINTMENT_CAP_REACHED")) {
         toast.error("You've reached your plan's monthly appointment limit. Upgrade to Premium for unlimited appointments.");
@@ -386,7 +397,8 @@ const AppointmentsPage = () => {
       return;
     }
 
-    // BUG-04: patient row created only when appointment is completed.
+    // The database creates the patient record when staff book (so walk-ins show up in
+    // Patients straight away) and counts the visit once, when the appointment completes.
 
     setShowNew(false);
     setSlotConflict(null);
@@ -484,13 +496,41 @@ const AppointmentsPage = () => {
                   <AmountInput placeholder="0" value={newAppt.amount === 0 ? "" : newAppt.amount} onChange={(e) => setNewAppt({ ...newAppt, amount: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
                 </div>
               </div>
-              <Button onClick={() => addAppointment()} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Add Appointment</Button>
+              <div className="rounded-xl border border-border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox id="counter-paid" checked={countersPaid && newAppt.amount > 0} disabled={newAppt.amount <= 0} onCheckedChange={(v) => setCountersPaid(v === true)} />
+                  <Label htmlFor="counter-paid" className="text-sm font-normal cursor-pointer">Payment received at the counter</Label>
+                </div>
+                {countersPaid && newAppt.amount > 0 && (
+                  <Select value={payMethod} onValueChange={setPayMethod}>
+                    <SelectTrigger className="h-9" aria-label="Payment method"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <Button onClick={() => addAppointment()} disabled={writeDisabled || adding} className="w-full h-10 bg-royal hover:bg-royal/90">{adding ? "Adding…" : "Add Appointment"}</Button>
             </div>
           </DialogContent>
         </Dialog>
         )}
       </div>
 
+      <div className="inline-flex rounded-lg border border-border p-0.5 bg-secondary/50" role="tablist" aria-label="Appointments view">
+        <Button role="tab" aria-selected={view === "list"} size="sm" variant={view === "list" ? "default" : "ghost"} className={`h-8 ${view === "list" ? "bg-royal hover:bg-royal/90" : ""}`} onClick={() => setView("list")}>
+          <ListChecks className="h-4 w-4 mr-1" /> All appointments
+        </Button>
+        <Button role="tab" aria-selected={view === "queue"} size="sm" variant={view === "queue" ? "default" : "ghost"} className={`h-8 ${view === "queue" ? "bg-royal hover:bg-royal/90" : ""}`} onClick={() => setView("queue")}>
+          <Users className="h-4 w-4 mr-1" /> Live queue
+        </Button>
+      </div>
+
+      {view === "queue" && profile && (
+        <LiveQueue doctorId={profile.id} doctorSlug={(profile as any).slug} canAct={can("appointments.edit")} writeDisabled={writeDisabled} />
+      )}
+
+      {view === "list" && (<>
       {nearCap && (
         <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
           <p className="text-sm text-foreground">
@@ -641,8 +681,8 @@ const AppointmentsPage = () => {
                       <div>
                         <div className="font-medium text-foreground flex items-center gap-2">
                           {a.patient_name}
-                          {a.token_number && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold">#{a.token_number}</span>
+                          {a.queue_number != null && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold" title="Queue number">Q{a.queue_number}</span>
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
@@ -705,6 +745,7 @@ const AppointmentsPage = () => {
       {filtered.length > 0 && (
         <PaginationBar page={page} totalCount={totalCount} onPageChange={setPage} />
       )}
+      </>)}
 
       {/* Appointment Detail Sheet */}
       <Sheet open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
@@ -729,7 +770,7 @@ const AppointmentsPage = () => {
                         ) : (
                           <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> —</span>
                         )}
-                        {viewing.token_number && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold">#{viewing.token_number}</span>}
+                        {viewing.queue_number != null && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold" title="Queue number">Q{viewing.queue_number}</span>}
                       </p>
                     </div>
                   </div>
@@ -770,7 +811,7 @@ const AppointmentsPage = () => {
                       { label: "Service", value: viewing.service_name },
                       { label: "Type", value: viewing.appointment_type },
                       { label: "Amount", value: `₹${viewing.amount}` },
-                      { label: "Payment", value: viewing.payment_status === "paid" ? "Paid" : "Unpaid" },
+                      { label: "Payment", value: paymentLabel(viewing) },
                     ].map((item) => (
                       <div key={item.label} className="bg-secondary rounded-xl p-3">
                         <div className="text-[11px] text-muted-foreground mb-1">{item.label}</div>
@@ -778,6 +819,19 @@ const AppointmentsPage = () => {
                       </div>
                     ))}
                   </div>
+
+                  {can("appointments.edit") && ["pending", "pay_at_clinic"].includes(viewing.payment_status) && (
+                    <div className="space-y-2">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Collect payment (₹{viewing.amount})</div>
+                      <div className="flex flex-wrap gap-2">
+                        {PAYMENT_METHODS.map((m) => (
+                          <Button key={m.value} size="sm" variant="outline" className="h-9 text-xs" disabled={writeDisabled} onClick={() => markPaid(viewing.id, m.value)}>
+                            Paid · {m.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {viewing.appointment_type === "online" && (
                     <VideoConsultationCard

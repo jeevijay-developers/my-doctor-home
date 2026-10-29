@@ -13,13 +13,14 @@ import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { Button } from "@/components/ui/button";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 
-const SOURCE_ICON: Record<DoctorNotification["source_type"], typeof MessageSquare> = {
+const SOURCE_ICON: Record<string, typeof MessageSquare> = {
   ticket_reply: LifeBuoy,
   direct_message: MessageSquare,
   broadcast: Radio,
   trial_warning: Clock,
   cap_warning: Gauge,
   plan_warning: CreditCard,
+  plan_request: CreditCard,
 };
 
 // Coarse "Xh" / "Xd Yh" remaining, not a live-ticking countdown — this is a
@@ -80,7 +81,10 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
     if (!n.is_read) markAsRead(n.id);
     if (n.source_type === "ticket_reply" && n.ticket_id) {
       navigate(`/admin/support?ticket=${n.ticket_id}`);
-    } else if (n.source_type === "trial_warning" || n.source_type === "cap_warning" || n.source_type === "plan_warning") {
+    } else if (
+      n.source_type === "trial_warning" || n.source_type === "cap_warning" || n.source_type === "plan_warning" ||
+      n.source_type === "plan_request" || /plan|trial|subscription/i.test(n.title)
+    ) {
       navigate("/admin/settings?tab=subscription");
     }
   };
@@ -140,7 +144,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                   ) : (
                     <div className="max-h-80 overflow-y-auto divide-y divide-border">
                       {notifications.map((n) => {
-                        const Icon = SOURCE_ICON[n.source_type];
+                        const Icon = SOURCE_ICON[n.source_type] ?? Bell;
                         return (
                           <button
                             key={n.id}
@@ -210,7 +214,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                 <span>
                   {trialStatus.isStaff
                     ? "Your clinic's Doctylia plan needs renewal. Editing is disabled until it's upgraded — contact your administrator."
-                    : `Your trial has ended. You have read-only access${graceRemaining ? ` for ${graceRemaining} more` : ""} — upgrade to keep editing.`}
+                    : `Your ${trialStatus.kind === "plan" ? "plan has expired" : "trial has ended"}. You have read-only access${graceRemaining ? ` for ${graceRemaining} more` : ""} — ${trialStatus.kind === "plan" ? "renew" : "upgrade"} to keep editing.`}
                 </span>
               </div>
               {!trialStatus.isStaff && (

@@ -93,7 +93,7 @@ describe("AppointmentsPage - amount autofill", () => {
   it("defaults the new appointment time slot to Walk-in", async () => {
     await openNewAppointment();
 
-    expect(within(screen.getByRole("dialog")).getByRole("combobox")).toHaveTextContent("Walk-in");
+    expect(within(screen.getByRole("dialog")).getAllByRole("combobox")[0]).toHaveTextContent("Walk-in");
   });
 
   it("pre-fills Amount with the doctor's default consultation fee when adding an appointment", async () => {

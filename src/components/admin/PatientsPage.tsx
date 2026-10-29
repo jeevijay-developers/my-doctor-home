@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -44,7 +44,7 @@ const PatientsPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [dateFilterActive, setDateFilterActive] = useState(true);
+  const [dateFilterActive, setDateFilterActive] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
   const [datesWithVisits, setDatesWithVisits] = useState<Set<string>>(new Set());
@@ -93,8 +93,10 @@ const PatientsPage = () => {
     toast.success("Patient deleted");
   };
 
+  const loadSeq = useRef(0);
   const load = async () => {
     if (!profile) return;
+    const seq = ++loadSeq.current;
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
     let q = supabase.from("patients").select("*", { count: "exact" }).eq("doctor_id", profile.id);
@@ -108,19 +110,34 @@ const PatientsPage = () => {
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%`);
     q = q.order("last_visit", { ascending: false }).range(from, to);
-    const { data, count } = await q;
+    const { data, count, error } = await q;
+    if (seq !== loadSeq.current) return;
+    if (error) { console.error("Patients load failed:", error.message); return; }
     setPatients((data || []) as Patient[]);
     setTotalCount(count ?? 0);
   };
+  // The realtime listener is created once, so it has to reach the CURRENT load
+  // (current search, date filter and page) rather than the first render's.
+  const loadRef = useRef<() => Promise<void>>(async () => {});
+  loadRef.current = load;
 
   // Distinct visit dates for the calendar dot indicators — a separate,
   // unpaginated query since the loaded `patients` page no longer holds the
   // full set of records.
   const loadDatesWithVisits = async () => {
     if (!profile) return;
-    const { data } = await supabase.from("patients").select("created_at").eq("doctor_id", profile.id);
-    setDatesWithVisits(new Set((data || []).map((r: any) => format(new Date(r.created_at), "yyyy-MM-dd"))));
+    const dates = new Set<string>();
+    for (let start = 0; ; start += 1000) {
+      const { data, error } = await supabase
+        .from("patients").select("created_at").eq("doctor_id", profile.id).range(start, start + 999);
+      if (error || !data) break;
+      data.forEach((r: any) => dates.add(format(new Date(r.created_at), "yyyy-MM-dd")));
+      if (data.length < 1000) break;
+    }
+    setDatesWithVisits(dates);
   };
+  const loadDatesRef = useRef<() => Promise<void>>(async () => {});
+  loadDatesRef.current = loadDatesWithVisits;
 
   // Reset to page 1 whenever the result set changes shape underneath the pager.
   useEffect(() => { setPage(1); }, [selectedDate, dateFilterActive, debouncedSearch]);
@@ -136,7 +153,7 @@ const PatientsPage = () => {
   useEffect(() => {
     if (!profile) return;
     const channel = supabase.channel(`patients-${profile.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` }, () => { load(); loadDatesWithVisits(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` }, () => { loadRef.current(); loadDatesRef.current(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
@@ -153,7 +170,10 @@ const PatientsPage = () => {
       email: newPatient.email || null, age: newPatient.age ? Number(newPatient.age) : null,
       gender: newPatient.gender || null,
     });
-    if (error) { toast.error("Could not add patient"); return; }
+    if (error) {
+      toast.error(error.code === "23505" ? "A patient with this name and phone number already exists." : "Could not add patient");
+      return;
+    }
     setShowNew(false);
     setNewPatient({ name: "", phone: "", email: "", age: "", gender: "" });
     load();
@@ -168,8 +188,16 @@ const PatientsPage = () => {
   // fetches independently of the paginated `patients` state.
   const exportPatients = async () => {
     if (!profile) return;
-    const { data } = await supabase.from("patients").select("*").eq("doctor_id", profile.id).order("last_visit", { ascending: false });
-    const rows = (data || []) as Patient[];
+    // Page through everything: one select stops at 1000 rows and would silently truncate.
+    const rows: Patient[] = [];
+    for (let start = 0; ; start += 1000) {
+      const { data, error } = await supabase
+        .from("patients").select("*").eq("doctor_id", profile.id)
+        .order("last_visit", { ascending: false }).order("id").range(start, start + 999);
+      if (error) { toast.error("Could not export patients"); return; }
+      rows.push(...((data || []) as Patient[]));
+      if (!data || data.length < 1000) break;
+    }
     if (!rows.length) { toast.info("No patients to export"); return; }
     // Force Excel to treat a value as text (prevents scientific notation on
     // phone numbers and prevents dates from collapsing to "#######").

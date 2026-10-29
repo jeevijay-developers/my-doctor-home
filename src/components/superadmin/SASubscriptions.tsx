@@ -210,8 +210,10 @@ const SASubscriptions = () => {
       return;
     }
     const value = Number(raw);
-    if (!Number.isFinite(value) || value < 0) {
-      toast({ title: "Invalid price", description: "Price must be zero or a positive number.", variant: "destructive" });
+    // Zero is refused: checkout cannot create a ₹0 Razorpay order, so a ₹0
+    // price would block that doctor's next renewal. Use Reset to drop the override.
+    if (!Number.isFinite(value) || value <= 0 || value > 100000) {
+      toast({ title: "Invalid price", description: "Enter an amount above 0 and up to 1,00,000, or use Reset to remove the override.", variant: "destructive" });
       return;
     }
 

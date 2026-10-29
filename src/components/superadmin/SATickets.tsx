@@ -92,7 +92,7 @@ const SATickets = () => {
     // (doctor or a specific staff member), not always the doctor — see
     // the 2026-08-19 migration. Falls back to doctor_id for any pre-migration
     // ticket that somehow has no submitted_by_user_id.
-    await supabase.from("notifications" as any).insert({
+    const { error: notifyErr } = await supabase.from("notifications" as any).insert({
       doctor_id: open.doctor_id,
       recipient_user_id: open.submitted_by_user_id ?? open.doctor_id,
       source_type: "ticket_reply",
@@ -103,7 +103,11 @@ const SATickets = () => {
     } as any);
     await logAdminAction("reply_to_ticket", "support_tickets", open.id, { reply: reply.trim() });
     setSendingReply(false);
-    toast({ title: "Reply sent" });
+    toast(
+      notifyErr
+        ? { title: "Reply saved, but the doctor was not notified", description: notifyErr.message, variant: "destructive" }
+        : { title: "Reply sent" },
+    );
     setOpen({ ...open, ...patch });
     load();
   };

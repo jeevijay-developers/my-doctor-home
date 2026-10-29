@@ -77,12 +77,12 @@ const SAFlags = () => {
   const openPricingConfirm = () => {
     const newPro = Number(proInput);
     const newPremium = Number(premiumInput);
-    if (!Number.isFinite(newPro) || newPro < 1) {
-      toast({ title: "Invalid Pro price", description: "Price must be a positive number.", variant: "destructive" });
+    if (!Number.isInteger(newPro) || newPro < 1 || newPro > 100000) {
+      toast({ title: "Invalid Pro price", description: "Enter a whole number of rupees between 1 and 1,00,000.", variant: "destructive" });
       return;
     }
-    if (!Number.isFinite(newPremium) || newPremium < 1) {
-      toast({ title: "Invalid Premium price", description: "Price must be a positive number.", variant: "destructive" });
+    if (!Number.isInteger(newPremium) || newPremium < 1 || newPremium > 100000) {
+      toast({ title: "Invalid Premium price", description: "Enter a whole number of rupees between 1 and 1,00,000.", variant: "destructive" });
       return;
     }
     setPricingConfirmOpen(true);
@@ -94,15 +94,14 @@ const SAFlags = () => {
     setSavingPricing(true);
 
     const now = new Date().toISOString();
-    const { error: e1 } = await supabase
-      .from("platform_settings")
-      .upsert({ key: "pro_default_price", value: newPro as any, updated_at: now });
-    const { error: e2 } = await supabase
-      .from("platform_settings")
-      .upsert({ key: "premium_default_price", value: newPremium as any, updated_at: now });
+    // One statement, so both prices change together or not at all.
+    const { error: priceErr } = await supabase.from("platform_settings").upsert([
+      { key: "pro_default_price", value: newPro as any, updated_at: now },
+      { key: "premium_default_price", value: newPremium as any, updated_at: now },
+    ]);
 
-    if (e1 || e2) {
-      toast({ title: "Failed to save prices", description: (e1 ?? e2)?.message, variant: "destructive" });
+    if (priceErr) {
+      toast({ title: "Failed to save prices", description: priceErr.message, variant: "destructive" });
       setSavingPricing(false);
       setPricingConfirmOpen(false);
       return;

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type DoctorNotification = {
   id: string;
-  source_type: "ticket_reply" | "direct_message" | "broadcast" | "trial_warning" | "cap_warning" | "plan_warning";
+  source_type: "ticket_reply" | "direct_message" | "broadcast" | "trial_warning" | "cap_warning" | "plan_warning" | "plan_request";
   title: string;
   message: string;
   ticket_id: string | null;
@@ -24,7 +24,11 @@ export type DoctorNotification = {
 // profile.id (which is deliberately the doctor's id for staff sessions).
 export function useDoctorNotifications(recipientUserId: string | undefined) {
   const [notifications, setNotifications] = useState<DoctorNotification[]>([]);
+  // Counted on the server, so unread items older than the 30 shown still count.
+  const [unreadTotal, setUnreadTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const requestSeq = useRef(0);
+  const instanceId = useId();
 
   // Expiry/cap warnings (trial_warning, cap_warning, plan_warning) are
   // inserted server-side by SECURITY DEFINER cron functions — never
@@ -34,34 +38,70 @@ export function useDoctorNotifications(recipientUserId: string | undefined) {
   // duplicate the cron's dedup/eligibility rules in a second place that
   // drifts out of sync with it.
   const refresh = useCallback(async () => {
-    if (!recipientUserId) { setNotifications([]); setLoading(false); return; }
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("notifications" as any)
-      .select("id, source_type, title, message, ticket_id, is_read, created_at")
-      .eq("recipient_user_id", recipientUserId)
-      .order("created_at", { ascending: false })
-      .limit(30);
-    if (error) console.error("Failed to load notifications:", error.message);
-    setNotifications((data as unknown as DoctorNotification[]) ?? []);
+    if (!recipientUserId) { setNotifications([]); setUnreadTotal(0); setLoading(false); return; }
+    const seq = ++requestSeq.current;
+    const [list, unread] = await Promise.all([
+      supabase
+        .from("notifications" as any)
+        .select("id, source_type, title, message, ticket_id, is_read, created_at")
+        .eq("recipient_user_id", recipientUserId)
+        .order("created_at", { ascending: false })
+        .limit(30),
+      supabase
+        .from("notifications" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("recipient_user_id", recipientUserId)
+        .eq("is_read", false),
+    ]);
+    if (seq !== requestSeq.current) return;
+    if (list.error) {
+      // Keep what we had rather than blanking the inbox on a transient error.
+      console.error("Failed to load notifications:", list.error.message);
+    } else {
+      setNotifications((list.data as unknown as DoctorNotification[]) ?? []);
+      if (!unread.error) setUnreadTotal(unread.count ?? 0);
+    }
     setLoading(false);
   }, [recipientUserId]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // New notifications (a ticket reply, a plan decision, a cron warning) show up
+  // without a reload.
+  useEffect(() => {
+    if (!recipientUserId) return;
+    const channel = supabase
+      .channel(`notifications-${recipientUserId}-${instanceId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications", filter: `recipient_user_id=eq.${recipientUserId}` },
+        () => refresh()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [recipientUserId, instanceId, refresh]);
+
   const markAsRead = useCallback(async (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
-    await supabase.from("notifications" as any).update({ is_read: true } as any).eq("id", id);
-  }, []);
+    setUnreadTotal((c) => Math.max(0, c - 1));
+    const { error } = await supabase.from("notifications" as any).update({ is_read: true } as any).eq("id", id);
+    if (error) refresh();
+  }, [refresh]);
 
   const markAllAsRead = useCallback(async () => {
-    const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id);
-    if (unreadIds.length === 0) return;
+    if (!recipientUserId || unreadTotal === 0) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    await supabase.from("notifications" as any).update({ is_read: true } as any).in("id", unreadIds);
-  }, [notifications]);
+    setUnreadTotal(0);
+    // By recipient, not by the loaded ids, so unread items beyond the first 30 are cleared too.
+    const { error } = await supabase
+      .from("notifications" as any)
+      .update({ is_read: true } as any)
+      .eq("recipient_user_id", recipientUserId)
+      .eq("is_read", false);
+    if (error) refresh();
+  }, [recipientUserId, unreadTotal, refresh]);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-
-  return { notifications, unreadCount, loading, refresh, markAsRead, markAllAsRead };
+  return { notifications, unreadCount: unreadTotal, loading, refresh, markAsRead, markAllAsRead };
 }

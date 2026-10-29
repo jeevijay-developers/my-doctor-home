@@ -13,9 +13,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   // hard-block wall below — the distinction only matters for its copy, kept
   // in blockReason so a suspended doctor doesn't see trial-expiry wording.
   const [accessLevel, setAccessLevel] = useState<TrialAccessLevel>("full");
-  const [blockReason, setBlockReason] = useState<"cancelled" | "trial">("trial");
+  const [blockReason, setBlockReason] = useState<"cancelled" | "trial" | "plan" | "inactive">("trial");
   const [isStaff, setIsStaff] = useState(false);
   const [trialEnd, setTrialEnd] = useState<string | null>(null);
+  const [planEnd, setPlanEnd] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -31,15 +32,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         setTimeout(async () => {
           const { data: prof } = await supabase
             .from("profiles")
-            .select("plan_status, trial_end")
+            .select("plan_status, trial_end, plan_end")
             .eq("id", s.user.id)
             .maybeSingle();
           if (prof) {
             if (!mounted) return;
             setIsStaff(false);
-            setBlockReason(prof.plan_status === "cancelled" ? "cancelled" : "trial");
+            setBlockReason(prof.plan_status === "cancelled" ? "cancelled" : prof.trial_end ? "trial" : "plan");
             setTrialEnd(prof.trial_end);
-            setAccessLevel(computeTrialAccess(prof.plan_status, prof.trial_end));
+            setPlanEnd(prof.plan_end);
+            setAccessLevel(computeTrialAccess(prof.plan_status, prof.trial_end, prof.plan_end));
             return;
           }
           // No profiles row under this session's own id — check whether
@@ -52,7 +54,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             .eq("id", s.user.id)
             .maybeSingle();
           if (staffRow?.status !== "active") {
-            if (mounted) { setIsStaff(true); setAccessLevel("full"); }
+            // No profile and no active staff row: nothing grants this login
+            // access (removed staff, orphaned account) — don't fall through to "full".
+            if (mounted) { setIsStaff(true); setBlockReason("inactive"); setAccessLevel("blocked"); }
             return;
           }
           // Plain profiles SELECT is gated by "View Profile", which this
@@ -61,9 +65,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           const detail = data?.[0];
           if (!mounted) return;
           setIsStaff(true);
-          setBlockReason(detail?.plan_status === "cancelled" ? "cancelled" : "trial");
+          setBlockReason(detail?.plan_status === "cancelled" ? "cancelled" : detail?.trial_end ? "trial" : "plan");
           setTrialEnd(detail?.trial_end ?? null);
-          setAccessLevel(computeTrialAccess(detail?.plan_status, detail?.trial_end));
+          setPlanEnd(detail?.plan_end ?? null);
+          setAccessLevel(computeTrialAccess(detail?.plan_status, detail?.trial_end, detail?.plan_end));
         }, 0);
       } else {
         setAccessLevel("full");
@@ -114,6 +119,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
                 <UpgradeCheckoutDialog targetTier="premium" trigger={<Button className="w-full bg-royal hover:bg-royal/90">Reactivate Premium</Button>} />
               </div>
             </>
+          ) : blockReason === "inactive" ? (
+            <>
+              <h1 className="font-heading font-bold text-2xl text-primary mb-2">Access unavailable</h1>
+              <p className="text-muted-foreground">This login no longer has access to a clinic. Please contact your clinic administrator.</p>
+            </>
           ) : isStaff ? (
             <>
               <h1 className="font-heading font-bold text-2xl text-primary mb-2">Access unavailable</h1>
@@ -121,8 +131,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             </>
           ) : (
             <>
-              <h1 className="font-heading font-bold text-2xl text-primary mb-2">Your trial has ended</h1>
-              <p className="text-muted-foreground">Upgrade to a paid plan to get back into your dashboard — your data is safe and waiting for you.</p>
+              <h1 className="font-heading font-bold text-2xl text-primary mb-2">{blockReason === "plan" ? "Your plan has expired" : "Your trial has ended"}</h1>
+              <p className="text-muted-foreground">
+                {blockReason === "plan" ? "Renew your plan" : "Upgrade to a paid plan"} to get back into your dashboard — your data is safe and waiting for you.
+              </p>
               {/* Embedded directly rather than a link to /admin/billing —
                   that route is behind this same ProtectedRoute, so a blocked
                   doctor would just hit this wall again. */}
@@ -139,7 +151,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <TrialStatusProvider value={{ accessLevel, isStaff, graceEndsAt: accessLevel === "grace" ? graceEndsAtFrom(trialEnd) : null }}>
+    <TrialStatusProvider value={{ accessLevel, isStaff, graceEndsAt: accessLevel === "grace" ? graceEndsAtFrom(trialEnd ?? planEnd) : null, kind: trialEnd ? "trial" : "plan" }}>
       {children}
     </TrialStatusProvider>
   );

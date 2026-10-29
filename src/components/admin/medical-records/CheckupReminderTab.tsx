@@ -159,12 +159,18 @@ const CheckupReminderTab = ({ patientId, doctorId, onChange }: { patientId: stri
     setBusy(channel);
     const fn = channel === "whatsapp" ? "send-whatsapp-notification" : "send-sms-notification";
     const { data: { session } } = await supabase.auth.getSession();
-    const { error } = await supabase.functions.invoke(fn, {
+    const { data, error } = await supabase.functions.invoke(fn, {
       headers: { Authorization: `Bearer ${session?.access_token}` },
       body: { patient_id: patientId, checkup_date: reminder?.next_checkup_date, reminder_id: reminder?.id, is_test: true },
     });
     setBusy(null);
     if (error) { toast.error(await edgeFunctionErrorMessage(error, `Could not generate test ${channel === "whatsapp" ? "WhatsApp" : "SMS"} reminder`)); return; }
+    // The function answers 200 even when the provider rejected the message.
+    if (data?.notification?.status === "failed") {
+      toast.error(`The ${channel === "whatsapp" ? "WhatsApp" : "SMS"} provider could not send the test message. Check the delivery log for details.`);
+      load();
+      return;
+    }
     toast.success(`Test ${channel === "whatsapp" ? "WhatsApp" : "SMS"} reminder generated successfully.`);
     load();
   };

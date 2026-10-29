@@ -26,12 +26,24 @@ const ManageAppointment = () => {
   const [doctor, setDoctor] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
   const [workingHours, setWorkingHours] = useState<any[]>([]);
-  const [token, setToken] = useState(params.get("token") || "");
-  const [phone, setPhone] = useState(params.get("phone") || "");
+  // Links carry the token and phone in the URL fragment (#), which never reaches servers
+  // or Referer headers; older links used the query string, which is still accepted.
+  const hashParams = useMemo(() => new URLSearchParams(window.location.hash.replace(/^#/, "")), []);
+  const [token, setToken] = useState(hashParams.get("token") || params.get("token") || "");
+  const [phone, setPhone] = useState(hashParams.get("phone") || params.get("phone") || "");
+  // Once read, take them out of the address bar and the browser history entry.
+  useEffect(() => {
+    if (window.location.hash || params.get("token") || params.get("phone")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [loading, setLoading] = useState(false);
   const [appt, setAppt] = useState<Appt | null>(null);
   const [upcomingCheckup, setUpcomingCheckup] = useState<{ doctor_name: string; next_checkup_date: string; reminder_enabled: boolean } | null>(null);
-  const [queuePos, setQueuePos] = useState<number | null>(null);
+  const [queueInfo, setQueueInfo] = useState<{
+    found: boolean; queue_number?: number; state?: string; ahead?: number | null; now_serving?: number | null; avg_minutes?: number | null;
+  } | null>(null);
   const [rescheduling, setRescheduling] = useState(false);
   const [newDate, setNewDate] = useState<Date | null>(null);
   const [newTime, setNewTime] = useState("");
@@ -86,8 +98,6 @@ const ManageAppointment = () => {
       return;
     }
     setAppt(row as Appt);
-    refreshQueue(row.id);
-
     const { data: checkupData } = await (supabase as any).rpc("get_upcoming_checkup", {
       _doctor_id: doctor.id, _phone: row.patient_phone,
     });
@@ -101,32 +111,28 @@ const ManageAppointment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctor]);
 
-  const refreshQueue = async (id: string) => {
-    const { data } = await (supabase as any).rpc("get_queue_position", { _appointment_id: id });
-    setQueuePos(typeof data === "number" ? data : 0);
-  };
-
-  // Realtime queue updates
+  // Live place in line. Visitors have no read access to appointments, so realtime never
+  // reaches them; they poll one narrow function that returns numbers only.
   useEffect(() => {
-    if (!appt || !doctor) return;
-    const channel = supabase
-      .channel(`manage-${appt.id}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${doctor.id}` },
-        () => {
-          refreshQueue(appt.id);
-          // Refresh appt itself to catch status/date changes
-          (supabase as any).rpc("get_appointment_by_token", {
-            _doctor_id: doctor.id, _token: appt.token_number, _phone: appt.patient_phone,
-          }).then(({ data }: any) => {
-            const row = Array.isArray(data) ? data[0] : data;
-            if (row) setAppt(row);
-          });
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [appt?.id, doctor?.id]);
+    if (!appt || !doctor || appt.appointment_type !== "clinic") return;
+    let cancelled = false;
+    const refresh = async () => {
+      const { data } = await (supabase as any).rpc("get_my_queue_status", {
+        _doctor_id: doctor.id, _token: appt.token_number, _phone: appt.patient_phone,
+      });
+      if (!cancelled && data) setQueueInfo(data);
+      // Also refresh the appointment itself to catch status/date changes.
+      const { data: fresh } = await (supabase as any).rpc("get_appointment_by_token", {
+        _doctor_id: doctor.id, _token: appt.token_number, _phone: appt.patient_phone,
+      });
+      const row = Array.isArray(fresh) ? fresh[0] : fresh;
+      if (!cancelled && row && (row.status !== appt.status || row.date !== appt.date || row.time_slot !== appt.time_slot)) setAppt(row);
+    };
+    refresh();
+    const timer = setInterval(refresh, 10000);
+    return () => { cancelled = true; clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appt?.id, appt?.status, doctor?.id]);
 
   const cutoffHours = settings?.cancellation_cutoff_hours ?? 2;
   const apptTs = appt?.time_slot ? parseISO(`${appt.date}T${appt.time_slot}`) : null;
@@ -265,13 +271,28 @@ const ManageAppointment = () => {
                   </div>
                 )}
 
-                {(appt.status === "pending" || appt.status === "confirmed") && queuePos !== null && appt.appointment_type === "clinic" && (
-                  <div className="p-3 rounded-xl bg-royal/5 border border-royal/20 text-sm text-royal flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    <span className="font-semibold">
-                      {queuePos === 0 ? "You're next in line!" : `You are #${queuePos + 1} in queue (${queuePos} ahead)`}
-                    </span>
-                    <span className="ml-auto text-[10px] flex items-center gap-1 opacity-70"><RefreshCw className="h-3 w-3" /> live</span>
+                {queueInfo?.found && appt.appointment_type === "clinic" && (
+                  <div className="p-3 rounded-xl bg-royal/5 border border-royal/20 text-sm text-royal space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      <span className="font-semibold">
+                        {queueInfo.state === "serving" && "It's your turn — please go in."}
+                        {queueInfo.state === "waiting" && (queueInfo.ahead === 0 ? "You're next in line!" : `${queueInfo.ahead} patient${queueInfo.ahead === 1 ? "" : "s"} ahead of you`)}
+                        {queueInfo.state === "skipped" && "You were skipped — please check with the reception."}
+                        {queueInfo.state === "done" && "Your visit is complete."}
+                        {(queueInfo.state === "cancelled" || queueInfo.state === "no_show") && "This visit is closed."}
+                      </span>
+                      <span className="ml-auto text-[10px] flex items-center gap-1 opacity-70"><RefreshCw className="h-3 w-3" /> live</span>
+                    </div>
+                    {(queueInfo.state === "waiting" || queueInfo.state === "serving") && (
+                      <div className="text-xs text-royal/80">
+                        Your number: <strong>#{queueInfo.queue_number}</strong>
+                        {queueInfo.now_serving != null && <> · Now serving: <strong>#{queueInfo.now_serving}</strong></>}
+                        {queueInfo.state === "waiting" && queueInfo.avg_minutes != null && queueInfo.ahead != null && (
+                          <> · about {Math.max(1, Math.round((queueInfo.ahead + (queueInfo.now_serving != null ? 0.5 : 0)) * queueInfo.avg_minutes))} min</>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

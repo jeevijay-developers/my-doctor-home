@@ -57,6 +57,15 @@ Staff permissions are fine-grained keys like `"patients.view"` / `"billing.manag
 - Payments run through Razorpay (`create-razorpay-order`, `verify-razorpay-payment`, `razorpay-webhook`, refunds, payouts) — in addition to doctor subscription plans, online patient payments for consultations and clinical services deduct the configured platform service charge percentage (`profiles.commission_percent` override or `platform_settings.default_commission_percent`) and automatically route the net doctor share (`doctor_share`) to the doctor's Razorpay Route Linked Account (`transfers[]` on order creation, reversed via `reverse_all: 1` on refund). See `CONTEXT.md` and `docs/adr/0001-razorpay-route-commission-split.md`.
 - Migrations are in `supabase/migrations/` (sequential, timestamped) — this is the source of truth for schema, not the generated `types.ts`.
 
+### Appointments, patients and the live queue
+
+The database owns these rules; the UI only calls and renders them (`supabase/migrations/20261029*.sql`):
+
+- **Patient record + visit count + invoice** are produced by `BEFORE`/`AFTER` triggers on `appointments` (`sync_appointment_patient`, `invoice_on_appointment_billable`), not by client code. Staff bookings create the patient immediately; the visit is counted once (`visit_counted`) when the appointment becomes completed; an invoice exists only once the visit is completed **and** paid (or pay-at-clinic).
+- **`guard_appointment_writes`** forces anonymous bookings to `pending` / `pay_at_clinic` and blocks client writes to gateway payment columns and to `refunded`. Edge functions use the service role and are trusted; cron and migrations have no JWT role and are trusted too.
+- **Queue**: `appointments.queue_number` is assigned by the database per doctor per day (never by the browser). Staff actions go through the single `queue_action` RPC (call next, complete, skip, recall, no-show, priority with a required reason, mark paid) and are logged to `queue_events`. Waiting order is `priority DESC, sort_time, created_at`; `src/lib/queue.ts` mirrors it for rendering. Public screens (`/dr/:slug/queue`, the manage-appointment page) use `get_public_queue` / `get_my_queue_status`, which return queue **numbers only** — never names, phones or complaints.
+- Overdue appointments are closed nightly by `expire_overdue_appointments()` (called-but-unclosed → completed, never-called → no-show); the browser no longer does this.
+
 ### Doctor discovery & SEO
 
 Full plan in `docs/doctor-discovery-plan.md`. The app is a client-rendered SPA, so crawlers and link previews would only see the generic `index.html`. `vercel.json` rewrites `/dr/:slug` and `/doctors[/:city[/:specialty]]` to the Vercel Edge function `api/seo.ts` (logic in `src/lib/seo/handleSeoRequest.ts`), which injects page-specific head tags, JSON-LD and crawlable body into the built `index.html`, and falls back to the plain shell on any upstream failure. `DoctorPublicPage` and the Edge function share `src/lib/seo/doctorSeo.ts`.

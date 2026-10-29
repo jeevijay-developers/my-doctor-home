@@ -38,7 +38,7 @@ export function useFeatureAccess() {
   const instanceId = useId();
 
   const refetch = useCallback(async () => {
-    if (!profile?.id) return;
+    if (!profile?.id) { setLoading(false); return; }
     const seq = ++requestSeq.current;
     const { data, error } = await supabase.rpc("get_doctor_feature_access", { _doctor_id: profile.id });
     if (seq !== requestSeq.current) return;

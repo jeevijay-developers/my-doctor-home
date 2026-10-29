@@ -28,7 +28,7 @@ const growthTips = [
 ];
 
 const DashboardHome = () => {
-  const { profile } = useProfile();
+  const { profile, isStaff } = useProfile();
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
   const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, pendingTodayCount: 0, weekRevenue: 0, lastWeekAppts: 0, reviewCount: 0, avgRating: 0 });
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
@@ -124,7 +124,7 @@ const DashboardHome = () => {
 
 
   const daysLeft = profile?.trial_end
-    ? Math.max(0, differenceInDays(new Date(profile.trial_end), new Date()))
+    ? Math.max(0, Math.ceil((new Date(profile.trial_end).getTime() - Date.now()) / 86400000))
     : 7;
   const trialProgress = ((7 - daysLeft) / 7) * 100;
 
@@ -196,7 +196,7 @@ const DashboardHome = () => {
             </h1>
             <p className="text-white/60 mt-0.5 text-xs md:text-sm">Here's what's happening with your practice today.</p>
           </div>
-          {profile?.plan_status === "trial" && (
+          {profile?.plan_status === "trial" && !isStaff && (
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 min-w-[220px]">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="h-4 w-4 text-spark" />
@@ -211,7 +211,7 @@ const DashboardHome = () => {
         </div>
       </div>
 
-      {isTrialEndingSoon && !urgentBannerDismissed && (
+      {isTrialEndingSoon && !isStaff && !urgentBannerDismissed && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2.5">
             <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />

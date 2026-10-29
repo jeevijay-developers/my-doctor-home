@@ -74,7 +74,8 @@ async function openNewAppointment() {
 }
 
 function openTimeSlotSelect() {
-  fireEvent.click(within(screen.getByRole("dialog")).getByRole("combobox"));
+  // The first combobox is the time slot; a payment-method select follows it.
+  fireEvent.click(within(screen.getByRole("dialog")).getAllByRole("combobox")[0]);
 }
 
 describe("walk-in appointments", () => {
@@ -105,6 +106,29 @@ describe("walk-in appointments", () => {
     fireEvent.click(screen.getByRole("button", { name: /add appointment/i }));
 
     await waitFor(() => expect(insertPayload.current?.patient_phone).toBe(""));
+  });
+
+  it("records the counter payment on a walk-in by default", async () => {
+    await openNewAppointment();
+
+    fireEvent.change(screen.getByPlaceholderText("Full name"), { target: { value: "Cash Patient" } });
+    fireEvent.click(screen.getByRole("button", { name: /add appointment/i }));
+
+    await waitFor(() => expect(insertPayload.current?.payment_status).toBe("paid"));
+    expect(insertPayload.current?.payment_method).toBe("cash");
+    expect(insertPayload.current?.paid_at).toEqual(expect.any(String));
+  });
+
+  it("leaves the payment pending when it was not received at the counter", async () => {
+    await openNewAppointment();
+
+    fireEvent.change(screen.getByPlaceholderText("Full name"), { target: { value: "Pay Later Patient" } });
+    fireEvent.click(screen.getByLabelText(/payment received at the counter/i));
+    fireEvent.click(screen.getByRole("button", { name: /add appointment/i }));
+
+    await waitFor(() => expect(insertPayload.current?.patient_name).toBe("Pay Later Patient"));
+    expect(insertPayload.current?.payment_status).toBe("pending");
+    expect(insertPayload.current?.payment_method).toBeUndefined();
   });
 
   it("displays Walk-in for an appointment with a null time_slot", async () => {

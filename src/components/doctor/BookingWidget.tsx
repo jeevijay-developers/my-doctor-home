@@ -602,7 +602,8 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
             {profile?.slug && (
               <a
-                href={`/dr/${profile.slug}/manage?token=${encodeURIComponent(token)}&phone=${encodeURIComponent(phone)}`}
+                // The fragment (after #) is never sent to servers or in Referer headers, unlike a query string.
+                href={`/dr/${profile.slug}/manage#token=${encodeURIComponent(token)}&phone=${encodeURIComponent(phone)}`}
                 className="block text-xs text-royal hover:underline mb-4"
               >
                 Manage this appointment (cancel or reschedule) →
