@@ -52,4 +52,43 @@ describe("usePlanAccess", () => {
 
     expect(result.current.nearCap).toBe(false);
   });
+
+  it("reports an unlimited custom plan for a non-premium doctor: no cap, never 'near cap'", async () => {
+    (supabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: [{ is_premium: false, appointments_used: 480, appointments_cap: 0, appointments_unlimited: true, standard_cap: 100 }],
+      error: null,
+    });
+    const { result } = renderHook(() => usePlanAccess());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.isPremium).toBe(false);
+    expect(result.current.appointmentsUnlimited).toBe(true);
+    expect(result.current.standardCap).toBe(100);
+    expect(result.current.nearCap).toBe(false);
+  });
+
+  it("uses the custom limit as the cap and keeps the standard limit for the plan cards", async () => {
+    (supabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: [{ is_premium: false, appointments_used: 280, appointments_cap: 300, appointments_unlimited: false, standard_cap: 100 }],
+      error: null,
+    });
+    const { result } = renderHook(() => usePlanAccess());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.appointmentsCap).toBe(300);
+    expect(result.current.standardCap).toBe(100);
+    expect(result.current.nearCap).toBe(true); // 280 / 300
+  });
+
+  it("re-reads straight away when the custom plan changes, so the meter never lags the plan", async () => {
+    const rpc = supabase.rpc as ReturnType<typeof vi.fn>;
+    rpc.mockResolvedValue({ data: [{ is_premium: false, appointments_used: 10, appointments_cap: 100, appointments_unlimited: false, standard_cap: 100 }], error: null });
+    const { result } = renderHook(() => usePlanAccess());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.appointmentsCap).toBe(100);
+
+    rpc.mockResolvedValue({ data: [{ is_premium: false, appointments_used: 10, appointments_cap: 0, appointments_unlimited: true, standard_cap: 100 }], error: null });
+    window.dispatchEvent(new Event("doctylia:custom-plan-changed"));
+    await waitFor(() => expect(result.current.appointmentsUnlimited).toBe(true));
+  });
 });

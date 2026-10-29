@@ -70,13 +70,13 @@ const SettingsPage = () => {
   const daysLeft = profile?.trial_end ? Math.max(0, Math.ceil((new Date(profile.trial_end).getTime() - Date.now()) / 86400000)) : 0;
   const trialProgress = Math.min(100, Math.max(0, ((7 - daysLeft) / 7) * 100));
 
-  const { isPremium, appointmentsCap } = usePlanAccess();
+  const { isPremium, appointmentsCap, standardCap } = usePlanAccess();
   const planTier = profile?.plan_tier || "free";
   const planStatus = profile?.plan_status || "trial";
   const { basic, premium } = getSubscriptionCardStates(planStatus, planTier, isPremium);
   const { customPlan } = useCustomPlan();
-  const basicFeatures = applyCustomPlanToBullets(getTierFeatures("pro", appointmentsCap || DEFAULT_APPOINTMENT_CAP), customPlan, "pro");
-  const premiumFeatures = applyCustomPlanToBullets(getTierFeatures("premium", appointmentsCap || DEFAULT_APPOINTMENT_CAP), customPlan, "premium");
+  const basicFeatures = applyCustomPlanToBullets(getTierFeatures("pro", standardCap || appointmentsCap || DEFAULT_APPOINTMENT_CAP), customPlan, "pro");
+  const premiumFeatures = applyCustomPlanToBullets(getTierFeatures("premium", standardCap || appointmentsCap || DEFAULT_APPOINTMENT_CAP), customPlan, "premium");
 
   if (isStaff) {
     return (

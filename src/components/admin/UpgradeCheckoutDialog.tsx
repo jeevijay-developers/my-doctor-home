@@ -10,6 +10,7 @@ import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { loadRazorpayCheckout } from "@/lib/razorpayCheckout";
 import { TIER_LABELS, TIER_PRICES, hasNoActivePlan, getTierFeatures, getDoctorTierPrice, DEFAULT_APPOINTMENT_CAP } from "@/lib/planFeatures";
 import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
+import { applyCustomPlanToBullets } from "@/lib/customPlan";
 import { useCustomPlan } from "@/hooks/useCustomPlan";
 import MockCheckoutModal from "@/components/doctor/MockCheckoutModal";
 import TestModeBadge from "@/components/shared/TestModeBadge";
@@ -26,7 +27,7 @@ const UpgradeCheckoutDialog = ({
   trigger: React.ReactNode;
 }) => {
   const { profile } = useProfile();
-  const { appointmentsCap } = usePlanAccess();
+  const { appointmentsCap, standardCap } = usePlanAccess();
   const { isMock } = usePaymentMode();
   const { proPrice, premiumPrice, loading: pricesLoading } = usePlanPrices();
   const livePrices = planPricesToRecord({ proPrice, premiumPrice });
@@ -43,8 +44,13 @@ const UpgradeCheckoutDialog = ({
   // showing the default price for a moment before the real one has loaded.
   const verifying = useRef(false);
   const toLabel = TIER_LABELS[targetTier];
-  const features = getTierFeatures(targetTier, appointmentsCap || DEFAULT_APPOINTMENT_CAP);
   const { customPlan, loading: customPlanLoading } = useCustomPlan();
+  // The same card content the Settings page shows, so a custom price is never next to the standard limit.
+  const features = applyCustomPlanToBullets(
+    getTierFeatures(targetTier, standardCap || appointmentsCap || DEFAULT_APPOINTMENT_CAP),
+    customPlan,
+    targetTier,
+  ).filter((b) => b.kind !== "removed").map((b) => b.text);
   const price = getDoctorTierPrice(targetTier, profile, livePrices, customPlan);
 
   // Check if plan will be scheduled or activated immediately

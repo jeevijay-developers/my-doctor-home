@@ -8,7 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { useCustomPlan } from "@/hooks/useCustomPlan";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
-import { customPlanApplication, diffFeatureSelection, type PlanRequest } from "@/lib/customPlan";
+import {
+  APPOINTMENTS_UNLIMITED, controlFromLimit, customPlanApplication, describeAppointmentsLimit, diffFeatureSelection, limitFromControl,
+  type LimitMode, type PlanRequest,
+} from "@/lib/customPlan";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
+import AppointmentsLimitControl from "./AppointmentsLimitControl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -25,6 +30,7 @@ const CustomPlanSection = () => {
   const { profile } = useProfile();
   const { customPlan, pendingRequest, latestDecided, refetch } = useCustomPlan();
   const { rows } = useFeatureAccess();
+  const { appointmentsCap, appointmentsUnlimited, standardCap, loading: accessLoading } = usePlanAccess();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -35,6 +41,19 @@ const CustomPlanSection = () => {
   const currentTier = profile?.plan_tier || "free";
   const canRequest = planStatus === "active" && !pendingRequest && (currentTier === "pro" || currentTier === "premium");
   const application = customPlanApplication(customPlan, currentTier);
+  // Premium is already unlimited, so only Pro doctors can ask for a different limit.
+  // Wait for the real numbers: a made-up "100" would let an unlimited doctor ask for unlimited, or
+  // compare a request against the wrong limit.
+  const knownCap = appointmentsUnlimited ? 0 : appointmentsCap || standardCap || 0;
+  const limitConfig = currentTier === "pro" && !accessLoading && (appointmentsUnlimited || knownCap > 0)
+    ? { standardCap: standardCap || knownCap, effective: appointmentsUnlimited ? null : knownCap }
+    : undefined;
+  const limitBadge = (limit: number | null | undefined) =>
+    limit == null ? null : (
+      <Badge className="bg-success/15 text-success border-0 hover:bg-success/15 text-[11px]">
+        Appointments: {describeAppointmentsLimit(limit)}
+      </Badge>
+    );
   const tierName = planTierName;
 
   const withdraw = async (req: PlanRequest) => {
@@ -159,6 +178,7 @@ const CustomPlanSection = () => {
             {customPlan.removed_features.map((k) => (
               <Badge key={k} className="bg-muted text-muted-foreground border-0 hover:bg-muted text-[11px]"><Minus className="h-3 w-3 mr-0.5" />{labelFor(k)}</Badge>
             ))}
+            {customPlan.base_tier === "pro" && limitBadge(customPlan.monthly_appointments_limit)}
           </div>
         </div>
       )}
@@ -180,6 +200,9 @@ const CustomPlanSection = () => {
             {pendingRequest.remove_features.map((k) => (
               <Badge key={k} variant="outline" className="text-[11px]"><Minus className="h-3 w-3 mr-0.5" />{labelFor(k)}</Badge>
             ))}
+            {pendingRequest.requested_appointments_limit != null && (
+              <Badge variant="outline" className="text-[11px]">Appointments: {describeAppointmentsLimit(pendingRequest.requested_appointments_limit)}</Badge>
+            )}
           </div>
         </div>
       )}
@@ -199,6 +222,7 @@ const CustomPlanSection = () => {
         onOpenChange={setDialogOpen}
         features={requestable.map((r) => ({ key: r.feature_key, label: r.label, description: r.description, enabled: r.effective_enabled }))}
         onSubmitted={refetch}
+        appointmentsLimit={limitConfig}
       />
     </div>
   );
@@ -207,32 +231,45 @@ const CustomPlanSection = () => {
 type DialogFeature = { key: string; label: string; description: string; enabled: boolean };
 
 export const CustomizePlanDialog = ({
-  open, onOpenChange, features, onSubmitted,
+  open, onOpenChange, features, onSubmitted, appointmentsLimit,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   features: DialogFeature[];
   onSubmitted: () => void;
+  /** Only for Pro doctors. `effective` is the current monthly limit, null when unlimited. */
+  appointmentsLimit?: { standardCap: number; effective: number | null };
 }) => {
   const [desired, setDesired] = useState<Record<string, boolean> | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [limitMode, setLimitMode] = useState<LimitMode>("keep");
+  const [limitText, setLimitText] = useState("");
 
   // Seed from the current state each time the dialog opens.
   const state = desired ?? Object.fromEntries(features.map((f) => [f.key, f.enabled]));
   const current = new Set(features.filter((f) => f.enabled).map((f) => f.key));
   const wanted = new Set(Object.entries(state).filter(([, v]) => v).map(([k]) => k));
   const { add, remove } = diffFeatureSelection(current, wanted, features.map((f) => f.key));
-  const unchanged = add.length + remove.length === 0;
+  const requested = appointmentsLimit ? limitFromControl(limitMode, limitText) : { value: null, valid: true };
+  const sameAsCurrent = !!appointmentsLimit && requested.value != null &&
+    (requested.value === appointmentsLimit.effective ||
+      (requested.value === APPOINTMENTS_UNLIMITED && appointmentsLimit.effective === null));
+  const unchanged = add.length + remove.length === 0 && (requested.value == null || sameAsCurrent);
+  const invalidLimit = !!appointmentsLimit && limitMode === "number" && !requested.valid;
 
   const close = (o: boolean) => {
-    if (!o) { setDesired(null); setNote(""); }
+    if (!o) { setDesired(null); setNote(""); setLimitMode("keep"); setLimitText(""); }
     onOpenChange(o);
   };
 
   const submit = async () => {
     setBusy(true);
-    const { error } = await supabase.rpc("submit_plan_request" as any, { _add: add, _remove: remove, _note: note.trim() || null });
+    const { error } = await supabase.rpc("submit_plan_request" as any, {
+      _add: add, _remove: remove, _note: note.trim() || null,
+      // Sent only when the doctor actually asked for a different limit.
+      ...(appointmentsLimit && requested.value != null && !sameAsCurrent ? { _appointments_limit: requested.value } : {}),
+    });
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Request sent. We'll notify you once it's reviewed.");
@@ -272,6 +309,19 @@ export const CustomizePlanDialog = ({
             );
           })}
         </div>
+        {appointmentsLimit && (
+          <AppointmentsLimitControl
+            mode={limitMode}
+            numberText={limitText}
+            onModeChange={setLimitMode}
+            onNumberChange={setLimitText}
+            keepLabel="Keep current"
+            unlimitedDisabled={appointmentsLimit.effective === null}
+            // Only complain once something has been typed (an empty field is just "not filled in yet").
+            invalid={invalidLimit && limitText.trim() !== ""}
+            hint={`You can book ${appointmentsLimit.effective === null ? "unlimited appointments" : `up to ${appointmentsLimit.effective}`} a month now. Ask for more, or for unlimited, and our team sets the price.`}
+          />
+        )}
         {remove.length > 0 && (
           <p className="text-xs text-muted-foreground">
             Removing a feature hides it but never deletes your data. Anything you've already created stays safe.
@@ -284,8 +334,8 @@ export const CustomizePlanDialog = ({
           onChange={(e) => setNote(e.target.value)}
           className="text-sm"
         />
-        <Button onClick={submit} disabled={busy || unchanged} className="w-full bg-royal hover:bg-royal/90">
-          {busy ? "Sending…" : unchanged ? "Change at least one feature" : "Send request"}
+        <Button onClick={submit} disabled={busy || unchanged || invalidLimit} className="w-full bg-royal hover:bg-royal/90">
+          {busy ? "Sending…" : unchanged ? (appointmentsLimit ? "Change at least one feature or the limit" : "Change at least one feature") : "Send request"}
         </Button>
       </DialogContent>
     </Dialog>

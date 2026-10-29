@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { applyCustomPlanToBullets, customPlanApplication, diffFeatureSelection, isCustomPlanActive, type CustomPlan } from "./customPlan";
+import {
+  applyCustomPlanToBullets, controlFromLimit, customPlanApplication, describeAppointmentsLimit, diffFeatureSelection, isCustomPlanActive,
+  isValidAppointmentsLimit, limitFromControl, type CustomPlan,
+} from "./customPlan";
 import { getDoctorTierPrice } from "./planFeatures";
 
 const basePlan: CustomPlan = {
@@ -91,5 +94,52 @@ describe("customPlanApplication", () => {
   it("is none outside its dates or when there is no plan", () => {
     expect(customPlanApplication({ ...basePlan, valid_until: "2026-05-31T00:00:00Z" }, "pro", now)).toBe("none");
     expect(customPlanApplication(null, "pro", now)).toBe("none");
+  });
+});
+
+describe("monthly appointment limit", () => {
+  it("validates a whole number from 1 to 100000", () => {
+    expect(isValidAppointmentsLimit(300)).toBe(true);
+    expect(isValidAppointmentsLimit(0)).toBe(false);
+    expect(isValidAppointmentsLimit(-1)).toBe(false); // -1 means unlimited and is never typed
+    expect(isValidAppointmentsLimit(2.5)).toBe(false);
+    expect(isValidAppointmentsLimit(100001)).toBe(false);
+  });
+
+  it("turns the control into the value to send, and back", () => {
+    expect(limitFromControl("keep", "")).toEqual({ value: null, valid: true });
+    expect(limitFromControl("unlimited", "")).toEqual({ value: -1, valid: true });
+    expect(limitFromControl("number", "300")).toEqual({ value: 300, valid: true });
+    expect(limitFromControl("number", "")).toEqual({ value: null, valid: false });
+    expect(limitFromControl("number", "abc")).toEqual({ value: null, valid: false });
+    expect(limitFromControl("number", "0")).toEqual({ value: null, valid: false });
+    expect(controlFromLimit(null)).toEqual({ mode: "keep", numberText: "" });
+    expect(controlFromLimit(-1)).toEqual({ mode: "unlimited", numberText: "" });
+    expect(controlFromLimit(300)).toEqual({ mode: "number", numberText: "300" });
+  });
+
+  it("describes a limit in words", () => {
+    expect(describeAppointmentsLimit(null, 100)).toBe("Standard (100 per month)");
+    expect(describeAppointmentsLimit(null)).toBe("Standard limit");
+    expect(describeAppointmentsLimit(-1)).toBe("Unlimited");
+    expect(describeAppointmentsLimit(300)).toBe("300 per month");
+  });
+
+  const proBullets = ["Your branded website", "Online appointment booking", "Up to 100 appointments/month", "Basic analytics"];
+
+  it("replaces the Pro card's appointment line with the custom limit", () => {
+    const withLimit = applyCustomPlanToBullets(proBullets, { ...basePlan, monthly_appointments_limit: 300, extra_features: [], removed_features: [] }, "pro");
+    expect(withLimit.map((b) => b.text)).not.toContain("Up to 100 appointments/month");
+    expect(withLimit).toContainEqual({ text: "Up to 300 appointments/month", kind: "added" });
+
+    const unlimited = applyCustomPlanToBullets(proBullets, { ...basePlan, monthly_appointments_limit: -1, extra_features: [], removed_features: [] }, "pro");
+    expect(unlimited).toContainEqual({ text: "Unlimited appointments", kind: "added" });
+  });
+
+  it("leaves the standard line alone with no custom limit, and never touches another tier's card", () => {
+    const standard = applyCustomPlanToBullets(proBullets, { ...basePlan, monthly_appointments_limit: null, extra_features: [], removed_features: [] }, "pro");
+    expect(standard.map((b) => b.text)).toContain("Up to 100 appointments/month");
+    const premiumCard = applyCustomPlanToBullets(["Unlimited appointments"], { ...basePlan, monthly_appointments_limit: 300 }, "premium");
+    expect(premiumCard).toEqual([{ text: "Unlimited appointments", kind: "base" }]);
   });
 });

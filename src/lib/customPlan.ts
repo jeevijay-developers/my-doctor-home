@@ -9,6 +9,8 @@ export type CustomPlan = {
   extra_features: string[];
   removed_features: string[];
   monthly_price: number;
+  /** null = the tier's standard limit, -1 = unlimited, n = n appointments per month. */
+  monthly_appointments_limit?: number | null;
   valid_from: string;
   valid_until: string | null;
   status: "active" | "expired" | "cancelled";
@@ -27,6 +29,9 @@ export type PlanRequest = {
   reviewer_note: string | null;
   approved_features: string[] | null;
   approved_price: number | null;
+  /** Same encoding as CustomPlan.monthly_appointments_limit. */
+  requested_appointments_limit?: number | null;
+  approved_appointments_limit?: number | null;
   valid_from: string | null;
   valid_until: string | null;
   decided_at: string | null;
@@ -58,6 +63,38 @@ export function customPlanApplication(
   return plan.base_tier === currentTier ? "applies" : "tier_mismatch";
 }
 
+// ---- Monthly appointment limit -------------------------------------------------------------
+// A number, not an on/off feature, so it is not one of the `features` rows. NULL means the tier's
+// standard limit, -1 unlimited, otherwise that many appointments per month.
+export const APPOINTMENTS_UNLIMITED = -1;
+export const MAX_APPOINTMENTS_LIMIT = 100000;
+export type LimitMode = "keep" | "number" | "unlimited";
+
+export function isValidAppointmentsLimit(n: number): boolean {
+  return Number.isInteger(n) && n >= 1 && n <= MAX_APPOINTMENTS_LIMIT;
+}
+
+// The control's state -> the value to send. `valid` is false while a typed number is unusable.
+export function limitFromControl(mode: LimitMode, numberText: string): { value: number | null; valid: boolean } {
+  if (mode === "keep") return { value: null, valid: true };
+  if (mode === "unlimited") return { value: APPOINTMENTS_UNLIMITED, valid: true };
+  const n = Number(numberText);
+  return numberText.trim() !== "" && isValidAppointmentsLimit(n) ? { value: n, valid: true } : { value: null, valid: false };
+}
+
+// A stored value -> the control's starting state.
+export function controlFromLimit(limit: number | null | undefined): { mode: LimitMode; numberText: string } {
+  if (limit == null) return { mode: "keep", numberText: "" };
+  if (limit === APPOINTMENTS_UNLIMITED) return { mode: "unlimited", numberText: "" };
+  return { mode: "number", numberText: String(limit) };
+}
+
+export function describeAppointmentsLimit(limit: number | null | undefined, standard?: number): string {
+  if (limit == null) return standard ? `Standard (${standard} per month)` : "Standard limit";
+  if (limit === APPOINTMENTS_UNLIMITED) return "Unlimited";
+  return `${limit} per month`;
+}
+
 // Which static card bullet describes which gated feature, so a custom plan can
 // add/remove the matching line instead of the card lying about what's included.
 export const FEATURE_BULLETS: Record<string, string> = {
@@ -82,11 +119,15 @@ export function applyCustomPlanToBullets(
   if (!isCustomPlanActive(plan) || plan.base_tier !== tier) return base;
 
   const removedTexts = new Set(plan.removed_features.map((k) => FEATURE_BULLETS[k]).filter(Boolean));
-  const kept = base.filter((b) => !removedTexts.has(b.text));
+  const limit = tier === "pro" ? plan.monthly_appointments_limit ?? null : null;
+  const kept = base.filter((b) => !removedTexts.has(b.text) && !(limit != null && /appointments\/month/i.test(b.text)));
   const already = new Set(kept.map((b) => b.text));
   const added: CardBullet[] = plan.extra_features
     .filter((k) => !already.has(FEATURE_BULLETS[k] ?? ""))
     .map((k) => ({ text: labelFor(k), kind: "added" as const }));
+  if (limit != null) {
+    added.unshift({ text: limit === APPOINTMENTS_UNLIMITED ? "Unlimited appointments" : `Up to ${limit} appointments/month`, kind: "added" });
+  }
   const removed: CardBullet[] = plan.removed_features.map((k) => ({ text: labelFor(k), kind: "removed" as const }));
   return [...kept, ...added, ...removed];
 }

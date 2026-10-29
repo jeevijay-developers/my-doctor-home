@@ -1,15 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import CustomPlanSection from "./CustomPlanSection";
 
 const state = vi.hoisted(() => ({
   profile: { id: "d1", plan_tier: "premium", plan_status: "active" } as any,
   customPlan: null as any,
+  access: { loading: false, appointmentsCap: 100, appointmentsUnlimited: false, standardCap: 100 } as any,
 }));
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: vi.fn().mockResolvedValue({ error: null }) } }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: () => ({ profile: state.profile }) }));
+vi.mock("@/hooks/usePlanAccess", () => ({ usePlanAccess: () => state.access }));
 vi.mock("@/hooks/useFeatureAccess", () => ({ useFeatureAccess: () => ({ rows: [{ feature_key: "online_consultation", label: "Online Consultation", description: "", effective_enabled: true, is_requestable: true }] }) }));
 vi.mock("@/hooks/useCustomPlan", () => ({
   useCustomPlan: () => ({ customPlan: state.customPlan, pendingRequest: null, latestDecided: null, refetch: vi.fn() }),
@@ -24,6 +26,7 @@ describe("CustomPlanSection", () => {
   beforeEach(() => {
     state.profile = { id: "d1", plan_tier: "premium", plan_status: "active" };
     state.customPlan = null;
+    state.access = { loading: false, appointmentsCap: 100, appointmentsUnlimited: false, standardCap: 100 };
   });
 
   it("says the plan applies when the doctor is on the tier it was built on", () => {
@@ -50,5 +53,44 @@ describe("CustomPlanSection", () => {
     render(<CustomPlanSection />);
     expect(screen.getByRole("button", { name: /customize plan/i })).toBeDisabled();
     expect(screen.getByText(/once you're on the Pro or Premium plan/i)).toBeInTheDocument();
+  });
+
+  it("shows the custom appointment limit as its own badge when the plan applies", () => {
+    state.profile = { id: "d1", plan_tier: "pro", plan_status: "active" };
+    state.customPlan = plan({ monthly_appointments_limit: 300 });
+    render(<CustomPlanSection />);
+    expect(screen.getByText("Appointments: 300 per month")).toBeInTheDocument();
+  });
+
+  it("says unlimited when the plan is unlimited", () => {
+    state.profile = { id: "d1", plan_tier: "pro", plan_status: "active" };
+    state.customPlan = plan({ monthly_appointments_limit: -1 });
+    render(<CustomPlanSection />);
+    expect(screen.getByText("Appointments: Unlimited")).toBeInTheDocument();
+  });
+
+  it("does not offer the appointment-limit control until the real limit has loaded", async () => {
+    state.profile = { id: "d1", plan_tier: "pro", plan_status: "active" };
+    state.access = { loading: true, appointmentsCap: 0, appointmentsUnlimited: false, standardCap: 0 };
+    const { unmount } = render(<CustomPlanSection />);
+    fireEvent.click(screen.getByRole("button", { name: /customize plan/i }));
+    expect(await screen.findByText(/switch features on or off/i)).toBeInTheDocument();
+    expect(screen.queryByText("Monthly appointments")).not.toBeInTheDocument();
+    unmount();
+
+    state.access = { loading: false, appointmentsCap: 300, appointmentsUnlimited: false, standardCap: 100 };
+    render(<CustomPlanSection />);
+    fireEvent.click(screen.getByRole("button", { name: /customize plan/i }));
+    expect(await screen.findByText("Monthly appointments")).toBeInTheDocument();
+    expect(screen.getByText(/up to 300 a month now/i)).toBeInTheDocument();
+  });
+
+  it("never offers the limit control to a Premium doctor (already unlimited)", async () => {
+    state.profile = { id: "d1", plan_tier: "premium", plan_status: "active" };
+    state.access = { loading: false, appointmentsCap: 0, appointmentsUnlimited: true, standardCap: 100 };
+    render(<CustomPlanSection />);
+    fireEvent.click(screen.getByRole("button", { name: /customize plan/i }));
+    expect(await screen.findByText(/switch features on or off/i)).toBeInTheDocument();
+    expect(screen.queryByText("Monthly appointments")).not.toBeInTheDocument();
   });
 });

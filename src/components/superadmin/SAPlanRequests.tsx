@@ -19,7 +19,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { CustomPlan, PlanRequest } from "@/lib/customPlan";
+import { controlFromLimit, describeAppointmentsLimit, limitFromControl, type CustomPlan, type LimitMode, type PlanRequest } from "@/lib/customPlan";
+import AppointmentsLimitControl from "@/components/admin/AppointmentsLimitControl";
 import { formatIstDate } from "@/lib/istDate";
 
 type DoctorInfo = { full_name: string | null; clinic_name: string | null; plan_tier: string | null; plan_status: string | null; plan_end: string | null };
@@ -104,10 +105,11 @@ const SAPlanRequests = () => {
       <div className="text-xs text-muted-foreground truncate">{d?.clinic_name || "—"} · {d?.plan_tier || "free"} / {d?.plan_status || "—"}</div>
     </div>
   );
-  const Changes = ({ add, remove }: { add: string[]; remove: string[] }) => (
+  const Changes = ({ add, remove, limit }: { add: string[]; remove: string[]; limit?: number | null }) => (
     <div className="flex flex-wrap gap-1">
       {add.map((k) => <Badge key={k} variant="outline" className="text-[10px]"><Plus className="h-3 w-3 mr-0.5" />{labelFor(k)}</Badge>)}
       {remove.map((k) => <Badge key={k} variant="outline" className="text-[10px]"><Minus className="h-3 w-3 mr-0.5" />{labelFor(k)}</Badge>)}
+      {limit != null && <Badge variant="outline" className="text-[10px]">Appointments: {describeAppointmentsLimit(limit)}</Badge>}
     </div>
   );
 
@@ -165,7 +167,7 @@ const SAPlanRequests = () => {
                   {pending.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell><DoctorCell d={r.profiles} /></TableCell>
-                      <TableCell><Changes add={r.add_features} remove={r.remove_features} />{r.doctor_note && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">“{r.doctor_note}”</p>}</TableCell>
+                      <TableCell><Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} />{r.doctor_note && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">“{r.doctor_note}”</p>}</TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{fmt(r.created_at)}</TableCell>
                       <TableCell className="text-right"><Button size="sm" onClick={() => setReviewing(r)}>Review</Button></TableCell>
                     </TableRow>
@@ -176,7 +178,7 @@ const SAPlanRequests = () => {
                 {pending.map((r) => (
                   <Card key={r.id}><CardContent className="p-3 space-y-2">
                     <DoctorCell d={r.profiles} />
-                    <Changes add={r.add_features} remove={r.remove_features} />
+                    <Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} />
                     {r.doctor_note && <p className="text-xs text-muted-foreground">“{r.doctor_note}”</p>}
                     <div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">{fmt(r.created_at)}</span><Button size="sm" onClick={() => setReviewing(r)}>Review</Button></div>
                   </CardContent></Card>
@@ -195,7 +197,7 @@ const SAPlanRequests = () => {
                   {activePlans.map((p) => (
                     <TableRow key={p.doctor_id}>
                       <TableCell><DoctorCell d={p.profiles} /></TableCell>
-                      <TableCell><Changes add={p.extra_features} remove={p.removed_features} /></TableCell>
+                      <TableCell><Changes add={p.extra_features} remove={p.removed_features} limit={p.base_tier === "pro" ? p.monthly_appointments_limit : null} /></TableCell>
                       <TableCell className="text-sm whitespace-nowrap">₹{p.monthly_price}<div className="text-[11px] text-muted-foreground">std ₹{standardPrice(p.base_tier)}</div></TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{fmt(p.valid_from)} → {p.valid_until ? fmt(p.valid_until) : "no end"}
                         {isStuck(p) && <div className="text-warning font-medium whitespace-normal max-w-[220px]">Not applied: built on {p.base_tier}, doctor is on {doctorTier(p)}. The doctor still pays the standard price.</div>}</TableCell>
@@ -212,7 +214,7 @@ const SAPlanRequests = () => {
                 {activePlans.map((p) => (
                   <Card key={p.doctor_id}><CardContent className="p-3 space-y-2">
                     <DoctorCell d={p.profiles} />
-                    <Changes add={p.extra_features} remove={p.removed_features} />
+                    <Changes add={p.extra_features} remove={p.removed_features} limit={p.base_tier === "pro" ? p.monthly_appointments_limit : null} />
                     <div className="text-xs text-muted-foreground">₹{p.monthly_price}/month · {fmt(p.valid_from)} → {p.valid_until ? fmt(p.valid_until) : "no end"}</div>
                     {isStuck(p) && <div className="text-xs text-warning font-medium">Not applied: built on {p.base_tier}, doctor is on {doctorTier(p)}.</div>}
                     {canManage && <div className="flex gap-2 justify-end">{canRebase(p) && <Button size="sm" onClick={() => setRebasing(p)}>Apply to {doctorTier(p)}</Button>}<Button size="sm" variant="outline" onClick={() => setEditingPlan(p)}>Edit</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => setCancelling(p)}>End</Button></div>}
@@ -232,7 +234,7 @@ const SAPlanRequests = () => {
                   {history.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell><DoctorCell d={r.profiles} /></TableCell>
-                      <TableCell><Changes add={r.add_features} remove={r.remove_features} /></TableCell>
+                      <TableCell><Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} /></TableCell>
                       <TableCell className="text-xs space-y-1">{statusBadge(r.status)}
                         {r.status === "approved" && <div className="text-muted-foreground">₹{r.approved_price} · until {r.valid_until ? fmt(r.valid_until) : "no end"}</div>}
                         {r.reviewer_note && <div className="text-muted-foreground">“{r.reviewer_note}”</div>}</TableCell>
@@ -245,7 +247,7 @@ const SAPlanRequests = () => {
                 {history.map((r) => (
                   <Card key={r.id}><CardContent className="p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2"><DoctorCell d={r.profiles} />{statusBadge(r.status)}</div>
-                    <Changes add={r.add_features} remove={r.remove_features} />
+                    <Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} />
                     {r.reviewer_note && <p className="text-xs text-muted-foreground">“{r.reviewer_note}”</p>}
                     <div className="text-xs text-muted-foreground">{fmt(r.decided_at)}</div>
                   </CardContent></Card>
@@ -261,6 +263,8 @@ const SAPlanRequests = () => {
           request={reviewing}
           features={features.filter((f) => f.is_active && f.is_requestable)}
           standardPrice={standardPrice(reviewing.profiles?.plan_tier ?? null)}
+          // activePlans = inside its dates only, so an expired or not-yet-started plan never seeds the limit
+          currentLimit={activePlans.find((p) => p.doctor_id === reviewing.doctor_id && p.base_tier === "pro")?.monthly_appointments_limit ?? null}
           canManage={canManage}
           onClose={() => setReviewing(null)}
           onDone={() => { setReviewing(null); load(); }}
@@ -304,11 +308,13 @@ const SAPlanRequests = () => {
 };
 
 const ReviewDialog = ({
-  request, features, standardPrice, canManage, onClose, onDone,
+  request, features, standardPrice, currentLimit, canManage, onClose, onDone,
 }: {
   request: RequestRow;
   features: FeatureRow[];
   standardPrice: number;
+  /** The doctor's live custom appointment limit, if any: the starting point when the request does not ask for one. */
+  currentLimit?: number | null;
   canManage: boolean;
   onClose: () => void;
   onDone: () => void;
@@ -322,6 +328,12 @@ const ReviewDialog = ({
   const [until, setUntil] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  // Only Pro-based plans have a limit to set (Premium is already unlimited).
+  const proDoctor = request.profiles?.plan_tier === "pro";
+  const startLimit = controlFromLimit(request.requested_appointments_limit ?? currentLimit ?? null);
+  const [limitMode, setLimitMode] = useState<LimitMode>(startLimit.mode);
+  const [limitText, setLimitText] = useState(startLimit.numberText);
+  const limitChoice = limitFromControl(limitMode, limitText);
 
   const paidUntil = request.profiles?.plan_end ?? null;
   const endsBeforeRenewal = !!until && !!paidUntil && new Date(istEnd(until)).getTime() <= new Date(paidUntil).getTime() + 86400000;
@@ -358,6 +370,9 @@ const ReviewDialog = ({
       if (from && until && until < from) {
         return toast({ title: "End date is before the start date", variant: "destructive" });
       }
+      if (proDoctor && !limitChoice.valid) {
+        return toast({ title: "Enter a valid appointment limit", description: "A whole number from 1 to 100000, or choose Unlimited.", variant: "destructive" });
+      }
     }
     setBusy(true);
     const { error } = await supabase.rpc("review_plan_request" as any, {
@@ -368,6 +383,9 @@ const ReviewDialog = ({
       _valid_from: decision === "approve" && from && from > today() ? istStart(from) : null,
       _valid_until: decision === "approve" && until ? istEnd(until) : null,
       _note: note.trim() || null,
+      // Explicit for a Pro doctor: 0 = reset to the standard limit, -1 = unlimited, n = n. Left out otherwise,
+      // which the database reads as "keep what the plan has".
+      ...(decision === "approve" && proDoctor ? { _appointments_limit: limitChoice.value ?? 0 } : {}),
     });
     setBusy(false);
     if (error) {
@@ -413,6 +431,25 @@ const ReviewDialog = ({
             );
           })}
         </div>
+
+        {proDoctor && (
+          <AppointmentsLimitControl
+            mode={limitMode}
+            numberText={limitText}
+            onModeChange={setLimitMode}
+            onNumberChange={setLimitText}
+            keepLabel="Standard limit"
+            invalid={limitMode === "number" && !limitChoice.valid}
+            disabled={!canManage}
+            hint={
+              request.requested_appointments_limit != null
+                ? `The doctor asked for: ${describeAppointmentsLimit(request.requested_appointments_limit)}. The value you choose here is final.`
+                : currentLimit != null
+                  ? `The doctor did not ask to change this. Their current custom limit (${describeAppointmentsLimit(currentLimit)}) stays unless you change it; choosing Standard limit resets it.`
+                  : "The doctor did not ask to change this. Leave it on Standard unless you are granting more (or fewer) appointments."
+            }
+          />
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1">
@@ -470,18 +507,47 @@ const EditTermsDialog = ({ plan, onClose, onDone }: { plan: PlanRow; onClose: ()
   const [price, setPrice] = useState(String(plan.monthly_price));
   const [until, setUntil] = useState(plan.valid_until ? istDate(plan.valid_until) : "");
   const [busy, setBusy] = useState(false);
+  const hasLimit = plan.base_tier === "pro";
+  const startLimit = controlFromLimit(plan.monthly_appointments_limit ?? null);
+  const [limitMode, setLimitMode] = useState<LimitMode>(startLimit.mode);
+  const [limitText, setLimitText] = useState(startLimit.numberText);
+  const limitChoice = limitFromControl(limitMode, limitText);
 
   const save = async () => {
     const priceNum = Number(price);
     if (price === "" || !Number.isFinite(priceNum) || priceNum < 0) {
       return toast({ title: "Enter a valid price", variant: "destructive" });
     }
+    if (hasLimit && !limitChoice.valid) {
+      return toast({ title: "Enter a valid appointment limit", variant: "destructive" });
+    }
     setBusy(true);
-    const { error } = await supabase.rpc("update_custom_plan_terms" as any, {
-      _doctor_id: plan.doctor_id, _price: priceNum, _valid_until: until ? istEnd(until) : null,
-    });
+    // Only touch price/dates when they changed: update_custom_plan_terms also refuses an end date in the past,
+    // which would block a limit-only edit for an unrelated reason.
+    const termsChanged = priceNum !== Number(plan.monthly_price) || (until || "") !== (plan.valid_until ? istDate(plan.valid_until) : "");
+    let error: { message: string } | null = null;
+    let termsError: { message: string } | null = null;
+    if (termsChanged) {
+      ({ error: termsError } = await supabase.rpc("update_custom_plan_terms" as any, {
+        _doctor_id: plan.doctor_id, _price: priceNum, _valid_until: until ? istEnd(until) : null,
+      }));
+      error = termsError;
+    }
+    if (!error && hasLimit && limitChoice.value !== (plan.monthly_appointments_limit ?? null)) {
+      ({ error } = await supabase.rpc("set_custom_plan_appointments_limit" as any, {
+        _doctor_id: plan.doctor_id, _limit: limitChoice.value,
+      }));
+    }
     setBusy(false);
-    if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    if (error) {
+      // The price/dates may already be saved when only the limit step failed: say so instead of a bare "Failed".
+      const partial = termsChanged && hasLimit && !termsError;
+      return toast({
+        title: partial ? "Price and dates saved, but the limit was not changed" : "Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
     toast({ title: "Plan terms updated" });
     onDone();
   };
@@ -494,6 +560,17 @@ const EditTermsDialog = ({ plan, onClose, onDone }: { plan: PlanRow; onClose: ()
         <div className="space-y-3">
           <div className="space-y-1"><Label className="text-xs">Monthly price (₹)</Label><Input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} /></div>
           <div className="space-y-1"><Label className="text-xs">Ends (blank = no end)</Label><Input type="date" value={until} onChange={(e) => setUntil(e.target.value)} /></div>
+          {hasLimit && (
+            <AppointmentsLimitControl
+              mode={limitMode}
+              numberText={limitText}
+              onModeChange={setLimitMode}
+              onNumberChange={setLimitText}
+              keepLabel="Standard limit"
+              invalid={limitMode === "number" && !limitChoice.valid}
+              hint="Changes apply to the doctor immediately."
+            />
+          )}
           <Button onClick={save} disabled={busy} className="w-full">{busy ? "Saving…" : "Save"}</Button>
         </div>
       </DialogContent>

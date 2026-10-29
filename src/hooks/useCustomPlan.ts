@@ -44,7 +44,11 @@ export function useCustomPlan() {
     if (!profile?.id) return;
     const channel = supabase
       .channel(`custom-plan-${profile.id}-${instanceId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "doctor_custom_plans", filter: `doctor_id=eq.${profile.id}` }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "doctor_custom_plans", filter: `doctor_id=eq.${profile.id}` }, () => {
+        refetch();
+        // The monthly limit comes from this plan: tell the usage meter (usePlanAccess) to re-read it.
+        window.dispatchEvent(new Event("doctylia:custom-plan-changed"));
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "plan_requests", filter: `doctor_id=eq.${profile.id}` }, () => refetch())
       .subscribe();
     return () => {
