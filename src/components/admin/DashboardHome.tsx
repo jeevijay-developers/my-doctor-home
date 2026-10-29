@@ -48,7 +48,9 @@ const DashboardHome = () => {
 
     Promise.all([
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id),
-      supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id),
+      // Booked-but-never-seen people (auto-created, zero visits) are not patients yet.
+      supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id)
+        .or("auto_created.eq.false,total_visits.gt.0"),
       // Revenue is now sourced from the persisted invoices table so it survives
       // appointment / patient deletions.
       (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id),

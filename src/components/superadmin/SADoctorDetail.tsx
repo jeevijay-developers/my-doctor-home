@@ -33,7 +33,8 @@ const SADoctorDetail = () => {
     const [{ data: prof }, { count: appts }, { count: patients }, { data: inv }, { data: lastAppt }, { data: defaultCommRow }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", id).maybeSingle(),
       supabase.from("appointments").select("*", { count: "exact", head: true }).eq("doctor_id", id),
-      supabase.from("patients").select("*", { count: "exact", head: true }).eq("doctor_id", id),
+      supabase.from("patients").select("*", { count: "exact", head: true }).eq("doctor_id", id)
+        .or("auto_created.eq.false,total_visits.gt.0"),
       supabase.from("invoices").select("total_amount").eq("doctor_id", id),
       supabase.from("appointments").select("created_at").eq("doctor_id", id).order("created_at", { ascending: false }).limit(1),
       supabase.from("platform_settings").select("value").eq("key", "default_commission_percent").maybeSingle(),

@@ -326,13 +326,13 @@ const PrescriptionsPage = () => {
 
   const loadPatients = async () => {
     if (!profile) return;
-    // Match the Patients page: only show patients with at least one completed visit.
-    // Otherwise records the doctor believes are "deleted" (hidden from Patients) still surface here.
+    // Everyone on the Patients page, including a walk-in who has just been called in and
+    // has no completed visit yet: the prescription is written during the consultation,
+    // before the appointment is completed.
     const { data } = await supabase
       .from("patients")
-      .select("id, name, phone, gender, total_visits")
+      .select("id, name, phone, gender")
       .eq("doctor_id", profile.id)
-      .gt("total_visits", 0)
       .order("name");
     setPatients((data || []).map(({ id, name, phone, gender }) => ({ id, name, phone, gender })));
   };

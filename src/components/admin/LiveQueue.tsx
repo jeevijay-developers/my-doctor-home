@@ -37,7 +37,11 @@ const COLUMNS =
 const minutesSince = (iso: string | null) => (iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000)) : 0);
 const tokenLabel = (n: number | null) => (n == null ? "—" : `#${n}`);
 
-type PendingPayment = { appointment: QueueAppointment; then: "next" | "complete" | "none" };
+// "call" = the patient in the room is unpaid and staff asked to call someone else out of order.
+type PendingPayment = { appointment: QueueAppointment; then: "next" | "complete" | "call"; callId?: string };
+
+// Data older than this is not trustworthy enough to act on or to show as live.
+const STALE_AFTER_MS = 45000;
 
 const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Props) => {
   const [rows, setRows] = useState<QueueAppointment[]>([]);
@@ -46,7 +50,8 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [showDone, setShowDone] = useState(false);
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
+  const [lastOkAt, setLastOkAt] = useState<number | null>(null);
   const [payFor, setPayFor] = useState<PendingPayment | null>(null);
   const [priorityFor, setPriorityFor] = useState<QueueAppointment | null>(null);
   const [priorityReason, setPriorityReason] = useState("");
@@ -54,7 +59,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
   const requestSeq = useRef(0);
   const busyRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean> => {
     const seq = ++requestSeq.current;
     const { data, error } = await supabase
       .from("appointments")
@@ -64,14 +69,17 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
       .eq("appointment_type", "clinic")
       .order("sort_time", { ascending: true })
       .order("created_at", { ascending: true });
-    if (seq !== requestSeq.current) return;
-    if (error) {
-      // Keep the board we already have rather than blanking it on a hiccup.
-      console.error("Queue load failed:", error.message);
-    } else {
-      setRows((data ?? []) as unknown as QueueAppointment[]);
-    }
+    if (seq !== requestSeq.current) return true;
     setLoading(false);
+    if (error) {
+      // Keep the board we already have rather than blanking it on a hiccup; the stale
+      // banner tells staff it may be out of date.
+      console.error("Queue load failed:", error.message);
+      return false;
+    }
+    setRows((data ?? []) as unknown as QueueAppointment[]);
+    setLastOkAt(Date.now());
+    return true;
   }, [doctorId, today]);
 
   // Realtime pushes changes; polling and tab-focus refetch cover a dropped socket.
@@ -79,28 +87,40 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
   loadRef.current = load;
   useEffect(() => {
     loadRef.current();
+    // One staff action fires several row events; coalesce them into a single reload.
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const reloadSoon = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => loadRef.current(), 250);
+    };
     const channel = supabase
       .channel(`live-queue-${doctorId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${doctorId}` }, () => loadRef.current())
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${doctorId}` }, reloadSoon)
       .subscribe();
-    const poll = setInterval(() => loadRef.current(), 15000);
-    const tick = setInterval(() => setTick((t) => t + 1), 30000);
-    const onVisible = () => { if (document.visibilityState === "visible") loadRef.current(); };
+    const visible = () => document.visibilityState === "visible";
+    const poll = setInterval(() => { if (visible()) loadRef.current(); }, 15000);
+    const tickTimer = setInterval(() => { if (visible()) setTick((t) => t + 1); }, 15000);
+    const onVisible = () => { if (visible()) { loadRef.current(); setTick((t) => t + 1); } };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      clearTimeout(debounce);
       supabase.removeChannel(channel);
       clearInterval(poll);
-      clearInterval(tick);
+      clearInterval(tickTimer);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [doctorId, today]);
 
   const queue = useMemo(() => splitQueue(rows, from, to), [rows, from, to]);
   const avgMinutes = useMemo(() => averageConsultMinutes(rows.filter((r) => r.status === "completed")), [rows]);
-  const disabled = !canAct || writeDisabled || busy;
+  // `tick` re-renders every 15s so this flips without a new fetch.
+  const stale = lastOkAt != null && Date.now() - lastOkAt > STALE_AFTER_MS && tick >= 0;
+  const disabled = !canAct || writeDisabled || busy || stale;
 
-  const run = async (action: string, appointmentId?: string, reason?: string, method?: string): Promise<boolean> => {
-    if (busyRef.current) return false;
+  // `expect` = who this screen believes is in the room right now ("none" or an appointment id).
+  // If another device changed that, the server answers STALE instead of completing the wrong patient.
+  const run = async (action: string, appointmentId?: string, reason?: string, method?: string, expect?: string): Promise<boolean> => {
+    if (busyRef.current) { toast.info("Still working on the previous action..."); return false; }
     busyRef.current = true;
     setBusy(true);
     try {
@@ -109,13 +129,21 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
         _appointment_id: appointmentId ?? null,
         _reason: reason ?? null,
         _payment_method: method ?? null,
+        _expect: expect ?? null,
       });
       if (error || !data?.ok) {
         toast.error(queueErrorMessage(data?.error));
+        // The screen was out of date: show the real state right away.
+        if (data?.error === "STALE") await load();
         return false;
       }
-      await load();
+      if (!(await load())) {
+        toast.warning("Done, but the board could not refresh. Check the queue before the next action.");
+      }
       return true;
+    } catch {
+      toast.error("Could not reach the server. Please try again.");
+      return false;
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -129,24 +157,39 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
       setPayFor({ appointment, then });
       return;
     }
-    run(then === "next" ? "call_next" : "complete", then === "complete" ? appointment.id : undefined);
+    if (then === "next") run("call_next", undefined, undefined, undefined, appointment.id);
+    else run("complete", appointment.id);
+  };
+
+  // Calling someone out of order completes the patient in the room, so an unpaid one gets
+  // the same payment prompt as every other way of finishing them.
+  const callNow = (target: QueueAppointment) => {
+    if (serving && serving.id !== target.id && isUnpaid(serving)) {
+      setPayFor({ appointment: serving, then: "call", callId: target.id });
+      return;
+    }
+    run("call", target.id, undefined, undefined, serving ? serving.id : "none");
   };
 
   const confirmPayment = async (method: string | null) => {
     if (!payFor) return;
-    const { appointment, then } = payFor;
+    const { appointment, then, callId } = payFor;
     setPayFor(null);
     if (method && !(await run("mark_paid", appointment.id, undefined, method))) return;
-    await run(then === "next" ? "call_next" : "complete", then === "complete" ? appointment.id : undefined);
+    if (then === "call") await run("call", callId, undefined, undefined, appointment.id);
+    else if (then === "next") await run("call_next", undefined, undefined, undefined, appointment.id);
+    else await run("complete", appointment.id);
   };
 
   const submitPriority = async () => {
     if (!priorityFor) return;
     const target = priorityFor;
     if (!priorityReason.trim()) { toast.error(queueErrorMessage("REASON_REQUIRED")); return; }
-    setPriorityFor(null);
-    await run("set_priority", target.id, priorityReason.trim());
-    setPriorityReason("");
+    // Keep the dialog and the typed reason if the server refuses, so nothing is retyped.
+    if (await run("set_priority", target.id, priorityReason.trim())) {
+      setPriorityFor(null);
+      setPriorityReason("");
+    }
   };
 
   const markPaidLater = async (a: QueueAppointment, method: string) => {
@@ -164,6 +207,12 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
 
   return (
     <div className="space-y-4">
+      {stale && (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-sm px-3 py-2 flex items-center justify-between gap-2">
+          <span>Cannot reach the server. This board may be out of date, so actions are paused.</span>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => loadRef.current()}>Retry</Button>
+        </div>
+      )}
       {/* Counters */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -196,7 +245,14 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
         </div>
         {publicLink && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-9" onClick={() => { navigator.clipboard?.writeText(publicLink); toast.success("Waiting-room screen link copied"); }}>
+            <Button variant="outline" size="sm" className="h-9" onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(publicLink);
+                toast.success("Waiting-room screen link copied");
+              } catch {
+                toast.error(`Could not copy automatically. Link: ${publicLink}`);
+              }
+            }}>
               <Copy className="h-3.5 w-3.5 mr-1" /> Copy screen link
             </Button>
             <Button variant="outline" size="sm" className="h-9" asChild>
@@ -252,7 +308,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
                 </p>
               </div>
               {canAct && waitingCount > 0 && (
-                <Button className="bg-royal hover:bg-royal/90" disabled={disabled} onClick={() => run("call_next")}>
+                <Button className="bg-royal hover:bg-royal/90" disabled={disabled} onClick={() => run("call_next", undefined, undefined, undefined, "none")}>
                   <PhoneCall className="h-4 w-4 mr-1" /> Call next patient
                 </Button>
               )}
@@ -299,7 +355,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
                     </div>
                     {canAct && (
                       <div className="flex items-center gap-1 shrink-0">
-                        <Button size="sm" variant="outline" className="h-8 text-xs" disabled={disabled} onClick={() => run("call", a.id)}>Call now</Button>
+                        <Button size="sm" variant="outline" className="h-8 text-xs" disabled={disabled} onClick={() => callNow(a)}>Call now</Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`More actions for ${a.patient_name}`} disabled={disabled}>
@@ -405,11 +461,11 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
           </DialogHeader>
           <div className="grid grid-cols-3 gap-2">
             {PAYMENT_METHODS.map((m) => (
-              <Button key={m.value} variant="outline" onClick={() => confirmPayment(m.value)}>{m.label}</Button>
+              <Button key={m.value} variant="outline" disabled={busy} onClick={() => confirmPayment(m.value)}>{m.label}</Button>
             ))}
           </div>
           <DialogFooter className="sm:justify-center">
-            <Button variant="ghost" size="sm" onClick={() => confirmPayment(null)}>Continue without payment</Button>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => confirmPayment(null)}>Continue without payment</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -421,7 +477,8 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
             <DialogTitle>Move {priorityFor?.patient_name} up the line</DialogTitle>
             <DialogDescription>Patients can see the order change, so a short reason is required and is recorded.</DialogDescription>
           </DialogHeader>
-          <Textarea value={priorityReason} onChange={(e) => setPriorityReason(e.target.value)} placeholder="e.g. Chest pain, elderly, infant with fever" maxLength={200} />
+          <Label htmlFor="priority-reason" className="sr-only">Reason for priority</Label>
+          <Textarea id="priority-reason" value={priorityReason} onChange={(e) => setPriorityReason(e.target.value)} placeholder="e.g. Chest pain, elderly, infant with fever" maxLength={200} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setPriorityFor(null)}>Cancel</Button>
             <Button className="bg-royal hover:bg-royal/90" disabled={!priorityReason.trim()} onClick={submitPriority}>Mark priority</Button>

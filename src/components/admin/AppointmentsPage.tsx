@@ -22,7 +22,8 @@ import { toast } from "sonner";
 import { format, isSameDay, parseISO } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import LiveQueue from "./LiveQueue";
-import { PAYMENT_METHODS } from "@/lib/queue";
+import { PAYMENT_METHODS, clinicToday, queueErrorMessage } from "@/lib/queue";
+import { generateBookingToken } from "@/lib/bookingToken";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -102,7 +103,7 @@ const AppointmentsPage = () => {
   const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
   const blankNewAppt = () => ({
     patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic",
-    date: format(new Date(), "yyyy-MM-dd"), time_slot: WALK_IN_TIME,
+    date: clinicToday(), time_slot: WALK_IN_TIME,
     amount: defaultAppointmentAmount(profile?.consultation_fee),
     status: "pending",
   });
@@ -111,6 +112,7 @@ const AppointmentsPage = () => {
   const [countersPaid, setCountersPaid] = useState(true);
   const [payMethod, setPayMethod] = useState<string>("cash");
   const [adding, setAdding] = useState(false);
+  const addingRef = useRef(false);
   const [view, setView] = useState<"list" | "queue">("list");
   const handleNewOpenChange = (open: boolean) => {
     setShowNew(open);
@@ -195,20 +197,26 @@ const AppointmentsPage = () => {
 
   const loadStatusCountsRef = useRef<() => Promise<void>>(async () => {});
   const loadDatesRef = useRef<() => Promise<void>>(async () => {});
+  const countsSeq = useRef(0);
   const loadStatusCounts = async () => {
     if (!profile) return;
+    const seq = ++countsSeq.current;
     const base = () => {
       let q = supabase.from("appointments").select("*", { count: "exact", head: true }).eq("doctor_id", profile.id);
       if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
       return q;
     };
-    const [{ count: total }, { count: pending }, { count: completed }, { count: cancelled }] = await Promise.all([
+    const results = await Promise.all([
       base(),
       base().in("status", ["pending", "confirmed"]),
       base().eq("status", "completed"),
       base().eq("status", "cancelled"),
     ]);
-    setStatusCounts({ total: total ?? 0, pending: pending ?? 0, completed: completed ?? 0, cancelled: cancelled ?? 0 });
+    // A newer request already answered, or one failed: keep the numbers on screen rather
+    // than showing zeros.
+    if (seq !== countsSeq.current || results.some((r) => r.error)) return;
+    const [total, pending, completed, cancelled] = results.map((r) => r.count ?? 0);
+    setStatusCounts({ total, pending, completed, cancelled });
   };
 
   // Reset to page 1 whenever the result set changes shape underneath the pager.
@@ -243,12 +251,40 @@ const AppointmentsPage = () => {
 
   useEffect(() => { loadDatesWithAppointments(); }, [profile]);
 
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const prevView = useRef(view);
+  useEffect(() => {
+    // Coming back from the queue tab: the list was not refreshed while it was hidden.
+    if (prevView.current === "queue" && view === "list") { loadRef.current(); loadStatusCountsRef.current(); }
+    prevView.current = view;
+  }, [view]);
+
   useEffect(() => {
     if (!profile) return;
+    let listTimer: ReturnType<typeof setTimeout> | undefined;
+    let datesTimer: ReturnType<typeof setTimeout> | undefined;
+    const onChange = () => {
+      // One staff action fires several row events: coalesce them into one reload. The queue
+      // tab has its own live view, so the list is not refetched behind it.
+      clearTimeout(listTimer);
+      listTimer = setTimeout(() => {
+        if (viewRef.current === "queue") return;
+        loadRef.current();
+        loadStatusCountsRef.current();
+      }, 300);
+      // The calendar dots page through every appointment date, so refresh them at most
+      // every few seconds instead of once per event.
+      if (!datesTimer) datesTimer = setTimeout(() => { datesTimer = undefined; loadDatesRef.current(); }, 4000);
+    };
     const channel = supabase.channel("appointments-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, () => { loadRef.current(); loadStatusCountsRef.current(); loadDatesRef.current(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `doctor_id=eq.${profile.id}` }, onChange)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearTimeout(listTimer);
+      clearTimeout(datesTimer);
+      supabase.removeChannel(channel);
+    };
   }, [profile]);
 
   // BUG-014: status can be changed at any time. The patient record, the visit count and
@@ -257,9 +293,10 @@ const AppointmentsPage = () => {
   // follows whichever screen changes the status, and a double click cannot count twice.
   const syncZoom = async (appointmentId: string, action: "update" | "delete") => {
     try {
-      await supabase.functions.invoke("create-zoom-meeting", {
+      const { error } = await supabase.functions.invoke("create-zoom-meeting", {
         body: { appointment_id: appointmentId, action },
       });
+      if (error) toast.warning("The Zoom meeting could not be updated. Please check it in Zoom.");
     } catch (e) {
       console.warn(`Zoom ${action} sync failed`, e);
     }
@@ -291,7 +328,7 @@ const AppointmentsPage = () => {
 
   const markPaid = async (id: string, method: string) => {
     const { data, error } = await (supabase as any).rpc("queue_action", { _action: "mark_paid", _appointment_id: id, _payment_method: method });
-    if (error || !data?.ok) { toast.error(data?.error === "ALREADY_SETTLED" ? "This payment is already settled." : "Could not record the payment."); return; }
+    if (error || !data?.ok) { toast.error(queueErrorMessage(data?.error)); return; }
     toast.success("Payment recorded");
     load();
   };
@@ -357,54 +394,67 @@ const AppointmentsPage = () => {
     const isWalkIn = newAppt.time_slot === WALK_IN_TIME;
     // Block past date / time for scheduled appointments. Walk-ins have no scheduled time.
     if (!isWalkIn) {
-      const apptTs = new Date(`${newAppt.date}T${newAppt.time_slot}`);
+      // The clinic runs on Indian time whatever the browser's zone is.
+      const apptTs = new Date(`${newAppt.date}T${newAppt.time_slot}:00+05:30`);
       if (apptTs.getTime() < Date.now()) { toast.error("Cannot book an appointment for a past date or time slot."); return; }
     }
     const normalizedPhone = normalizeIndianPhone(newAppt.patient_phone);
 
-    if (!isWalkIn) {
-      const { count: taken } = await supabase
-        .from("appointments").select("*", { count: "exact", head: true })
-        .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
-        .eq("appointment_type", "clinic")
-        .neq("status", "cancelled");
-      if ((taken ?? 0) >= 1) {
-        setSlotConflict({ time: newAppt.time_slot });
+    // Locked synchronously (state updates are not instant), so a quick double click cannot
+    // insert two bookings.
+    if (addingRef.current) return;
+    addingRef.current = true;
+    setAdding(true);
+    try {
+      if (!isWalkIn) {
+        const { count: taken, error: takenError } = await supabase
+          .from("appointments").select("*", { count: "exact", head: true })
+          .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
+          .eq("appointment_type", "clinic")
+          .neq("status", "cancelled");
+        if (takenError) { toast.error("Could not check that slot. Please try again."); return; }
+        if ((taken ?? 0) >= 1) {
+          setSlotConflict({ time: newAppt.time_slot });
+          return;
+        }
+      }
+
+      const token = generateBookingToken();
+      const { status, time_slot, ...rest } = newAppt;
+      const serviceName = rest.service_name.trim() || "Clinic Visit";
+      const paidNow = countersPaid && Number(rest.amount) > 0;
+      const { error } = await supabase.from("appointments").insert({
+        doctor_id: profile.id, ...rest, time_slot: isWalkIn ? null : time_slot, service_name: serviceName,
+        appointment_type: "clinic",
+        patient_phone: normalizedPhone,
+        token_number: token, status: status as any,
+        payment_status: (paidNow ? "paid" : "pending") as any,
+        ...(paidNow ? { payment_method: payMethod, paid_at: new Date().toISOString() } : {}),
+      } as any);
+      if (error) {
+        if (error.message.includes("MONTHLY_APPOINTMENT_CAP_REACHED")) {
+          toast.error("You've reached your plan's monthly appointment limit. Upgrade to Premium for unlimited appointments.");
+        } else if (error.message.includes("SLOT_FULL")) {
+          setSlotConflict({ time: newAppt.time_slot });
+        } else if (error.message.includes("SLOT_IN_PAST")) {
+          toast.error("Cannot book an appointment for a past date or time slot.");
+        } else {
+          toast.error("Could not add appointment");
+        }
         return;
       }
+
+      // The database creates the patient record when staff book (so walk-ins show up in
+      // Patients straight away) and counts the visit once, when the appointment completes.
+      setShowNew(false);
+      setSlotConflict(null);
+      setNewAppt(blankNewAppt());
+      load();
+      toast.success("Appointment added");
+    } finally {
+      addingRef.current = false;
+      setAdding(false);
     }
-
-    const token = `T${Math.floor(Math.random() * 900) + 100}`;
-    const { status, time_slot, ...rest } = newAppt;
-    const serviceName = rest.service_name.trim() || "Clinic Visit";
-    const paidNow = countersPaid && Number(rest.amount) > 0;
-    setAdding(true);
-    const { error } = await supabase.from("appointments").insert({
-      doctor_id: profile.id, ...rest, time_slot: isWalkIn ? null : time_slot, service_name: serviceName,
-      appointment_type: "clinic",
-      patient_phone: normalizedPhone,
-      token_number: token, status: status as any,
-      payment_status: (paidNow ? "paid" : "pending") as any,
-      ...(paidNow ? { payment_method: payMethod, paid_at: new Date().toISOString() } : {}),
-    } as any);
-    setAdding(false);
-    if (error) {
-      if (error.message.includes("MONTHLY_APPOINTMENT_CAP_REACHED")) {
-        toast.error("You've reached your plan's monthly appointment limit. Upgrade to Premium for unlimited appointments.");
-      } else {
-        toast.error("Could not add appointment");
-      }
-      return;
-    }
-
-    // The database creates the patient record when staff book (so walk-ins show up in
-    // Patients straight away) and counts the visit once, when the appointment completes.
-
-    setShowNew(false);
-    setSlotConflict(null);
-    setNewAppt(blankNewAppt());
-    load();
-    toast.success("Appointment added");
   };
 
 
@@ -414,10 +464,10 @@ const AppointmentsPage = () => {
 
   const allTimeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const todayStr = clinicToday();
   const timeSlots = [
     ...(newAppt.date === todayStr
-      ? allTimeSlots.filter((t) => new Date(`${todayStr}T${t}`).getTime() > Date.now())
+      ? allTimeSlots.filter((t) => new Date(`${todayStr}T${t}:00+05:30`).getTime() > Date.now())
       : allTimeSlots),
     WALK_IN_TIME,
   ];

@@ -97,7 +97,10 @@ Deno.serve(async (req) => {
     return json(500, { error: "Payment captured but booking details were lost — please contact support with your payment ID." });
   }
 
-  const tkn = `T${Math.floor(Math.random() * 900) + 100}`;
+  // Unguessable booking token (same alphabet/length as src/lib/bookingToken.ts): it is the only
+  // secret behind the patient's manage-appointment link.
+  const TOKEN_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const tkn = "T" + Array.from(crypto.getRandomValues(new Uint8Array(7)), (b) => TOKEN_ALPHABET[b % TOKEN_ALPHABET.length]).join("");
   const gross = Number(payment.amount ?? booking.amount ?? 0);
   const commissionPercent = Number(payment.commission_percent ?? 0);
   const commissionAmount = Number(payment.commission_amount ?? 0);

@@ -421,6 +421,9 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
+-- NOTE: the slot-capacity and reschedule pieces below were written against bodies that
+-- 20260901120000 had already replaced; they are kept tolerant so a fresh replay works, and
+-- 20261029140000 redefines those functions (and the guard) in full.
 -- 7. Patches to the existing public booking functions (timezone, NULL bypass, empty
 --    phone, deterministic lookup, slot lock).
 -- ---------------------------------------------------------------------------
@@ -447,15 +450,15 @@ BEGIN
   patched := replace(def,
     'WHERE doctor_id = _doctor_id AND token_number = _token AND patient_phone = _phone' || E'\n  LIMIT 1;',
     'WHERE doctor_id = _doctor_id AND token_number = _token AND patient_phone = _phone' || E'\n    AND length(btrim(COALESCE(_phone, ''''))) >= 10' || E'\n  ORDER BY date DESC, created_at DESC LIMIT 1;');
-  IF patched = def THEN RAISE EXCEPTION 'reschedule_appointment_by_token lookup not found'; END IF;
+  -- (tolerant: 20260901120000 rewrote this body; 20261029140000 redefines it in full)
   def := patched;
   patched := replace(def, 'appt_ts := (appt.date::text || '' '' || appt.time_slot)::timestamp;',
                           'appt_ts := (appt.date::text || '' '' || appt.time_slot)::timestamp AT TIME ZONE ''Asia/Kolkata'';');
-  IF patched = def THEN RAISE EXCEPTION 'reschedule_appointment_by_token timestamp not found'; END IF;
+  -- (tolerant: 20260901120000 rewrote this body; 20261029140000 redefines it in full)
   def := patched;
   patched := replace(def, 'IF (_new_date::text || '' '' || _new_time)::timestamp < now() THEN',
                           'IF _new_date IS NULL OR _new_time IS NULL THEN' || E'\n    RETURN jsonb_build_object(''ok'', false, ''error'', ''INVALID'');' || E'\n  END IF;' || E'\n  IF ((_new_date::text || '' '' || _new_time)::timestamp AT TIME ZONE ''Asia/Kolkata'') < now() THEN');
-  IF patched = def THEN RAISE EXCEPTION 'reschedule_appointment_by_token new-slot check not found'; END IF;
+  -- (tolerant: 20260901120000 rewrote this body; 20261029140000 redefines it in full)
   EXECUTE patched;
 
   -- get_appointment_by_token
@@ -476,14 +479,14 @@ BEGIN
   def := patched;
   patched := replace(def, '  SELECT COALESCE(max_per_slot, 1) INTO cap',
                           '  PERFORM pg_advisory_xact_lock(hashtext(NEW.doctor_id::text || NEW.date::text || NEW.time_slot::text));' || E'\n  SELECT COALESCE(max_per_slot, 1) INTO cap');
-  IF patched = def THEN RAISE EXCEPTION 'enforce_slot_capacity cap lookup not found'; END IF;
+  -- (tolerant: 20260901120000 rewrote this body; 20261029140000 redefines it in full)
   EXECUTE patched;
 
   -- enforce_slot_capacity_update: same lock
   def := replace(pg_get_functiondef('public.enforce_slot_capacity_update()'::regprocedure), E'\r', '');
   patched := replace(def, '  SELECT COALESCE(max_per_slot, 1) INTO cap',
                           '  PERFORM pg_advisory_xact_lock(hashtext(NEW.doctor_id::text || NEW.date::text || NEW.time_slot::text));' || E'\n  SELECT COALESCE(max_per_slot, 1) INTO cap');
-  IF patched = def THEN RAISE EXCEPTION 'enforce_slot_capacity_update cap lookup not found'; END IF;
+  -- (tolerant: 20260901120000 rewrote this body; 20261029140000 redefines it in full)
   EXECUTE patched;
 END $$;
 

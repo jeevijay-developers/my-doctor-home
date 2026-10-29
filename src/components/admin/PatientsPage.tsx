@@ -71,9 +71,9 @@ const PatientsPage = () => {
     if (!profile) return;
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
-    // Safe delete: appointments reference patients via patient_phone (no FK),
-    // so appointment/invoice history is preserved. prescriptions.patient_id
-    // has ON DELETE SET NULL, so linked prescriptions are retained too.
+    // Appointments keep their history (appointments.patient_id and
+    // prescriptions.patient_id are ON DELETE SET NULL); medical-record tables cascade.
+    // A later call-in or completion of a still-open booking re-creates the patient.
     const { error } = await supabase.from("patients").delete().in("id", ids).eq("doctor_id", profile.id);
     if (error) { toast.error("Could not delete patients"); return; }
     toast.success(`${ids.length} patient${ids.length === 1 ? "" : "s"} deleted`);
@@ -109,7 +109,7 @@ const PatientsPage = () => {
     }
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%`);
-    q = q.order("last_visit", { ascending: false }).range(from, to);
+    q = q.order("last_visit", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).range(from, to);
     const { data, count, error } = await q;
     if (seq !== loadSeq.current) return;
     if (error) { console.error("Patients load failed:", error.message); return; }
@@ -193,7 +193,7 @@ const PatientsPage = () => {
     for (let start = 0; ; start += 1000) {
       const { data, error } = await supabase
         .from("patients").select("*").eq("doctor_id", profile.id)
-        .order("last_visit", { ascending: false }).order("id").range(start, start + 999);
+        .order("last_visit", { ascending: false, nullsFirst: false }).order("id").range(start, start + 999);
       if (error) { toast.error("Could not export patients"); return; }
       rows.push(...((data || []) as Patient[]));
       if (!data || data.length < 1000) break;
@@ -445,9 +445,10 @@ const PatientsPage = () => {
                           <Badge variant="secondary" className={`text-[10px] ${
                             p.total_visits >= 10 ? "bg-success/10 text-success" :
                             p.total_visits >= 3 ? "bg-royal/10 text-royal" :
+                            p.total_visits === 0 ? "bg-muted text-muted-foreground" :
                             "bg-warning/10 text-warning"
                           }`}>
-                            {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : "New"}
+                            {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : p.total_visits === 0 ? "Not visited yet" : "New"}
                           </Badge>
                         </td>
                       </tr>
@@ -488,9 +489,10 @@ const PatientsPage = () => {
                         <Badge variant="secondary" className={`text-[10px] flex-shrink-0 ${
                           p.total_visits >= 10 ? "bg-success/10 text-success" :
                           p.total_visits >= 3 ? "bg-royal/10 text-royal" :
+                          p.total_visits === 0 ? "bg-muted text-muted-foreground" :
                           "bg-warning/10 text-warning"
                         }`}>
-                          {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : "New"}
+                          {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : p.total_visits === 0 ? "Not visited yet" : "New"}
                         </Badge>
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5 truncate">

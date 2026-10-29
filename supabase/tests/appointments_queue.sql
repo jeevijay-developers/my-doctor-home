@@ -27,8 +27,8 @@ BEGIN
   PERFORM set_config('request.jwt.claims', '{"role":"anon"}', true);
   INSERT INTO public.appointments (doctor_id, patient_name, patient_phone, service_name, appointment_type, date,
                                    amount, token_number, status, payment_status, payment_gateway, gateway_order_id,
-                                   reschedule_count)
-  VALUES (d, 'Anon Booker', '9000000001', 'Visit', 'clinic', today, 500, 'T111', 'completed', 'paid', 'razorpay', 'order_x', -50)
+                                   reschedule_count, time_slot)
+  VALUES (d, 'Anon Booker', '9000000001', 'Visit', 'clinic', today, 500, 'T111', 'completed', 'paid', 'razorpay', 'order_x', -50, '23:59')
   RETURNING id INTO anon_id;
   SELECT * INTO rec FROM public.appointments WHERE id = anon_id;
   IF rec.status::text <> 'pending' THEN RAISE EXCEPTION 'anon status not forced: %', rec.status; END IF;

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { generateBookingToken } from "@/lib/bookingToken";
 import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { FEATURE_KEYS } from "@/lib/features";
@@ -88,6 +89,9 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const [cachedOrder, setCachedOrder] = useState<CachedOrder | null>(null);
   const [paymentFailed, setPaymentFailed] = useState(false);
   const [paymentFailureMessage, setPaymentFailureMessage] = useState("");
+  // Razorpay took the payment but confirming it with our server failed: the patient may
+  // already have been charged, so they must not pay again.
+  const [unconfirmed, setUnconfirmed] = useState<{ order: CachedOrder; response: CheckoutResponse } | null>(null);
   const [token, setToken] = useState("");
   const [patientsAhead, setPatientsAhead] = useState<number | null>(null);
   const [confirmedApptId, setConfirmedApptId] = useState<string | null>(null);
@@ -215,7 +219,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     if (!profile || !selectedDate || !selectedTime) return null;
     if (!validatePatientDetails()) return null;
     const normalizedPhone = normalizeIndianPhone(phone);
-    const tkn = `T${Math.floor(Math.random() * 900) + 100}`;
+    const tkn = generateBookingToken();
     const dStr = format(selectedDate, "yyyy-MM-dd");
 
     const { data: inserted, error } = await supabase
@@ -273,25 +277,31 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   useEffect(() => {
     if (!confirmed || type !== "clinic" || !confirmedApptId) return;
     (supabase as any).rpc("get_queue_position", { _appointment_id: confirmedApptId })
-      .then(({ data: qp }: { data: unknown }) => setPatientsAhead(typeof qp === "number" ? qp : 0));
+      .then(({ data: qp, error: qErr }: { data: unknown; error: unknown }) =>
+        // A failed lookup must hide the line, not claim "you are first".
+        setPatientsAhead(!qErr && typeof qp === "number" ? qp : null))
+      .catch(() => setPatientsAhead(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmed, confirmedApptId]);
 
   const submitBooking = async () => {
     if (submitting) return;
     setSubmitting(true);
-    // BUG-04: Do NOT create the patient record on booking. Patient rows are
-    // created/updated only when the doctor marks an appointment "completed".
-    const created = await createAppointmentRow();
-    if (created) finalizeConfirmed(created.id, created.token, "pay_at_clinic");
-    setSubmitting(false);
+    // A public booking never creates a patient record: the clinic's system does that when
+    // the patient is called in or the visit completes.
+    try {
+      const created = await createAppointmentRow();
+      if (created) finalizeConfirmed(created.id, created.token, "pay_at_clinic");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const reset = () => {
     setStep(1); setType("clinic"); setSelectedServiceId(null); setSelectedDate(null);
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setConfirmedPaymentStatus("pay_at_clinic"); setPaymentMeta(null);
-    setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setMockCheckoutOpen(false);
+    setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setUnconfirmed(null); setMockCheckoutOpen(false);
     setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
 
@@ -456,10 +466,12 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
       );
       setMockCheckoutOpen(false);
       setPaymentFailureMessage(message);
+      setUnconfirmed({ order, response });
       setPaymentFailed(true);
       setSubmitting(false);
-      return; // No appointment was created.
+      return; // The payment may have gone through; see the "unconfirmed" screen.
     }
+    setUnconfirmed(null);
 
     setPaymentMeta({
       razorpayPaymentId: response.razorpay_payment_id,
@@ -479,6 +491,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   // opposed to the patient just closing the modal) sends them to the
   // dedicated Payment Failed screen.
   const handleCheckoutFailure = (message: string) => {
+    setUnconfirmed(null);
     setMockCheckoutOpen(false);
     setPaymentFailureMessage(message);
     setPaymentFailed(true);
@@ -686,23 +699,51 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
               <p><strong>Time:</strong> {selectedTime}</p>
               <p><strong>Amount:</strong> ₹{selectedService?.price ?? 0}</p>
             </div>
-            <p className="text-xs text-muted-foreground mb-5">No appointment was created and you were not charged. You can safely retry.</p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <Button
-                variant="cta"
-                className="gap-1.5 font-heading font-semibold"
-                disabled={submitting}
-                onClick={() => { setPaymentFailed(false); payNow(); }}
-              >
-                {submitting ? "Retrying..." : "Retry Payment"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => { setPaymentFailed(false); setCachedOrder(null); setStep(4); }}
-              >
-                Edit Booking Details
-              </Button>
-            </div>
+            {unconfirmed ? (
+              <>
+                <p className="text-xs text-foreground mb-2 font-semibold">
+                  Your payment may have gone through. Please do NOT pay again.
+                </p>
+                <p className="text-xs text-muted-foreground mb-5">
+                  Payment ID: {unconfirmed.response.razorpay_payment_id}. Tap "Check payment status" to confirm it,
+                  or contact the clinic with this ID.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <Button
+                    variant="cta"
+                    className="gap-1.5 font-heading font-semibold"
+                    disabled={submitting}
+                    onClick={() => {
+                      setPaymentFailed(false);
+                      setSubmitting(true);
+                      handleCheckoutResult(unconfirmed.order, unconfirmed.response);
+                    }}
+                  >
+                    {submitting ? "Checking..." : "Check payment status"}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground mb-5">No appointment was created and you were not charged. You can safely retry.</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <Button
+                    variant="cta"
+                    className="gap-1.5 font-heading font-semibold"
+                    disabled={submitting}
+                    onClick={() => { setPaymentFailed(false); payNow(); }}
+                  >
+                    {submitting ? "Retrying..." : "Retry Payment"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => { setPaymentFailed(false); setCachedOrder(null); setStep(4); }}
+                  >
+                    Edit Booking Details
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

@@ -100,6 +100,7 @@ Deno.serve(async (req) => {
       console.error("send-sms-hook: MSG91 rejected", { status: res.status, message: result?.message });
       return hookError(502, "Could not send OTP. Please try again.");
     }
+    console.log("send-sms-hook: MSG91 accepted", { mobile, templateId, result });
   } catch (err) {
     console.error("send-sms-hook: MSG91 request failed", err);
     return hookError(502, "Could not send OTP. Please try again.");

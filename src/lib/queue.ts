@@ -126,6 +126,7 @@ export const QUEUE_ERRORS: Record<string, string> = {
   REASON_REQUIRED: "Please give a reason — patients can see the order change.",
   PAYMENT_METHOD_REQUIRED: "Choose how the patient paid.",
   ALREADY_SETTLED: "This payment is already settled.",
+  STALE: "The queue changed on another device. It has been refreshed - please check and try again.",
 };
 
 export function queueErrorMessage(code: string | undefined): string {

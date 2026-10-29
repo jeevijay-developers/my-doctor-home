@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { normalizeBookingToken } from "@/lib/bookingToken";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ const ManageAppointment = () => {
   const [loading, setLoading] = useState(false);
   const [appt, setAppt] = useState<Appt | null>(null);
   const [upcomingCheckup, setUpcomingCheckup] = useState<{ doctor_name: string; next_checkup_date: string; reminder_enabled: boolean } | null>(null);
+  const [queueLive, setQueueLive] = useState(true);
   const [queueInfo, setQueueInfo] = useState<{
     found: boolean; queue_number?: number; state?: string; ahead?: number | null; now_serving?: number | null; avg_minutes?: number | null;
   } | null>(null);
@@ -87,10 +89,15 @@ const ManageAppointment = () => {
     e?.preventDefault();
     if (!doctor || !token || !phone) return;
     setLoading(true);
-    const { data } = await (supabase as any).rpc("get_appointment_by_token", {
-      _doctor_id: doctor.id, _token: token.trim(), _phone: phone.trim(),
+    const { data, error } = await (supabase as any).rpc("get_appointment_by_token", {
+      _doctor_id: doctor.id, _token: normalizeBookingToken(token), _phone: phone.trim(),
     });
     setLoading(false);
+    if (error) {
+      // A network or server failure is not "no such appointment".
+      toast.error("Could not reach the server. Please check your connection and try again.");
+      return;
+    }
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) {
       toast.error("No appointment found with that token and phone number.");
@@ -115,22 +122,41 @@ const ManageAppointment = () => {
   // reaches them; they poll one narrow function that returns numbers only.
   useEffect(() => {
     if (!appt || !doctor || appt.appointment_type !== "clinic") return;
+    // A closed booking has no line to watch.
+    if (["cancelled", "completed", "no_show"].includes(appt.status)) return;
     let cancelled = false;
+    let inFlight = false;
     const refresh = async () => {
-      const { data } = await (supabase as any).rpc("get_my_queue_status", {
-        _doctor_id: doctor.id, _token: appt.token_number, _phone: appt.patient_phone,
-      });
-      if (!cancelled && data) setQueueInfo(data);
-      // Also refresh the appointment itself to catch status/date changes.
-      const { data: fresh } = await (supabase as any).rpc("get_appointment_by_token", {
-        _doctor_id: doctor.id, _token: appt.token_number, _phone: appt.patient_phone,
-      });
-      const row = Array.isArray(fresh) ? fresh[0] : fresh;
-      if (!cancelled && row && (row.status !== appt.status || row.date !== appt.date || row.time_slot !== appt.time_slot)) setAppt(row);
+      // No point polling from a hidden tab or while the last request is still running.
+      if (inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        const [queueRes, freshRes] = await Promise.all([
+          (supabase as any).rpc("get_my_queue_status", {
+            _doctor_id: doctor.id, _token: appt.token_number, _phone: appt.patient_phone,
+          }),
+          // Also refresh the appointment itself to catch status/date changes.
+          (supabase as any).rpc("get_appointment_by_token", {
+            _doctor_id: doctor.id, _token: appt.token_number, _phone: appt.patient_phone,
+          }),
+        ]);
+        if (cancelled) return;
+        if (!queueRes.error && queueRes.data) setQueueInfo(queueRes.data);
+        const row = Array.isArray(freshRes.data) ? freshRes.data[0] : freshRes.data;
+        if (!freshRes.error && row) {
+          // Compare against the latest state, not the one captured when the effect ran.
+          setAppt((prev) => (prev && (prev.status !== row.status || prev.date !== row.date || prev.time_slot !== row.time_slot) ? row : prev));
+        }
+        setQueueLive(!queueRes.error && !freshRes.error);
+      } finally {
+        inFlight = false;
+      }
     };
     refresh();
     const timer = setInterval(refresh, 10000);
-    return () => { cancelled = true; clearInterval(timer); };
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { cancelled = true; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appt?.id, appt?.status, doctor?.id]);
 
@@ -214,7 +240,7 @@ const ManageAppointment = () => {
               <form onSubmit={lookup} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label>Token Number</Label>
-                  <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="e.g. T123" className="h-10" />
+                  <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="e.g. TK7M2QX9" className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Phone Number</Label>
@@ -272,7 +298,7 @@ const ManageAppointment = () => {
                 )}
 
                 {queueInfo?.found && appt.appointment_type === "clinic" && (
-                  <div className="p-3 rounded-xl bg-royal/5 border border-royal/20 text-sm text-royal space-y-1">
+                  <div role="status" aria-live="polite" className="p-3 rounded-xl bg-royal/5 border border-royal/20 text-sm text-royal space-y-1">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
                       <span className="font-semibold">
@@ -282,7 +308,7 @@ const ManageAppointment = () => {
                         {queueInfo.state === "done" && "Your visit is complete."}
                         {(queueInfo.state === "cancelled" || queueInfo.state === "no_show") && "This visit is closed."}
                       </span>
-                      <span className="ml-auto text-[10px] flex items-center gap-1 opacity-70"><RefreshCw className="h-3 w-3" /> live</span>
+                      <span className="ml-auto text-[10px] flex items-center gap-1 opacity-70"><RefreshCw className="h-3 w-3" /> {queueLive ? "live" : "reconnecting…"}</span>
                     </div>
                     {(queueInfo.state === "waiting" || queueInfo.state === "serving") && (
                       <div className="text-xs text-royal/80">
@@ -332,7 +358,7 @@ const ManageAppointment = () => {
                   </div>
                 )}
 
-                <button className="text-xs text-muted-foreground hover:underline" onClick={() => { setAppt(null); setToken(""); setPhone(""); }}>
+                <button className="text-xs text-muted-foreground hover:underline" onClick={() => { setAppt(null); setQueueInfo(null); setToken(""); setPhone(""); }}>
                   Look up a different appointment
                 </button>
               </div>

@@ -74,7 +74,7 @@ describe("LiveQueue", () => {
     fireEvent.click(await screen.findByRole("button", { name: /call next patient/i }));
 
     await waitFor(() =>
-      expect(rpc).toHaveBeenCalledWith("queue_action", { _action: "call_next", _appointment_id: null, _reason: null, _payment_method: null }),
+      expect(rpc).toHaveBeenCalledWith("queue_action", { _action: "call_next", _appointment_id: null, _reason: null, _payment_method: null, _expect: "none" }),
     );
   });
 
@@ -92,7 +92,35 @@ describe("LiveQueue", () => {
 
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
     expect(rpc.mock.calls[0][1]).toMatchObject({ _action: "mark_paid", _appointment_id: "2", _payment_method: "upi" });
-    expect(rpc.mock.calls[1][1]).toMatchObject({ _action: "call_next" });
+    expect(rpc.mock.calls[1][1]).toMatchObject({ _action: "call_next", _expect: "2" });
+  });
+
+  it("asks for payment before calling someone else out of order while an unpaid patient is in the room", async () => {
+    setRows(
+      { ...base, id: "2", patient_name: "Ravi Serving", queue_number: 2, sort_time: "21:05:00", serving_started_at: new Date().toISOString(), payment_status: "pending" },
+      { ...base, id: "3", patient_name: "Meena Waiting", queue_number: 3, sort_time: "21:10:00" },
+    );
+    render(<LiveQueue doctorId="d1" canAct />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /call now/i }));
+    expect(rpc).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cash" }));
+
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
+    expect(rpc.mock.calls[0][1]).toMatchObject({ _action: "mark_paid", _appointment_id: "2", _payment_method: "cash" });
+    expect(rpc.mock.calls[1][1]).toMatchObject({ _action: "call", _appointment_id: "3", _expect: "2" });
+  });
+
+  it("refreshes and explains when another device already changed the room", async () => {
+    const { toast } = await import("sonner");
+    rpc.mockResolvedValue({ data: { ok: false, error: "STALE" }, error: null });
+    setRows({ ...base, id: "3", patient_name: "Meena Waiting", queue_number: 3, sort_time: "21:10:00" });
+    render(<LiveQueue doctorId="d1" canAct />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /call next patient/i }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/another device/i)));
   });
 
   it("completes a paid patient and calls the next without a payment prompt", async () => {
