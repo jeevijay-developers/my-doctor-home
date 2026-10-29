@@ -17,7 +17,7 @@ const FAQ = () => (
     <div className="container mx-auto px-4 sm:px-5">
       <div className="mx-auto grid max-w-[1280px] gap-6 sm:gap-8 md:grid-cols-[1.05fr_1.35fr] md:items-start md:gap-10 lg:gap-12">
         <div className="min-w-0 pt-1 md:pt-3">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-accent sm:text-sm md:text-[13px]">
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-teal sm:text-sm md:text-[13px]">
             FAQ
           </span>
           <h2 className="mt-2 max-w-[420px] font-heading text-[2.8rem] font-extrabold leading-[0.9] tracking-[-0.05em] text-primary sm:text-[3.5rem] md:mt-3 md:text-[5rem] lg:text-[5.25rem]">

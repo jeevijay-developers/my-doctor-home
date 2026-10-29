@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
+import { formatIstDate } from "@/lib/istDate";
+import { planTierName } from "@/lib/planSummary";
 import { SlidersHorizontal, Clock, CheckCircle2, XCircle, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { useCustomPlan } from "@/hooks/useCustomPlan";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
-import { diffFeatureSelection, type PlanRequest } from "@/lib/customPlan";
+import { customPlanApplication, diffFeatureSelection, type PlanRequest } from "@/lib/customPlan";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -30,7 +32,10 @@ const CustomPlanSection = () => {
   const labelFor = (key: string) => rows.find((r) => r.feature_key === key)?.label ?? key;
 
   const planStatus = profile?.plan_status || "trial";
-  const canRequest = planStatus === "active" && !pendingRequest;
+  const currentTier = profile?.plan_tier || "free";
+  const canRequest = planStatus === "active" && !pendingRequest && (currentTier === "pro" || currentTier === "premium");
+  const application = customPlanApplication(customPlan, currentTier);
+  const tierName = planTierName;
 
   const withdraw = async (req: PlanRequest) => {
     setBusy(true);
@@ -65,8 +70,8 @@ const CustomPlanSection = () => {
             <SlidersHorizontal className="h-4 w-4 text-royal" /> Customize my plan
           </h4>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {planStatus === "trial"
-              ? "Available once you're on a paid plan."
+            {planStatus === "trial" || currentTier === "free"
+              ? "Available once you're on the Pro or Premium plan."
               : "Ask for features to be added or removed. Our team reviews every request and sets the price."}
           </p>
         </div>
@@ -80,13 +85,48 @@ const CustomPlanSection = () => {
         </Button>
       </div>
 
-      {customPlan && (
+      {customPlan && application === "tier_mismatch" && (
+        <div role="status" className="rounded-xl border border-warning/50 bg-warning/10 p-4 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <XCircle className="h-4 w-4 text-warning" aria-hidden="true" />
+              <span className="font-semibold text-sm text-foreground">Custom plan not applied</span>
+              <Badge variant="outline" className="text-[10px]">₹{customPlan.monthly_price}/month</Badge>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={busy} className="text-xs h-8">Remove</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remove this custom plan?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    It is not changing your price or features right now. You can send a new request any time.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep it</AlertDialogCancel>
+                  <AlertDialogAction onClick={cancelPlan}>Remove</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            This custom plan was set up for the <strong>{tierName(customPlan.base_tier)}</strong> plan, but you are on the{" "}
+            <strong>{tierName(currentTier)}</strong> plan, so its price and feature changes do not apply to you. You still pay
+            the standard {tierName(currentTier)} price. Contact support to move it to your current plan.
+          </p>
+        </div>
+      )}
+
+      {customPlan && application === "applies" && (
         <div className="rounded-xl border border-success/40 bg-success/5 p-4 space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-success" />
+              <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
               <span className="font-semibold text-sm text-foreground">Custom plan active</span>
               <Badge variant="outline" className="text-[10px]">₹{customPlan.monthly_price}/month from your next payment</Badge>
+              <Badge variant="outline" className="text-[10px]">{tierName(customPlan.base_tier)} plan</Badge>
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -107,7 +147,10 @@ const CustomPlanSection = () => {
             </AlertDialog>
           </div>
           <p className="text-xs text-muted-foreground">
-            {customPlan.valid_until ? `Valid until ${format(new Date(customPlan.valid_until), "MMM d, yyyy")}.` : "No end date."}
+            {`Active from ${formatIstDate(customPlan.valid_from)} `}
+            {customPlan.valid_until
+              ? `until ${formatIstDate(customPlan.valid_until)}. Payments made after that date use the standard price.`
+              : "with no end date."}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {customPlan.extra_features.map((k) => (

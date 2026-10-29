@@ -13,7 +13,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { format, isSameDay, parseISO } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import LiveQueue from "./LiveQueue";
-import { PAYMENT_METHODS, clinicToday, queueErrorMessage } from "@/lib/queue";
+import { PAYMENT_METHODS, clinicToday, isUnpaid, queueErrorMessage } from "@/lib/queue";
 import { generateBookingToken } from "@/lib/bookingToken";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
@@ -326,11 +326,23 @@ const AppointmentsPage = () => {
     }
   };
 
-  const markPaid = async (id: string, method: string) => {
+  const markPaid = async (id: string, method: string): Promise<boolean> => {
     const { data, error } = await (supabase as any).rpc("queue_action", { _action: "mark_paid", _appointment_id: id, _payment_method: method });
-    if (error || !data?.ok) { toast.error(queueErrorMessage(data?.error)); return; }
+    if (error || !data?.ok) { toast.error(queueErrorMessage(data?.error)); return false; }
     toast.success("Payment recorded");
     load();
+    return true;
+  };
+
+  // An invoice exists only for money actually received, so finishing a visit that has not
+  // been paid asks how it was paid (or lets the doctor bill later).
+  const [payPrompt, setPayPrompt] = useState<Appointment | null>(null);
+  const completeWithPayment = async (method: string | null) => {
+    if (!payPrompt) return;
+    const target = payPrompt;
+    setPayPrompt(null);
+    if (method && !(await markPaid(target.id, method))) return;
+    await updateStatus(target.id, "completed");
   };
 
   // Shared by both the card kebab menu and the detail panel so the two
@@ -347,6 +359,8 @@ const AppointmentsPage = () => {
   const requestStatusChange = (appt: Appointment, nextStatus: string) => {
     if (FINAL_STATUSES.has(appt.status)) {
       setConfirmingChange({ appointment: appt, nextStatus });
+    } else if (nextStatus === "completed" && isUnpaid(appt)) {
+      setPayPrompt(appt);
     } else {
       updateStatus(appt.id, nextStatus);
     }
@@ -504,25 +518,28 @@ const AppointmentsPage = () => {
             <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label>
-                  <Input placeholder="Full name" value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" />
+                  <Label htmlFor="new-appt-name" className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label>
+                  <Input id="new-appt-name" placeholder="Full name" value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                  <PhoneInput value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="Phone number (optional)" className="h-10" />
+                  <Label htmlFor="new-appt-phone" className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                  <PhoneInput id="new-appt-phone" value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="Phone number (optional)" className="h-10" />
                   {newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone) && (
                     <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
+                  )}
+                  {!newAppt.patient_phone.trim() && (
+                    <p className="text-[11px] text-muted-foreground">Add a phone number so repeat visits join the same patient record and the patient can follow the queue.</p>
                   )}
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Service <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                <Input value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} placeholder="e.g. Clinic Visit" className="h-10" />
+                <Label htmlFor="new-appt-service">Service <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                <Input id="new-appt-service" value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} placeholder="e.g. Clinic Visit" className="h-10" />
               </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Date</Label>
-                  <Input type="date" min={todayStr} value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" />
+                  <Label htmlFor="new-appt-date">Date</Label>
+                  <Input id="new-appt-date" type="date" min={todayStr} value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Time Slot</Label>
@@ -567,11 +584,11 @@ const AppointmentsPage = () => {
         )}
       </div>
 
-      <div className="inline-flex rounded-lg border border-border p-0.5 bg-secondary/50" role="tablist" aria-label="Appointments view">
-        <Button role="tab" aria-selected={view === "list"} size="sm" variant={view === "list" ? "default" : "ghost"} className={`h-8 ${view === "list" ? "bg-royal hover:bg-royal/90" : ""}`} onClick={() => setView("list")}>
+      <div className="inline-flex rounded-lg border border-border p-0.5 bg-secondary/50" role="group" aria-label="Appointments view">
+        <Button aria-pressed={view === "list"} size="sm" variant={view === "list" ? "default" : "ghost"} className={`h-8 ${view === "list" ? "bg-royal hover:bg-royal/90" : ""}`} onClick={() => setView("list")}>
           <ListChecks className="h-4 w-4 mr-1" /> All appointments
         </Button>
-        <Button role="tab" aria-selected={view === "queue"} size="sm" variant={view === "queue" ? "default" : "ghost"} className={`h-8 ${view === "queue" ? "bg-royal hover:bg-royal/90" : ""}`} onClick={() => setView("queue")}>
+        <Button aria-pressed={view === "queue"} size="sm" variant={view === "queue" ? "default" : "ghost"} className={`h-8 ${view === "queue" ? "bg-royal hover:bg-royal/90" : ""}`} onClick={() => setView("queue")}>
           <Users className="h-4 w-4 mr-1" /> Live queue
         </Button>
       </div>
@@ -708,7 +725,18 @@ const AppointmentsPage = () => {
                 className={`relative border-border/60 shadow-none border-l-4 ${borderColor} transition-all ${
                   selectMode ? "cursor-pointer" : "cursor-pointer hover:shadow-md"
                 } ${isSelected ? "bg-royal/5 ring-2 ring-royal ring-offset-2" : ""}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`${selectMode ? "Select" : "Open"} appointment for ${a.patient_name}`}
                 onClick={selectMode ? () => toggleSelected(a.id) : () => setViewing(a)}
+                onKeyDown={(e) => {
+                  // Only when the card itself has focus: the menu and checkbox inside keep their own keys.
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (selectMode) toggleSelected(a.id); else setViewing(a);
+                  }
+                }}
               >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -962,6 +990,24 @@ const AppointmentsPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Payment prompt when finishing an unpaid visit */}
+      <Dialog open={!!payPrompt} onOpenChange={(o) => !o && setPayPrompt(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Collect ₹{payPrompt?.amount}</DialogTitle>
+            <DialogDescription>{payPrompt?.patient_name} has not paid yet. How did they pay?</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-2">
+            {PAYMENT_METHODS.map((m) => (
+              <Button key={m.value} variant="outline" onClick={() => completeWithPayment(m.value)}>{m.label}</Button>
+            ))}
+          </div>
+          <DialogFooter className="sm:justify-center">
+            <Button variant="ghost" size="sm" onClick={() => completeWithPayment(null)}>Complete without payment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Status-change confirmation when leaving a final state */}
       <AlertDialog open={!!confirmingChange} onOpenChange={(o) => !o && setConfirmingChange(null)}>

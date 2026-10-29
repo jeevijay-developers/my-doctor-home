@@ -129,7 +129,7 @@ const QueueDisplay = () => {
       <div className={stale ? "opacity-40 transition-opacity space-y-8" : "space-y-8 transition-opacity"}>
         <section aria-live="polite" className="space-y-2">
           <div className="text-white/70 uppercase tracking-widest text-sm">Now serving</div>
-          <div className="font-heading font-bold text-[7rem] sm:text-[10rem] leading-none text-spark">
+          <div className="font-heading font-bold text-[7rem] sm:text-[10rem] leading-none text-spark-bright">
             {queue.now_serving != null ? `#${queue.now_serving}` : "—"}
           </div>
         </section>

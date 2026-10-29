@@ -12,6 +12,7 @@ import { useDoctorNotifications, type DoctorNotification } from "@/hooks/useDoct
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { Button } from "@/components/ui/button";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
+import PlanStatusChip from "./PlanStatusChip";
 
 const SOURCE_ICON: Record<string, typeof MessageSquare> = {
   ticket_reply: LifeBuoy,
@@ -86,6 +87,8 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
       n.source_type === "plan_request" || /plan|trial|subscription/i.test(n.title)
     ) {
       navigate("/admin/settings?tab=subscription");
+    } else if (n.source_type === "paid_no_show") {
+      navigate("/admin/appointments");
     }
   };
 
@@ -98,27 +101,28 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
             width — without it, any such content anywhere on a page forces
             the whole row (and every section in it) to overflow together. */}
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center justify-between bg-background px-4 md:px-6">
+          <header className="h-14 flex items-center justify-between bg-card border-b border-border px-4 md:px-6">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               <div className="hidden md:block h-5 w-px bg-border" />
               <div className="hidden md:flex items-center gap-1.5 text-sm">
-                <Link to="/admin/dashboard" className="text-muted-foreground hover:text-foreground">
-                  <Home className="h-3.5 w-3.5" />
+                <Link to="/admin/dashboard" aria-label="Dashboard home" className="text-muted-foreground hover:text-foreground p-2 -m-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Home className="h-3.5 w-3.5" aria-hidden="true" />
                 </Link>
                 <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
                 <span className="font-semibold text-foreground">{pageTitle}</span>
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <PlanStatusChip />
               <ThemeToggle mode={mode} onChange={setTheme} />
               <Popover>
                 <PopoverTrigger asChild>
                   <button
-                    aria-label="Notifications"
-                    className="w-8 h-8 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors relative"
+                    aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+                    className="w-8 h-8 max-lg:w-11 max-lg:h-11 rounded-lg hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Bell className="h-4 w-4" />
+                    <Bell className="h-4 w-4" aria-hidden="true" />
                     {unreadCount > 0 && (
                       <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
                         {unreadCount > 9 ? "9+" : unreadCount}
@@ -130,7 +134,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
                   <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                     <h4 className="font-semibold text-sm text-foreground">Notifications</h4>
                     {unreadCount > 0 && (
-                      <button onClick={markAllAsRead} className="text-xs text-royal hover:underline">Mark all read</button>
+                      <button onClick={markAllAsRead} className="text-xs text-royal hover:underline py-2 px-2 -my-2 -mx-2 max-lg:min-h-[44px]">Mark all read</button>
                     )}
                   </div>
                   {notifications.length === 0 ? (
@@ -210,7 +214,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
           {trialStatus.accessLevel === "grace" && (
             <div className="bg-warning/15 border-b border-warning/30 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm text-primary">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 flex-shrink-0 text-warning" />
+                <AlertTriangle className="h-4 w-4 flex-shrink-0 text-warning" aria-hidden="true" />
                 <span>
                   {trialStatus.isStaff
                     ? "Your clinic's Doctylia plan needs renewal. Editing is disabled until it's upgraded — contact your administrator."

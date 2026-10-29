@@ -20,6 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { CustomPlan, PlanRequest } from "@/lib/customPlan";
+import { formatIstDate } from "@/lib/istDate";
 
 type DoctorInfo = { full_name: string | null; clinic_name: string | null; plan_tier: string | null; plan_status: string | null; plan_end: string | null };
 type RequestRow = PlanRequest & { profiles: DoctorInfo | null };
@@ -28,7 +29,7 @@ type FeatureRow = { key: string; label: string; is_requestable: boolean; is_acti
 type AccessRow = { feature_key: string; effective_enabled: boolean };
 
 const DOC_COLS = "profiles(full_name, clinic_name, plan_tier, plan_status, plan_end)";
-const fmt = (d: string | null) => (d ? format(new Date(d), "MMM d, yyyy") : "—");
+const fmt = (d: string | null) => (d ? formatIstDate(d) : "—");
 const istStart = (d: string) => new Date(`${d}T00:00:00+05:30`).toISOString();
 const istEnd = (d: string) => new Date(`${d}T23:59:59+05:30`).toISOString();
 // IST calendar date of an instant (a plain slice(0,10) gives the UTC date, a day early for evening-UTC ends).
@@ -61,6 +62,7 @@ const SAPlanRequests = () => {
   const [reviewing, setReviewing] = useState<RequestRow | null>(null);
   const [editingPlan, setEditingPlan] = useState<PlanRow | null>(null);
   const [cancelling, setCancelling] = useState<PlanRow | null>(null);
+  const [rebasing, setRebasing] = useState<PlanRow | null>(null);
 
   const labelFor = useCallback((key: string) => features.find((f) => f.key === key)?.label ?? key, [features]);
 
@@ -92,7 +94,8 @@ const SAPlanRequests = () => {
   const pending = requests.filter((r) => r.status === "pending");
   const history = requests.filter((r) => r.status !== "pending");
   const now = Date.now();
-  const activePlans = plans.filter((p) => p.status === "active" && (!p.valid_until || new Date(p.valid_until).getTime() > now));
+  // Inside its dates only: a plan that has not started yet is scheduled, not active.
+  const activePlans = plans.filter((p) => p.status === "active" && new Date(p.valid_from).getTime() <= now && (!p.valid_until || new Date(p.valid_until).getTime() > now));
 
   const standardPrice = (tier: string | null) => (tier === "premium" ? premiumPrice : proPrice);
   const DoctorCell = ({ d }: { d: DoctorInfo | null }) => (
@@ -114,6 +117,20 @@ const SAPlanRequests = () => {
     if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
     else toast({ title: "Custom plan ended", description: "Doctor is back on the standard plan." });
     setCancelling(null);
+    load();
+  };
+
+  // A plan only changes a doctor's price and features while they are on the tier it was built on.
+  const doctorTier = (p: PlanRow) => p.profiles?.plan_tier ?? null;
+  const isStuck = (p: PlanRow) => !!doctorTier(p) && doctorTier(p) !== p.base_tier;
+  const canRebase = (p: PlanRow) => isStuck(p) && (doctorTier(p) === "pro" || doctorTier(p) === "premium") && p.profiles?.plan_status === "active";
+
+  const rebasePlan = async () => {
+    if (!rebasing) return;
+    const { error } = await supabase.rpc("rebase_custom_plan" as any, { _doctor_id: rebasing.doctor_id });
+    if (error) toast({ title: "Could not apply the plan", description: error.message, variant: "destructive" });
+    else toast({ title: "Custom plan now applies", description: `Moved to the doctor's ${doctorTier(rebasing)} plan. The price is used from their next payment.` });
+    setRebasing(null);
     load();
   };
 
@@ -181,8 +198,9 @@ const SAPlanRequests = () => {
                       <TableCell><Changes add={p.extra_features} remove={p.removed_features} /></TableCell>
                       <TableCell className="text-sm whitespace-nowrap">₹{p.monthly_price}<div className="text-[11px] text-muted-foreground">std ₹{standardPrice(p.base_tier)}</div></TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{fmt(p.valid_from)} → {p.valid_until ? fmt(p.valid_until) : "no end"}
-                        {p.profiles?.plan_tier && p.profiles.plan_tier !== p.base_tier && <div className="text-amber-600">Tier changed since approval</div>}</TableCell>
+                        {isStuck(p) && <div className="text-warning font-medium whitespace-normal max-w-[220px]">Not applied: built on {p.base_tier}, doctor is on {doctorTier(p)}. The doctor still pays the standard price.</div>}</TableCell>
                       <TableCell className="text-right space-x-1 whitespace-nowrap">
+                        {canManage && canRebase(p) && <Button size="sm" onClick={() => setRebasing(p)}>Apply to {doctorTier(p)}</Button>}
                         {canManage && <><Button size="sm" variant="outline" onClick={() => setEditingPlan(p)}>Edit</Button>
                         <Button size="sm" variant="outline" className="text-destructive" onClick={() => setCancelling(p)}>End</Button></>}
                       </TableCell>
@@ -196,7 +214,8 @@ const SAPlanRequests = () => {
                     <DoctorCell d={p.profiles} />
                     <Changes add={p.extra_features} remove={p.removed_features} />
                     <div className="text-xs text-muted-foreground">₹{p.monthly_price}/month · {fmt(p.valid_from)} → {p.valid_until ? fmt(p.valid_until) : "no end"}</div>
-                    {canManage && <div className="flex gap-2 justify-end"><Button size="sm" variant="outline" onClick={() => setEditingPlan(p)}>Edit</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => setCancelling(p)}>End</Button></div>}
+                    {isStuck(p) && <div className="text-xs text-warning font-medium">Not applied: built on {p.base_tier}, doctor is on {doctorTier(p)}.</div>}
+                    {canManage && <div className="flex gap-2 justify-end">{canRebase(p) && <Button size="sm" onClick={() => setRebasing(p)}>Apply to {doctorTier(p)}</Button>}<Button size="sm" variant="outline" onClick={() => setEditingPlan(p)}>Edit</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => setCancelling(p)}>End</Button></div>}
                   </CardContent></Card>
                 ))}
               </div>
@@ -250,6 +269,22 @@ const SAPlanRequests = () => {
       {editingPlan && (
         <EditTermsDialog plan={editingPlan} onClose={() => setEditingPlan(null)} onDone={() => { setEditingPlan(null); load(); }} />
       )}
+      <AlertDialog open={!!rebasing} onOpenChange={(o) => !o && setRebasing(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply this custom plan to the doctor's current plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It was built on the {rebasing?.base_tier} plan, but {rebasing?.profiles?.full_name || "the doctor"} is now on {rebasing ? doctorTier(rebasing) : ""}.
+              The approved features, the price (₹{rebasing?.monthly_price}/month) and the dates stay the same; they will apply to the {rebasing ? doctorTier(rebasing) : ""} plan,
+              and the doctor is notified. Check the price still makes sense for that plan first.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Not now</AlertDialogCancel>
+            <AlertDialogAction onClick={rebasePlan}>Apply</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={!!cancelling} onOpenChange={(o) => !o && setCancelling(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -282,9 +317,16 @@ const ReviewDialog = ({
   const [current, setCurrent] = useState<Set<string>>(new Set());
   const [price, setPrice] = useState(String(standardPrice));
   const [from, setFrom] = useState("");
-  const [until, setUntil] = useState(request.profiles?.plan_end ? istDate(request.profiles.plan_end) : "");
+  // Blank on purpose: pre-filling the doctor's paid-until date would end the custom price on the
+  // very day they need to renew, so it would never be charged.
+  const [until, setUntil] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const paidUntil = request.profiles?.plan_end ?? null;
+  const endsBeforeRenewal = !!until && !!paidUntil && new Date(istEnd(until)).getTime() <= new Date(paidUntil).getTime() + 86400000;
+  // Only judge the tier when the doctor row actually loaded.
+  const unsupportedTier = !!request.profiles && !["pro", "premium"].includes(request.profiles.plan_tier ?? "");
 
   useEffect(() => {
     supabase.rpc("get_doctor_feature_access", { _doctor_id: request.doctor_id }).then(({ data }) => {
@@ -386,16 +428,35 @@ const ReviewDialog = ({
             <Input id="pr-until" type="date" value={until} onChange={(e) => setUntil(e.target.value)} />
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground -mt-1">
-          Features change for the doctor the moment you approve. The price is used from their next payment; nothing is charged now.
-          {Number(price) < standardPrice && price !== "" ? " This is below the standard price." : ""}
-        </p>
+        <div className="text-[11px] text-muted-foreground -mt-1 space-y-1">
+          <p>
+            Features change for the doctor the moment you approve. The price is used from their next payment; nothing is charged now.
+            {Number(price) < standardPrice && price !== "" ? " This is below the standard price." : ""}
+          </p>
+          <p>
+            <strong>Starts</strong> is when the custom price and features begin (leave blank to start now; a future date schedules it).{" "}
+            <strong>Ends</strong> is the last day they apply: payments made after it use the standard price and the doctor goes back to the standard plan.
+            This is separate from the doctor's <em>paid until</em> date{request.profiles?.plan_end ? ` (${fmt(request.profiles.plan_end)})` : ""}, which is how long they have already paid for.
+          </p>
+        </div>
+        {endsBeforeRenewal && (
+          <p role="alert" className="text-[11px] text-amber-700 bg-amber-500/10 rounded-md px-2 py-1.5">
+            This ends on or within a day of the doctor's paid-until date ({fmt(request.profiles?.plan_end ?? null)}). They renew on or after that date,
+            so the custom price would not be in force then and they would be charged the standard price. Set the end after their next renewal
+            (for example a month past that date), or leave it blank.
+          </p>
+        )}
+        {unsupportedTier && (
+          <p role="alert" className="text-[11px] text-destructive bg-destructive/10 rounded-md px-2 py-1.5">
+            This doctor is on the {request.profiles?.plan_tier || "free"} tier. A custom plan is priced against Pro or Premium, so change their plan first.
+          </p>
+        )}
 
         <Textarea placeholder="Note to the doctor (required when rejecting)" value={note} onChange={(e) => setNote(e.target.value)} className="text-sm" />
 
         <div className="flex gap-2 justify-end">
           <Button variant="outline" disabled={busy || !canManage} className="text-destructive" onClick={() => decide("reject")}>Reject</Button>
-          <Button disabled={busy || !canManage || !selected} onClick={() => decide("approve")} className="bg-royal hover:bg-royal/90">
+          <Button disabled={busy || !canManage || !selected || unsupportedTier} onClick={() => decide("approve")} className="bg-royal hover:bg-royal/90">
             {busy && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}Approve
           </Button>
         </div>

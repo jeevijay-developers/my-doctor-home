@@ -24,7 +24,7 @@ type Flow = { title: string; steps: string[]; color: string };
 
 const flows: Flow[] = [
   { title: "For Patients", steps: patientSteps, color: "from-royal to-teal" },
-  { title: "For Doctors", steps: doctorSteps, color: "from-teal to-accent" },
+  { title: "For Doctors", steps: doctorSteps, color: "from-teal to-teal" },
 ];
 
 const StepList = ({ title, steps, color }: Flow) => (
@@ -49,7 +49,7 @@ const AboutHowItWorks = () => (
   <section className="py-14 md:py-20 bg-secondary/40">
     <div className="container mx-auto px-4">
       <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-        <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">The Flow</span>
+        <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">The Flow</span>
         <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
           How Doctylia Works
         </h2>

@@ -55,6 +55,13 @@ describe("compareWaiting", () => {
     const ids = [late, urgent, sameTimeLater, early].sort(compareWaiting).map((a) => a.id);
     expect(ids).toEqual(["urgent", "early", "same", "late"]);
   });
+
+  it("orders rows created at the same instant by id, the way the database does", () => {
+    const b = appt({ id: "b" });
+    const a = appt({ id: "a" });
+    const c = appt({ id: "c" });
+    expect([c, b, a].sort(compareWaiting).map((x) => x.id)).toEqual(["a", "b", "c"]);
+  });
 });
 
 describe("splitQueue", () => {

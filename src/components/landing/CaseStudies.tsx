@@ -40,7 +40,7 @@ const CaseStudies = () => {
     <section id="case-studies" className="py-14 md:py-20 bg-secondary/40" aria-labelledby="case-studies-heading">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-8 md:mb-12">
-          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">Results</span>
+          <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">Results</span>
           <h2 id="case-studies-heading" className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
             Case Studies
           </h2>

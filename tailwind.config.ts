@@ -90,6 +90,21 @@ export default {
         "text-gray": "hsl(var(--text-gray))",
         "near-black": "hsl(var(--near-black))",
       },
+      // Single source of truth for readable text: the bright brand/status hues are fills (`bg-*`, borders),
+      // so `text-*` resolves to their darker "ink" tone (>= 4.5:1 on white; lighter in dark mode).
+      // Use `text-teal-bright` / `text-spark-bright` only where that text sits on a dark background.
+      textColor: {
+        teal: "hsl(var(--teal-ink))",
+        "teal-bright": "hsl(var(--teal))",
+        spark: "hsl(var(--spark-ink))",
+        "spark-bright": "hsl(var(--spark))",
+        success: "hsl(var(--success-ink))",
+        warning: "hsl(var(--warning-ink))",
+        destructive: {
+          DEFAULT: "hsl(var(--danger-ink))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

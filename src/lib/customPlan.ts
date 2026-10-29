@@ -42,6 +42,22 @@ export function isCustomPlanActive(plan: CustomPlan | null | undefined, now: Dat
   return true;
 }
 
+// A custom plan is built on ONE paid tier. Its price and feature changes apply only while
+// the doctor is on that same tier (the pricing cards, the checkout and the database all use
+// this rule), so "active" is not enough: it can be inside its dates yet not apply.
+//   none          no custom plan inside its dates
+//   applies       built on the tier the doctor is on: price and features are live
+//   tier_mismatch inside its dates but built on a different tier: nothing changes for the doctor
+export type CustomPlanApplication = "none" | "applies" | "tier_mismatch";
+export function customPlanApplication(
+  plan: CustomPlan | null | undefined,
+  currentTier: string | null | undefined,
+  now: Date = new Date(),
+): CustomPlanApplication {
+  if (!isCustomPlanActive(plan, now)) return "none";
+  return plan.base_tier === currentTier ? "applies" : "tier_mismatch";
+}
+
 // Which static card bullet describes which gated feature, so a custom plan can
 // add/remove the matching line instead of the card lying about what's included.
 export const FEATURE_BULLETS: Record<string, string> = {

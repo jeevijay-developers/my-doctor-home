@@ -71,7 +71,7 @@ const ContactSection = () => {
     <section id="contact" className="py-14 md:py-20 bg-white">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">Contact Us</span>
+          <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">Contact Us</span>
           <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
             Have Questions? Let's Talk
           </h2>
@@ -124,7 +124,7 @@ const ContactSection = () => {
               <h3 className="font-heading font-bold text-xl">Get in Touch</h3>
               <div className="space-y-4 sm:space-y-4 md:space-y-5">
                 <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 mt-0.5 text-accent shrink-0" />
+                  <Mail className="h-5 w-5 mt-0.5 text-teal-bright shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-medium">Email</div>
                     <a href="mailto:support@doctylia.com" className="text-sm text-primary-foreground/70 hover:text-white transition-colors break-words">
@@ -133,7 +133,7 @@ const ContactSection = () => {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 mt-0.5 text-accent shrink-0" />
+                  <Phone className="h-5 w-5 mt-0.5 text-teal-bright shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-medium">Phone</div>
                     <a href="tel:+918619483010" className="text-sm text-primary-foreground/70 hover:text-white transition-colors">
@@ -142,7 +142,7 @@ const ContactSection = () => {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 mt-0.5 text-accent shrink-0" />
+                  <MapPin className="h-5 w-5 mt-0.5 text-teal-bright shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-medium">Office</div>
                     <div className="text-sm text-primary-foreground/70 break-words">22, Second Floor, Jeevijay Technologies Pvt. Ltd., Aerodrome, Behind Modern Petrol Pump, Kota, Rajasthan</div>

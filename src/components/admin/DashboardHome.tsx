@@ -18,6 +18,10 @@ import { Input } from "@/components/ui/input";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
+import StatCard, { type StatTone } from "./StatCard";
+import StatusBadge from "./StatusBadge";
+import PlanCard from "./PlanCard";
+import { summarizePlan } from "@/lib/planSummary";
 
 const growthTips = [
   { tip: "Add your services to get more bookings", icon: Stethoscope, action: "/admin/my-website" },
@@ -148,31 +152,17 @@ const DashboardHome = () => {
     setUrgentBannerDismissed(true);
   };
 
-  const statCards = [
-    { icon: CalendarCheck, label: "APPOINTMENTS", value: String(stats.appointments), bgClass: "bg-royal/15", iconClass: "text-royal", sub: `${stats.todayCount} today`, to: "/admin/appointments" },
-    { icon: Users, label: "PATIENTS", value: String(stats.patients), bgClass: "bg-pink/15", iconClass: "text-pink", sub: "All time", to: "/admin/patients" },
-    { icon: CreditCard, label: "REVENUE", value: `₹${stats.revenue.toLocaleString("en-IN")}`, bgClass: "bg-teal/15", iconClass: "text-teal", sub: "Paid appointments", to: "/admin/billing" },
+  const statCards: { icon: typeof CalendarCheck; label: string; value: string; sub: string; to: string; tone: StatTone }[] = [
+    { icon: CalendarCheck, label: "Appointments", value: String(stats.appointments), sub: `${stats.todayCount} today`, to: "/admin/appointments", tone: "primary" },
+    { icon: Users, label: "Patients", value: String(stats.patients), sub: "All time", to: "/admin/patients", tone: "navy" },
+    { icon: CreditCard, label: "Revenue", value: `₹${stats.revenue.toLocaleString("en-IN")}`, sub: "Paid appointments", to: "/admin/billing", tone: "teal" },
     {
-      icon: Star, label: "REVIEWS",
+      icon: Star, label: "Reviews",
       value: stats.reviewCount > 0 ? stats.avgRating.toFixed(1) : "—",
-      bgClass: "bg-orange/15", iconClass: "text-orange",
       sub: stats.reviewCount > 0 ? `${stats.reviewCount} review${stats.reviewCount === 1 ? "" : "s"}` : "No reviews yet",
-      to: "/admin/reviews",
+      to: "/admin/reviews", tone: "warning",
     },
   ];
-
-
-
-  // Matches the dot colors below and BillingPage's statusColors: completed
-  // is success (green), confirmed is royal (blue).
-  const statusColor = (status: string) => {
-    switch (status) {
-      case "confirmed": return "bg-royal/10 text-royal border-royal/20";
-      case "completed": return "bg-success/10 text-success border-success/20";
-      case "cancelled": return "bg-destructive/10 text-destructive border-destructive/20";
-      default: return "bg-warning/10 text-warning border-warning/20";
-    }
-  };
 
   const liveUrl = profile?.slug ? `${window.location.origin}/dr/${profile.slug}` : null;
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -182,7 +172,7 @@ const DashboardHome = () => {
   return (
     <div className="max-w-7xl mx-auto w-full flex flex-col gap-2 lg:gap-2.5 xl:gap-3 lg:h-[calc(100dvh-3.5rem-2rem)] xl:h-[calc(100dvh-3.5rem-3rem)] lg:overflow-hidden">
       {/* Welcome Banner */}  
-      <div className="relative overflow-hidden rounded-2xl gradient-navy-teal p-4 md:p-5">
+      <div className="relative overflow-hidden rounded-2xl gradient-brand p-4 md:p-5">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-10 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
           <div className="absolute bottom-2 right-40 w-24 h-24 rounded-full bg-white/10 blur-xl" />
@@ -190,26 +180,27 @@ const DashboardHome = () => {
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="h-5 w-5 text-spark" />
-              <span className="text-sm font-medium text-white/70">{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
+              <Sparkles className="h-5 w-5 text-spark-bright" aria-hidden="true" />
+              <span className="text-sm font-medium text-white/85">{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
             </div>
-            <h1 className="font-heading font-extrabold text-xl md:text-2xl text-white">
-              Welcome back, {profile?.full_name?.split(" ")[0] || "Doctor"} 👋
+            <h1 className="font-heading font-extrabold text-2xl text-white">
+              Welcome back, {profile?.full_name?.split(" ")[0] || "Doctor"}
             </h1>
-            <p className="text-white/60 mt-0.5 text-xs md:text-sm">Here's what's happening with your practice today.</p>
+            <p className="text-white/80 mt-0.5 text-sm">Here's what's happening with your practice today.</p>
           </div>
-          {profile?.plan_status === "trial" && !isStaff && (
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 min-w-[220px]">
+          {profile?.plan_status === "trial" && !isStaff && summarizePlan(profile).kind === "trial" && (
+            <div className="bg-navy/45 backdrop-blur-sm border border-white/20 rounded-xl p-4 min-w-[220px]">
               <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-spark" />
+                <Clock className="h-4 w-4 text-spark-bright" aria-hidden="true" />
                 <span className="text-sm font-semibold text-white">Free Trial</span>
               </div>
               <Progress value={trialProgress} className="h-2 bg-white/20 mb-2 [&>div]:bg-spark" />
-              <p className="text-xs text-white/60">
-                <span className="text-white font-bold">{daysLeft} day{daysLeft !== 1 ? "s" : ""}</span> remaining
+              <p className="text-xs text-white/80">
+                <span className="text-white font-bold tabular-nums">{daysLeft} day{daysLeft !== 1 ? "s" : ""}</span> remaining
               </p>
             </div>
           )}
+          {!isStaff && <PlanCard />}
         </div>
       </div>
 
@@ -245,39 +236,24 @@ const DashboardHome = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {statCards.map((s) => (
-          <Link key={s.label} to={s.to} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal">
-            <Card className="border-0 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 bg-card cursor-pointer h-full">
-              <CardContent className="p-3 xl:p-4">
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className={`w-9 h-9 rounded-xl ${s.bgClass} flex items-center justify-center flex-shrink-0`}>
-                    <s.icon className={`h-4 w-4 ${s.iconClass}`} />
-                  </div>
-                  {/* min-w-0 overrides the flex item's default min-width:auto so the unbreakable all-caps label can shrink/truncate instead of forcing the card wider */}
-                  <div className="text-[10px] font-semibold text-muted-foreground tracking-wider truncate min-w-0">{s.label}</div>
-                </div>
-                <div className="font-heading font-bold text-xl xl:text-2xl text-foreground leading-tight truncate">{s.value}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{s.sub}</div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+        {statCards.map((s) => <StatCard key={s.label} {...s} />)}
       </div>
 
       {/* Growth Tip Banner */}
-      <Card className="border-spark/30 bg-spark/5 shadow-none">
-        <CardContent className="p-3 flex flex-row items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-spark/20 flex items-center justify-center flex-shrink-0">
-            <Lightbulb className="h-4 w-4 text-spark" />
+      {/* Lime is a fill/accent; `text-spark` resolves to its readable ink tone (raw lime on white is ~1.5:1) */}
+      <Card className="border-spark/40 bg-spark/10 shadow-none">
+        <CardContent className="p-3 pt-3 flex flex-row items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-spark/30 flex items-center justify-center flex-shrink-0">
+            <Lightbulb className="h-[18px] w-[18px] text-spark" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-spark/80">GROWTH TIP</p>
-            <p className="text-xs md:text-sm font-medium text-foreground truncate">{currentTip.tip}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-spark">Growth tip</p>
+            <p className="text-sm font-medium text-foreground truncate">{currentTip.tip}</p>
           </div>
           {currentTip.action && (
             <Link to={currentTip.action}>
-              <Button size="sm" variant="outline" className="text-xs border-spark/30 text-spark hover:bg-spark/10 flex-shrink-0 h-8">
-                Do it <ArrowRight className="h-3 w-3 ml-1" />
+              <Button size="sm" variant="outline" className="text-xs border-spark/40 bg-card text-spark hover:bg-spark/20 hover:text-spark flex-shrink-0 h-9">
+                Do it <ArrowRight className="h-3.5 w-3.5 ml-1" aria-hidden="true" />
               </Button>
             </Link>
           )}
@@ -289,17 +265,17 @@ const DashboardHome = () => {
           RIGHT = Monthly Revenue (top) + Share Your Website (bottom), equally split */}
       <div className="grid gap-3 lg:grid-cols-2 lg:flex-1 lg:min-h-0">
         {/* LEFT — Today's Schedule */}
-        <Card className="border-0 rounded-2xl shadow-sm bg-card flex flex-col lg:min-h-0 lg:overflow-hidden">
+        <Card className="rounded-2xl flex flex-col lg:min-h-0 lg:overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg">Today's Schedule</CardTitle>
                 {stats.pendingTodayCount > 0 && (
-                  <Badge variant="secondary" className="text-xs font-semibold bg-royal/10 text-royal">{stats.pendingTodayCount}</Badge>
+                  <Badge variant="secondary" className="text-xs font-semibold bg-primary/10 text-primary tabular-nums">{stats.pendingTodayCount}</Badge>
                 )}
               </div>
-              <Link to="/admin/appointments" className="text-sm text-royal flex items-center gap-1 hover:underline font-medium">
-                View All <ArrowRight className="h-3 w-3" />
+              <Link to="/admin/appointments" className="text-sm text-primary flex items-center gap-1 hover:underline font-medium">
+                View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
               </Link>
             </div>
           </CardHeader>
@@ -307,12 +283,12 @@ const DashboardHome = () => {
             {todayAppointments.length === 0 ? (
               <div className="text-center py-10">
                 <div className="w-16 h-16 rounded-2xl bg-royal/5 flex items-center justify-center mx-auto mb-3">
-                  <CalendarCheck className="h-8 w-8 text-royal/30" />
+                  <CalendarCheck className="h-8 w-8 text-primary/40" aria-hidden="true" />
                 </div>
-                <p className="text-muted-foreground text-sm font-medium">
+                <p className="text-foreground text-sm font-medium">
                   {stats.todayCount > 0 ? "All of today's appointments are done" : "No appointments for today"}
                 </p>
-                <p className="text-muted-foreground/60 text-xs mt-1">Your upcoming bookings will appear here</p>
+                <p className="text-muted-foreground text-xs mt-1">Your upcoming bookings will appear here</p>
               </div>
             ) : (
               <div className="space-y-1">
@@ -328,7 +304,7 @@ const DashboardHome = () => {
                     </div>
                     <div className="flex-1 pb-4 flex items-start justify-between gap-3 p-3 -mt-1 rounded-xl group-hover:bg-secondary/60 transition-colors">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary flex-shrink-0">
                           {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
                         </div>
                         <div className="min-w-0">
@@ -337,8 +313,8 @@ const DashboardHome = () => {
                         </div>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-shrink-0">
-                        <span className="text-sm font-semibold text-foreground">{a.time_slot?.slice(0, 5)}</span>
-                        <Badge variant="outline" className={`text-[10px] capitalize ${statusColor(a.status)}`}>{a.status}</Badge>
+                        <span className="text-sm font-semibold text-foreground tabular-nums">{a.time_slot?.slice(0, 5)}</span>
+                        <StatusBadge status={a.status} />
                       </div>
                     </div>
                   </div>
@@ -352,36 +328,45 @@ const DashboardHome = () => {
             so their combined height matches Today's Schedule on the left */}
         <div className="flex flex-col gap-3 lg:min-h-0">
           {/* Monthly Revenue */}
-          <Card className="border-0 rounded-2xl shadow-sm bg-card flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">
+          <Card className="rounded-2xl flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <IndianRupee className="h-4 w-4 text-teal" /> Monthly Revenue
+                  <IndianRupee className="h-4 w-4 text-teal" aria-hidden="true" /> Monthly Revenue
                 </CardTitle>
-                <span className="text-sm font-heading font-bold text-foreground">
+                <span className="text-base font-heading font-bold text-foreground tabular-nums">
                   ₹{monthlyRevenue.toLocaleString("en-IN")}
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Last 30 days</p>
+              <p className="text-xs text-muted-foreground">Last 30 days</p>
             </CardHeader>
             <CardContent className="flex-1 lg:min-h-0 pt-0 pb-3">
-              <div className="w-full h-full min-h-[120px]">
+              <div className="w-full h-full min-h-[120px]" role="img" aria-label={`Daily revenue for the last 30 days, total ₹${monthlyRevenue.toLocaleString("en-IN")}`}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={revenueSeries} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.25} vertical={false} />
-                    <XAxis dataKey="day" fontSize={10} interval="preserveStartEnd" tickLine={false} axisLine={false} />
-                    <YAxis fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                    {/* `stroke` only colors the axis line; tick text needs an explicit fill (default #666 fails on dark cards) */}
+                    <XAxis dataKey="day" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} allowDecimals={false} />
                     <Tooltip
                       formatter={(v: any) => [`₹${Number(v).toLocaleString("en-IN")}`, "Revenue"]}
-                      contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                      contentStyle={{
+                        fontSize: 12,
+                        borderRadius: 10,
+                        background: "hsl(var(--popover))",
+                        color: "hsl(var(--popover-foreground))",
+                        border: "1px solid hsl(var(--border))",
+                        boxShadow: "var(--shadow-md)",
+                      }}
                     />
+                    {/* Primary royal reads against both themes; teal (the old stroke) is ~1.9:1 on white */}
                     <Line
-                      type="linear"
+                      type="monotone"
                       dataKey="value"
-                      stroke="hsl(var(--teal))"
-                      strokeWidth={2}
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2.5}
                       dot={false}
-                      activeDot={{ r: 4 }}
+                      activeDot={{ r: 5, strokeWidth: 2, stroke: "hsl(var(--card))" }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -390,17 +375,17 @@ const DashboardHome = () => {
           </Card>
 
           {/* Share Your Website */}
-          <Card className="border-0 rounded-2xl shadow-sm bg-card border-l-4 border-l-success flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">
+          <Card className="rounded-2xl border-l-4 border-l-success flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <Share2 className="h-4 w-4 text-success" /> Share Your Website
+                <Share2 className="h-4 w-4 text-success" aria-hidden="true" /> Share Your Website
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 lg:min-h-0 lg:overflow-y-auto">
               {liveUrl ? (
                 <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">Share your website with patients via WhatsApp to get more bookings!</p>
-                  <div className="bg-secondary/60 rounded-lg p-3 text-xs text-foreground break-all">
+                  <p className="text-sm text-muted-foreground">Share your website with patients via WhatsApp to get more bookings!</p>
+                  <div className="bg-secondary rounded-lg p-3 text-sm text-foreground break-all">
                     🏥 Book your appointment online with {profile?.full_name || "Dr."} — {liveUrl}
                   </div>
                   <div className="flex gap-2">
@@ -420,7 +405,9 @@ const DashboardHome = () => {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-4 text-center">Complete onboarding to share your website</p>
+                <div className="h-full min-h-[96px] flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground text-center">Complete onboarding to share your website</p>
+                </div>
               )}
             </CardContent>
           </Card>

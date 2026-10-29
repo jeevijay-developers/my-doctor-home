@@ -12,7 +12,7 @@ const specialties = [
   { name: "Dermatologist", icon: Scissors, color: "bg-ai-purple/10 text-ai-purple" },
   { name: "Ophthalmologist", icon: Eye, color: "bg-teal/10 text-teal" },
   { name: "Neurologist", icon: Brain, color: "bg-warning/10 text-warning" },
-  { name: "Gynecologist", icon: Activity, color: "bg-accent/10 text-accent" },
+  { name: "Gynecologist", icon: Activity, color: "bg-teal/10 text-teal" },
   { name: "Ayurvedic", icon: Pill, color: "bg-success/10 text-success" },
 ];
 

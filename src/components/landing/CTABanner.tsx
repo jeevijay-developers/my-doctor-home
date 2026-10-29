@@ -54,7 +54,7 @@ const CTABanner = () => (
         <div className="flex flex-wrap items-center justify-center gap-3 md:gap-5 mt-5">
           {guarantees.map((g) => (
             <div key={g} className="flex items-center gap-1.5 text-xs md:text-sm font-medium text-white/80">
-              <CheckCircle className="h-3.5 w-3.5 text-accent shrink-0" />
+              <CheckCircle className="h-3.5 w-3.5 text-teal-bright shrink-0" />
               {g}
             </div>
           ))}

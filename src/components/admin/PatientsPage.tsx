@@ -109,7 +109,7 @@ const PatientsPage = () => {
     }
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%`);
-    q = q.order("last_visit", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).range(from, to);
+    q = q.order("last_visit", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).order("id").range(from, to);
     const { data, count, error } = await q;
     if (seq !== loadSeq.current) return;
     if (error) { console.error("Patients load failed:", error.message); return; }

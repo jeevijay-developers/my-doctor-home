@@ -36,11 +36,13 @@ export function queueStateOf(a: Pick<QueueAppointment, "status" | "serving_start
   return "waiting";
 }
 
-// Same order as the database: priority first, then arrival/slot time, then creation.
+// Same order as the database: priority first, then arrival/slot time, then creation, then id.
 export function compareWaiting(a: QueueAppointment, b: QueueAppointment): number {
   if (a.priority !== b.priority) return b.priority - a.priority;
   if (a.sort_time !== b.sort_time) return a.sort_time < b.sort_time ? -1 : 1;
-  return a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0;
+  if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
+  // Same instant (rows inserted together): fall back to id, exactly as the database does.
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
 // "HH:MM" bounds, both optional. Compares against the "HH:MM:SS" sort_time.

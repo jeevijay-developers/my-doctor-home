@@ -15,7 +15,7 @@ import featureAnalytics from "@/assets/feature-analytics.webp";
 const features = [
   { icon: Globe, title: "Your Own Website", desc: "A branded website patients can find and book from, live within 10 minutes.", color: "bg-royal/10 text-royal", img: featureWebsite, bg: "bg-gradient-to-br from-royal/5 to-teal/5" },
   { icon: CalendarCheck, title: "Smart Appointments", desc: "Online booking with automated WhatsApp reminders.", color: "bg-success/10 text-success", img: featureAppointments, bg: "bg-gradient-to-br from-teal/5 to-success/5" },
-  { icon: CreditCard, title: "Billing & Invoices", desc: "GST invoices and UPI payments through Razorpay, in the same dashboard.", color: "bg-accent/10 text-accent", img: featureBilling, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
+  { icon: CreditCard, title: "Billing & Invoices", desc: "GST invoices and UPI payments through Razorpay, in the same dashboard.", color: "bg-teal/10 text-teal", img: featureBilling, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
   { icon: Users, title: "Patient Records", desc: "Digital patient history, prescriptions, and reports in one place.", color: "bg-ai-purple/10 text-ai-purple", img: featurePatients, bg: "bg-gradient-to-br from-ai-purple/5 to-royal/5" },
   { icon: Brain, title: "AI Blog Writer", desc: "Draft an SEO health article from a topic, then edit and publish it on your site.", color: "bg-spark/10 text-spark", img: featureAiBlog, bg: "bg-gradient-to-br from-spark/10 to-teal/5" },
   { icon: Video, title: "Online Consultation", desc: "Video consultations from your branded site - no app download needed.", color: "bg-teal/10 text-teal", img: featureConsultation, bg: "bg-gradient-to-br from-teal/5 to-royal/5" },
@@ -87,7 +87,7 @@ const FeaturesGrid = () => {
     <section id="features" className="py-16 md:py-20 bg-white">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">Features</span>
+          <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">Features</span>
           <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
             Everything Your Practice Needs
           </h2>

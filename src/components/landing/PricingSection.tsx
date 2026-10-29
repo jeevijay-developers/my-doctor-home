@@ -44,7 +44,7 @@ const PricingSection = () => {
     <section id="pricing" className="py-16 md:py-20 bg-white">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-10 md:mb-12">
-          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">
+          <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">
             Pricing
           </span>
           <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
@@ -74,7 +74,7 @@ const PricingSection = () => {
                 }`}
               >
                 {p.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-royal to-accent text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1 whitespace-nowrap">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-royal to-teal text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1 whitespace-nowrap">
                     <Sparkles className="h-3 w-3" /> Most Popular
                   </span>
                 )}

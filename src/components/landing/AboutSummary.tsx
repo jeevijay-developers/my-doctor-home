@@ -22,7 +22,7 @@ const AboutSummary = () => (
           transition={{ duration: 0.5 }}
           className="order-2 sm:order-1"
         >
-          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">About Doctylia</span>
+          <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">About Doctylia</span>
           <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
             The Complete Doctor Platform
           </h2>

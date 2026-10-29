@@ -66,7 +66,7 @@ const SuperAdminSidebar = () => {
                   draggable={false}
                   style={{ imageRendering: "-webkit-optimize-contrast" }}
                 />
-                <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-spark text-primary px-2 py-0.5 rounded">Super</span>
+                <span className="ml-auto text-[10px] font-bold uppercase tracking-wider bg-spark text-navy px-2 py-0.5 rounded">Super</span>
               </>
             ) : (
               <Shield className="h-6 w-6 text-primary" />

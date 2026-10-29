@@ -7,6 +7,7 @@ import {
   FileText, Eye, Loader2, ChevronLeft, ChevronRight, X, Percent, Wallet, ArrowDownRight,
 } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
+import StatusBadge from "@/components/admin/StatusBadge";
 import PaymentStatusDonut, { type DonutSegment } from "@/components/shared/PaymentStatusDonut";
 import TestModeBadge from "@/components/shared/TestModeBadge";
 import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth, addMonths, subMonths } from "date-fns";
@@ -527,13 +528,6 @@ const BillingPage = () => {
     pay_at_clinic: { bg: "bg-royal/10", text: "text-royal", label: "Pay at Clinic" },
   };
 
-  const statusColors: Record<string, string> = {
-    completed: "bg-success/10 text-success",
-    cancelled: "bg-destructive/10 text-destructive",
-    confirmed: "bg-royal/10 text-royal",
-    pending: "bg-warning/10 text-warning",
-  };
-
   const revenueCards = [
     { label: dayCardLabel, value: todayRev, icon: Calendar, gradient: "from-royal to-teal" },
     { label: weekCardLabel, value: weekRev, icon: TrendingUp, gradient: "from-teal to-success" },
@@ -860,7 +854,7 @@ const BillingPage = () => {
                                   {a.settlement_label}
                                 </Badge>
                               )}
-                              <Badge variant="outline" className={`text-[10px] capitalize ${statusColors[a.status] || ""}`}>{a.status}</Badge>
+                              <StatusBadge status={a.status} />
                               {a.is_mock && <TestModeBadge />}
                               <div className="text-right">
                                 <span className="font-heading font-bold text-foreground">

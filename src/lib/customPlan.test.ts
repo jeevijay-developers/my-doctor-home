@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyCustomPlanToBullets, diffFeatureSelection, isCustomPlanActive, type CustomPlan } from "./customPlan";
+import { applyCustomPlanToBullets, customPlanApplication, diffFeatureSelection, isCustomPlanActive, type CustomPlan } from "./customPlan";
 import { getDoctorTierPrice } from "./planFeatures";
 
 const basePlan: CustomPlan = {
@@ -76,5 +76,20 @@ describe("diffFeatureSelection", () => {
   });
   it("is empty when nothing changed", () => {
     expect(diffFeatureSelection(new Set(["a"]), new Set(["a"]), keys)).toEqual({ add: [], remove: [] });
+  });
+});
+
+describe("customPlanApplication", () => {
+  it("applies when the doctor is on the tier the plan was built on", () => {
+    expect(customPlanApplication(basePlan, "pro", now)).toBe("applies");
+  });
+  it("is a mismatch when the doctor is on another tier: it looks active but changes nothing", () => {
+    expect(customPlanApplication(basePlan, "premium", now)).toBe("tier_mismatch");
+    // A plan built on 'free' can never match a Pro or Premium doctor.
+    expect(customPlanApplication({ ...basePlan, base_tier: "free" }, "premium", now)).toBe("tier_mismatch");
+  });
+  it("is none outside its dates or when there is no plan", () => {
+    expect(customPlanApplication({ ...basePlan, valid_until: "2026-05-31T00:00:00Z" }, "pro", now)).toBe("none");
+    expect(customPlanApplication(null, "pro", now)).toBe("none");
   });
 });

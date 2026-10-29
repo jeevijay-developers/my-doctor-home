@@ -27,14 +27,14 @@ const steps: Step[] = [
   {
     icon: Settings, num: "02", title: "Set Up Your Clinic",
     desc: "Add your profile, services, pricing & photos. Our wizard guides you step by step.",
-    color: "from-teal to-accent",
+    color: "from-teal to-teal",
     img: "https://images.unsplash.com/photo-1551076805-e1869033e561?w=400&h=260&fit=crop&q=80",
     imgAlt: "Doctor customizing clinic dashboard"
   },
   {
     icon: Rocket, num: "03", title: "Go Live & Grow",
     desc: "Your branded website is live! Patients book, pay & consult you 24/7 on autopilot.",
-    color: "from-accent to-spark",
+    color: "from-teal to-spark",
     img: goLiveImg,
     imgAlt: "24/7 patient care on autopilot"
   },
@@ -62,7 +62,7 @@ const HowItWorks = () => {
     <section id="how-it-works" className="py-14 md:py-20 bg-white">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">How It Works</span>
+          <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">How It Works</span>
           <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
             Live in 3 Simple Steps
           </h2>

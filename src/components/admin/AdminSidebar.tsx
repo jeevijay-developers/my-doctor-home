@@ -96,7 +96,7 @@ const AdminSidebar = () => {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/70 text-xs font-semibold uppercase tracking-wider">Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleItems.map((item) => (
@@ -106,11 +106,11 @@ const AdminSidebar = () => {
                       to={item.url}
                       end
                       onClick={closeMobileSidebar}
-                      className="text-sidebar-foreground/90 font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                      activeClassName="!bg-primary !text-primary-foreground !font-semibold shadow-lg shadow-primary/30"
+                      className="relative text-sidebar-foreground font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                      activeClassName="!bg-sidebar-accent !text-sidebar-accent-foreground !font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:rounded-full before:bg-sidebar-primary"
                     >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <item.icon className="mr-2 h-4 w-4" aria-hidden="true" />
+                      <span className={collapsed ? "sr-only" : undefined}>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -126,17 +126,17 @@ const AdminSidebar = () => {
         <NavLink
           to="/admin/support"
           onClick={closeMobileSidebar}
-          className="flex items-center gap-2 text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 rounded-lg transition-colors"
+          className="flex items-center gap-2 text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 max-lg:min-h-[44px] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           activeClassName="!bg-sidebar-accent !text-sidebar-accent-foreground"
         >
           <LifeBuoy className="h-4 w-4" />
-          {!collapsed && <span>Contact Support</span>}
+          <span className={collapsed ? "sr-only" : undefined}>Contact Support</span>
         </NavLink>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <button className="flex items-center gap-2 text-sidebar-foreground hover:text-destructive hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 rounded-lg transition-colors">
+            <button className="flex items-center gap-2 text-sidebar-foreground hover:text-destructive hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 max-lg:min-h-[44px] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
               <LogOut className="h-4 w-4" />
-              {!collapsed && <span>Logout</span>}
+              <span className={collapsed ? "sr-only" : undefined}>Logout</span>
             </button>
           </AlertDialogTrigger>
           <AlertDialogContent>

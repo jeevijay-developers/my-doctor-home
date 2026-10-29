@@ -12,6 +12,7 @@ import { format, addDays, differenceInHours, parseISO, isSameDay } from "date-fn
 import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight, BellRing } from "lucide-react";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { generateTimeSlots, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
+import { clinicToday } from "@/lib/queue";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
 
 type Appt = {
@@ -42,6 +43,9 @@ const ManageAppointment = () => {
   const [loading, setLoading] = useState(false);
   const [appt, setAppt] = useState<Appt | null>(null);
   const [upcomingCheckup, setUpcomingCheckup] = useState<{ doctor_name: string; next_checkup_date: string; reminder_enabled: boolean } | null>(null);
+  // The clinic could not be loaded: "missing" = no such clinic, "network" = try again.
+  const [clinicError, setClinicError] = useState<null | "missing" | "network">(null);
+  const [clinicReload, setClinicReload] = useState(0);
   const [queueLive, setQueueLive] = useState(true);
   const [queueInfo, setQueueInfo] = useState<{
     found: boolean; queue_number?: number; state?: string; ahead?: number | null; now_serving?: number | null; avg_minutes?: number | null;
@@ -72,18 +76,29 @@ const ManageAppointment = () => {
 
   useEffect(() => {
     if (!slug) return;
+    setClinicError(null);
     (async () => {
-      const { data: prof } = await supabase.from("profiles").select("*").eq("slug", slug).eq("onboarding_completed", true).single();
-      if (!prof) return;
+      const { data: prof, error: profErr } = await supabase.from("profiles").select("*").eq("slug", slug).eq("onboarding_completed", true).single();
+      if (profErr || !prof) {
+        // PGRST116 = no row: the clinic does not exist. Anything else is a failed request.
+        setClinicError(profErr && profErr.code !== "PGRST116" ? "network" : "missing");
+        return;
+      }
       setDoctor(prof);
       const [s, wh] = await Promise.all([
         supabase.from("website_settings").select("*").eq("doctor_id", prof.id).single(),
         supabase.from("working_hours").select("*").eq("doctor_id", prof.id).order("day_of_week"),
       ]);
+      // No settings row is fine (defaults apply); a failed request must not silently
+      // turn into "every day closed" or the wrong cancellation cutoff.
+      if ((s.error && s.error.code !== "PGRST116") || wh.error) {
+        setClinicError("network");
+        return;
+      }
       setSettings(s.data);
       setWorkingHours(wh.data || []);
     })();
-  }, [slug]);
+  }, [slug, clinicReload]);
 
   const lookup = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -95,7 +110,11 @@ const ManageAppointment = () => {
     setLoading(false);
     if (error) {
       // A network or server failure is not "no such appointment".
-      toast.error("Could not reach the server. Please check your connection and try again.");
+      toast.error(
+        error.message?.includes("TOO_MANY_ATTEMPTS")
+          ? "Too many attempts. Please wait 15 minutes and try again, or call the clinic."
+          : "Could not reach the server. Please check your connection and try again.",
+      );
       return;
     }
     const row = Array.isArray(data) ? data[0] : data;
@@ -122,6 +141,8 @@ const ManageAppointment = () => {
   // reaches them; they poll one narrow function that returns numbers only.
   useEffect(() => {
     if (!appt || !doctor || appt.appointment_type !== "clinic") return;
+    // The line only exists on the day of the visit; a future booking has nothing to watch.
+    if (appt.date !== clinicToday()) return;
     // A closed booking has no line to watch.
     if (["cancelled", "completed", "no_show"].includes(appt.status)) return;
     let cancelled = false;
@@ -238,15 +259,27 @@ const ManageAppointment = () => {
 
             {!appt && (
               <form onSubmit={lookup} className="space-y-4">
+                {clinicError && (
+                  <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-sm px-3 py-2 flex items-center justify-between gap-2">
+                    <span>
+                      {clinicError === "missing"
+                        ? "We could not find this clinic. Please check the link."
+                        : "Could not load the clinic's details. Please check your connection."}
+                    </span>
+                    {clinicError === "network" && (
+                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setClinicReload((n) => n + 1)}>Try again</Button>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-1.5">
-                  <Label>Token Number</Label>
-                  <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="e.g. TK7M2QX9" className="h-10" />
+                  <Label htmlFor="manage-token">Token Number</Label>
+                  <Input id="manage-token" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="e.g. TK7M2QX9" className="h-10" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Phone Number</Label>
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Registered mobile" className="h-10" />
+                  <Label htmlFor="manage-phone">Phone Number</Label>
+                  <Input id="manage-phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Registered mobile" className="h-10" />
                 </div>
-                <Button type="submit" className="w-full h-10 bg-royal hover:bg-royal/90" disabled={loading || !token || !phone}>
+                <Button type="submit" className="w-full h-10 bg-royal hover:bg-royal/90" disabled={loading || !token || !phone || !!clinicError}>
                   {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Looking up…</> : "Find My Appointment"}
                 </Button>
               </form>
@@ -448,6 +481,7 @@ const errorMessage = (code?: string) => {
     case "NOT_CANCELLABLE": return "This appointment can no longer be cancelled.";
     case "NOT_RESCHEDULABLE": return "This appointment can no longer be rescheduled.";
     case "TOO_CLOSE": return "Too close to the appointment time - please call the clinic.";
+    case "TOO_MANY_ATTEMPTS": return "Too many attempts. Please wait 15 minutes and try again, or call the clinic.";
     case "MAX_RESCHEDULES": return "You've reached the maximum number of reschedules.";
     case "SLOT_FULL": return "That slot was just taken. Please pick another.";
     case "SLOT_IN_PAST": return "That time is in the past - please pick a future slot.";

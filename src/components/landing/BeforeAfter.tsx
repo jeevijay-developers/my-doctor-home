@@ -77,7 +77,7 @@ const BeforeAfter = () => {
     <section className="py-14 md:py-20 bg-secondary">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-          <span className="text-xs md:text-sm font-semibold text-accent uppercase tracking-wider">The Difference</span>
+          <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">The Difference</span>
           <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
             See the Transformation
           </h2>

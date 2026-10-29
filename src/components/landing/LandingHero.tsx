@@ -29,7 +29,7 @@ const LandingHero = () => {
       <motion.div
         animate={{ scale: [1, 1.3, 1], opacity: [0.05, 0.1, 0.05] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-        className="absolute bottom-10 left-10 w-36 md:w-56 h-36 md:h-56 bg-accent rounded-full blur-3xl"
+        className="absolute bottom-10 left-10 w-36 md:w-56 h-36 md:h-56 bg-teal rounded-full blur-3xl"
       />
       {/* Floating particles - hidden on mobile */}
       <motion.div animate={{ y: [0, -20, 0], x: [0, 10, 0] }} transition={{ duration: 7, repeat: Infinity }} className="absolute top-1/3 left-[15%] w-3 h-3 rounded-full bg-royal/20 hidden md:block" />

@@ -152,7 +152,7 @@ const Onboarding = () => {
               <div className="flex items-start gap-4 py-4">
                 <div className="relative">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                    step > s.num ? "bg-spark text-primary" :
+                    step > s.num ? "bg-spark text-navy" :
                     step === s.num ? "bg-white/20 text-white border border-white/30" :
                     "bg-white/5 text-white/30"
                   }`}>

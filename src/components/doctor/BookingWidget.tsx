@@ -257,6 +257,14 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         setStep(3); setSelectedTime(""); refresh();
         return null;
       }
+      if (error.message?.includes("TOO_MANY_BOOKINGS")) {
+        toast.error("You already have 3 upcoming bookings with this clinic. Please attend or cancel one first.");
+        return null;
+      }
+      if (error.message?.includes("PHONE_REQUIRED")) {
+        toast.error("Please enter a valid 10-digit mobile number.");
+        return null;
+      }
       toast.error("Booking failed. Please try again.");
       return null;
     }
@@ -967,27 +975,27 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         <div className="space-y-4 text-left">
           <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Patient Details</h3>
           <div className="space-y-3">
-            <input type="text" placeholder="Full Name *" value={name} onChange={(e) => setName(e.target.value)}
+            <input type="text" aria-label="Full name" autoComplete="name" placeholder="Full Name *" value={name} onChange={(e) => setName(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
             <div className="flex items-center gap-2">
               <span className="px-3 py-3 rounded-lg border border-border bg-secondary text-sm text-foreground">+91</span>
-              <input type="tel" inputMode="numeric" maxLength={13} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
+              <input type="tel" aria-label="Mobile number" autoComplete="tel" inputMode="numeric" maxLength={13} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
                 className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
             </div>
             {phone && !isValidIndianPhone(phone) && (
               <p className="text-[11px] text-destructive -mt-1">{phoneErrorMessage}</p>
             )}
-            <input type="email" placeholder="Email (optional - for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
+            <input type="email" aria-label="Email (optional)" autoComplete="email" placeholder="Email (optional - for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
             <div className="grid grid-cols-2 gap-3">
-              <input type="number" min="0" max="120" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
+              <input type="number" aria-label="Age" min="0" max="120" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
                 className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
               <select value={gender} onChange={(e) => setGender(e.target.value)}
                 className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950">
                 <option value="" disabled hidden>Gender *</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
               </select>
             </div>
-            <textarea placeholder="Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}
+            <textarea aria-label="Reason for visit (optional)" placeholder="Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950 resize-none" />
           </div>
 

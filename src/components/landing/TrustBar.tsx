@@ -51,7 +51,7 @@ const TrustBar = () => (
         {stats.map((s) => (
           <div key={s.label} className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
-              <s.icon className="h-4 w-4 md:h-5 md:w-5 text-accent hidden sm:block" />
+              <s.icon className="h-4 w-4 md:h-5 md:w-5 text-teal-bright hidden sm:block" />
               <div className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl text-white">
                 <CountUp target={s.number} suffix={s.suffix} />
               </div>

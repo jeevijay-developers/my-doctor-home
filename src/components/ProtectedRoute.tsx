@@ -62,7 +62,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           // Plain profiles SELECT is gated by "View Profile", which this
           // shouldn't depend on — use the narrow RPC instead.
           const { data } = await supabase.rpc("get_doctor_plan_details", { _doctor_id: staffRow.doctor_id });
-          const detail = data?.[0];
+          // plan_end was added after types.ts was generated.
+          const detail = (data as any)?.[0] as { plan_status?: string; trial_end?: string | null; plan_end?: string | null } | undefined;
           if (!mounted) return;
           setIsStaff(true);
           setBlockReason(detail?.plan_status === "cancelled" ? "cancelled" : detail?.trial_end ? "trial" : "plan");

@@ -18,6 +18,7 @@ import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, getDoctorTierPrice, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP, hasNoActivePlan } from "@/lib/planFeatures";
+import { formatIstDate } from "@/lib/istDate";
 import ProfilePage from "./ProfilePage";
 import CustomPlanSection from "./CustomPlanSection";
 import { useCustomPlan } from "@/hooks/useCustomPlan";
@@ -128,7 +129,7 @@ const SettingsPage = () => {
                         {profile?.plan_end ? (
                           <>
                             Active until{" "}
-                            <span className="font-medium text-foreground">{format(new Date(profile.plan_end), "MMM d, yyyy")}</span>{" "}
+                            <span className="font-medium text-foreground">{formatIstDate(profile.plan_end)}</span>{" "}
                             ({Math.max(0, Math.ceil((new Date(profile.plan_end).getTime() - Date.now()) / 86400000))} days remaining)
                           </>
                         ) : (
