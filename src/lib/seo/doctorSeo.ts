@@ -90,7 +90,12 @@ export function buildDoctorJsonLd(input: DoctorSeoInput) {
     ? (validReviews.reduce((a: number, r: any) => a + Number(r.rating), 0) / validReviews.length).toFixed(1)
     : null;
 
-  const streetAddress = [profile.address, profile.locality].filter(Boolean).join(", ");
+  // Append the area only when the free-text address doesn't already mention it.
+  const address = String(profile.address ?? "").trim();
+  const locality = String(profile.locality ?? "").trim();
+  const streetAddress = [address, locality && !address.toLowerCase().includes(locality.toLowerCase()) ? locality : ""]
+    .filter(Boolean)
+    .join(", ");
   const sameAs = [settings?.social_facebook, settings?.social_instagram, settings?.social_linkedin, settings?.social_youtube].filter(
     (u: unknown) => typeof u === "string" && /^https?:\/\//i.test(u as string),
   );

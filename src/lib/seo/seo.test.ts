@@ -62,6 +62,13 @@ describe("buildDoctorJsonLd", () => {
     expect(crumbs.itemListElement.map((c: any) => c.name)).toEqual(["Doctylia", "Doctors", "Kota", "Gynaecologist", "Dr. Anita Sharma"]);
   });
 
+  it("does not repeat the area when the address already contains it", () => {
+    const ld: any = buildDoctorJsonLd({ origin, profile: { ...profile, address: "Rampura ,kota", locality: "Rampura" } });
+    expect(ld["@graph"][0].address.streetAddress).toBe("Rampura ,kota");
+    const ld2: any = buildDoctorJsonLd({ origin, profile: { ...profile, address: "", locality: "Talwandi" } });
+    expect(ld2["@graph"][0].address.streetAddress).toBe("Talwandi");
+  });
+
   it("returns null without a name", () => {
     expect(buildDoctorJsonLd({ origin, profile: { slug: "x" } })).toBeNull();
   });
