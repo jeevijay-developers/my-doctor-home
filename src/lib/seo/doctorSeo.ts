@@ -2,6 +2,7 @@
 // (api/seo.ts, server HTML) and by DoctorPublicPage (client-side updates) so the
 // two can never describe the same doctor differently.
 import { directorySlug } from "../directory/slug";
+import { isGoogleMapsUrl } from "../googleMapsUrl";
 
 export const DEFAULT_TITLE = "Doctylia - India's #1 Practice Management & Website Platform for Doctors";
 export const DEFAULT_DESCRIPTION =
@@ -111,6 +112,7 @@ export function buildDoctorJsonLd(input: DoctorSeoInput) {
     ...(profile.clinic_phone || profile.phone ? { telephone: profile.clinic_phone || profile.phone } : {}),
     ...(profile.consultation_fee ? { priceRange: `₹${profile.consultation_fee}` } : {}),
     ...(sameAs.length ? { sameAs } : {}),
+    ...(isGoogleMapsUrl(profile.google_maps_url) ? { hasMap: String(profile.google_maps_url).trim() } : {}),
     ...(streetAddress || profile.city || profile.state || profile.pincode
       ? {
           address: {

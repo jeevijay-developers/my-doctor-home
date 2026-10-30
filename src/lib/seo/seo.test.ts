@@ -69,6 +69,13 @@ describe("buildDoctorJsonLd", () => {
     expect(ld2["@graph"][0].address.streetAddress).toBe("Talwandi");
   });
 
+  it("publishes a valid Google Maps link as hasMap and ignores others", () => {
+    const ok: any = buildDoctorJsonLd({ origin, profile: { ...profile, google_maps_url: " https://maps.app.goo.gl/AbC " } });
+    expect(ok["@graph"][0].hasMap).toBe("https://maps.app.goo.gl/AbC");
+    const bad: any = buildDoctorJsonLd({ origin, profile: { ...profile, google_maps_url: "https://evil.com/maps" } });
+    expect(bad["@graph"][0].hasMap).toBeUndefined();
+  });
+
   it("returns null without a name", () => {
     expect(buildDoctorJsonLd({ origin, profile: { slug: "x" } })).toBeNull();
   });

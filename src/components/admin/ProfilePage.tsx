@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { INDIAN_STATES } from "@/lib/formatClinicLocation";
 import { getCitiesForState } from "@/lib/indiaStatesCities";
+import { isGoogleMapsUrl } from "@/lib/googleMapsUrl";
 
 
 const specializations = [
@@ -37,7 +38,7 @@ const ProfilePage = () => {
     phone: "", clinic_name: "", city: "", state: "", address: "",
     consultation_fee: 0, gstin: "", gst_registered: false,
     registration_number: "", clinic_email: "",
-    locality: "", pincode: "", directory_listed: true,
+    locality: "", pincode: "", directory_listed: true, google_maps_url: "",
   });
   const [servicesCount, setServicesCount] = useState(0);
   const [blogCount, setBlogCount] = useState(0);
@@ -65,6 +66,7 @@ const ProfilePage = () => {
         locality: (profile as any).locality || "",
         pincode: (profile as any).pincode || "",
         directory_listed: (profile as any).directory_listed !== false,
+        google_maps_url: (profile as any).google_maps_url || "",
       });
     }
   }, [profile]);
@@ -109,10 +111,12 @@ const ProfilePage = () => {
     if (form.phone && !isValidIndianPhone(form.phone)) { toast.error(phoneErrorMessage); return; }
     const pincode = form.pincode.trim();
     if (pincode && !/^[1-9][0-9]{5}$/.test(pincode)) { toast.error("Enter a valid 6-digit pincode."); return; }
+    const mapsUrl = form.google_maps_url.trim();
+    if (mapsUrl && !isGoogleMapsUrl(mapsUrl)) { toast.error("Enter a valid Google Maps link (it should start with https://)."); return; }
     setSaving(true);
     // Directory fields are saved in a second update (below) so a database that has not
     // been migrated yet can never block the rest of the profile from saving.
-    const { locality, pincode: _pincode, directory_listed, ...core } = form;
+    const { locality, pincode: _pincode, directory_listed, google_maps_url: _maps, ...core } = form;
     const payload: any = { ...core, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
 
     // BUG-M05: keep public URL slug in sync when the doctor's name changes.
@@ -131,7 +135,7 @@ const ProfilePage = () => {
     if (error) { setSaving(false); toast.error("Could not save profile"); return; }
     const { error: dirError } = await supabase
       .from("profiles")
-      .update({ locality: locality.trim() || null, pincode: pincode || null, directory_listed } as any)
+      .update({ locality: locality.trim() || null, pincode: pincode || null, directory_listed, google_maps_url: mapsUrl || null } as any)
       .eq("id", profile.id);
     setSaving(false);
     if (dirError) {
@@ -356,6 +360,22 @@ const ProfilePage = () => {
           <div className="space-y-1.5">
             <Label>Full Address</Label>
             <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={3} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Google Maps / Business Profile link</Label>
+            <Input
+              value={form.google_maps_url}
+              onChange={(e) => setForm({ ...form, google_maps_url: e.target.value })}
+              placeholder="https://maps.app.goo.gl/..."
+              className="h-10"
+              maxLength={500}
+            />
+            {form.google_maps_url.trim() && !isGoogleMapsUrl(form.google_maps_url) && (
+              <p className="text-[11px] text-destructive">Enter a Google Maps link starting with https://</p>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              Open your clinic on Google Maps, click Share, then Copy link. Helps patients find your clinic and helps Google connect it to your website. Optional.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Clinic Email</Label>

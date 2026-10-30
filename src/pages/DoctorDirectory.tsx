@@ -131,7 +131,7 @@ const DoctorDirectory = () => {
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Search by doctor name, specialty or city"
+              placeholder="Search by doctor name, specialty, area or pincode"
               aria-label="Search doctors"
               className="pl-9 h-11"
               maxLength={80}
