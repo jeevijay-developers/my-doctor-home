@@ -10,6 +10,10 @@
 // and the post UUID is the legacy fallback. Doctors with at least one published
 // post also get their /dr/:slug/blog index page listed.
 //
+// Health Articles hub: /health-articles is listed when at least one published post
+// is eligible (listed doctor, not hub_hidden); /health-articles/:category needs
+// >= DIRECTORY_MIN_INDEXABLE eligible posts. Pagination URLs are not listed.
+//
 // Marketing URLs have no content timestamp, so they omit <lastmod>.
 // Doctor and post URLs include <lastmod> from updated_at.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -34,7 +38,10 @@ type DoctorRow = {
   specialization: string | null;
   directory_listed: boolean;
 };
-type PostRow = { id: string; slug?: string | null; doctor_id: string; updated_at: string | null; published_at: string | null };
+type PostRow = {
+  id: string; slug?: string | null; doctor_id: string; updated_at: string | null; published_at: string | null;
+  category?: string | null; hub_hidden?: boolean | null;
+};
 
 function xmlEscape(value: string): string {
   return value
@@ -135,6 +142,27 @@ Deno.serve(async (req) => {
     if (listed.length > 0) urls.push(urlEntry("/doctors", "daily", "0.7"));
     for (const path of indexableHubPaths(listed)) urls.push(urlEntry(path, "daily", "0.7"));
 
+    // Health Articles hub: only posts the RPC would list (listed doctor, not hidden by moderation).
+    // hub_hidden is NOT NULL, so `=== false` also excludes the column-fallback rows (field absent).
+    const hubPosts = posts.filter((p) => p.hub_hidden === false && doctorById.get(p.doctor_id)?.directory_listed);
+    if (hubPosts.length > 0) {
+      // Google only trusts lastmod if it is verifiably accurate: use the newest publish date,
+      // which moderation toggles and slug backfills (they move updated_at) do not change.
+      const newest = hubPosts.reduce((m, p) => {
+        const d = lastMod(p.published_at ?? p.updated_at) ?? "";
+        return d > m ? d : m;
+      }, "");
+      urls.push(urlEntry("/health-articles", "daily", "0.7", newest || null));
+      const perCategory = new Map<string, number>();
+      for (const p of hubPosts) {
+        const c = directorySlug(p.category);
+        if (c) perCategory.set(c, (perCategory.get(c) ?? 0) + 1);
+      }
+      for (const [c, n] of perCategory) {
+        if (n >= DIRECTORY_MIN_INDEXABLE) urls.push(urlEntry(`/health-articles/${c}`, "weekly", "0.6"));
+      }
+    }
+
     // Sitemaps hold at most 50,000 URLs: past MAX_URLS_PER_SITEMAP serve an index of ?part=N files.
     const partParam = new URL(req.url).searchParams.get("part");
     const partCount = Math.max(1, Math.ceil(urls.length / MAX_URLS_PER_SITEMAP));
@@ -216,8 +244,9 @@ async function fetchDoctors(admin: SupabaseClient): Promise<DoctorRow[]> {
 }
 
 async function fetchPosts(admin: SupabaseClient): Promise<PostRow[]> {
-  // `slug` ships in a migration; fall back to ids if it is not there yet.
-  let columns = "id, slug, doctor_id, updated_at, published_at";
+  // `slug`, `category` and `hub_hidden` ship in migrations; if any is missing the retry
+  // drops every optional column (no hub URLs, posts listed by id).
+  let columns = "id, slug, doctor_id, updated_at, published_at, category, hub_hidden";
   const rows: PostRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const run = (cols: string) =>
