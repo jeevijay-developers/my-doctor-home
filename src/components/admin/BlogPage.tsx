@@ -15,6 +15,7 @@ import RichTextEditor from "./RichTextEditor";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { FEATURE_KEYS } from "@/lib/features";
 import { markdownToHtml } from "@/lib/markdown";
+import { nextPublishedAt } from "@/lib/blogPublish";
 import LockedFeatureCard from "./LockedFeatureCard";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
@@ -154,7 +155,7 @@ const BlogPage = () => {
       category: form.category || null,
       featured_image_url: form.featured_image_url || null,
       is_published: form.is_published,
-      published_at: form.is_published ? new Date().toISOString() : null,
+      published_at: nextPublishedAt(editing, form.is_published),
     };
 
     if (editing) {
@@ -185,7 +186,7 @@ const BlogPage = () => {
     const newStatus = !post.is_published;
     await supabase.from("blog_posts").update({
       is_published: newStatus,
-      published_at: newStatus ? new Date().toISOString() : null,
+      published_at: nextPublishedAt(post, newStatus),
     }).eq("id", post.id);
     if (newStatus) await maybeAutoEnableBlogVisibility();
     toast({ title: newStatus ? "Published" : "Unpublished" });
