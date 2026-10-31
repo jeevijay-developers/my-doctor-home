@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import BlogPage from "./BlogPage";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { supabase } from "@/integrations/supabase/client";
 
 vi.mock("@/hooks/useCustomPlan", () => ({
   useCustomPlan: () => ({ customPlan: null, requests: [], pendingRequest: null, latestDecided: null, loading: false, refetch: () => {} }),
@@ -118,5 +119,51 @@ describe("BlogPage - AI Blog Writer gating", () => {
     fireEvent.click(await screen.findByRole("button", { name: /new blog post|new post/i }));
     expect(await screen.findByPlaceholderText(/top 10 tips/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /upgrade to premium|request upgrade/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("BlogPage - ai_assisted is recorded on save", () => {
+  const insert = vi.fn().mockResolvedValue({ error: null });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    insert.mockResolvedValue({ error: null });
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
+    vi.mocked(supabase.from).mockReturnValue({
+      select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ order: vi.fn().mockResolvedValue({ data: [] }) }) }),
+      insert,
+    } as never);
+  });
+
+  const openEditor = async () => {
+    render(
+      <MemoryRouter>
+        <BlogPage />
+      </MemoryRouter>
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /new blog post|new post/i }));
+  };
+
+  it("saves ai_assisted: true after a successful AI generation", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ title: "T", excerpt: "E", content: "## Heading", category: "General Health" }),
+    } as Response);
+    await openEditor();
+    fireEvent.change(screen.getByPlaceholderText(/top 10 tips/i), { target: { value: "Heart health" } });
+    fireEvent.click(screen.getByRole("button", { name: /generate/i }));
+    await waitFor(() => expect(screen.getByLabelText("Content")).toHaveValue("<h2>Heading</h2>\n"));
+
+    fireEvent.click(screen.getByRole("button", { name: /create post/i }));
+    await waitFor(() => expect(insert).toHaveBeenCalled());
+    expect(insert.mock.calls[0][0]).toMatchObject({ ai_assisted: true, doctor_id: "doctor-1" });
+  });
+
+  it("saves ai_assisted: false for a post written by hand", async () => {
+    await openEditor();
+    fireEvent.change(screen.getByPlaceholderText(/your article title/i), { target: { value: "Hand written" } });
+    fireEvent.click(screen.getByRole("button", { name: /create post/i }));
+    await waitFor(() => expect(insert).toHaveBeenCalled());
+    expect(insert.mock.calls[0][0]).toMatchObject({ ai_assisted: false });
   });
 });

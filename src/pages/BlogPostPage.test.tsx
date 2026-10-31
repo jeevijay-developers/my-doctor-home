@@ -27,9 +27,10 @@ const doctor = {
   onboarding_completed: true,
   profile_photo_url: null,
   specialization: "General medicine",
+  qualifications: "MBBS, MD",
 };
 
-const createPost = (content: string) => ({
+const createPost = (content: string, extra: Record<string, unknown> = {}) => ({
   id: "post-1",
   doctor_id: doctor.id,
   title: "Health article",
@@ -40,11 +41,12 @@ const createPost = (content: string) => ({
   published_at: "2026-08-22T00:00:00.000Z",
   created_at: "2026-08-22T00:00:00.000Z",
   is_published: true,
+  ...extra,
 });
 
-function renderPost(content: string) {
+function renderPost(content: string, extra: Record<string, unknown> = {}) {
   fromMock.mockImplementation((table: string) => {
-    const data = table === "profiles" ? doctor : createPost(content);
+    const data = table === "profiles" ? doctor : createPost(content, extra);
     return {
       select: () => ({
         eq: () => ({
@@ -93,5 +95,33 @@ describe("BlogPostPage article content", () => {
     const article = screen.getByRole("heading", { name: "Existing heading" }).closest("article");
     expect(article?.querySelector("strong")).toHaveTextContent("Existing HTML");
     expect(article?.querySelector("iframe")).toHaveAttribute("allow", "fullscreen");
+  });
+});
+
+describe("BlogPostPage authorship and disclosure", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows a 'Written by' byline that links to the doctor's page", async () => {
+    renderPost("<p>Body</p>");
+    const byline = await screen.findByText(/Written by Dr. Example Doctor/);
+    expect(byline.closest("a")).toHaveAttribute("href", "/dr/dr-example");
+    expect(screen.queryByText(/Reviewed by/)).not.toBeInTheDocument();
+    expect(screen.getByText(/General medicine · MBBS, MD/)).toBeInTheDocument();
+  });
+
+  it("discloses AI assistance only when the post is flagged ai_assisted", async () => {
+    const { unmount } = renderPost("<p>Body</p>", { ai_assisted: true });
+    expect(await screen.findByText("Drafted with AI assistance, reviewed and published by Dr. Example Doctor.")).toBeInTheDocument();
+    unmount();
+    renderPost("<p>Body</p>", { ai_assisted: false });
+    await screen.findByText(/Written by Dr. Example Doctor/);
+    expect(screen.queryByText(/Drafted with AI assistance/)).not.toBeInTheDocument();
+  });
+
+  it("carries the general-education note", async () => {
+    renderPost("<p>Body</p>");
+    expect(await screen.findByText("This article is for general education and is not a substitute for personal medical advice.")).toBeInTheDocument();
   });
 });

@@ -247,8 +247,15 @@ const BlogPostPage = () => {
               )}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-extrabold text-[#092b50] dark:text-white">Reviewed by {doctorName}</p>
-              <p className="truncate text-xs text-slate-500 dark:text-slate-400">{doctor.specialization || "Medical professional"}</p>
+              <Link to={`/dr/${slug}`} className="block hover:underline">
+                <p className="truncate text-sm font-extrabold text-[#092b50] dark:text-white">Written by {doctorName}</p>
+              </Link>
+              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                {[doctor.specialization, (doctor as { qualifications?: string | null }).qualifications].filter(Boolean).join(" · ") || "Medical professional"}
+              </p>
+              {(post as { ai_assisted?: boolean | null }).ai_assisted && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">Drafted with AI assistance, reviewed and published by {doctorName}.</p>
+              )}
             </div>
           </div>
 
@@ -269,6 +276,9 @@ const BlogPostPage = () => {
               </div>
             )}
           </section>
+          <p className="mt-4 text-center text-xs leading-5 text-slate-500 dark:text-slate-400">
+            This article is for general education and is not a substitute for personal medical advice.
+          </p>
           <footer className="mt-14 rounded-3xl bg-gradient-to-br from-[#092b50] to-[#155ba5] p-6 text-white shadow-xl sm:p-8">
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-200">Keep learning</p>
             <h2 className="mt-2 font-heading text-2xl font-black">Explore more health guidance</h2>

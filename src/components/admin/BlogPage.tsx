@@ -56,6 +56,7 @@ const BlogPage = () => {
   const [form, setForm] = useState({
     title: "", excerpt: "", content: "", category: "", is_published: false,
     featured_image_url: "" as string | null,
+    ai_assisted: false,
   });
 
   const load = async () => {
@@ -72,7 +73,7 @@ const BlogPage = () => {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ title: "", excerpt: "", content: "", category: "", is_published: false, featured_image_url: "" });
+    setForm({ title: "", excerpt: "", content: "", category: "", is_published: false, featured_image_url: "", ai_assisted: false });
     setShowEditor(true);
   };
 
@@ -85,6 +86,7 @@ const BlogPage = () => {
       category: post.category || "",
       is_published: post.is_published,
       featured_image_url: post.featured_image_url || "",
+      ai_assisted: Boolean((post as { ai_assisted?: boolean }).ai_assisted),
     });
     setShowEditor(true);
   };
@@ -156,13 +158,15 @@ const BlogPage = () => {
       featured_image_url: form.featured_image_url || null,
       is_published: form.is_published,
       published_at: nextPublishedAt(editing, form.is_published),
+      // Set when the AI Blog Writer drafted the post; the article then discloses it.
+      ai_assisted: form.ai_assisted,
     };
 
     if (editing) {
-      await supabase.from("blog_posts").update(payload).eq("id", editing.id);
+      await supabase.from("blog_posts").update(payload as any).eq("id", editing.id);
       toast({ title: "Post updated" });
     } else {
-      await supabase.from("blog_posts").insert({ ...payload, doctor_id: profile.id });
+      await supabase.from("blog_posts").insert({ ...payload, doctor_id: profile.id } as any);
       toast({ title: "Post created" });
     }
     if (form.is_published) await maybeAutoEnableBlogVisibility();
@@ -238,6 +242,7 @@ const BlogPage = () => {
         excerpt: data.excerpt || "",
         content: markdownToHtml(data.content),
         category: data.category || form.category,
+        ai_assisted: true,
       });
       setAiTopic("");
       toast({ title: "AI draft generated! Review and publish." });

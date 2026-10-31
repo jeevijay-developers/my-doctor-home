@@ -60,12 +60,15 @@ serve(async (req) => {
 
 Rules:
 - Write in clear, simple English that Indian patients can understand
-- Include practical advice and actionable tips
-- Be medically accurate but avoid overly technical jargon
+- Open with a direct 40-60 word answer to the question the title asks, before any background
+- Use question-style "##" headings that match what patients actually search (for example "What causes ...?")
+- Include a "## When to see a doctor" section listing warning signs, and end with a short "## Key takeaways" list
+- Be medically accurate and consistent with established guidance (WHO, ICMR, Indian clinical guidelines); name the source when you rely on one
+- Never invent statistics, studies, quotations, or drug doses. If you are not certain of a number, leave it out
+- Avoid overly technical jargon; explain medical terms in plain words
 - Add a disclaimer: "This article is for educational purposes only. Always consult your doctor for personalized advice."
 - Structure with proper headings using ## and ### markdown
-- Keep articles concise, engaging, and patient-friendly (300-500 words)
-- Be warm and reassuring in tone`;
+- Aim for 500-800 words, warm and reassuring in tone`;
 
     const GEMINI_TIMEOUT_MS = 40_000;
     const controller = new AbortController();

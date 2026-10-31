@@ -2,6 +2,7 @@
 // Shared by the Vercel Edge function (server HTML) and the client pages.
 //
 // NOTE: relative imports only - Vercel's bundler does not resolve "@/".
+import { renderArticleBody } from "./articleHtml";
 import { doctorDisplayName } from "./doctorSeo";
 import { escapeHtml, INDEXABLE, type PageHead } from "./injectHead";
 
@@ -18,6 +19,7 @@ export interface BlogPostLike {
   published_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  ai_assisted?: boolean | null;
 }
 
 /** Path for a post: the readable slug when it has one, else the legacy UUID form. */
@@ -61,7 +63,23 @@ export function buildBlogPostJsonLd(input: PostInput) {
   const doctorUrl = `${origin}/dr/${doctor.slug}`;
   const datePublished = post.published_at || post.created_at || undefined;
   const dateModified = post.updated_at || datePublished;
-  const specialty = doctor.specialization ? { medicalSpecialty: doctor.specialization } : {};
+  const bareName = name.replace(/^dr\.?\s+/i, "").trim();
+  const person = {
+    "@type": "Person",
+    name: bareName,
+    honorificPrefix: "Dr.",
+    url: doctorUrl,
+    ...(doctor.specialization ? { jobTitle: doctor.specialization } : {}),
+  };
+  const worksFor = doctor.clinic_name
+    ? {
+        worksFor: {
+          "@type": "MedicalBusiness",
+          name: doctor.clinic_name,
+          ...(doctor.city ? { address: { "@type": "PostalAddress", addressLocality: doctor.city, addressCountry: "IN" } } : {}),
+        },
+      }
+    : {};
 
   return {
     "@context": "https://schema.org",
@@ -77,14 +95,10 @@ export function buildBlogPostJsonLd(input: PostInput) {
         ...(dateModified ? { dateModified } : {}),
         ...(post.category ? { articleSection: post.category } : {}),
         ...(meta.image ? { image: [meta.image] } : {}),
-        author: {
-          "@type": "Physician",
-          name,
-          url: doctorUrl,
-          ...specialty,
-          ...(doctor.profile_photo_url ? { image: doctor.profile_photo_url } : {}),
-        },
-        reviewedBy: { "@type": "Physician", name, url: doctorUrl, ...specialty },
+        inLanguage: "en-IN",
+        isPartOf: { "@type": "Blog", "@id": `${doctorUrl}/blog#blog`, url: `${doctorUrl}/blog` },
+        author: { ...person, ...(doctor.profile_photo_url ? { image: doctor.profile_photo_url } : {}), ...worksFor },
+        ...(post.ai_assisted ? { reviewedBy: person } : {}),
         publisher: { "@type": "Organization", name: "Doctylia", url: "https://doctylia.com/" },
       },
       {
@@ -102,8 +116,10 @@ export function buildBlogPostJsonLd(input: PostInput) {
 export function buildBlogPostHead(input: PostInput): PageHead {
   const { doctor, post } = input;
   const meta = buildBlogPostMeta(input);
-  const text = stripMarkup(post.content).slice(0, 3000);
   const name = doctorDisplayName(doctor);
+  const when = post.published_at || post.created_at || "";
+  const summary = post.excerpt?.trim();
+  const slug = encodeURIComponent(doctor.slug);
   return {
     title: meta.title,
     description: meta.description,
@@ -113,9 +129,13 @@ export function buildBlogPostHead(input: PostInput): PageHead {
     image: meta.image,
     jsonLd: [buildBlogPostJsonLd(input)],
     bodyHtml:
-      `<main><nav aria-label="Breadcrumb"><a href="/dr/${encodeURIComponent(doctor.slug)}">${escapeHtml(name)}</a> / ` +
-      `<a href="/dr/${encodeURIComponent(doctor.slug)}/blog">Health Articles</a></nav>` +
-      `<article><h1>${escapeHtml(post.title)}</h1>${text ? `<p>${escapeHtml(text)}</p>` : ""}</article></main>`,
+      `<main><nav aria-label="Breadcrumb"><a href="/dr/${slug}">${escapeHtml(name)}</a> / ` +
+      `<a href="/dr/${slug}/blog">Health Articles</a></nav>` +
+      `<article><h1>${escapeHtml(post.title)}</h1>` +
+      `<p>By <a href="/dr/${slug}">${escapeHtml(name)}</a>${doctor.specialization ? `, ${escapeHtml(doctor.specialization)}` : ""}` +
+      `${when ? ` &middot; <time datetime="${escapeHtml(when)}">${escapeHtml(when.slice(0, 10))}</time>` : ""}</p>` +
+      `${summary ? `<p>${escapeHtml(summary)}</p>` : ""}` +
+      `${renderArticleBody(post.content)}</article></main>`,
   };
 }
 

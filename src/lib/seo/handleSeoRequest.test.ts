@@ -151,6 +151,13 @@ describe("handleSeoRequest - blog", () => {
     expect(html).toContain('"@type":"BlogPosting"');
   });
 
+  it("serves the stored article's headings to crawlers that do not run JS", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/profiles": () => [doctor], "/blog_posts": () => [{ ...post, content: "<h2>What is a stent?</h2><p>Mesh.</p>" }] });
+    const html = await (await handler(req("kind=post&slug=dr-a&post=healthy-heart"), env, f)).text();
+    expect(html).toContain("<h2>What is a stent?</h2>");
+  });
+
   it("301s a legacy uuid url to the slug url", async () => {
     const handler = await fresh();
     const f = fakeFetch({ "/profiles": () => [doctor], "/blog_posts": (u) => (u.search.includes(`id=eq.${uuid}`) ? [post] : []) });
