@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { encodePathSegment } from "./blogSeo";
 import { handleSeoRequest } from "./handleSeoRequest";
 
 const TEMPLATE = `<html><head><title>Generic</title></head><body><div id="root"></div></body></html>`;
@@ -253,5 +254,73 @@ describe("handleSeoRequest - health articles hub", () => {
     const boom = fakeFetch({ "/search_blog_posts": () => new Response("x", { status: 500 }) });
     const fallback = await handler(req("kind=articles"), env, boom);
     expect(await fallback.text()).toBe(TEMPLATE);
+  });
+
+  it("404s a page over the limit before any redirect or upstream RPC", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/search_blog_posts": () => [row(1)], "/blog_facets": () => facets });
+    for (const p of ["1001", "99999999999999999999", "Infinity", "1e9"]) {
+      const res = await handler(req(`kind=articles&page=${p}`), env, f);
+      expect(res.status).toBe(404);
+      expect(res.headers.get("Location")).toBeNull();
+    }
+    const rpcCalls = (f as any).mock.calls.filter((c: any[]) => String(c[0]).includes("/rpc/"));
+    expect(rpcCalls).toHaveLength(0);
+    const edge = await handler(req("kind=articles&page=1000"), env, fakeFetch({ "/search_blog_posts": () => [], "/blog_facets": () => [] }));
+    expect(edge.status).toBe(404); // within limit: reaches upstream, empty page is a normal 404
+  });
+
+  it("the plain-shell fallback for the articles hub is noindex", async () => {
+    const handler = await fresh();
+    const res = await handler(req("kind=articles"), env, fakeFetch({ "/search_blog_posts": () => new Response("x", { status: 500 }) }));
+    expect(res.headers.get("X-Robots-Tag")).toBe("noindex");
+    const noEnv = await handler(req("kind=articles"), {}, fakeFetch({}));
+    expect(noEnv.headers.get("X-Robots-Tag")).toBe("noindex");
+  });
+
+  it("?q= serves the hub noindexed with the base canonical (no q, no page)", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/search_blog_posts": () => [row(13, { total_count: 30 })], "/blog_facets": () => facets });
+    const res = await handler(req("kind=articles&category=heart-health&page=2&q=stent"), env, f);
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('<meta name="robots" content="noindex, follow"');
+    expect(html).toContain('<link rel="canonical" href="https://doctylia.com/health-articles/heart-health"');
+    expect(html).not.toContain("q=stent");
+    const root = await (await handler(req("kind=articles&q=x"), env, f)).text();
+    expect(root).toContain('rel="canonical" href="https://doctylia.com/health-articles"');
+    // blank q behaves like no q
+    const blank = await (await handler(req("kind=articles&q=%20"), env, f)).text();
+    expect(blank).not.toContain("noindex");
+  });
+
+  it("encodes hostile doctor/post slugs in the hub HTML and JSON-LD", async () => {
+    const handler = await fresh();
+    const evil = 'x"><script>alert(1)</script>';
+    const f = fakeFetch({ "/search_blog_posts": () => [row(1, { slug: evil, doctor_slug: evil })], "/blog_facets": () => facets });
+    const html = await (await handler(req("kind=articles"), env, f)).text();
+    expect(html).not.toContain("<script>alert(1)");
+    expect(html).not.toContain('x"><');
+    expect(html).toContain("/dr/x%22%3E%3Cscript%3Ealert%281%29%3C%2Fscript%3E/blog/x%22%3E%3Cscript%3Ealert%281%29%3C%2Fscript%3E");
+  });
+});
+
+describe("handleSeoRequest - hostile blog slugs", () => {
+  const uuid = "123e4567-e89b-12d3-a456-426614174000";
+  it("301 Location, list HTML and post HTML carry only encoded slugs", async () => {
+    const handler = await fresh();
+    const evil = 'x"><script>alert(1)</script>\r\nSet-Cookie: a=b';
+    const doctor = { id: "d1", slug: "dr-a", full_name: "A", plan_status: "active" };
+    const post = { id: uuid, slug: evil, title: "T", content: "<p>x</p>", is_published: true };
+    const f = fakeFetch({ "/profiles": () => [doctor], "/blog_posts": () => [post] });
+    const redirect = await handler(req(`kind=post&slug=dr-a&post=${uuid}`), env, f);
+    expect(redirect.status).toBe(301);
+    const loc = redirect.headers.get("Location")!;
+    expect(loc).toBe(`https://doctylia.com/dr/dr-a/blog/${encodePathSegment(evil)}`);
+    expect(loc).not.toMatch(/[\s"<>]/);
+
+    const list = await (await handler(req("kind=blog&slug=dr-a"), env, f)).text();
+    expect(list).not.toContain("<script>alert(1)");
+    expect(list).toContain(`href="/dr/dr-a/blog/${encodePathSegment(evil)}"`);
   });
 });

@@ -22,9 +22,22 @@ export interface BlogPostLike {
   ai_assisted?: boolean | null;
 }
 
-/** Path for a post: the readable slug when it has one, else the legacy UUID form. */
+/** encodeURIComponent, plus the RFC 3986 sub-delims it leaves alone (' ( ) * ! are not URL-safe in HTML attributes). */
+export function encodePathSegment(raw: string): string {
+  return encodeURIComponent(raw).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+/** Percent-encoded `/dr/:slug` path. The one place a doctor slug is encoded for URLs. */
+export function doctorPath(doctorSlug: string): string {
+  return `/dr/${encodePathSegment(doctorSlug)}`;
+}
+
+/**
+ * Path for a post: the readable slug when it has one, else the legacy UUID form.
+ * Takes RAW slugs and percent-encodes both parts exactly once (slugs are user-controlled).
+ */
 export function blogPostPath(doctorSlug: string, post: Pick<BlogPostLike, "id" | "slug">): string {
-  return `/dr/${doctorSlug}/blog/${post.slug || post.id}`;
+  return `${doctorPath(doctorSlug)}/blog/${encodePathSegment(post.slug || post.id)}`;
 }
 
 export function stripMarkup(raw: string | null | undefined): string {
@@ -60,7 +73,7 @@ export function buildBlogPostJsonLd(input: PostInput) {
   const { origin, doctor, post } = input;
   const meta = buildBlogPostMeta(input);
   const name = doctorDisplayName(doctor);
-  const doctorUrl = `${origin}/dr/${doctor.slug}`;
+  const doctorUrl = `${origin}${doctorPath(doctor.slug)}`;
   const datePublished = post.published_at || post.created_at || undefined;
   const dateModified = post.updated_at || datePublished;
   const bareName = name.replace(/^dr\.?\s+/i, "").trim();
@@ -119,7 +132,7 @@ export function buildBlogPostHead(input: PostInput): PageHead {
   const name = doctorDisplayName(doctor);
   const when = post.published_at || post.created_at || "";
   const summary = post.excerpt?.trim();
-  const slug = encodeURIComponent(doctor.slug);
+  const base = doctorPath(doctor.slug);
   return {
     title: meta.title,
     description: meta.description,
@@ -129,10 +142,10 @@ export function buildBlogPostHead(input: PostInput): PageHead {
     image: meta.image,
     jsonLd: [buildBlogPostJsonLd(input)],
     bodyHtml:
-      `<main><nav aria-label="Breadcrumb"><a href="/dr/${slug}">${escapeHtml(name)}</a> / ` +
-      `<a href="/dr/${slug}/blog">Health Articles</a></nav>` +
+      `<main><nav aria-label="Breadcrumb"><a href="${base}">${escapeHtml(name)}</a> / ` +
+      `<a href="${base}/blog">Health Articles</a></nav>` +
       `<article><h1>${escapeHtml(post.title)}</h1>` +
-      `<p>By <a href="/dr/${slug}">${escapeHtml(name)}</a>${doctor.specialization ? `, ${escapeHtml(doctor.specialization)}` : ""}` +
+      `<p>By <a href="${base}">${escapeHtml(name)}</a>${doctor.specialization ? `, ${escapeHtml(doctor.specialization)}` : ""}` +
       `${when ? ` &middot; <time datetime="${escapeHtml(when)}">${escapeHtml(when.slice(0, 10))}</time>` : ""}</p>` +
       `${summary ? `<p>${escapeHtml(summary)}</p>` : ""}` +
       `${renderArticleBody(post.content)}</article></main>`,
@@ -142,10 +155,10 @@ export function buildBlogPostHead(input: PostInput): PageHead {
 export function buildBlogListHead(args: { origin: string; doctor: any; posts: BlogPostLike[] }): PageHead {
   const { origin, doctor, posts } = args;
   const name = doctorDisplayName(doctor);
-  const canonical = `${origin}/dr/${doctor.slug}/blog`;
+  const canonical = `${origin}${doctorPath(doctor.slug)}/blog`;
   const description = `Clear, practical health articles and medical guidance written by ${name}${doctor.specialization ? ` (${doctor.specialization})` : ""} on Doctylia.`;
   const items = posts
-    .map((p) => `<li><a href="${blogPostPath(encodeURIComponent(doctor.slug), p)}">${escapeHtml(p.title)}</a></li>`)
+    .map((p) => `<li><a href="${blogPostPath(doctor.slug, p)}">${escapeHtml(p.title)}</a></li>`)
     .join("");
   return {
     title: `Health Articles · ${name} | Doctylia`,
@@ -170,7 +183,7 @@ export function buildBlogListHead(args: { origin: string; doctor: any; posts: Bl
           {
             "@type": "BreadcrumbList",
             itemListElement: [
-              { "@type": "ListItem", position: 1, name, item: `${origin}/dr/${doctor.slug}` },
+              { "@type": "ListItem", position: 1, name, item: `${origin}${doctorPath(doctor.slug)}` },
               { "@type": "ListItem", position: 2, name: "Health Articles", item: canonical },
             ],
           },

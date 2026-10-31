@@ -147,7 +147,7 @@ describe("buildBlogListHead", () => {
       posts: [post({ slug: "one", title: "A & B" }), post({ id: "2", title: "Two" })],
     });
     expect(head.robots).toBe(INDEXABLE);
-    expect(head.canonical).toBe("https://doctylia.com/dr/dr a/blog");
+    expect(head.canonical).toBe("https://doctylia.com/dr/dr%20a/blog");
     expect(head.bodyHtml).toContain('<a href="/dr/dr%20a/blog/one">A &amp; B</a>');
     expect(head.bodyHtml).toContain('<a href="/dr/dr%20a/blog/2">Two</a>');
     const ld: any = head.jsonLd![0];
@@ -206,5 +206,43 @@ describe("buildBlogPostHead - crawler-visible body", () => {
   });
   it("leads with the excerpt as the summary before the body", () => {
     expect(head.bodyHtml!.indexOf("Short answer.")).toBeLessThan(head.bodyHtml!.indexOf("What is a stent?"));
+  });
+});
+
+describe("hostile slugs", () => {
+  const EVIL = [
+    'x"><script>alert(1)</script>',
+    "</script><img src=x onerror=alert(1)>",
+    "a'b\"c<d>e",
+    "line\r\nbreak",
+    "sp ace",
+    "café-‮",
+  ];
+  it("blogPostPath encodes both parts exactly once and normal slugs are unchanged", () => {
+    expect(blogPostPath("dr-a", { id: "i", slug: "healthy-heart-2" })).toBe("/dr/dr-a/blog/healthy-heart-2");
+    expect(blogPostPath("dr a", { id: "i", slug: 'x"<' })).toBe("/dr/dr%20a/blog/x%22%3C");
+    expect(blogPostPath("d%41", { id: "i", slug: null })).toBe("/dr/d%2541/blog/i");
+  });
+  it.each(EVIL)("never emits %j raw in list or post HTML / JSON-LD", (evil) => {
+    const hostile = { ...doctor, slug: evil };
+    const p = post({ slug: evil, title: "T" });
+    const heads = [
+      buildBlogListHead({ origin, doctor: hostile, posts: [p] }),
+      buildBlogPostHead({ origin, doctor: hostile, post: p }),
+    ];
+    for (const h of heads) {
+      const body = h.bodyHtml ?? "";
+      for (const bad of ["<script", "</script", "\r", "\n", " onerror"]) {
+        expect(body).not.toContain(bad);
+      }
+      for (const href of body.match(/href="[^"]*"/g) ?? []) {
+        expect(href).toMatch(/^href="[A-Za-z0-9\-._~%/]*"$/);
+      }
+      const ld = JSON.stringify(h.jsonLd);
+      expect(ld).not.toContain(evil);
+      for (const url of ld.match(/https:\/\/doctylia\.com\/dr\/[^"]*/g) ?? []) {
+        expect(url.slice("https://doctylia.com".length)).toMatch(/^[A-Za-z0-9\-._~%/#]*$/);
+      }
+    }
   });
 });

@@ -4,8 +4,11 @@
 //
 // NOTE: relative imports only - Vercel's bundler does not resolve "@/".
 import { DIRECTORY_MIN_INDEXABLE } from "../directory/slug";
+import { encodePathSegment } from "./blogSeo";
 import { formatDoctorName } from "./doctorSeo";
 import { escapeHtml, INDEXABLE, NOINDEX, type PageHead } from "./injectHead";
+
+const enc = encodePathSegment;
 
 export const ARTICLES_BASE = "/health-articles";
 export const ARTICLES_PAGE_SIZE = 12;
@@ -44,13 +47,13 @@ export interface ArticlesContext {
 }
 
 export function articlesPath(categorySlug?: string, page = 1): string {
-  const base = categorySlug ? `${ARTICLES_BASE}/${categorySlug}` : ARTICLES_BASE;
+  const base = categorySlug ? `${ARTICLES_BASE}/${enc(categorySlug)}` : ARTICLES_BASE;
   return page > 1 ? `${base}?page=${page}` : base;
 }
 
 /** Canonical article URL (on the doctor's site). */
 export function articlePath(a: Pick<HubArticle, "doctor_slug" | "slug" | "id">): string {
-  return `/dr/${a.doctor_slug}/blog/${a.slug || a.id}`;
+  return `/dr/${enc(a.doctor_slug)}/blog/${enc(a.slug || a.id)}`;
 }
 
 export function totalPages(total: number): number {
@@ -65,8 +68,7 @@ export function articlesHeading(categoryLabel?: string): string {
   return categoryLabel ? `${categoryLabel} Articles by Doctors` : "Health Articles by Doctors";
 }
 
-const enc = encodeURIComponent;
-const href = (a: HubArticle) => `/dr/${enc(a.doctor_slug)}/blog/${enc(a.slug || a.id)}`;
+const href = articlePath;
 
 export function buildArticlesHead(ctx: ArticlesContext): PageHead {
   const { origin, categorySlug, categoryLabel, page, articles, total, facets } = ctx;
