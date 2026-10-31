@@ -122,6 +122,18 @@ describe("BlogPage - AI Blog Writer gating", () => {
   });
 });
 
+describe("BlogPage - health articles hub notice", () => {
+  it("tells the doctor that published posts also appear on Doctylia's Health Articles page", async () => {
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
+    render(
+      <MemoryRouter>
+        <BlogPage />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(/also appear on Doctylia's Health Articles/i)).toBeInTheDocument();
+  });
+});
+
 describe("BlogPage - ai_assisted is recorded on save", () => {
   const insert = vi.fn().mockResolvedValue({ error: null });
 

@@ -277,6 +277,9 @@ const BlogPage = () => {
           <p className="text-sm text-muted-foreground mt-1">
             {publishedCount} published · {draftCount} drafts
           </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Published posts also appear on Doctylia's Health Articles page unless you hide your profile from the directory in Profile settings.
+          </p>
         </div>
         {can("blog.create") && (
         <Button onClick={openNew} className="bg-royal hover:bg-royal/90">

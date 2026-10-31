@@ -353,7 +353,7 @@ const ProfilePage = () => {
           <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
             <div>
               <Label htmlFor="directory-listed">List me in the Doctylia doctor directory</Label>
-              <p className="text-[11px] text-muted-foreground mt-1">Lets patients find you by name, specialty and city at doctylia.com/doctors. Your own website stays online either way.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Show my profile in the Doctylia doctor directory and my published articles on the Health Articles page. Lets patients find you by name, specialty and city at doctylia.com/doctors. Your own website stays online either way.</p>
             </div>
             <Switch id="directory-listed" checked={form.directory_listed} onCheckedChange={(v) => setForm({ ...form, directory_listed: v })} />
           </div>
