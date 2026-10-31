@@ -32,6 +32,8 @@ function safeHref(attrs: string): string | null {
   const raw = (m?.[1] ?? m?.[2] ?? m?.[3] ?? "").trim();
   if (!raw) return null;
   if (/&(?!amp;)/i.test(raw)) return null;
+  // Control characters are rejected on purpose: browsers strip them from URLs ("java\tscript:").
+  // eslint-disable-next-line no-control-regex
   if (/[\s"'<>`\\\u0000-\u001f\u007f]/.test(raw)) return null;
   const ok = /^https?:\/\/[^/]/i.test(raw) || /^\/(?![/\\])/.test(raw);
   return ok ? raw : null;
