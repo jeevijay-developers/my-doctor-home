@@ -82,6 +82,7 @@ const LandingFooter = () => {
             <ul className="space-y-2 md:space-y-2.5 text-sm text-primary-foreground/60">
               <li><Link to="/about" onClick={handleAboutUsClick} className="hover:text-white transition-colors">About Us</Link></li>
               <li><Link to="/doctors" className="hover:text-white transition-colors">Find a Doctor</Link></li>
+              <li><Link to="/health-articles" className="hover:text-white transition-colors">Health Articles</Link></li>
               <li>{renderSectionLink("#contact", "Contact")}</li>
             </ul>
           </div>

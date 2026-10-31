@@ -46,10 +46,6 @@ const LandingNavbar = () => {
   }, [mobileOpen]);
 
   const navLinks = [
-    { label: "Features", href: "#features" },
-    { label: "How It Works", href: "#how-it-works" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "FAQ", href: "#faq" },
     { label: "Contact", href: "#contact" },
   ];
 
@@ -79,6 +75,12 @@ const LandingNavbar = () => {
             className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
           >
             Find a Doctor
+          </Link>
+          <Link
+            to="/health-articles"
+            className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
+          >
+            Health Articles
           </Link>
           {navLinks.map((link) => {
             const linkClassName = "text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full";
@@ -141,6 +143,13 @@ const LandingNavbar = () => {
           className="block text-sm font-medium text-muted-foreground py-1"
         >
           Find a Doctor
+        </Link>
+        <Link
+          to="/health-articles"
+          onClick={() => setMobileOpen(false)}
+          className="block text-sm font-medium text-muted-foreground py-1"
+        >
+          Health Articles
         </Link>
         {navLinks.map((link) => {
           const mobileLinkClassName = "block text-sm font-medium text-muted-foreground py-1";

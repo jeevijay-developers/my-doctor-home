@@ -9,6 +9,7 @@ import BeforeAfter from "@/components/landing/BeforeAfter";
 import HowItWorks from "@/components/landing/HowItWorks";
 import DashboardPreview from "@/components/landing/DashboardPreview";
 import Specialties from "@/components/landing/Specialties";
+import LatestArticles from "@/components/landing/LatestArticles";
 import PricingSection from "@/components/landing/PricingSection";
 import Testimonials from "@/components/landing/Testimonials";
 import FAQ from "@/components/landing/FAQ";
@@ -179,6 +180,9 @@ const LandingPage = () => {
         </AnimatedSection>
         <AnimatedSection>
           <Specialties />
+        </AnimatedSection>
+        <AnimatedSection>
+          <LatestArticles />
         </AnimatedSection>
         <AnimatedSection>
           <PricingSection />
