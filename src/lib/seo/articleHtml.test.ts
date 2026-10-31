@@ -137,3 +137,35 @@ describe("renderArticleBody - XSS hardening", () => {
     expect(out).toBe('<h2>T</h2><td>c</td><a href="/x" rel="nofollow ugc noopener">l</a>');
   });
 });
+
+describe("renderArticleBody - resource limits", () => {
+  const cases: Record<string, string> = {
+    "unterminated <p": "<p ".repeat(40000),
+    "unterminated <a": "<a ".repeat(40000),
+    "unterminated quote": '<a "'.repeat(24000),
+    "unclosed <script": "<script".repeat(17000),
+    "unterminated href": '<a href="'.repeat(15000),
+    "unclosed comments": "<!--".repeat(30000),
+    "ampersands": "&".repeat(100000),
+    "deep blockquote markdown": "> ".repeat(60000),
+    "deep nested list markdown": "1. ".repeat(40000),
+    "emphasis-heavy markdown blocks": ("*a ".repeat(80) + "\n\n").repeat(80),
+    "one huge emphasis paragraph": "*a ".repeat(6000),
+    "many open tags then stray closers": "<ul>".repeat(7000) + "</p>".repeat(7000),
+    "sparse > with unterminated quotes": ('<a "' + "x".repeat(1500) + ">").repeat(30),
+  };
+  for (const [name, input] of Object.entries(cases)) {
+    it(`stays fast and does not throw: ${name}`, () => {
+      const t = performance.now();
+      const out = renderArticleBody(input.slice(0, 120_000));
+      const ms = performance.now() - t;
+      expect(typeof out).toBe("string");
+      expect(ms).toBeLessThan(200);
+    });
+  }
+
+  it("falls back to escaped paragraphs when markdown cannot be parsed", () => {
+    const out = renderArticleBody("> ".repeat(60000));
+    expect(out).not.toMatch(/<(?!\/?(p|blockquote)>)/);
+  });
+});
