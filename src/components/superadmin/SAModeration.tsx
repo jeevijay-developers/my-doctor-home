@@ -36,7 +36,17 @@ const SAModeration = () => {
     load();
   };
 
-  const toggleReview = async (id: string, next: boolean) => {
+  // hub_hidden is not in the generated types yet, so the payload is cast.
+  const setHubHidden = async (id: string, hidden: boolean) => {
+    const { error } = await supabase.from("blog_posts").update({ hub_hidden: hidden } as any).eq("id", id);
+    if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    await logAdminAction(hidden ? "hide_blog_from_hub" : "show_blog_on_hub", "blog_posts", id);
+    toast({ title: hidden ? "Hidden from Health Articles" : "Visible on Health Articles" });
+    if (openPost?.id === id) setOpenPost({ ...openPost, hub_hidden: hidden });
+    load();
+  };
+
+  const toggleReview =async (id: string, next: boolean) => {
     const { error } = await supabase.from("reviews").update({ is_visible: next }).eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     await logAdminAction(next ? "show_review" : "hide_review", "reviews", id);
@@ -67,6 +77,9 @@ const SAModeration = () => {
       </TabsList>
 
       <TabsContent value="blogs" className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Unpublish removes a post everywhere, including the doctor's own site. Hide from hub only removes it from the Health Articles page and keeps it on the doctor's site.
+        </p>
         {postGroups.length === 0 ? (
           <Card><CardContent className="p-6 text-center text-muted-foreground">No posts.</CardContent></Card>
         ) : (
@@ -86,10 +99,15 @@ const SAModeration = () => {
                         </Badge>
                       </td>
                       <td className="p-3 text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</td>
-                      <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                      <td className="p-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         {p.is_published
                           ? <Button size="sm" variant="destructive" onClick={() => setPublished(p.id, false)}>Unpublish</Button>
                           : <Button size="sm" onClick={() => setPublished(p.id, true)}>Publish</Button>}
+                        {p.is_published && (
+                          <Button size="sm" variant="outline" className="ml-2" onClick={() => setHubHidden(p.id, !p.hub_hidden)}>
+                            {p.hub_hidden ? "Show on hub" : "Hide from hub"}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -142,7 +160,8 @@ const SAModeration = () => {
                 <Badge variant={openPost.is_published ? "default" : "outline"} className="pointer-events-none">
                   {openPost.is_published ? "Published" : "Draft"}
                 </Badge>
-                {openPost.category && <Badge variant="outline" className="pointer-events-none">{openPost.category}</Badge>}
+                {openPost.hub_hidden && <Badge variant="outline" className="pointer-events-none">Hidden from hub</Badge>}
+                {openPost.category &&<Badge variant="outline" className="pointer-events-none">{openPost.category}</Badge>}
                 <span>By {openPost.profiles?.full_name || "—"}</span>
                 <span>·</span>
                 <span>{new Date(openPost.published_at || openPost.created_at).toLocaleDateString()}</span>
@@ -158,6 +177,11 @@ const SAModeration = () => {
                 dangerouslySetInnerHTML={{ __html: sanitizedPostHtml }}
               />
               <DialogFooter>
+                {openPost.is_published && (
+                  <Button variant="outline" onClick={() => setHubHidden(openPost.id, !openPost.hub_hidden)}>
+                    {openPost.hub_hidden ? "Show on hub" : "Hide from hub"}
+                  </Button>
+                )}
                 {openPost.is_published
                   ? <Button variant="destructive" onClick={() => setPublished(openPost.id, false)}>Unpublish</Button>
                   : <Button onClick={() => setPublished(openPost.id, true)}>Publish</Button>}
