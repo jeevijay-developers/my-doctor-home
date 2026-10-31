@@ -36,10 +36,21 @@ CREATE TRIGGER guard_blog_hub_hidden
   BEFORE INSERT OR UPDATE ON public.blog_posts
   FOR EACH ROW EXECUTE FUNCTION public.guard_blog_hub_hidden();
 
+-- Matches search_blog_posts' ORDER BY exactly (incl. NULLS LAST) so the planner can walk it.
+DROP INDEX IF EXISTS public.idx_blog_posts_hub;
 CREATE INDEX IF NOT EXISTS idx_blog_posts_hub
-  ON public.blog_posts (published_at DESC) WHERE is_published AND NOT hub_hidden;
+  ON public.blog_posts (published_at DESC NULLS LAST, id) WHERE is_published AND NOT hub_hidden;
 CREATE INDEX IF NOT EXISTS idx_blog_posts_hub_category
   ON public.blog_posts (public.directory_slugify(category)) WHERE is_published AND NOT hub_hidden;
+
+-- Slugs end up in public URLs and Edge-rendered HTML; doctors can PATCH blog_posts.slug
+-- through PostgREST, so constrain the shape in the database (defence in depth).
+-- NOT VALID: new/updated rows are checked, but a legacy row can never make this migration
+-- fail. The sibling trigger blog_post_set_slug only GENERATES a slug when it is empty
+-- (BEFORE trigger, so it runs before this CHECK); it does not sanitise a supplied one.
+ALTER TABLE public.blog_posts DROP CONSTRAINT IF EXISTS blog_posts_slug_format;
+ALTER TABLE public.blog_posts ADD CONSTRAINT blog_posts_slug_format
+  CHECK (slug IS NULL OR slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$') NOT VALID;
 
 -- Public listing. SECURITY DEFINER + explicit column list: card-safe fields only, and the
 -- doctor-level filters RLS does not apply (RLS lets anon read any published post).
@@ -61,16 +72,15 @@ SET search_path = public, extensions
 AS $$
   WITH params AS (
     SELECT
-      nullif(btrim(lower(p_query)), '') AS q,
-      '%' || replace(replace(replace(nullif(btrim(lower(p_query)), ''), '\', '\\'), '%', '\%'), '_', '\_') || '%' AS q_like
+      nullif(btrim(lower(left(p_query, 100))), '') AS q,
+      '%' || replace(replace(replace(nullif(btrim(lower(left(p_query, 100))), ''), '\', '\\'), '%', '\%'), '_', '\_') || '%' AS q_like
   ),
+  -- Filter, order and paginate over NARROW rows only (id, sort key, window count): the window
+  -- must see every eligible post, so it must not carry titles/excerpts, and never `content`
+  -- (a wide window spilled to temp files). Card columns and content are fetched afterwards
+  -- for just the returned page (<= 48 rows) by primary key.
   page AS (
-    SELECT
-      b.id, b.slug, b.title, b.excerpt, b.category, b.featured_image_url,
-      b.published_at, b.updated_at, b.content,
-      p.slug AS doctor_slug, p.full_name AS doctor_name, p.specialization AS doctor_specialization,
-      p.city AS doctor_city, p.profile_photo_url AS doctor_photo_url,
-      count(*) OVER () AS total_count
+    SELECT b.id, b.doctor_id, b.published_at, count(*) OVER () AS total_count
     FROM public.blog_posts b
     JOIN public.profiles p ON p.id = b.doctor_id
     CROSS JOIN params
@@ -91,14 +101,16 @@ AS $$
     OFFSET greatest(coalesce(p_offset, 0), 0)
   )
   SELECT
-    page.id, page.slug, page.title, page.excerpt, page.category, page.featured_image_url,
-    page.published_at, page.updated_at,
+    b.id, b.slug, b.title, b.excerpt, b.category, b.featured_image_url,
+    b.published_at, b.updated_at,
     greatest(1, ceil(array_length(
-      regexp_split_to_array(btrim(regexp_replace(coalesce(page.content, ''), '<[^>]*>', ' ', 'g')), '\s+'), 1
+      regexp_split_to_array(btrim(regexp_replace(coalesce(b.content, ''), '<[^>]*>', ' ', 'g')), '\s+'), 1
     ) / 200.0))::int,
-    page.doctor_slug, page.doctor_name, page.doctor_specialization, page.doctor_city,
-    page.doctor_photo_url, page.total_count
+    p.slug, p.full_name, p.specialization, p.city, p.profile_photo_url,
+    page.total_count
   FROM page
+  JOIN public.blog_posts b ON b.id = page.id
+  JOIN public.profiles p ON p.id = page.doctor_id
   ORDER BY page.published_at DESC NULLS LAST, page.id
 $$;
 
