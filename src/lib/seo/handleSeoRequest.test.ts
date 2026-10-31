@@ -179,3 +179,72 @@ describe("handleSeoRequest - blog", () => {
     expect(html).toContain('href="/dr/dr-a/blog/healthy-heart"');
   });
 });
+
+describe("handleSeoRequest - health articles hub", () => {
+  const row = (i: number, extra: Record<string, unknown> = {}) => ({
+    id: `p${i}`, slug: `post-${i}`, title: `Post ${i}`, excerpt: "x", category: "Heart Health", featured_image_url: null,
+    published_at: "2026-10-01T00:00:00Z", updated_at: null, reading_minutes: 2, doctor_slug: "dr-a", doctor_name: "Anita Sharma",
+    doctor_specialization: "Cardiologist", doctor_city: "Kota", doctor_photo_url: null, total_count: 2, ...extra,
+  });
+  const facets = [{ slug: "heart-health", label: "Heart Health", post_count: 3 }];
+
+  it("renders the root hub with title, JSON-LD, links and CDN caching", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/search_blog_posts": () => [row(1), row(2)], "/blog_facets": () => facets });
+    const res = await handler(req("kind=articles"), env, f);
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain("<title>Health Articles Written by Doctors in India | Doctylia</title>");
+    expect(html).toContain('href="https://doctylia.com/health-articles"');
+    expect(html).toContain('"@type":"CollectionPage"');
+    expect(html).toContain('href="/dr/dr-a/blog/post-1"');
+    expect(res.headers.get("Cache-Control")).toContain("s-maxage=300");
+  });
+
+  it("passes category and page offsets to the RPC", async () => {
+    const handler = await fresh();
+    const seen: any[] = [];
+    const f = fakeFetch({
+      "/search_blog_posts": (_u, init) => { seen.push(JSON.parse(String(init!.body))); return [row(13, { total_count: 30 })]; },
+      "/blog_facets": () => facets,
+    });
+    const res = await handler(req("kind=articles&category=heart-health&page=2"), env, f);
+    expect(res.status).toBe(200);
+    expect(seen[0]).toMatchObject({ p_category: "heart-health", p_limit: 12, p_offset: 12, p_query: null });
+    expect(await res.text()).toContain("Heart Health Articles by Doctors - Page 2 | Doctylia");
+  });
+
+  it("301s non-canonical params: uppercase category, page=1, junk page", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({});
+    for (const [qs, to] of [
+      ["kind=articles&category=Heart-Health", "https://doctylia.com/health-articles/heart-health"],
+      ["kind=articles&page=1", "https://doctylia.com/health-articles"],
+      ["kind=articles&page=abc", "https://doctylia.com/health-articles"],
+      ["kind=articles&category=heart-health&page=02", "https://doctylia.com/health-articles/heart-health?page=2"],
+    ] as const) {
+      const res = await handler(req(qs), env, f);
+      expect(res.status).toBe(301);
+      expect(res.headers.get("Location")).toBe(to);
+    }
+  });
+
+  it("404s an unknown category and an out-of-range page", async () => {
+    const handler = await fresh();
+    const empty = fakeFetch({ "/search_blog_posts": () => [], "/blog_facets": () => [] });
+    expect((await handler(req("kind=articles&category=nope"), env, empty)).status).toBe(404);
+    expect((await handler(req("kind=articles&page=9"), env, empty)).status).toBe(404);
+  });
+
+  it("an empty root hub is 200 but noindex; upstream failure falls back to the plain shell", async () => {
+    const handler = await fresh();
+    const empty = fakeFetch({ "/search_blog_posts": () => [], "/blog_facets": () => [] });
+    const res = await handler(req("kind=articles"), env, empty);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("noindex, follow");
+
+    const boom = fakeFetch({ "/search_blog_posts": () => new Response("x", { status: 500 }) });
+    const fallback = await handler(req("kind=articles"), env, boom);
+    expect(await fallback.text()).toBe(TEMPLATE);
+  });
+});

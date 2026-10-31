@@ -8,6 +8,7 @@ import { directorySlug } from "../directory/slug";
 import { buildDoctorBody, buildHubHead, isHubIndexable, type DirectoryDoctor, type DirectoryFacet } from "./directorySeo";
 import { buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName, doctorHubPaths } from "./doctorSeo";
 import { buildBlogListHead, buildBlogPostHead, blogPostPath, UUID_RE } from "./blogSeo";
+import { ARTICLES_BASE, ARTICLES_PAGE_SIZE, articlesPath, buildArticlesHead, isArticlesIndexable, type ArticleFacet, type HubArticle } from "./healthArticlesSeo";
 import { INDEXABLE, NOINDEX, renderPage } from "./injectHead";
 
 export interface SeoEnv {
@@ -188,6 +189,33 @@ async function blogPage(up: Upstream, template: string, origin: string, slug: st
   return htmlResponse(renderPage(template, buildBlogPostHead({ origin, doctor, post })), 200, SITE_CACHE);
 }
 
+async function articlesPage(up: Upstream, template: string, origin: string, categorySlug: string | undefined, page: number): Promise<Response> {
+  const path = categorySlug ? `${ARTICLES_BASE}/${categorySlug}` : ARTICLES_BASE;
+  const [rows, facets] = await Promise.all([
+    up.rpc("search_blog_posts", {
+      p_query: null,
+      p_category: categorySlug ?? null,
+      p_limit: ARTICLES_PAGE_SIZE,
+      p_offset: (page - 1) * ARTICLES_PAGE_SIZE,
+    }) as Promise<Array<HubArticle & { total_count: number | string }>>,
+    up.rpc("blog_facets", {}) as Promise<ArticleFacet[]>,
+  ]);
+
+  const total = Number(rows?.[0]?.total_count ?? 0);
+  // Unknown topic, or a page past the end, is a real 404 rather than a thin indexable page.
+  if ((categorySlug || page > 1) && total === 0) return notFound(template, origin, path);
+
+  const categoryLabel = categorySlug
+    ? facets?.find((f) => f.slug === categorySlug)?.label ?? rows[0]?.category?.trim() ?? undefined
+    : undefined;
+  const head = buildArticlesHead({ origin, categorySlug, categoryLabel, page, articles: rows ?? [], total, facets: facets ?? [] });
+  return htmlResponse(
+    renderPage(template, head),
+    200,
+    isArticlesIndexable(total, categorySlug) ? SITE_CACHE : "public, max-age=0, s-maxage=300",
+  );
+}
+
 async function hubPage(up: Upstream, template: string, origin: string, citySlug?: string, specialtySlug?: string): Promise<Response> {
   const path = !citySlug ? "/doctors" : specialtySlug ? `/doctors/${citySlug}/${specialtySlug}` : `/doctors/${citySlug}`;
 
@@ -249,6 +277,21 @@ export async function handleSeoRequest(
         return new Response(null, { status: 301, headers: { Location: `${origin}${target}`, "Cache-Control": "public, max-age=0, s-maxage=3600" } });
       }
       return await hubPage(up, template, origin, city, specialty);
+    }
+    if (kind === "articles") {
+      const rawCategory = url.searchParams.get("category") ?? undefined;
+      const category = rawCategory ? directorySlug(rawCategory) : undefined;
+      const rawPage = url.searchParams.get("page");
+      const parsed = rawPage === null ? 1 : Number(rawPage);
+      const page = Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
+      // Only the canonical spelling is served as 200; everything else 301s to it.
+      if ((rawCategory && category !== rawCategory) || (rawPage !== null && String(page) !== rawPage) || rawPage === "1") {
+        return new Response(null, {
+          status: 301,
+          headers: { Location: `${origin}${articlesPath(category, page)}`, "Cache-Control": "public, max-age=0, s-maxage=3600" },
+        });
+      }
+      return await articlesPage(up, template, origin, category, page);
     }
     return shell(template, kind);
   } catch (err) {
