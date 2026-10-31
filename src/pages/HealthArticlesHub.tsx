@@ -60,6 +60,12 @@ const HealthArticlesHub = () => {
       }
       setFacets(((fac.data ?? []) as ArticleFacet[]).filter(Boolean));
       setLoading(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setError(true);
+      setRows([]);
+      setTotal(0);
+      setLoading(false);
     });
     return () => { cancelled = true; };
   }, [q, category, page, rpc]);
@@ -74,9 +80,11 @@ const HealthArticlesHub = () => {
     [category, categoryLabel, page, rows, total, facets],
   );
   // Don't advertise a title/count before data arrives, and never index free-text searches.
+  // The count is only known (and only describes the whole listing) once loaded and not searching.
+  const neutralDescription = "Practical, patient-friendly health articles written by practising doctors across India. Browse by topic, then book an appointment with the author.";
   useDocumentHead({
     title: head.title,
-    description: head.description,
+    description: q || loading || error ? neutralDescription : head.description,
     canonical: head.canonical,
     robots: q || loading || error ? NOINDEX : head.robots,
   });

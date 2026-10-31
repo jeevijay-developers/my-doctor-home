@@ -39,7 +39,7 @@ type DoctorRow = {
   directory_listed: boolean;
 };
 type PostRow = {
-  id: string; slug?: string | null; doctor_id: string; updated_at: string | null; published_at: string | null;
+  id: string; slug?: string | null; title?: string | null; doctor_id: string; updated_at: string | null; published_at: string | null;
   category?: string | null; hub_hidden?: boolean | null;
 };
 
@@ -144,7 +144,9 @@ Deno.serve(async (req) => {
 
     // Health Articles hub: only posts the RPC would list (listed doctor, not hidden by moderation).
     // hub_hidden is NOT NULL, so `=== false` also excludes the column-fallback rows (field absent).
-    const hubPosts = posts.filter((p) => p.hub_hidden === false && doctorById.get(p.doctor_id)?.directory_listed);
+    // The RPC also requires a non-empty post slug and title.
+    const hubPosts = posts.filter((p) =>
+      p.hub_hidden === false && !!p.slug?.trim() && !!p.title?.trim() && doctorById.get(p.doctor_id)?.directory_listed);
     if (hubPosts.length > 0) {
       // Google only trusts lastmod if it is verifiably accurate: use the newest publish date,
       // which moderation toggles and slug backfills (they move updated_at) do not change.
@@ -246,7 +248,7 @@ async function fetchDoctors(admin: SupabaseClient): Promise<DoctorRow[]> {
 async function fetchPosts(admin: SupabaseClient): Promise<PostRow[]> {
   // `slug`, `category` and `hub_hidden` ship in migrations; if any is missing the retry
   // drops every optional column (no hub URLs, posts listed by id).
-  let columns = "id, slug, doctor_id, updated_at, published_at, category, hub_hidden";
+  let columns = "id, slug, title, doctor_id, updated_at, published_at, category, hub_hidden";
   const rows: PostRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const run = (cols: string) =>

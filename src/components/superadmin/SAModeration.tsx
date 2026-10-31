@@ -46,7 +46,7 @@ const SAModeration = () => {
     load();
   };
 
-  const toggleReview =async (id: string, next: boolean) => {
+  const toggleReview = async (id: string, next: boolean) => {
     const { error } = await supabase.from("reviews").update({ is_visible: next }).eq("id", id);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     await logAdminAction(next ? "show_review" : "hide_review", "reviews", id);
@@ -161,7 +161,7 @@ const SAModeration = () => {
                   {openPost.is_published ? "Published" : "Draft"}
                 </Badge>
                 {openPost.hub_hidden && <Badge variant="outline" className="pointer-events-none">Hidden from hub</Badge>}
-                {openPost.category &&<Badge variant="outline" className="pointer-events-none">{openPost.category}</Badge>}
+                {openPost.category && <Badge variant="outline" className="pointer-events-none">{openPost.category}</Badge>}
                 <span>By {openPost.profiles?.full_name || "—"}</span>
                 <span>·</span>
                 <span>{new Date(openPost.published_at || openPost.created_at).toLocaleDateString()}</span>

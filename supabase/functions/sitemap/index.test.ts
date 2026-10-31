@@ -6,7 +6,7 @@ const doc = (o: any = {}) => ({
   id: "d1", slug: "dr-asha", updated_at: "2026-01-02T03:04:05.678Z", city: "Pune", specialization: "Cardiology",
   directory_listed: true, onboarding_completed: true, plan_status: "active", ...o,
 });
-const post = (o: any = {}) => ({ id: "post-1", slug: "heart-tips", doctor_id: "d1", updated_at: "2026-02-03T00:00:00.000Z", published_at: null, is_published: true, ...o });
+const post = (o: any = {}) => ({ id: "post-1", slug: "heart-tips", title: "Heart tips", doctor_id: "d1", updated_at: "2026-02-03T00:00:00.000Z", published_at: null, is_published: true, ...o });
 const get = (url = "https://x.test/sitemap", method = "GET") => new Request(url, { method, headers: { Origin: "http://localhost:8080" } });
 const run = async (tables: any, url?: string, env: any = BASE_ENV) => {
   const { handler, client } = await boot("sitemap", env, { tables });
@@ -102,6 +102,22 @@ describe("sitemap", () => {
     expect(l).toContain("/health-articles");
     expect(l).toContain("/health-articles/heart-health");
     expect(l).not.toContain("/health-articles/skin-care");
+  });
+
+  it("health articles hub: posts without a slug or title (not in the RPC) don't count toward topic pages or lastmod", async () => {
+    const heart = (o: any = {}) => post({ category: "Heart Health", hub_hidden: false, ...o });
+    const { xml } = await run({
+      profiles: [doc()],
+      blog_posts: [
+        heart({ id: "a", slug: "a" }), heart({ id: "b", slug: "b" }),
+        heart({ id: "legacy", slug: null, published_at: "2026-12-01T00:00:00.000Z" }),
+        heart({ id: "blank", slug: "blank", title: "   ", published_at: "2026-12-02T00:00:00.000Z" }),
+      ],
+    });
+    const l = locs(xml);
+    expect(l).toContain("/health-articles");
+    expect(l).not.toContain("/health-articles/heart-health");
+    expect(xml).not.toContain("2026-12-0");
   });
 
   it("omits the hub entirely when no post is eligible", async () => {

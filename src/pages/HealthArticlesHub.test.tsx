@@ -60,6 +60,15 @@ describe("HealthArticlesHub", () => {
     await waitFor(() => expect(robots()).toBe("noindex, follow"));
   });
 
+  it("shows the error state and noindexes when the rpc rejects", async () => {
+    rpc.mockRejectedValue(new Error("network"));
+    renderAt("/health-articles");
+    expect(await screen.findByText(/Couldn't load articles/i)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    await waitFor(() => expect(robots()).toBe("noindex, follow"));
+    expect(document.head.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? "").not.toMatch(/Read 0/);
+  });
+
   it("shows an empty state and an error state", async () => {
     rpc.mockImplementation(async (fn: string) => ({ data: fn === "search_blog_posts" ? [] : [], error: null }));
     const first = renderAt("/health-articles");
