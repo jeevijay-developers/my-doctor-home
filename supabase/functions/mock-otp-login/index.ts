@@ -25,6 +25,10 @@ Deno.serve(async (req) => {
   if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
+  if (Deno.env.get("ENABLE_TEST_OTP") !== "true") {
+    return json(403, { error: "Test OTP login is disabled." });
+  }
+
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -37,10 +41,6 @@ Deno.serve(async (req) => {
   });
   if (limited) return limited;
 
-  if (Deno.env.get("ENABLE_TEST_OTP") !== "true") {
-    return json(403, { error: "Test OTP login is disabled." });
-  }
-
   let body: { phone?: string; otp?: string; fullName?: string; isSignup?: boolean };
   try {
     body = await req.json();
@@ -52,11 +52,13 @@ Deno.serve(async (req) => {
   if (!phone || typeof phone !== "string") return json(400, { error: "Missing phone" });
   if (otp !== DEV_OTP_CODE) return json(400, { error: "Invalid OTP" });
 
-  // Clinic staff are real phone users (auth.users.phone), not dev.<phone>
-  // accounts — on login, match them by phone first so the dev OTP flow can
-  // sign them in like the production SMS flow does.
+  // Clinic staff / superadmin-team members are REAL phone users (auth.users.phone),
+  // not dev.<phone> accounts. Minting their session from the static dev OTP is a
+  // full account takeover for anyone who knows their phone, so this branch is
+  // OFF unless ENABLE_TEST_OTP_REAL_USERS === "true" as well (set only in the
+  // local e2e functions env, never in production).
   let devUser: { email?: string } | null = null;
-  if (!isSignup) {
+  if (!isSignup && Deno.env.get("ENABLE_TEST_OTP_REAL_USERS") === "true") {
     const e164 = /^\+/.test(phone) ? phone : `+${phone}`;
     const { data: member } = await admin.from("superadmin_team_members").select("id, status").eq("phone", e164).maybeSingle();
     if (member) {
@@ -72,9 +74,9 @@ Deno.serve(async (req) => {
     }
   }
 
-  // get_or_create_dev_user always derives a synthetic dev.<digits>@doctylia.com
-  // address from `phone` itself — it never takes a client-supplied email — so
-  // this can't be used to mint a session for a real user's account.
+  // get_or_create_dev_user derives a synthetic dev.<digits>@doctylia.com address
+  // from `phone` itself (never a client-supplied email). Real staff/team accounts
+  // are only reachable through the ENABLE_TEST_OTP_REAL_USERS branch above.
   if (!devUser) {
     const { data: rpcData, error: rpcError } = await admin.rpc("get_or_create_dev_user", {
       _phone: phone,

@@ -1,3 +1,4 @@
+import { istDayKey } from "../../istDate";
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 
@@ -20,7 +21,7 @@ export default defineTool({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     const client = db(ctx);
     const uid = ctx.getUserId();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = istDayKey(new Date());
     const [patients, appts, todayAppts, pending] = await Promise.all([
       client.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", uid),
       client.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", uid),

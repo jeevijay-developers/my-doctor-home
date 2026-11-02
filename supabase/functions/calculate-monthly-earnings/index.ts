@@ -57,12 +57,15 @@ Deno.serve(async (req) => {
     .select("id, doctor_id, doctor_share")
     .eq("month", month)
     .eq("paid", false)
+    .eq("refunded", false) // a refunded appointment's share was handed back to the patient
     .is("payout_id", null);
   if (error) return json(500, { error: error.message });
 
   const byDoctor = new Map<string, number>();
+  const idsByDoctor = new Map<string, string[]>();
   for (const r of rows || []) {
     byDoctor.set(r.doctor_id, (byDoctor.get(r.doctor_id) || 0) + Number(r.doctor_share));
+    idsByDoctor.set(r.doctor_id, [...(idsByDoctor.get(r.doctor_id) || []), r.id]);
   }
 
   const results: { doctor_id: string; payout_id: string; total_amount: number }[] = [];
@@ -95,8 +98,9 @@ Deno.serve(async (req) => {
     await admin
       .from("doctor_ledger")
       .update({ payout_id: payout.id })
-      .eq("doctor_id", doctor_id)
-      .eq("month", month)
+      .in("id", idsByDoctor.get(doctor_id) || []) // exactly the rows that were summed
+      .eq("paid", false)
+      .eq("refunded", false)
       .is("payout_id", null);
     results.push({ doctor_id, payout_id: payout.id, total_amount: Number(payout.total_amount) });
   }

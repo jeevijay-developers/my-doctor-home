@@ -4,6 +4,7 @@
 // are never worse off than before this existed.
 //
 // NOTE: keep relative imports only - Vercel's bundler does not resolve "@/".
+import { PUBLIC_PROFILE_COLUMNS } from "../publicProfileColumns";
 import { directorySlug } from "../directory/slug";
 import { buildDoctorBody, buildHubHead, isHubIndexable, type DirectoryDoctor, type DirectoryFacet } from "./directorySeo";
 import { buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName, doctorHubPaths } from "./doctorSeo";
@@ -108,7 +109,7 @@ const enc = encodeURIComponent;
 
 async function doctorPage(up: Upstream, template: string, origin: string, slug: string): Promise<Response> {
   const path = `/dr/${slug}`;
-  const profiles = await up.select("profiles", `select=*&slug=eq.${enc(slug)}&onboarding_completed=eq.true&limit=1`);
+  const profiles = await up.select("profiles", `select=${PUBLIC_PROFILE_COLUMNS}&slug=eq.${enc(slug)}&onboarding_completed=eq.true&limit=1`);
   const profile = profiles?.[0];
 
   if (!profile) {
@@ -166,7 +167,7 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
 
 async function blogPage(up: Upstream, template: string, origin: string, slug: string, postKey?: string): Promise<Response> {
   const path = postKey ? `${doctorPath(slug)}/blog/${encodePathSegment(postKey)}` : `${doctorPath(slug)}/blog`;
-  const profiles = await up.select("profiles", `select=*&slug=eq.${enc(slug)}&onboarding_completed=eq.true&limit=1`);
+  const profiles = await up.select("profiles", `select=${PUBLIC_PROFILE_COLUMNS}&slug=eq.${enc(slug)}&onboarding_completed=eq.true&limit=1`);
   const doctor = profiles?.[0];
   if (!doctor || doctor.plan_status === "cancelled") return notFound(template, origin, path);
   const doctorId = enc(doctor.id);

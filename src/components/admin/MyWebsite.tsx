@@ -97,7 +97,7 @@ const MyWebsite = () => {
   const saveAll = async (silent = false) => {
     if (!profile || !canEditWebsite) return;
     setSaving(true);
-
+    try {
     for (const s of services) {
       if (s.price < 0) { toast({ title: "Invalid service price", description: `Price for "${s.name || 'service'}" cannot be negative.`, variant: "destructive" }); return; }
       if (s.duration < 1) { toast({ title: "Invalid service duration", description: `Duration for "${s.name || 'service'}" must be at least 1 minute.`, variant: "destructive" }); return; }
@@ -124,7 +124,7 @@ const MyWebsite = () => {
       (settingsData as any).seo_keywords = JSON.stringify(quick_stats);
     }
     const { error: settingsError } = await supabase.from("website_settings").update(settingsData as any).eq("doctor_id", profile.id);
-    if (settingsError) toast({ title: "Save failed", description: settingsError.message, variant: "destructive" });
+    if (settingsError) { toast({ title: "Save failed", description: settingsError.message, variant: "destructive" }); return; }
 
     for (const s of services) {
       if (s.id) {
@@ -143,11 +143,14 @@ const MyWebsite = () => {
       }
     }
 
-    setSaving(false);
     setLastSaved(new Date());
     setPreviewKey((k) => k + 1);
     if (!silent) toast({ title: "Changes saved!" });
     load();
+    } finally {
+      // Every early return (validation failures, save errors) must release the Save button.
+      setSaving(false);
+    }
   };
 
   const updateSetting = (key: string, value: any) => setSettings((prev) => ({ ...prev, [key]: value }));

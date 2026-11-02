@@ -65,6 +65,24 @@ Deno.serve(async (req) => {
   const failed: { id: string; error: string }[] = [];
 
   for (const doctorId of doctor_ids as string[]) {
+    // Never delete the caller, an owner (admin role) or a superadmin-team member through
+    // this endpoint: bootstrap-admin gives the owner a profiles row, so "has a profile"
+    // alone would let a doctors.delete delegate wipe the platform owner.
+    if (doctorId === callerId) {
+      failed.push({ id: doctorId, error: "You cannot delete your own account" });
+      continue;
+    }
+    const { data: targetIsAdmin, error: roleErr } = await admin.rpc("has_role", { _user_id: doctorId, _role: "admin" });
+    if (roleErr || (targetIsAdmin !== false && targetIsAdmin != null)) {
+      failed.push({ id: doctorId, error: "Owner/admin accounts cannot be deleted here" });
+      continue;
+    }
+    const { data: teamRow, error: teamErr } = await admin.from("superadmin_team_members").select("id").eq("id", doctorId).maybeSingle();
+    if (teamErr || teamRow) {
+      failed.push({ id: doctorId, error: "Superadmin team accounts cannot be deleted here" });
+      continue;
+    }
+
     const { data: target } = await admin.from("profiles").select("id").eq("id", doctorId).maybeSingle();
     if (!target) {
       failed.push({ id: doctorId, error: "Doctor not found" });

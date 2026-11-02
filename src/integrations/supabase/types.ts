@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -49,6 +74,7 @@ export type Database = {
           amount: number
           appointment_type: string
           chief_complaint: string | null
+          completed_at: string | null
           created_at: string
           date: string
           doctor_id: string
@@ -60,19 +86,29 @@ export type Database = {
           meeting_provider: string | null
           meeting_status: string | null
           notes: string | null
+          paid_at: string | null
           patient_age: number | null
           patient_email: string | null
           patient_gender: string | null
+          patient_id: string | null
           patient_name: string
           patient_phone: string
           payment_gateway: string | null
+          payment_method: string | null
           payment_status: Database["public"]["Enums"]["payment_status"]
+          priority: number
+          priority_reason: string | null
+          queue_number: number | null
           reschedule_count: number
           service_name: string
+          serving_started_at: string | null
+          skipped_at: string | null
+          sort_time: string
           status: Database["public"]["Enums"]["appointment_status"]
-          time_slot: string
+          time_slot: string | null
           token_number: string | null
           updated_at: string
+          visit_counted: boolean
           zoom_join_url: string | null
           zoom_meeting_id: string | null
           zoom_start_url: string | null
@@ -81,6 +117,7 @@ export type Database = {
           amount?: number
           appointment_type?: string
           chief_complaint?: string | null
+          completed_at?: string | null
           created_at?: string
           date: string
           doctor_id: string
@@ -92,19 +129,29 @@ export type Database = {
           meeting_provider?: string | null
           meeting_status?: string | null
           notes?: string | null
+          paid_at?: string | null
           patient_age?: number | null
           patient_email?: string | null
           patient_gender?: string | null
+          patient_id?: string | null
           patient_name: string
           patient_phone: string
           payment_gateway?: string | null
+          payment_method?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          priority?: number
+          priority_reason?: string | null
+          queue_number?: number | null
           reschedule_count?: number
           service_name: string
+          serving_started_at?: string | null
+          skipped_at?: string | null
+          sort_time: string
           status?: Database["public"]["Enums"]["appointment_status"]
-          time_slot: string
+          time_slot?: string | null
           token_number?: string | null
           updated_at?: string
+          visit_counted?: boolean
           zoom_join_url?: string | null
           zoom_meeting_id?: string | null
           zoom_start_url?: string | null
@@ -113,6 +160,7 @@ export type Database = {
           amount?: number
           appointment_type?: string
           chief_complaint?: string | null
+          completed_at?: string | null
           created_at?: string
           date?: string
           doctor_id?: string
@@ -124,19 +172,29 @@ export type Database = {
           meeting_provider?: string | null
           meeting_status?: string | null
           notes?: string | null
+          paid_at?: string | null
           patient_age?: number | null
           patient_email?: string | null
           patient_gender?: string | null
+          patient_id?: string | null
           patient_name?: string
           patient_phone?: string
           payment_gateway?: string | null
+          payment_method?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          priority?: number
+          priority_reason?: string | null
+          queue_number?: number | null
           reschedule_count?: number
           service_name?: string
+          serving_started_at?: string | null
+          skipped_at?: string | null
+          sort_time?: string
           status?: Database["public"]["Enums"]["appointment_status"]
-          time_slot?: string
+          time_slot?: string | null
           token_number?: string | null
           updated_at?: string
+          visit_counted?: boolean
           zoom_join_url?: string | null
           zoom_meeting_id?: string | null
           zoom_start_url?: string | null
@@ -149,45 +207,61 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       blog_posts: {
         Row: {
+          ai_assisted: boolean
           category: string | null
           content: string | null
           created_at: string
           doctor_id: string
           excerpt: string | null
           featured_image_url: string | null
+          hub_hidden: boolean
           id: string
           is_published: boolean
           published_at: string | null
+          slug: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          ai_assisted?: boolean
           category?: string | null
           content?: string | null
           created_at?: string
           doctor_id: string
           excerpt?: string | null
           featured_image_url?: string | null
+          hub_hidden?: boolean
           id?: string
           is_published?: boolean
           published_at?: string | null
+          slug?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          ai_assisted?: boolean
           category?: string | null
           content?: string | null
           created_at?: string
           doctor_id?: string
           excerpt?: string | null
           featured_image_url?: string | null
+          hub_hidden?: boolean
           id?: string
           is_published?: boolean
           published_at?: string | null
+          slug?: string | null
           title?: string
           updated_at?: string
         }
@@ -250,6 +324,66 @@ export type Database = {
             columns: ["doctor_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_custom_plans: {
+        Row: {
+          base_tier: string
+          cancelled_by: string | null
+          doctor_id: string
+          extra_features: string[]
+          monthly_appointments_limit: number | null
+          monthly_price: number
+          removed_features: string[]
+          request_id: string | null
+          status: string
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          base_tier: string
+          cancelled_by?: string | null
+          doctor_id: string
+          extra_features?: string[]
+          monthly_appointments_limit?: number | null
+          monthly_price: number
+          removed_features?: string[]
+          request_id?: string | null
+          status?: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          base_tier?: string
+          cancelled_by?: string | null
+          doctor_id?: string
+          extra_features?: string[]
+          monthly_appointments_limit?: number | null
+          monthly_price?: number
+          removed_features?: string[]
+          request_id?: string | null
+          status?: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_custom_plans_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_custom_plans_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "plan_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -447,22 +581,31 @@ export type Database = {
       }
       features: {
         Row: {
+          category: string
           default_min_tier: string
           description: string
+          is_active: boolean
+          is_requestable: boolean
           key: string
           label: string
           sort_order: number
         }
         Insert: {
+          category?: string
           default_min_tier?: string
           description: string
+          is_active?: boolean
+          is_requestable?: boolean
           key: string
           label: string
           sort_order?: number
         }
         Update: {
+          category?: string
           default_min_tier?: string
           description?: string
+          is_active?: boolean
+          is_requestable?: boolean
           key?: string
           label?: string
           sort_order?: number
@@ -1455,6 +1598,7 @@ export type Database = {
       patients: {
         Row: {
           age: number | null
+          auto_created: boolean
           created_at: string
           doctor_id: string
           email: string | null
@@ -1470,6 +1614,7 @@ export type Database = {
         }
         Insert: {
           age?: number | null
+          auto_created?: boolean
           created_at?: string
           doctor_id: string
           email?: string | null
@@ -1485,6 +1630,7 @@ export type Database = {
         }
         Update: {
           age?: number | null
+          auto_created?: boolean
           created_at?: string
           doctor_id?: string
           email?: string | null
@@ -1700,6 +1846,104 @@ export type Database = {
           },
         ]
       }
+      plan_request_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          details: Json | null
+          doctor_id: string
+          event: string
+          id: string
+          request_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          details?: Json | null
+          doctor_id: string
+          event: string
+          id?: string
+          request_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          details?: Json | null
+          doctor_id?: string
+          event?: string
+          id?: string
+          request_id?: string | null
+        }
+        Relationships: []
+      }
+      plan_requests: {
+        Row: {
+          add_features: string[]
+          approved_appointments_limit: number | null
+          approved_features: string[] | null
+          approved_price: number | null
+          base_tier: string
+          created_at: string
+          decided_at: string | null
+          doctor_id: string
+          doctor_note: string | null
+          id: string
+          remove_features: string[]
+          requested_appointments_limit: number | null
+          reviewer_id: string | null
+          reviewer_note: string | null
+          status: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          add_features?: string[]
+          approved_appointments_limit?: number | null
+          approved_features?: string[] | null
+          approved_price?: number | null
+          base_tier: string
+          created_at?: string
+          decided_at?: string | null
+          doctor_id: string
+          doctor_note?: string | null
+          id?: string
+          remove_features?: string[]
+          requested_appointments_limit?: number | null
+          reviewer_id?: string | null
+          reviewer_note?: string | null
+          status?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          add_features?: string[]
+          approved_appointments_limit?: number | null
+          approved_features?: string[] | null
+          approved_price?: number | null
+          base_tier?: string
+          created_at?: string
+          decided_at?: string | null
+          doctor_id?: string
+          doctor_note?: string | null
+          id?: string
+          remove_features?: string[]
+          requested_appointments_limit?: number | null
+          reviewer_id?: string | null
+          reviewer_note?: string | null
+          status?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_requests_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_upgrade_payments: {
         Row: {
           amount: number
@@ -1858,6 +2102,7 @@ export type Database = {
       profiles: {
         Row: {
           address: string | null
+          bio: string | null
           city: string | null
           clinic_email: string | null
           clinic_name: string | null
@@ -1865,13 +2110,17 @@ export type Database = {
           consultation_fee: number
           created_at: string
           custom_plan_price: number | null
+          directory_listed: boolean
           experience_years: number | null
           full_name: string | null
+          google_maps_url: string | null
           gst_registered: boolean
           gstin: string | null
           id: string
+          locality: string | null
           onboarding_completed: boolean
           phone: string | null
+          pincode: string | null
           plan_end: string | null
           plan_status: Database["public"]["Enums"]["plan_status"]
           plan_tier: string
@@ -1895,6 +2144,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          bio?: string | null
           city?: string | null
           clinic_email?: string | null
           clinic_name?: string | null
@@ -1902,13 +2152,17 @@ export type Database = {
           consultation_fee?: number
           created_at?: string
           custom_plan_price?: number | null
+          directory_listed?: boolean
           experience_years?: number | null
           full_name?: string | null
+          google_maps_url?: string | null
           gst_registered?: boolean
           gstin?: string | null
           id: string
+          locality?: string | null
           onboarding_completed?: boolean
           phone?: string | null
+          pincode?: string | null
           plan_end?: string | null
           plan_status?: Database["public"]["Enums"]["plan_status"]
           plan_tier?: string
@@ -1932,6 +2186,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          bio?: string | null
           city?: string | null
           clinic_email?: string | null
           clinic_name?: string | null
@@ -1939,13 +2194,17 @@ export type Database = {
           consultation_fee?: number
           created_at?: string
           custom_plan_price?: number | null
+          directory_listed?: boolean
           experience_years?: number | null
           full_name?: string | null
+          google_maps_url?: string | null
           gst_registered?: boolean
           gstin?: string | null
           id?: string
+          locality?: string | null
           onboarding_completed?: boolean
           phone?: string | null
+          pincode?: string | null
           plan_end?: string | null
           plan_status?: Database["public"]["Enums"]["plan_status"]
           plan_tier?: string
@@ -1966,6 +2225,62 @@ export type Database = {
           trial_end?: string | null
           trial_start?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      queue_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          appointment_id: string | null
+          created_at: string
+          doctor_id: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          appointment_id?: string | null
+          created_at?: string
+          doctor_id: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          appointment_id?: string | null
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "queue_events_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rate_limit_buckets: {
+        Row: {
+          count: number
+          key: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          key: string
+          window_start: string
+        }
+        Update: {
+          count?: number
+          key?: string
+          window_start?: string
         }
         Relationships: []
       }
@@ -2296,222 +2611,26 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
+      token_lookup_attempts: {
         Row: {
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          doctor_id: string
+          failures: number
+          phone: string
+          window_start: string
         }
         Insert: {
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          doctor_id: string
+          failures?: number
+          phone: string
+          window_start?: string
         }
         Update: {
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          doctor_id?: string
+          failures?: number
+          phone?: string
+          window_start?: string
         }
         Relationships: []
-      }
-      website_settings: {
-        Row: {
-          auto_confirm: boolean
-          blog_auto_enabled: boolean
-          booking_advance_days: number
-          buffer_minutes: number
-          cancellation_cutoff_hours: number
-          created_at: string
-          doctor_id: string
-          google_analytics_id: string | null
-          hero_description: string
-          hero_directions_label: string
-          hero_headline_line1: string
-          hero_headline_line2: string
-          hero_hours_label: string
-          hero_location_label: string
-          hero_photo_url: string | null
-          hero_primary_button_label: string
-          hero_secondary_button_label: string
-          hero_stat_icon: string
-          hero_stat_text: string
-          id: string
-          online_duration: number | null
-          online_fee: number | null
-          payment_gateway_enabled: boolean
-          razorpay_key_id: string | null
-          require_payment: boolean
-          seo_description: string | null
-          seo_keywords: string | null
-          seo_title: string | null
-          show_about: boolean
-          show_blog: boolean
-          show_clinic_details: boolean
-          show_gallery: boolean
-          show_hero_stat_badge: boolean
-          show_online_consultation: boolean
-          show_packages: boolean
-          show_quick_stats: boolean
-          show_reviews: boolean
-          show_services: boolean
-          social_facebook: string | null
-          social_instagram: string | null
-          social_linkedin: string | null
-          social_youtube: string | null
-          theme: string
-          updated_at: string
-          video_provider: string | null
-          whatsapp_message: string | null
-          whatsapp_number: string | null
-        }
-        Insert: {
-          auto_confirm?: boolean
-          blog_auto_enabled?: boolean
-          booking_advance_days?: number
-          buffer_minutes?: number
-          cancellation_cutoff_hours?: number
-          created_at?: string
-          doctor_id: string
-          google_analytics_id?: string | null
-          hero_description?: string
-          hero_directions_label?: string
-          hero_headline_line1?: string
-          hero_headline_line2?: string
-          hero_hours_label?: string
-          hero_location_label?: string
-          hero_photo_url?: string | null
-          hero_primary_button_label?: string
-          hero_secondary_button_label?: string
-          hero_stat_icon?: string
-          hero_stat_text?: string
-          id?: string
-          online_duration?: number | null
-          online_fee?: number | null
-          payment_gateway_enabled?: boolean
-          razorpay_key_id?: string | null
-          require_payment?: boolean
-          seo_description?: string | null
-          seo_keywords?: string | null
-          seo_title?: string | null
-          show_about?: boolean
-          show_blog?: boolean
-          show_clinic_details?: boolean
-          show_gallery?: boolean
-          show_hero_stat_badge?: boolean
-          show_online_consultation?: boolean
-          show_packages?: boolean
-          show_quick_stats?: boolean
-          show_reviews?: boolean
-          show_services?: boolean
-          social_facebook?: string | null
-          social_instagram?: string | null
-          social_linkedin?: string | null
-          social_youtube?: string | null
-          theme?: string
-          updated_at?: string
-          video_provider?: string | null
-          whatsapp_message?: string | null
-          whatsapp_number?: string | null
-        }
-        Update: {
-          auto_confirm?: boolean
-          blog_auto_enabled?: boolean
-          booking_advance_days?: number
-          buffer_minutes?: number
-          cancellation_cutoff_hours?: number
-          created_at?: string
-          doctor_id?: string
-          google_analytics_id?: string | null
-          hero_description?: string
-          hero_directions_label?: string
-          hero_headline_line1?: string
-          hero_headline_line2?: string
-          hero_hours_label?: string
-          hero_location_label?: string
-          hero_photo_url?: string | null
-          hero_primary_button_label?: string
-          hero_secondary_button_label?: string
-          hero_stat_icon?: string
-          hero_stat_text?: string
-          id?: string
-          online_duration?: number | null
-          online_fee?: number | null
-          payment_gateway_enabled?: boolean
-          razorpay_key_id?: string | null
-          require_payment?: boolean
-          seo_description?: string | null
-          seo_keywords?: string | null
-          seo_title?: string | null
-          show_about?: boolean
-          show_blog?: boolean
-          show_clinic_details?: boolean
-          show_gallery?: boolean
-          show_hero_stat_badge?: boolean
-          show_online_consultation?: boolean
-          show_packages?: boolean
-          show_quick_stats?: boolean
-          show_reviews?: boolean
-          show_services?: boolean
-          social_facebook?: string | null
-          social_instagram?: string | null
-          social_linkedin?: string | null
-          social_youtube?: string | null
-          theme?: string
-          updated_at?: string
-          video_provider?: string | null
-          whatsapp_message?: string | null
-          whatsapp_number?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "website_settings_doctor_id_fkey"
-            columns: ["doctor_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      working_hours: {
-        Row: {
-          day_of_week: number
-          doctor_id: string
-          end_time: string | null
-          end_time_2: string | null
-          id: string
-          is_open: boolean
-          start_time: string | null
-          start_time_2: string | null
-        }
-        Insert: {
-          day_of_week: number
-          doctor_id: string
-          end_time?: string | null
-          end_time_2?: string | null
-          id?: string
-          is_open?: boolean
-          start_time?: string | null
-          start_time_2?: string | null
-        }
-        Update: {
-          day_of_week?: number
-          doctor_id?: string
-          end_time?: string | null
-          end_time_2?: string | null
-          id?: string
-          is_open?: boolean
-          start_time?: string | null
-          start_time_2?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "working_hours_doctor_id_fkey"
-            columns: ["doctor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       transfers: {
         Row: {
@@ -2598,6 +2717,24 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       webhook_events: {
         Row: {
           created_at: string
@@ -2631,6 +2768,211 @@ export type Database = {
         }
         Relationships: []
       }
+      website_settings: {
+        Row: {
+          auto_confirm: boolean
+          blog_auto_enabled: boolean
+          booking_advance_days: number
+          buffer_minutes: number
+          cancellation_cutoff_hours: number
+          created_at: string
+          doctor_id: string
+          google_analytics_id: string | null
+          hero_description: string
+          hero_directions_label: string
+          hero_headline_line1: string
+          hero_headline_line2: string
+          hero_hours_label: string
+          hero_location_label: string
+          hero_photo_url: string | null
+          hero_primary_button_label: string
+          hero_secondary_button_label: string
+          hero_stat_icon: string
+          hero_stat_text: string
+          id: string
+          max_per_slot: number
+          online_duration: number | null
+          online_fee: number | null
+          payment_gateway_enabled: boolean
+          razorpay_key_id: string | null
+          require_payment: boolean
+          seo_description: string | null
+          seo_keywords: string | null
+          seo_title: string | null
+          show_about: boolean
+          show_blog: boolean
+          show_clinic_details: boolean
+          show_gallery: boolean
+          show_hero_stat_badge: boolean
+          show_online_consultation: boolean
+          show_packages: boolean
+          show_quick_stats: boolean
+          show_reviews: boolean
+          show_services: boolean
+          slot_duration_minutes: number
+          social_facebook: string | null
+          social_instagram: string | null
+          social_linkedin: string | null
+          social_youtube: string | null
+          theme: string
+          updated_at: string
+          video_provider: string | null
+          whatsapp_message: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          auto_confirm?: boolean
+          blog_auto_enabled?: boolean
+          booking_advance_days?: number
+          buffer_minutes?: number
+          cancellation_cutoff_hours?: number
+          created_at?: string
+          doctor_id: string
+          google_analytics_id?: string | null
+          hero_description?: string
+          hero_directions_label?: string
+          hero_headline_line1?: string
+          hero_headline_line2?: string
+          hero_hours_label?: string
+          hero_location_label?: string
+          hero_photo_url?: string | null
+          hero_primary_button_label?: string
+          hero_secondary_button_label?: string
+          hero_stat_icon?: string
+          hero_stat_text?: string
+          id?: string
+          max_per_slot?: number
+          online_duration?: number | null
+          online_fee?: number | null
+          payment_gateway_enabled?: boolean
+          razorpay_key_id?: string | null
+          require_payment?: boolean
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
+          show_about?: boolean
+          show_blog?: boolean
+          show_clinic_details?: boolean
+          show_gallery?: boolean
+          show_hero_stat_badge?: boolean
+          show_online_consultation?: boolean
+          show_packages?: boolean
+          show_quick_stats?: boolean
+          show_reviews?: boolean
+          show_services?: boolean
+          slot_duration_minutes?: number
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_linkedin?: string | null
+          social_youtube?: string | null
+          theme?: string
+          updated_at?: string
+          video_provider?: string | null
+          whatsapp_message?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          auto_confirm?: boolean
+          blog_auto_enabled?: boolean
+          booking_advance_days?: number
+          buffer_minutes?: number
+          cancellation_cutoff_hours?: number
+          created_at?: string
+          doctor_id?: string
+          google_analytics_id?: string | null
+          hero_description?: string
+          hero_directions_label?: string
+          hero_headline_line1?: string
+          hero_headline_line2?: string
+          hero_hours_label?: string
+          hero_location_label?: string
+          hero_photo_url?: string | null
+          hero_primary_button_label?: string
+          hero_secondary_button_label?: string
+          hero_stat_icon?: string
+          hero_stat_text?: string
+          id?: string
+          max_per_slot?: number
+          online_duration?: number | null
+          online_fee?: number | null
+          payment_gateway_enabled?: boolean
+          razorpay_key_id?: string | null
+          require_payment?: boolean
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
+          show_about?: boolean
+          show_blog?: boolean
+          show_clinic_details?: boolean
+          show_gallery?: boolean
+          show_hero_stat_badge?: boolean
+          show_online_consultation?: boolean
+          show_packages?: boolean
+          show_quick_stats?: boolean
+          show_reviews?: boolean
+          show_services?: boolean
+          slot_duration_minutes?: number
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_linkedin?: string | null
+          social_youtube?: string | null
+          theme?: string
+          updated_at?: string
+          video_provider?: string | null
+          whatsapp_message?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "website_settings_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      working_hours: {
+        Row: {
+          day_of_week: number
+          doctor_id: string
+          end_time: string | null
+          end_time_2: string | null
+          id: string
+          is_open: boolean
+          start_time: string | null
+          start_time_2: string | null
+        }
+        Insert: {
+          day_of_week: number
+          doctor_id: string
+          end_time?: string | null
+          end_time_2?: string | null
+          id?: string
+          is_open?: boolean
+          start_time?: string | null
+          start_time_2?: string | null
+        }
+        Update: {
+          day_of_week?: number
+          doctor_id?: string
+          end_time?: string | null
+          end_time_2?: string | null
+          id?: string
+          is_open?: boolean
+          start_time?: string | null
+          start_time_2?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "working_hours_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2642,18 +2984,90 @@ export type Database = {
         Args: { _password: string; _user_id: string }
         Returns: boolean
       }
+      apply_plan_upgrade_payment: {
+        Args: {
+          _payment_id: string
+          _razorpay_payment_id: string
+          _signature?: string
+        }
+        Returns: Json
+      }
+      blog_facets: {
+        Args: never
+        Returns: {
+          label: string
+          post_count: number
+          slug: string
+        }[]
+      }
       cancel_appointment_by_token: {
         Args: { _doctor_id: string; _phone: string; _token: string }
         Returns: Json
+      }
+      cancel_custom_plan: { Args: { _doctor_id: string }; Returns: undefined }
+      consume_rate_limit: {
+        Args: { _key: string; _limit: number; _window_seconds: number }
+        Returns: boolean
+      }
+      directory_facets: {
+        Args: { p_city?: string }
+        Returns: {
+          doctor_count: number
+          kind: string
+          label: string
+          slug: string
+        }[]
+      }
+      directory_slugify: { Args: { t: string }; Returns: string }
+      doctor_active_custom_plan: {
+        Args: { _doctor_id: string }
+        Returns: {
+          base_tier: string
+          cancelled_by: string | null
+          doctor_id: string
+          extra_features: string[]
+          monthly_appointments_limit: number | null
+          monthly_price: number
+          removed_features: string[]
+          request_id: string | null
+          status: string
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "doctor_custom_plans"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       doctor_has_feature: {
         Args: { _doctor_id: string; _feature_key: string }
         Returns: boolean
       }
+      doctor_has_live_plan: { Args: { _doctor_id: string }; Returns: boolean }
       doctor_has_premium_access: {
         Args: { _doctor_id: string }
         Returns: boolean
       }
+      doctor_monthly_appointment_limit: {
+        Args: { _doctor_id: string }
+        Returns: number
+      }
+      doctor_tier_default: {
+        Args: { _doctor_id: string; _feature_key: string }
+        Returns: boolean
+      }
+      ensure_invoice_for_appointment: {
+        Args: { _appointment_id: string }
+        Returns: undefined
+      }
+      expire_abandoned_plan_orders: { Args: never; Returns: number }
+      expire_custom_plans: { Args: never; Returns: undefined }
+      expire_overdue_appointments: { Args: never; Returns: number }
+      expire_paid_plans: { Args: never; Returns: undefined }
+      expire_trials: { Args: never; Returns: number }
       get_appointment_by_token: {
         Args: { _doctor_id: string; _phone: string; _token: string }
         Returns: {
@@ -2678,18 +3092,22 @@ export type Database = {
         Args: { _doctor_id: string }
         Returns: {
           appointments_cap: number
+          appointments_unlimited: boolean
           appointments_used: number
           is_premium: boolean
+          standard_cap: number
         }[]
       }
       get_doctor_feature_access: {
         Args: { _doctor_id: string }
         Returns: {
+          custom_plan_effect: string
           default_min_tier: string
           description: string
           effective_enabled: boolean
           feature_key: string
           included_by_plan: boolean
+          is_requestable: boolean
           label: string
           override_active: boolean
           override_enabled: boolean
@@ -2697,16 +3115,39 @@ export type Database = {
           override_granted_at: string
           override_granted_by: string
           override_reason: string
+          source: string
         }[]
       }
       get_doctor_plan_details: {
         Args: { _doctor_id: string }
         Returns: {
+          plan_end: string
           plan_status: string
           trial_end: string
         }[]
       }
       get_doctor_plan_status: { Args: { _doctor_id: string }; Returns: string }
+      get_my_queue_status: {
+        Args: { _doctor_id: string; _phone: string; _token: string }
+        Returns: Json
+      }
+      get_or_create_dev_user:
+        | {
+            Args: { _full_name?: string; _phone: string }
+            Returns: {
+              email: string
+              password: string
+              user_id: string
+            }[]
+          }
+        | {
+            Args: { _full_name?: string; _is_signup?: boolean; _phone: string }
+            Returns: {
+              email: string
+              password: string
+              user_id: string
+            }[]
+          }
       get_public_feature_flags: {
         Args: { _doctor_id: string }
         Returns: {
@@ -2714,6 +3155,7 @@ export type Database = {
           feature_key: string
         }[]
       }
+      get_public_queue: { Args: { _doctor_id: string }; Returns: Json }
       get_queue_position: { Args: { _appointment_id: string }; Returns: number }
       get_slot_counts: {
         Args: { _date: string; _doctor_id: string }
@@ -2723,7 +3165,7 @@ export type Database = {
         }[]
       }
       get_upcoming_checkup: {
-        Args: { _doctor_id: string; _phone: string }
+        Args: { _doctor_id: string; _phone: string; _token?: string }
         Returns: {
           doctor_name: string
           frequency: Database["public"]["Enums"]["checkup_frequency"]
@@ -2738,6 +3180,23 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_active_team_member: { Args: { _user_id: string }; Returns: boolean }
+      public_booking_price: {
+        Args: { _doctor_id: string; _service_name: string; _type: string }
+        Returns: number
+      }
+      queue_action: {
+        Args: {
+          _action: string
+          _appointment_id?: string
+          _expect?: string
+          _payment_method?: string
+          _reason?: string
+        }
+        Returns: Json
+      }
+      rebase_custom_plan: { Args: { _doctor_id: string }; Returns: undefined }
+      release_provisional_patient: { Args: { _pid: string }; Returns: boolean }
       reschedule_appointment_by_token: {
         Args: {
           _doctor_id: string
@@ -2748,17 +3207,124 @@ export type Database = {
         }
         Returns: Json
       }
+      review_plan_request: {
+        Args: {
+          _appointments_limit?: number
+          _approved_features?: string[]
+          _decision: string
+          _note?: string
+          _price?: number
+          _request_id: string
+          _valid_from?: string
+          _valid_until?: string
+        }
+        Returns: undefined
+      }
+      revoke_user_sessions: { Args: { _user_id: string }; Returns: undefined }
+      sa_has_any_permission: {
+        Args: { _permissions: string[]; _user_id: string }
+        Returns: boolean
+      }
+      sa_has_permission: {
+        Args: { _permission: string; _user_id: string }
+        Returns: boolean
+      }
+      search_blog_posts: {
+        Args: {
+          p_category?: string
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+        }
+        Returns: {
+          category: string
+          doctor_city: string
+          doctor_name: string
+          doctor_photo_url: string
+          doctor_slug: string
+          doctor_specialization: string
+          excerpt: string
+          featured_image_url: string
+          id: string
+          published_at: string
+          reading_minutes: number
+          slug: string
+          title: string
+          total_count: number
+          updated_at: string
+        }[]
+      }
+      search_doctors: {
+        Args: {
+          p_city?: string
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_specialty?: string
+        }
+        Returns: {
+          avg_rating: number
+          city: string
+          clinic_name: string
+          consultation_fee: number
+          experience_years: number
+          full_name: string
+          id: string
+          locality: string
+          profile_photo_url: string
+          qualifications: string
+          review_count: number
+          slug: string
+          specialization: string
+          state: string
+          total_count: number
+        }[]
+      }
       send_plan_expiry_notifications: { Args: never; Returns: undefined }
       send_trial_warning_notifications: { Args: never; Returns: undefined }
+      set_custom_plan_appointments_limit: {
+        Args: { _doctor_id: string; _limit: number }
+        Returns: undefined
+      }
       staff_doctor_id: { Args: { _user_id: string }; Returns: string }
-      is_active_team_member: { Args: { _user_id: string }; Returns: boolean }
-      sa_has_any_permission: { Args: { _permissions: string[]; _user_id: string }; Returns: boolean }
-      sa_has_permission: { Args: { _permission: string; _user_id: string }; Returns: boolean }
-      touch_team_login: { Args: never; Returns: undefined }
-      touch_staff_login: { Args: never; Returns: undefined }
       staff_has_permission: {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
+      }
+      submit_plan_request: {
+        Args: {
+          _add: string[]
+          _appointments_limit?: number
+          _note?: string
+          _remove: string[]
+        }
+        Returns: string
+      }
+      token_lookup_blocked: {
+        Args: { _doctor_id: string; _phone: string }
+        Returns: boolean
+      }
+      token_lookup_failed: {
+        Args: { _doctor_id: string; _phone: string }
+        Returns: undefined
+      }
+      token_lookup_ok: {
+        Args: { _doctor_id: string; _phone: string }
+        Returns: undefined
+      }
+      touch_staff_login: { Args: never; Returns: undefined }
+      touch_team_login: { Args: never; Returns: undefined }
+      uncount_patient_visit: {
+        Args: { _appt: string; _pid: string }
+        Returns: undefined
+      }
+      update_custom_plan_terms: {
+        Args: { _doctor_id: string; _price: number; _valid_until: string }
+        Returns: undefined
+      }
+      withdraw_plan_request: {
+        Args: { _request_id: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -2802,6 +3368,7 @@ export type Database = {
         | "captured"
         | "failed"
         | "refunded"
+        | "abandoned"
       payout_status:
         | "pending"
         | "processing"
@@ -2825,12 +3392,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2854,11 +3421,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2879,11 +3446,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2904,11 +3471,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2921,11 +3488,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2935,6 +3502,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       allergy_severity: ["mild", "moderate", "severe"],
@@ -2981,6 +3551,7 @@ export const Constants = {
         "captured",
         "failed",
         "refunded",
+        "abandoned",
       ],
       payout_status: [
         "pending",

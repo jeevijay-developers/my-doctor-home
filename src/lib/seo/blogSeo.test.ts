@@ -45,9 +45,7 @@ describe("stripMarkup", () => {
   it("treats tags as word separators", () => {
     expect(stripMarkup("a<br>b")).toBe("a b");
   });
-  // BUG: blogSeo.ts:32 strips every "-" (meant for markdown bullets), so hyphenated words, ranges and
-  // dates in the meta description are mangled: "Low-sodium diet" -> "Low sodium diet".
-  it.fails("keeps in-word hyphens", () => {
+  it("keeps in-word hyphens", () => {
     expect(stripMarkup("Low-sodium diet")).toBe("Low-sodium diet");
   });
 });

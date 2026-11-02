@@ -185,17 +185,12 @@ const StaffManagementPage = () => {
             {staff.length} staff account{staff.length === 1 ? "" : "s"} · control exactly what each staff member can access
           </p>
         </div>
-        {/* Always visible — this page itself is already permission-gated
-            (staff.view) at the route level, and the doctor's own account
-            must never be restricted by the staff permission system. The
-            actual create action is still authorized server-side (RLS +
-            create-staff-account's own checks), so a staff session without
-            staff.create still can't succeed even though the button shows. */}
+        {/* Doctors always pass can(); staff need staff.create (also enforced server-side). */}
         <Button
           className="bg-royal hover:bg-royal/90"
           onClick={openAdd}
-          disabled={writeDisabled}
-          title={writeDisabled ? "Upgrade to continue editing" : undefined}
+          disabled={writeDisabled || !can("staff.create")}
+          title={!can("staff.create") ? "You don't have permission to add staff" : writeDisabled ? "Upgrade to continue editing" : undefined}
         >
           <Plus className="h-4 w-4 mr-1" /> Add Staff
         </Button>

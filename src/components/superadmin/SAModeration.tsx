@@ -27,9 +27,14 @@ const SAModeration = () => {
   };
   useEffect(() => { load(); }, []);
 
+  // RLS filters a forbidden UPDATE to zero rows without an error, so success needs a returned row.
+  const notSaved = () =>
+    toast({ title: "Not saved", description: "No rows were changed. You may not have permission to moderate this item.", variant: "destructive" });
+
   const setPublished = async (id: string, next: boolean) => {
-    const { error } = await supabase.from("blog_posts").update({ is_published: next }).eq("id", id);
+    const { data, error } = await supabase.from("blog_posts").update({ is_published: next }).eq("id", id).select("id");
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    if (!data?.length) return notSaved();
     await logAdminAction(next ? "publish_blog_post" : "unpublish_blog_post", "blog_posts", id);
     toast({ title: next ? "Post published" : "Post unpublished" });
     if (openPost?.id === id) setOpenPost({ ...openPost, is_published: next });
@@ -38,8 +43,9 @@ const SAModeration = () => {
 
   // hub_hidden is not in the generated types yet, so the payload is cast.
   const setHubHidden = async (id: string, hidden: boolean) => {
-    const { error } = await supabase.from("blog_posts").update({ hub_hidden: hidden } as any).eq("id", id);
+    const { data, error } = await supabase.from("blog_posts").update({ hub_hidden: hidden } as any).eq("id", id).select("id");
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    if (!data?.length) return notSaved();
     await logAdminAction(hidden ? "hide_blog_from_hub" : "show_blog_on_hub", "blog_posts", id);
     toast({ title: hidden ? "Hidden from Health Articles" : "Visible on Health Articles" });
     if (openPost?.id === id) setOpenPost({ ...openPost, hub_hidden: hidden });
@@ -47,8 +53,9 @@ const SAModeration = () => {
   };
 
   const toggleReview = async (id: string, next: boolean) => {
-    const { error } = await supabase.from("reviews").update({ is_visible: next }).eq("id", id);
+    const { data, error } = await supabase.from("reviews").update({ is_visible: next }).eq("id", id).select("id");
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    if (!data?.length) return notSaved();
     await logAdminAction(next ? "show_review" : "hide_review", "reviews", id);
     toast({ title: next ? "Review restored" : "Review hidden" });
     load();

@@ -6,6 +6,7 @@
 // HTTP hop to this function, but both paths produce identical
 // notification_logs rows either way.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { enforceRateLimit } from "../_shared/rateLimit.ts";
 import { sendWhatsApp, beginNotificationRequest, json } from "../_shared/notificationProviders.ts";
 import { WHATSAPP_CHECKUP_TEMPLATE, renderTemplate } from "../_shared/notificationTemplates.ts";
 
@@ -45,12 +46,22 @@ Deno.serve(async (req) => {
   const authorized = await isAuthorizedForDoctor(callerId, patient.doctor_id);
   if (!authorized) return json(403, { error: "Not authorized for this patient" });
 
+  // Every call sends a real, billable message to a patient: cap it per doctor (staff share
+  // their doctor's budget).
+  const limited = await enforceRateLimit(admin, {
+    key: `notify:whatsapp:${patient.doctor_id}`,
+    limit: 60,
+    windowSeconds: 3600,
+  });
+  if (limited) return limited;
+
   const { data: doctor } = await admin.from("profiles").select("full_name").eq("id", patient.doctor_id).maybeSingle();
 
   const checkupDate = body?.checkup_date
     ? new Date(`${body.checkup_date}T00:00:00Z`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
     : "your next visit";
-  const message = body?.message || renderTemplate(WHATSAPP_CHECKUP_TEMPLATE, {
+  // Templates only: caller-supplied free text is never forwarded to a patient's phone.
+  const message = renderTemplate(WHATSAPP_CHECKUP_TEMPLATE, {
     patient_name: patient.name, doctor_name: doctor?.full_name || "your doctor", checkup_date: checkupDate,
   });
 

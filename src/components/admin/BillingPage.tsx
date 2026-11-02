@@ -1,3 +1,4 @@
+import { csvRow } from "@/lib/csv";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -91,7 +92,6 @@ const BillingPage = () => {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
-  const [generatingInvoices, setGeneratingInvoices] = useState(false);
 
   const loadData = async () => {
     if (!profile) return;
@@ -134,74 +134,9 @@ const BillingPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, isPremium]);
 
-  // Auto-generate invoices for any paid appointment that doesn't yet have one.
-  useEffect(() => {
-    const run = async () => {
-      if (!profile || !isPremium || appointments.length === 0) return;
-      const paidAppts = appointments.filter(a => a.payment_status === "paid");
-      const missing = paidAppts.filter(a => !invoices.some(i => i.appointment_id === a.id));
-      if (missing.length === 0) return;
-
-      setGeneratingInvoices(true);
-      const gstRegistered = Boolean((profile as any).gst_registered);
-      const gstin = (profile as any).gstin || null;
-      const year = new Date().getFullYear();
-
-      // Find max existing sequence for this year to continue numbering.
-      const prefix = `INV-${year}-`;
-      const existingNums = invoices
-        .map(i => i.invoice_number)
-        .filter(n => n.startsWith(prefix))
-        .map(n => parseInt(n.slice(prefix.length), 10))
-        .filter(n => !isNaN(n));
-      let seq = existingNums.length ? Math.max(...existingNums) : 0;
-
-      for (const appt of missing) {
-        seq += 1;
-        const invoice_number = `${prefix}${String(seq).padStart(4, "0")}`;
-        const amount = Number(appt.amount) || 0;
-        const gst_rate = gstRegistered ? 18 : 0;
-        const gst_amount = +(amount * gst_rate / 100).toFixed(2);
-        const total_amount = +(amount + gst_amount).toFixed(2);
-        const matchedLedger = ledger.find(l => l.appointment_id === appt.id);
-        const matchedPayment = payments.find(p => p.appointment_id === appt.id);
-        const commission_percent = Number(matchedLedger?.commission_percent ?? matchedPayment?.commission_percent ?? 0);
-        const commission_amount = Number(
-          matchedLedger?.commission_amount ??
-          matchedPayment?.commission_amount ??
-          (commission_percent > 0 ? +(Math.round(amount * commission_percent) / 100).toFixed(2) : 0)
-        );
-        const net_amount = Number(
-          matchedLedger?.doctor_share ??
-          matchedPayment?.doctor_share ??
-          +(amount - commission_amount).toFixed(2)
-        );
-        await (supabase.from("invoices" as any) as any).insert({
-          doctor_id: profile.id,
-          appointment_id: appt.id,
-          invoice_number,
-          patient_name: appt.patient_name,
-          service_name: appt.service_name,
-          amount,
-          gst_rate,
-          gst_amount,
-          total_amount,
-          clinic_gstin: gstin,
-          status: "generated",
-          commission_percent,
-          commission_amount,
-          net_amount,
-        });
-      }
-      setGeneratingInvoices(false);
-      // Reload invoices only
-      const { data } = await (supabase.from("invoices" as any) as any)
-        .select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false });
-      setInvoices((data || []) as Invoice[]);
-    };
-    run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appointments.length, profile?.id]);
+  // Invoices are created by the database (invoice_on_appointment_billable: only when the visit is
+  // completed AND paid). The client never inserts them, so a paid-but-not-completed appointment
+  // cannot get an invoice from here.
 
   // Reset to page 1 whenever the filtered result set changes shape underneath the pager.
   useEffect(() => { setPage(1); }, [filter, periodMode, periodActive, selectedMonth, selectedDate]);
@@ -550,11 +485,7 @@ const BillingPage = () => {
     }));
     if (rows.length === 0) { toast.error("No transactions to export"); return; }
     const headers = Object.keys(rows[0]);
-    const escape = (v: any) => {
-      const s = String(v ?? "");
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const csv = [headers.join(","), ...rows.map(r => headers.map(h => escape((r as any)[h])).join(","))].join("\n");
+    const csv = [headers.join(","), ...rows.map(r => csvRow(headers.map(h => (r as any)[h])))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -686,7 +617,6 @@ const BillingPage = () => {
           <TabsTrigger value="transactions" className="gap-1.5"><CreditCard className="h-3.5 w-3.5" /> Transactions</TabsTrigger>
           <TabsTrigger value="invoices" className="gap-1.5">
             <FileText className="h-3.5 w-3.5" /> Invoices
-            {generatingInvoices && <Loader2 className="h-3 w-3 animate-spin ml-1" />}
           </TabsTrigger>
         </TabsList>
 

@@ -1,0 +1,16 @@
+// Constant-time secret comparison for shared-secret headers. Both sides are
+// hashed first so the comparison length never depends on the secret's length,
+// then every byte is XOR-accumulated (no early exit).
+export async function secretsMatch(provided: string | null | undefined, expected: string | null | undefined): Promise<boolean> {
+  if (!expected || !provided) return false;
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(provided)),
+    crypto.subtle.digest("SHA-256", enc.encode(expected)),
+  ]);
+  const x = new Uint8Array(a);
+  const y = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}

@@ -423,7 +423,7 @@ const PrescriptionsPage = () => {
   }, [prescriptions]);
 
   const addPrescription = async () => {
-    if (!profile || !form.patient_name) { toast.error("Patient name is required"); return; }
+    if (!profile || !form.patient_name.trim()) { toast.error("Patient name is required"); return; }
     if (form.patient_age && (Number(form.patient_age) < 0 || Number(form.patient_age) > 120)) {
       toast.error("Please enter a valid age (0–120)");
       return;
@@ -437,7 +437,7 @@ const PrescriptionsPage = () => {
     const { data, error } = await supabase.from("prescriptions").insert({
       doctor_id: profile.id,
       patient_id: form.patient_id || null,
-      patient_name: form.patient_name,
+      patient_name: form.patient_name.trim(),
       diagnosis: form.diagnosis || null,
       medicines: toMedicineItems(formMedicines),
       date: form.date,
@@ -455,7 +455,7 @@ const PrescriptionsPage = () => {
 
   const saveEdit = async () => {
     if (!viewing) return;
-    if (!editForm.patient_name) { toast.error("Patient name is required"); return; }
+    if (!editForm.patient_name.trim()) { toast.error("Patient name is required"); return; }
     if (editForm.patient_age && (Number(editForm.patient_age) < 0 || Number(editForm.patient_age) > 120)) {
       toast.error("Please enter a valid age (0–120)");
       return;
@@ -468,7 +468,7 @@ const PrescriptionsPage = () => {
     if (medError) { toast.error(medError); return; }
     const { error } = await supabase.from("prescriptions").update({
       patient_id: editForm.patient_id || null,
-      patient_name: editForm.patient_name,
+      patient_name: editForm.patient_name.trim(),
       diagnosis: editForm.diagnosis || null,
       medicines: toMedicineItems(editFormMedicines),
       date: editForm.date,

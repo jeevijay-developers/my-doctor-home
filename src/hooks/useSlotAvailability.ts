@@ -27,7 +27,9 @@ export const useSlotAvailability = (
     });
     const map: Record<string, number> = {};
     (data || []).forEach((r: any) => {
-      map[r.time_slot] = r.booked;
+      // get_slot_counts returns time(HH:MM:SS); the UI looks slots up as HH:MM.
+      const key = String(r.time_slot).replace(/^(\d{2}:\d{2}):\d{2}(\.\d+)?$/, "$1");
+      map[key] = (map[key] || 0) + Number(r.booked);
     });
     setCounts(map);
     return map; // callers can read this directly — no stale closure

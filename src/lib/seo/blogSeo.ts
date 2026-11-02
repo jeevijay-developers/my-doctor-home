@@ -44,7 +44,8 @@ export function stripMarkup(raw: string | null | undefined): string {
   if (!raw) return "";
   return raw
     .replace(/<[^>]+>/g, " ")
-    .replace(/[#*_`>~-]/g, " ")
+    .replace(/[#*_`>~]/g, " ")
+    .replace(/(^|\s)-+(?=\s)/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

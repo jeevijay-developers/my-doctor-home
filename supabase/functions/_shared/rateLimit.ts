@@ -1,7 +1,10 @@
 // DB-backed fixed-window rate limiter. Edge isolates do not share memory,
 // so every check goes through public.consume_rate_limit (service role).
 //
-// Client IP: first x-forwarded-for entry, then cf-connecting-ip, else "unknown".
+// Client IP: cf-connecting-ip first, then the LAST x-forwarded-for hop, else "unknown".
+// Assumption: Supabase's edge sits behind Cloudflare, which sets cf-connecting-ip
+// itself and appends the real peer to x-forwarded-for. The FIRST x-forwarded-for
+// entry is whatever the client sent and must never choose a rate-limit bucket.
 //
 // Standard limits applied by callers:
 //   create-razorpay-order  10 / 10 min per IP
@@ -11,13 +14,14 @@
 import { activeCorsHeaders } from "./cors.ts";
 
 export function clientIp(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first.slice(0, 128);
-  }
   const cf = req.headers.get("cf-connecting-ip")?.trim();
   if (cf) return cf.slice(0, 128);
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const hops = forwarded.split(",").map((h) => h.trim()).filter(Boolean);
+    const last = hops[hops.length - 1];
+    if (last) return last.slice(0, 128);
+  }
   return "unknown";
 }
 

@@ -34,12 +34,28 @@ Deno.serve(async (req) => {
   const staffId = String(body?.staff_id || "");
   if (!staffId) return json(400, { error: "staff_id is required" });
 
-  const { data: target } = await admin.from("staff_members").select("id, doctor_id").eq("id", staffId).maybeSingle();
+  const { data: target } = await admin.from("staff_members").select("*").eq("id", staffId).maybeSingle();
   if (!target) return json(404, { error: "Staff account not found" });
   if (target.doctor_id !== callerId) return json(403, { error: "Not authorized to delete this staff member" });
 
-  await admin.from("staff_members").delete().eq("id", staffId);
-  await admin.auth.admin.deleteUser(staffId);
+  // Delete the row first; only remove the login once that succeeded. If the auth
+  // delete then fails, put the row back so the account is not half-deleted (row gone
+  // but a live login that can still receive OTPs) and tell the caller to retry.
+  const { error: rowErr } = await admin.from("staff_members").delete().eq("id", staffId);
+  if (rowErr) {
+    console.error("delete-staff-account: staff_members delete failed", { staffId, code: rowErr.code, message: rowErr.message });
+    return json(500, { error: "Could not delete the staff account. Please try again." });
+  }
+
+  const { error: authErr } = await admin.auth.admin.deleteUser(staffId);
+  if (authErr) {
+    console.error("delete-staff-account: auth deleteUser failed, restoring staff row", { staffId, message: authErr.message });
+    const { error: restoreErr } = await admin.from("staff_members").insert(target);
+    if (restoreErr) {
+      console.error("delete-staff-account: RESTORE FAILED - orphaned auth user", { staffId, code: restoreErr.code, message: restoreErr.message });
+    }
+    return json(500, { error: "Could not delete the staff login. Please try again." });
+  }
 
   return json(200, { ok: true });
 });

@@ -41,10 +41,39 @@ Deno.serve(async (req) => {
     return json(400, { error: "Invalid JSON" });
   }
 
-  const event = payload?.event as string;
-  const eventId = payload?.id as string;
+  // A JSON `null` / array / scalar body is not a Razorpay event.
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return json(400, { error: "Invalid payload" });
+  }
 
-  // --- Idempotency check via webhook_events table ---
+  const event = payload.event as string;
+  const eventId = payload.id as string;
+
+  const paymentEntity = payload.payload?.payment?.entity;
+  const transferEntity = payload.payload?.transfer?.entity;
+  const payoutEntity = payload.payload?.payout?.entity;
+
+  // Determine which secret to use based on OUR own record — never trust client.
+  // These are reads only: nothing is written before the signature is verified.
+  let isMock = false;
+  if (paymentEntity?.order_id) {
+    const { data } = await admin.from("payments").select("is_mock").eq("razorpay_order_id", paymentEntity.order_id).maybeSingle();
+    isMock = Boolean(data?.is_mock);
+  } else if (transferEntity?.id) {
+    const { data } = await admin.from("transfers").select("is_mock").eq("razorpay_transfer_id", transferEntity.id).maybeSingle();
+    isMock = Boolean(data?.is_mock);
+  } else if (payoutEntity?.id) {
+    const { data } = await admin.from("payouts").select("is_mock").eq("razorpay_payout_id", payoutEntity.id).maybeSingle();
+    isMock = Boolean(data?.is_mock);
+  }
+
+  const secret = isMock ? MOCK_SIGNING_SECRET : RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) return json(501, { error: "Webhook secret not configured" });
+
+  const expected = await hmacHex(secret, rawBody);
+  if (!timingSafeEqualHex(expected, signature)) return json(400, { error: "Invalid webhook signature" });
+
+  // --- Idempotency check via webhook_events table (only for authentic events) ---
   if (eventId) {
     const { data: existing } = await admin
       .from("webhook_events")
@@ -65,40 +94,30 @@ Deno.serve(async (req) => {
     }, { onConflict: "razorpay_event_id", ignoreDuplicates: true });
   }
 
-  const paymentEntity = payload.payload?.payment?.entity;
-  const transferEntity = payload.payload?.transfer?.entity;
-  const payoutEntity = payload.payload?.payout?.entity;
-
-  // Determine which secret to use based on OUR own record — never trust client
-  let isMock = false;
-  if (paymentEntity?.order_id) {
-    const { data } = await admin.from("payments").select("is_mock").eq("razorpay_order_id", paymentEntity.order_id).maybeSingle();
-    isMock = Boolean(data?.is_mock);
-  } else if (transferEntity?.id) {
-    const { data } = await admin.from("transfers").select("is_mock").eq("razorpay_transfer_id", transferEntity.id).maybeSingle();
-    isMock = Boolean(data?.is_mock);
-  } else if (payoutEntity?.id) {
-    const { data } = await admin.from("payouts").select("is_mock").eq("razorpay_payout_id", payoutEntity.id).maybeSingle();
-    isMock = Boolean(data?.is_mock);
-  }
-
-  const secret = isMock ? MOCK_SIGNING_SECRET : RAZORPAY_WEBHOOK_SECRET;
-  if (!secret) return json(501, { error: "Webhook secret not configured" });
-
-  const expected = await hmacHex(secret, rawBody);
-  if (!timingSafeEqualHex(expected, signature)) return json(400, { error: "Invalid webhook signature" });
-
   try {
     // ── payment.captured ──────────────────────────────────────────────────────
     if (event === "payment.captured") {
       const orderId = paymentEntity?.order_id;
       const paymentId = paymentEntity?.id;
       if (orderId) {
-        await admin
+        // Only a still-open booking payment may move to captured, and only for the exact
+        // amount we ordered. A late/retried capture after a refund must not resurrect it.
+        const { data: bookingPay } = await admin
           .from("payments")
-          .update({ status: "captured", razorpay_payment_id: paymentId })
+          .select("id, amount, status")
           .eq("razorpay_order_id", orderId)
-          .neq("status", "captured");
+          .maybeSingle();
+        if (bookingPay) {
+          if (Number(paymentEntity?.amount) !== Math.round(Number(bookingPay.amount) * 100)) {
+            console.error("razorpay-webhook: captured amount does not match the order", { order_id: orderId });
+          } else {
+            await admin
+              .from("payments")
+              .update({ status: "captured", razorpay_payment_id: paymentId })
+              .eq("razorpay_order_id", orderId)
+              .in("status", ["created", "failed"]);
+          }
+        }
 
         // Doctor plan-upgrade orders live in plan_upgrade_payments. If the doctor
         // paid but never came back to verify (closed the tab, lost network), this
@@ -276,7 +295,8 @@ Deno.serve(async (req) => {
       await admin.from("webhook_events").update({ status: "failed", error: (e as Error).message })
         .eq("razorpay_event_id", eventId);
     }
-    // Return 200 so Razorpay doesn't hammer retries for transient internal issues
-    return json(200, { received: true, warning: "processing_error" });
+    // Non-2xx so Razorpay retries; the event is 'failed', not 'processed', so the retry
+    // re-runs it (every handler above is idempotent).
+    return json(500, { error: "processing_error" });
   }
 });

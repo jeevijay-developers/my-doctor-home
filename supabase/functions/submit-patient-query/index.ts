@@ -65,7 +65,9 @@ Deno.serve(async (req) => {
 
   let body: QueryBody;
   try {
-    body = await req.json();
+    const parsed = await req.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return json(400, { error: "Bad request" });
+    body = parsed;
   } catch {
     return json(400, { error: "Bad request" });
   }

@@ -21,6 +21,7 @@ import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import StatCard, { type StatTone } from "./StatCard";
 import StatusBadge from "./StatusBadge";
 import PlanCard from "./PlanCard";
+import { clinicToday } from "@/lib/queue";
 import { summarizePlan } from "@/lib/planSummary";
 
 const growthTips = [
@@ -32,7 +33,8 @@ const growthTips = [
 ];
 
 const DashboardHome = () => {
-  const { profile, isStaff } = useProfile();
+  const { profile, isStaff, can } = useProfile();
+  const canSeeRevenue = can("billing.view");
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
   const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, pendingTodayCount: 0, weekRevenue: 0, lastWeekAppts: 0, reviewCount: 0, avgRating: 0 });
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
@@ -44,7 +46,7 @@ const DashboardHome = () => {
   const loadDashboard = () => {
     if (!profile) return;
     const id = profile.id;
-    const today = format(new Date(), "yyyy-MM-dd");
+    const today = clinicToday();
     const weekAgo = format(new Date(Date.now() - 7 * 86400000), "yyyy-MM-dd");
     const twoWeeksAgo = format(new Date(Date.now() - 14 * 86400000), "yyyy-MM-dd");
     const thirtyDaysAgoDate = subDays(new Date(), 29);
@@ -57,11 +59,11 @@ const DashboardHome = () => {
         .or("auto_created.eq.false,total_visits.gt.0"),
       // Revenue is now sourced from the persisted invoices table so it survives
       // appointment / patient deletions.
-      (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id),
+      canSeeRevenue ? (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id) : Promise.resolve({ data: [] }),
       supabase.from("appointments").select("*").eq("doctor_id", id).eq("date", today).order("time_slot"),
-      (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id).gte("created_at", `${weekAgo}T00:00:00`),
+      canSeeRevenue ? (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id).gte("created_at", `${weekAgo}T00:00:00`) : Promise.resolve({ data: [] }),
       supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo),
-      (supabase.from("invoices" as any) as any).select("amount, created_at").eq("doctor_id", id).gte("created_at", `${thirtyDaysAgo}T00:00:00`),
+      canSeeRevenue ? (supabase.from("invoices" as any) as any).select("amount, created_at").eq("doctor_id", id).gte("created_at", `${thirtyDaysAgo}T00:00:00`) : Promise.resolve({ data: [] }),
       // Overall review stats — every review regardless of visibility, same
       // as ReviewsManagePage's own average, so the two numbers always match.
       supabase.from("reviews").select("rating").eq("doctor_id", id),
@@ -155,7 +157,7 @@ const DashboardHome = () => {
   const statCards: { icon: typeof CalendarCheck; label: string; value: string; sub: string; to: string; tone: StatTone }[] = [
     { icon: CalendarCheck, label: "Appointments", value: String(stats.appointments), sub: `${stats.todayCount} today`, to: "/admin/appointments", tone: "primary" },
     { icon: Users, label: "Patients", value: String(stats.patients), sub: "All time", to: "/admin/patients", tone: "navy" },
-    { icon: CreditCard, label: "Revenue", value: `₹${stats.revenue.toLocaleString("en-IN")}`, sub: "Paid appointments", to: "/admin/billing", tone: "teal" },
+    ...(canSeeRevenue ? [{ icon: CreditCard, label: "Revenue", value: `₹${stats.revenue.toLocaleString("en-IN")}`, sub: "Paid appointments", to: "/admin/billing", tone: "teal" as StatTone }] : []),
     {
       icon: Star, label: "Reviews",
       value: stats.reviewCount > 0 ? stats.avgRating.toFixed(1) : "—",
@@ -235,7 +237,7 @@ const DashboardHome = () => {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className={`grid grid-cols-2 gap-3 ${statCards.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         {statCards.map((s) => <StatCard key={s.label} {...s} />)}
       </div>
 
@@ -328,6 +330,7 @@ const DashboardHome = () => {
             so their combined height matches Today's Schedule on the left */}
         <div className="flex flex-col gap-3 lg:min-h-0">
           {/* Monthly Revenue */}
+          {canSeeRevenue && (
           <Card className="rounded-2xl flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -373,6 +376,7 @@ const DashboardHome = () => {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Share Your Website */}
           <Card className="rounded-2xl border-l-4 border-l-success flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">

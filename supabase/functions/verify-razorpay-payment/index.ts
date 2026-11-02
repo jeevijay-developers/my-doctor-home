@@ -1,10 +1,10 @@
 // Step 2 of the pay-first patient booking flow — signature verification and
-// appointment creation. Updates the Route transfer record, records the exact
-// commission split in doctor_ledger, and guarantees a server-side invoice row
-// with the platform charge breakdown.
+// appointment creation. Updates the Route transfer record and records the exact
+// commission split in doctor_ledger. (Invoices are created by the DB trigger once
+// the visit is completed and paid.)
 //
 // Mock mode: same as live — real HMAC check against mock secret, then
-// creates appointment + updates transfer + ledger + invoice identically.
+// creates appointment + updates transfer + ledger identically.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hmacHex, timingSafeEqualHex, MOCK_SIGNING_SECRET, isExplicitMockMode, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
@@ -32,15 +32,47 @@ Deno.serve(async (req) => {
 
   const { data: payment, error: payErr } = await admin
     .from("payments")
-    .select("id, doctor_id, service_id, amount, commission_percent, commission_amount, doctor_share, status, razorpay_order_id, appointment_id, pending_booking, is_mock")
+    .select("id, doctor_id, service_id, amount, commission_percent, commission_amount, doctor_share, status, razorpay_order_id, razorpay_signature, appointment_id, pending_booking, is_mock")
     .eq("id", payment_id)
     .eq("razorpay_order_id", razorpay_order_id)
     .maybeSingle();
   if (payErr) return json(500, { error: payErr.message });
   if (!payment) return json(404, { error: "No matching order found" });
 
-  // Idempotent: already verified
-  if (payment.status === "captured" && payment.appointment_id) {
+  // Only a fresh (created), retryable (failed) or webhook-captured-but-not-yet-claimed
+  // order can be processed. Anything else — refunded, abandoned, a captured order that
+  // this endpoint already claimed (razorpay_signature set) — is never re-confirmed.
+  // (The webhook may flip created -> captured before the buyer's browser calls us; that
+  // row has no appointment and no signature yet.)
+  const settled = payment.status === "captured" && payment.appointment_id;
+  const claimable =
+    payment.status === "created" || payment.status === "failed" ||
+    (payment.status === "captured" && !payment.appointment_id && !payment.razorpay_signature);
+  if (!settled && !claimable) {
+    return json(409, { error: "This payment can no longer be verified" });
+  }
+
+  // Signature verification — real secret for live, mock secret for mock. This
+  // endpoint is unauthenticated and the ids are not secret, so a bad signature is
+  // rejected read-only (it must never alter, or reveal, another patient's order).
+  let expectedSecret: string;
+  if (payment.is_mock) {
+    // A mock order confirms a real booking, so it is honoured only while mock
+    // mode was switched on deliberately (PAYMENT_MODE=mock).
+    if (!isExplicitMockMode()) return json(400, { error: "Mock payments are disabled" });
+    expectedSecret = MOCK_SIGNING_SECRET;
+  } else {
+    if (!RAZORPAY_KEY_SECRET) return json(501, { error: "Razorpay integration pending — platform API keys not configured" });
+    expectedSecret = RAZORPAY_KEY_SECRET;
+  }
+  const expectedSignature = await hmacHex(expectedSecret, `${razorpay_order_id}|${razorpay_payment_id}`);
+  if (!timingSafeEqualHex(expectedSignature, razorpay_signature)) {
+    console.warn("verify-razorpay-payment: signature mismatch", { payment_id });
+    return json(400, { error: "Signature verification failed" });
+  }
+
+  // Idempotent: already verified (signature is valid, so the token may be returned).
+  if (settled) {
     const { data: appt } = await admin
       .from("appointments")
       .select("id, token_number, status, payment_status, created_at")
@@ -61,27 +93,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Signature verification — real secret for live, mock secret for mock
-  if (payment.is_mock) {
-    // A mock order confirms a real booking, so it is honoured only while mock
-    // mode was switched on deliberately (PAYMENT_MODE=mock).
-    if (!isExplicitMockMode()) return json(400, { error: "Mock payments are disabled" });
-    const expectedMockSignature = await hmacHex(MOCK_SIGNING_SECRET, `${razorpay_order_id}|${razorpay_payment_id}`);
-    if (!timingSafeEqualHex(expectedMockSignature, razorpay_signature)) {
-      await admin.from("payments").update({ status: "failed", razorpay_payment_id, transfer_status: null }).eq("id", payment.id);
-      await admin.from("transfers").update({ status: "failed", error: "Payment signature invalid" }).eq("payment_id", payment.id);
-      return json(400, { error: "Signature verification failed" });
-    }
-  } else {
-    if (!RAZORPAY_KEY_SECRET) return json(501, { error: "Razorpay integration pending — platform API keys not configured" });
-    const expectedSignature = await hmacHex(RAZORPAY_KEY_SECRET, `${razorpay_order_id}|${razorpay_payment_id}`);
-    if (!timingSafeEqualHex(expectedSignature, razorpay_signature)) {
-      await admin.from("payments").update({ status: "failed", razorpay_payment_id, transfer_status: null }).eq("id", payment.id);
-      await admin.from("transfers").update({ status: "failed", error: "Payment signature invalid" }).eq("payment_id", payment.id);
-      return json(400, { error: "Signature verification failed" });
-    }
-  }
-
   const booking = payment.pending_booking as {
     doctor_id: string; patient_name: string; patient_phone: string;
     patient_age?: number | null; patient_gender?: string | null;
@@ -91,10 +102,26 @@ Deno.serve(async (req) => {
   } | null;
 
   if (!booking) {
-    await admin.from("payments").update({ status: "captured", razorpay_payment_id, razorpay_signature, needs_refund: true }).eq("id", payment.id);
+    await admin.from("payments").update({ status: "captured", razorpay_payment_id, razorpay_signature, needs_refund: true }).eq("id", payment.id).in("status", ["created", "failed", "captured"]).is("razorpay_signature", null);
     await admin.from("transfers").update({ status: "failed", error: "Booking details lost" }).eq("payment_id", payment.id);
     console.error("verify-razorpay-payment: payment captured but pending_booking missing for", payment.id);
     return json(500, { error: "Payment captured but booking details were lost — please contact support with your payment ID." });
+  }
+
+  // Atomic claim: a conditional UPDATE ... WHERE status IN (created, failed, captured-by-webhook) AND razorpay_signature IS NULL
+  // RETURNING.
+  // Only the request that flips the row proceeds to insert the appointment, so a double
+  // click, a client retry or a racing webhook can never create two appointments.
+  const { data: claimed, error: claimErr } = await admin
+    .from("payments")
+    .update({ status: "captured", razorpay_payment_id, razorpay_signature })
+    .eq("id", payment.id)
+    .in("status", ["created", "failed", "captured"])
+    .is("razorpay_signature", null)
+    .select("id");
+  if (claimErr) return json(500, { error: "Could not process the payment. Please retry." });
+  if (!claimed || claimed.length === 0) {
+    return json(409, { error: "This payment is already being processed" });
   }
 
   // Unguessable booking token (same alphabet/length as src/lib/bookingToken.ts): it is the only
@@ -186,63 +213,9 @@ Deno.serve(async (req) => {
     console.error("verify-razorpay-payment ledger error:", ledgerErr.message);
   }
 
-  // Auto-create or upsert the invoices row server-side so commission snapshots
-  // and patient receipt totals are guaranteed immediately upon payment verification.
-  try {
-    const { data: docProfile } = await admin
-      .from("profiles")
-      .select("gst_registered, gstin")
-      .eq("id", booking.doctor_id)
-      .maybeSingle();
-
-    const gstRegistered = Boolean(docProfile?.gst_registered);
-    const gstin = docProfile?.gstin || null;
-    const gst_rate = gstRegistered ? 18 : 0;
-    const gst_amount = +(gross * gst_rate / 100).toFixed(2);
-    const total_amount = +(gross + gst_amount).toFixed(2);
-
-    const year = new Date().getFullYear();
-    const prefix = `INV-${year}-`;
-    const { data: existingInvoices } = await admin
-      .from("invoices")
-      .select("invoice_number")
-      .eq("doctor_id", booking.doctor_id)
-      .like("invoice_number", `${prefix}%`);
-
-    const existingNums = (existingInvoices || [])
-      .map((i: { invoice_number: string }) => parseInt(i.invoice_number.slice(prefix.length), 10))
-      .filter((n: number) => !isNaN(n));
-    const nextSeq = (existingNums.length ? Math.max(...existingNums) : 0) + 1;
-    const invoice_number = `${prefix}${String(nextSeq).padStart(4, "0")}`;
-
-    const { error: invErr } = await admin
-      .from("invoices")
-      .upsert(
-        {
-          doctor_id: booking.doctor_id,
-          appointment_id: appt.id,
-          invoice_number,
-          patient_name: booking.patient_name,
-          service_name: booking.service_name,
-          amount: gross,
-          gst_rate,
-          gst_amount,
-          total_amount,
-          clinic_gstin: gstin,
-          commission_percent: commissionPercent,
-          commission_amount: commissionAmount,
-          net_amount: doctorShare,
-          status: "generated",
-        },
-        { onConflict: "appointment_id" },
-      );
-
-    if (invErr) {
-      console.error("verify-razorpay-payment invoice upsert error:", invErr.message);
-    }
-  } catch (invEx) {
-    console.error("verify-razorpay-payment invoice generation error:", invEx);
-  }
+  // No invoice here: an invoice exists only once the visit is completed AND paid, and the
+  // appointments trigger (invoice_on_appointment_billable -> ensure_invoice_for_appointment)
+  // creates it then. Inserting one at payment time would break that rule.
 
   return json(200, {
     ok: true,

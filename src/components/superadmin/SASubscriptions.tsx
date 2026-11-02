@@ -13,6 +13,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
+import { useSuperAdminAccess } from "@/contexts/SuperAdminAccessContext";
 import { logAdminAction } from "@/lib/adminAudit";
 import { Search, RotateCcw, Save, Trash2, X } from "lucide-react";
 import BulkDeleteDoctorsDialog from "./BulkDeleteDoctorsDialog";
@@ -25,6 +26,9 @@ import { getEffectivePlanPrice } from "@/lib/planPrices";
 export { DEFAULT_PLAN_PRICES, getEffectivePlanPrice } from "@/lib/planPrices";
 
 const SASubscriptions = () => {
+  const { can } = useSuperAdminAccess();
+  const canManage = can("subscriptions.manage");
+  const canDeleteDoctors = can("doctors.delete");
   const { proPrice, premiumPrice } = usePlanPrices();
   const livePrices = planPricesToRecord({ proPrice, premiumPrice });
   const [rows, setRows] = useState<any[]>([]);
@@ -129,7 +133,7 @@ const SASubscriptions = () => {
   };
 
   const applyTierChange = async (keepCustomPrice: boolean) => {
-    if (!pendingTierChange) return;
+    if (!pendingTierChange || !canManage) return;
     const { id, tier, prev, wasTrial, hasCustom } = pendingTierChange;
 
     // Switching tier must not shorten or lengthen a paid period that is still
@@ -140,9 +144,13 @@ const SASubscriptions = () => {
     const update: any = { plan_tier: tier, plan_status: "active", trial_end: null, plan_end: planEnd };
     if (hasCustom && !keepCustomPrice) update.custom_plan_price = null;
 
-    const { error } = await supabase.from("profiles").update(update).eq("id", id);
-    if (error) {
-      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    const { data, error } = await supabase.from("profiles").update(update).eq("id", id).select("id");
+    if (error || !data?.length) {
+      toast({
+        title: error ? "Failed" : "Not saved",
+        description: error ? error.message : "No rows were changed. You may not have permission to edit this doctor.",
+        variant: "destructive",
+      });
       setPendingTierChange(null);
       return;
     }
@@ -156,7 +164,7 @@ const SASubscriptions = () => {
 
   const extend = async (id: string) => {
     const d = dates[id];
-    if (!d) return;
+    if (!d || !canManage) return;
     const row = rows.find((r) => r.id === id);
     if (!row) return;
 
@@ -184,8 +192,9 @@ const SASubscriptions = () => {
       }
     }
 
-    const { error } = await supabase.from("profiles").update(updateData).eq("id", id);
+    const { data, error } = await supabase.from("profiles").update(updateData).eq("id", id).select("id");
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    if (!data?.length) return toast({ title: "Not saved", description: "No rows were changed. You may not have permission to edit this doctor.", variant: "destructive" });
 
     await logAdminAction(row.plan_status === "trial" ? "extend_trial" : "extend_subscription_expiry", "profiles", id, {
       new_expiry: isoDate,
@@ -204,6 +213,7 @@ const SASubscriptions = () => {
   };
 
   const saveCustomPrice = async (id: string) => {
+    if (!canManage) return;
     const raw = prices[id];
     if (raw === undefined || raw === "") {
       toast({ title: "Enter a price", description: "Type an amount or click Reset to remove the override.", variant: "destructive" });
@@ -217,8 +227,9 @@ const SASubscriptions = () => {
       return;
     }
 
-    const { error } = await supabase.from("profiles").update({ custom_plan_price: value }).eq("id", id);
+    const { data, error } = await supabase.from("profiles").update({ custom_plan_price: value }).eq("id", id).select("id");
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    if (!data?.length) return toast({ title: "Not saved", description: "No rows were changed. You may not have permission to edit this doctor.", variant: "destructive" });
     await logAdminAction("set_custom_price", "profiles", id, { custom_price: value });
     toast({ title: "Custom price saved", description: `Override set to ₹${value} for this doctor.` });
     setPrices((x) => ({ ...x, [id]: "" }));
@@ -226,8 +237,10 @@ const SASubscriptions = () => {
   };
 
   const clearCustomPrice = async (id: string) => {
-    const { error } = await supabase.from("profiles").update({ custom_plan_price: null }).eq("id", id);
+    if (!canManage) return;
+    const { data, error } = await supabase.from("profiles").update({ custom_plan_price: null }).eq("id", id).select("id");
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    if (!data?.length) return toast({ title: "Not saved", description: "No rows were changed. You may not have permission to edit this doctor.", variant: "destructive" });
     await logAdminAction("clear_custom_price", "profiles", id, {});
     toast({ title: "Custom price reset", description: "Doctor reverted to standard plan pricing." });
     setPrices((x) => ({ ...x, [id]: "" }));
@@ -375,7 +388,7 @@ const SASubscriptions = () => {
                       )}
                     </td>
                     <td className="p-3">
-                      <Select value={tier} onValueChange={(v) => requestTierChange(r.id, v, tier)}>
+                      <Select value={tier} onValueChange={(v) => requestTierChange(r.id, v, tier)} disabled={!canManage}>
                         <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
                         <SelectContent>{tiers.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                       </Select>
@@ -393,6 +406,7 @@ const SASubscriptions = () => {
                           variant="outline"
                           className="h-8 w-8"
                           onClick={() => saveCustomPrice(r.id)}
+                          disabled={!canManage}
                           title="Save custom price"
                         >
                           <Save className="h-3.5 w-3.5" />
@@ -401,7 +415,7 @@ const SASubscriptions = () => {
                           size="icon"
                           variant="outline"
                           className="h-8 w-8"
-                          disabled={!hasCustom}
+                          disabled={!hasCustom || !canManage}
                           onClick={() => clearCustomPrice(r.id)}
                           title="Reset to default price"
                         >
@@ -418,8 +432,8 @@ const SASubscriptions = () => {
                     </td>
                     <td className="p-3">
                       <div className="flex gap-2">
-                        <Input type="date" className="h-8 w-36" value={dates[r.id] || ""} onChange={(e) => setDates((x) => ({ ...x, [r.id]: e.target.value }))} />
-                        <Button size="sm" onClick={() => extend(r.id)} disabled={!dates[r.id]}>Set</Button>
+                        <Input type="date" className="h-8 w-36" disabled={!canManage} value={dates[r.id] || ""} onChange={(e) => setDates((x) => ({ ...x, [r.id]: e.target.value }))} />
+                        <Button size="sm" onClick={() => extend(r.id)} disabled={!dates[r.id] || !canManage}>Set</Button>
                       </div>
                     </td>
                   </tr>
@@ -526,6 +540,8 @@ const SASubscriptions = () => {
               size="sm"
               className="h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-4"
               onClick={() => setBulkDeleteOpen(true)}
+              disabled={!canDeleteDoctors}
+              title={canDeleteDoctors ? undefined : "You don't have permission to delete doctors"}
             >
               <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Selected
             </Button>

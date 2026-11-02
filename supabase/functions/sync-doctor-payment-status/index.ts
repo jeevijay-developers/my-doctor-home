@@ -5,7 +5,7 @@
 // Can be called by the doctor themselves or a superadmin.
 // Also callable with no doctor_id to sync ALL doctors (superadmin only).
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { beginPaymentRequest, isExplicitMockMode, json } from "../_shared/paymentMode.ts";
 import { hasSuperadminPermission } from "../_shared/superadminPermissions.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
@@ -39,8 +39,8 @@ function mapActivationStatus(rzStatus: string | undefined): string {
 }
 
 async function syncOne(doctorId: string, accountId: string, isMock: boolean) {
-  // Mock accounts skip API call — they're always considered active
-  if (isMock || !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+  // Mock accounts skip the API call — only ever reached in explicit mock mode (see handler).
+  if (isMock) {
     await admin.from("profiles").update({
       razorpay_account_status: "active",
       razorpay_payment_enabled: true,
@@ -107,8 +107,17 @@ Deno.serve(async (req) => {
     return json(400, { error: "Doctor does not have a Razorpay linked account yet" });
   }
 
+  const isMock = profile.razorpay_account_id.includes("mock");
+  // Fail closed: a mock account is only honoured when PAYMENT_MODE=mock is explicit, and a real
+  // account is never activated without asking Razorpay (missing keys is an error, not "active").
+  if (isMock && !isExplicitMockMode()) {
+    return json(409, { error: "This is a test-mode account and mock payments are disabled — re-onboard with a real Razorpay account" });
+  }
+  if (!isMock && (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET)) {
+    return json(501, { error: "Razorpay integration pending — platform API keys not configured" });
+  }
+
   try {
-    const isMock = profile.razorpay_account_id.includes("mock");
     const result = await syncOne(doctorId, profile.razorpay_account_id, isMock);
     return json(200, { ok: true, ...result });
   } catch (e) {

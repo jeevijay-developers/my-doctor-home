@@ -32,6 +32,7 @@ vi.mock("@/integrations/supabase/client", () => {
     const promise = Promise.resolve(resolved);
     return Object.assign(promise, {
       select: () => chain(resolved),
+      insert: (...a: unknown[]) => { (globalThis as any).__invoiceInsert?.(...a); return chain(resolved); },
       eq: () => chain(resolved),
       order: () => Promise.resolve(resolved),
     });
@@ -100,5 +101,20 @@ describe("BillingPage - plan gating", () => {
     expect(await screen.findByText("Test Patient")).toBeInTheDocument();
     expect(screen.getByText(/test mode/i)).toBeInTheDocument();
     (globalThis as any).__mockAppointments = undefined;
+  });
+
+  it("never inserts an invoice client-side (the DB trigger owns it: completed AND paid only)", async () => {
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
+    const insert = vi.fn();
+    (globalThis as any).__invoiceInsert = insert;
+    (globalThis as any).__mockAppointments = [
+      { id: "apt-p", patient_name: "Paid Pending", service_name: "Consultation", date: new Date().toISOString().slice(0, 10), amount: 500, payment_status: "paid", status: "pending" },
+    ];
+    render(<MemoryRouter><BillingPage /></MemoryRouter>);
+    await screen.findByText("Paid Pending");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(insert).not.toHaveBeenCalled();
+    (globalThis as any).__mockAppointments = undefined;
+    (globalThis as any).__invoiceInsert = undefined;
   });
 });

@@ -38,6 +38,8 @@ Deno.serve(async (req) => {
 
   // Determine the doctor tenant this call is allowed to act on behalf of.
   let doctorId: string | null = null;
+  // null = the owning doctor (may grant anything); otherwise the staff caller's own permissions.
+  let callerPermissions: Record<string, boolean> | null = null;
   const { data: callerProfile } = await admin.from("profiles").select("id").eq("id", callerId).maybeSingle();
   if (callerProfile) {
     doctorId = callerProfile.id;
@@ -45,6 +47,7 @@ Deno.serve(async (req) => {
     const { data: callerStaff } = await admin.from("staff_members").select("doctor_id, status, permissions").eq("id", callerId).maybeSingle();
     if (callerStaff && callerStaff.status === "active" && (callerStaff.permissions as Record<string, boolean>)?.["staff.create"] === true) {
       doctorId = callerStaff.doctor_id;
+      callerPermissions = callerStaff.permissions as Record<string, boolean>;
     }
   }
   if (!doctorId) return json(403, { error: "Not authorized to create staff accounts" });
@@ -63,6 +66,15 @@ Deno.serve(async (req) => {
   const phone = normalizeStaffPhone(body?.phone);
   const status = body?.status === "inactive" ? "inactive" : "active";
   const permissions = sanitizePermissions(body?.permissions);
+
+  // A staff caller can only hand out permissions they hold themselves, otherwise a
+  // staff.create holder could mint an account with billing.manage / staff.edit and sign in as it.
+  if (callerPermissions) {
+    const excess = Object.entries(permissions).filter(([k, v]) => v === true && callerPermissions![k] !== true).map(([k]) => k);
+    if (excess.length > 0) {
+      return json(403, { error: `You cannot grant permissions you do not have: ${excess.join(", ")}` });
+    }
+  }
 
   if (!staff_name) return json(400, { error: "Staff name is required" });
   if (!phone) return json(400, { error: "Enter a valid phone number, e.g. +919876543210" });
@@ -113,7 +125,10 @@ Deno.serve(async (req) => {
   });
   if (insertErr) {
     console.error("create-staff-account: staff_members insert failed", { code: insertErr.code, message: insertErr.message, details: insertErr.details, hint: insertErr.hint, doctorId, staffAuthId: newUser.user.id });
-    await admin.auth.admin.deleteUser(newUser.user.id);
+    const { error: rollbackErr } = await admin.auth.admin.deleteUser(newUser.user.id);
+    if (rollbackErr) {
+      console.error("create-staff-account: ROLLBACK FAILED - orphaned auth user", { staffAuthId: newUser.user.id, message: rollbackErr.message });
+    }
     if (insertErr.code === "23505") return json(409, { error: PHONE_IN_USE });
     if (insertErr.code === "23503") return json(400, { error: "Could not link this staff account to your doctor profile. Please refresh and try again." });
     if (insertErr.code === "23514" || insertErr.code === "22P02") return json(400, { error: "One of the submitted values isn't valid. Please check the form and try again." });

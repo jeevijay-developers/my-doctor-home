@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { PUBLIC_PROFILE_COLUMNS } from "@/lib/publicProfileColumns";
+import type { Tables } from "@/integrations/supabase/types";
 
 type DoctorData = {
   profile: any;
@@ -49,9 +51,11 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const load = async () => {
-      const { data: profile } = await supabase
-        .from("profiles").select("*")
+      const { data: rawProfile } = await supabase
+        .from("profiles").select(PUBLIC_PROFILE_COLUMNS)
         .eq("slug", slug).eq("onboarding_completed", true).maybeSingle();
+      // Explicit column list (anon cannot read the sensitive columns); typed as the full row.
+      const profile = rawProfile as unknown as Tables<"profiles"> | null;
 
       if (!profile) {
         // Try old-slug redirect

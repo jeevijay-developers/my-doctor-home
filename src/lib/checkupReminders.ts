@@ -33,15 +33,24 @@ function formatDateOnly(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Adds months in place, clamping to the last day of the target month (Jan 31 + 1 month = Feb 28). */
+function addMonthsClamped(d: Date, months: number): void {
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, last));
+}
+
 export function addFrequency(dateStr: string, frequency: Frequency, customIntervalDays: number | null): string {
   const d = parseDateOnly(dateStr);
   switch (frequency) {
     case "weekly": d.setUTCDate(d.getUTCDate() + 7); break;
     case "every_15_days": d.setUTCDate(d.getUTCDate() + 15); break;
-    case "monthly": d.setUTCMonth(d.getUTCMonth() + 1); break;
-    case "every_3_months": d.setUTCMonth(d.getUTCMonth() + 3); break;
-    case "every_6_months": d.setUTCMonth(d.getUTCMonth() + 6); break;
-    case "yearly": d.setUTCFullYear(d.getUTCFullYear() + 1); break;
+    case "monthly": addMonthsClamped(d, 1); break;
+    case "every_3_months": addMonthsClamped(d, 3); break;
+    case "every_6_months": addMonthsClamped(d, 6); break;
+    case "yearly": addMonthsClamped(d, 12); break;
     case "custom": d.setUTCDate(d.getUTCDate() + (customIntervalDays && customIntervalDays > 0 ? customIntervalDays : 30)); break;
   }
   return formatDateOnly(d);

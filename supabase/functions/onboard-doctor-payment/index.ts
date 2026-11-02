@@ -5,10 +5,11 @@
 // Auth: the doctor themselves (onboarding their own account) or a superadmin
 // (onboarding on behalf of a doctor).
 //
-// Mock mode: if RAZORPAY_KEY_ID/SECRET aren't set, generates mock IDs and
-// sets status to 'active' immediately so the rest of the flow can be tested.
+// Mock mode: ONLY when PAYMENT_MODE=mock is set explicitly (generates mock IDs and
+// marks the account active). Without it, missing keys answer 501 — a fake 'active'
+// account must never be created in production.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolvePaymentMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { isExplicitMockMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 import { hasSuperadminPermission } from "../_shared/superadminPermissions.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
@@ -91,15 +92,23 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (profErr) return json(500, { error: profErr.message });
   if (!profile) return json(404, { error: "Doctor profile not found" });
-  if (profile.razorpay_account_id && profile.razorpay_account_status === "active") {
-    return json(400, { error: "Doctor already has an active Razorpay linked account" });
+  // A leftover mock account (from testing) never blocks real onboarding; any real
+  // account that is active or still in review does, so a second linked account is
+  // never created (and the first orphaned).
+  const staleMock = Boolean(profile.razorpay_account_id?.includes("mock")) && !isExplicitMockMode();
+  if (profile.razorpay_account_id && !staleMock) {
+    if (profile.razorpay_account_status === "active") {
+      return json(400, { error: "Doctor already has an active Razorpay linked account" });
+    }
+    if (profile.razorpay_account_status !== "failed") {
+      return json(409, { error: "A Razorpay linked account already exists for this doctor — use Sync status instead of onboarding again" });
+    }
   }
 
   const hasLiveKeys = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
-  const mode = resolvePaymentMode(hasLiveKeys);
 
-  // ---- MOCK MODE ----
-  if (mode === "mock") {
+  // ---- MOCK MODE (explicit opt-in only) ----
+  if (isExplicitMockMode()) {
     const accountId = mockId("acc");
     const stakeholderId = mockId("sth");
     const productId = mockId("prod");

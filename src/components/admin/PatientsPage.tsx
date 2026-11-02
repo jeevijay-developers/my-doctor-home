@@ -1,3 +1,5 @@
+import { csvCell } from "@/lib/csv";
+import { clinicToday } from "@/lib/queue";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,10 +103,10 @@ const PatientsPage = () => {
     const to = from + PAGE_SIZE - 1;
     let q = supabase.from("patients").select("*", { count: "exact" }).eq("doctor_id", profile.id);
     if (dateFilterActive) {
-      const start = new Date(selectedDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
+      // The clinic day runs on IST whatever the browser's time zone is.
+      const dayKey = format(selectedDate, "yyyy-MM-dd");
+      const start = new Date(`${dayKey}T00:00:00+05:30`);
+      const end = new Date(start.getTime() + 86400000);
       q = q.gte("created_at", start.toISOString()).lt("created_at", end.toISOString());
     }
     const term = sanitizeSearchTerm(debouncedSearch);
@@ -159,15 +161,16 @@ const PatientsPage = () => {
   }, [profile]);
 
   const addPatient = async () => {
-    if (!profile || !newPatient.name || !newPatient.phone) return;
+    const name = newPatient.name.trim();
+    if (!profile || !name || !newPatient.phone) return;
     if (!isValidIndianPhone(newPatient.phone)) { toast.error(phoneErrorMessage); return; }
     if (newPatient.age && (Number(newPatient.age) < 0 || Number(newPatient.age) > 120)) {
       toast.error("Please enter a valid age (0–120)");
       return;
     }
     const { error } = await supabase.from("patients").insert({
-      doctor_id: profile.id, name: newPatient.name, phone: normalizeIndianPhone(newPatient.phone),
-      email: newPatient.email || null, age: newPatient.age ? Number(newPatient.age) : null,
+      doctor_id: profile.id, name, phone: normalizeIndianPhone(newPatient.phone),
+      email: newPatient.email.trim() || null, age: newPatient.age ? Number(newPatient.age) : null,
       gender: newPatient.gender || null,
     });
     if (error) {
@@ -214,21 +217,21 @@ const PatientsPage = () => {
     };
     const headers = ["Name", "Phone", "Email", "Age", "Gender", "First Visit", "Last Visit", "Total Visits", "Notes"];
     const csvRows = rows.map((p) => [
-      `"${p.name.replace(/"/g, '""')}"`,
+      csvCell(p.name),
       asText(p.phone),
-      p.email ? `"${p.email.replace(/"/g, '""')}"` : "",
+      csvCell(p.email),
       p.age ?? "",
-      p.gender ?? "",
+      csvCell(p.gender),
       asText(fmtDate(p.first_visit)),
       asText(fmtDate(p.last_visit)),
       p.total_visits,
-      p.notes ? `"${p.notes.replace(/"/g, '""')}"` : "",
+      csvCell(p.notes),
     ]);
     const csv = [headers.join(","), ...csvRows.map((r) => r.join(","))].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `patients-${new Date().toISOString().split("T")[0]}.csv`;
+    a.href = url; a.download = `patients-${clinicToday()}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success(`Exported ${rows.length} patients to CSV`);

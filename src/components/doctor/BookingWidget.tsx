@@ -155,8 +155,8 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   }, [hasFeature]);
 
   const defaultFee = type === "online"
-    ? (settings?.online_fee || profile?.consultation_fee || 500)
-    : (profile?.consultation_fee || 500);
+    ? (settings?.online_fee || (profile?.consultation_fee ?? 500))
+    : (profile?.consultation_fee ?? 500);
 
   const defaultServiceOption = useMemo(() => ({
     id: null as string | null,
@@ -222,9 +222,14 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     const tkn = generateBookingToken();
     const dStr = format(selectedDate, "yyyy-MM-dd");
 
-    const { data: inserted, error } = await supabase
+    // Anonymous visitors have no SELECT policy on appointments, so the row must not be
+    // read back (.select() would fail the whole insert). Generate the id client-side.
+    const apptId = crypto.randomUUID();
+    const { error } = await supabase
       .from("appointments")
+      // sort_time is stamped by a BEFORE INSERT trigger; the generated type marks it required.
       .insert({
+        id: apptId,
         doctor_id: profile.id,
         patient_name: name,
         patient_phone: normalizedPhone,
@@ -240,9 +245,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         chief_complaint: complaint || null,
         status: "pending" as any,
         payment_status: "pay_at_clinic" as any,
-      })
-      .select("id")
-      .single();
+      } as never);
 
     if (error) {
       if (error.message?.includes("SLOT_FULL")) {
@@ -269,7 +272,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
       return null;
     }
 
-    return { id: inserted.id, token: tkn };
+    return { id: apptId, token: tkn };
   };
 
   const finalizeConfirmed = (id: string, tkn: string, paymentStatus: "paid" | "pay_at_clinic") => {

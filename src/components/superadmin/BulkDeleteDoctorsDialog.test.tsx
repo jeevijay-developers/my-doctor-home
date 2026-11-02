@@ -27,40 +27,57 @@ describe("BulkDeleteDoctorsDialog", () => {
     vi.mocked(supabase.functions.invoke).mockReset();
   });
 
-  it("disables Delete Selected until a password is entered", () => {
+  const type = (v: string) =>
+    fireEvent.change(screen.getByPlaceholderText(/^DELETE \d+$/), { target: { value: v } });
+
+  it("disables Delete Selected until the typed count matches", () => {
     render(<BulkDeleteDoctorsDialog targets={targets} onClose={vi.fn()} onDeleted={vi.fn()} />);
+    const btn = () => screen.getByRole("button", { name: /delete selected/i });
+    expect(btn()).toBeDisabled();
+    type("DELETE 5");
+    expect(btn()).toBeDisabled();
+    type("DELETE 1");
+    expect(btn()).not.toBeDisabled();
+  });
+
+  it("requires the count of the current selection", () => {
+    const five = Array.from({ length: 5 }, (_, i) => ({ id: `d${i}`, full_name: null }));
+    render(<BulkDeleteDoctorsDialog targets={five} onClose={vi.fn()} onDeleted={vi.fn()} />);
+    type("DELETE 1");
     expect(screen.getByRole("button", { name: /delete selected/i })).toBeDisabled();
-    fireEvent.change(screen.getByPlaceholderText(/your password/i), { target: { value: "secret" } });
+    type("DELETE 5");
     expect(screen.getByRole("button", { name: /delete selected/i })).not.toBeDisabled();
   });
 
-  it("sends the entered password with the delete request", async () => {
+  it("sends only the doctor ids (no password) once confirmed", async () => {
     vi.mocked(supabase.functions.invoke).mockResolvedValue({
       data: { ok: true, deleted: ["doc-1"], failed: [] },
       error: null,
     } as unknown as InvokeResult);
     const onDeleted = vi.fn();
     render(<BulkDeleteDoctorsDialog targets={targets} onClose={vi.fn()} onDeleted={onDeleted} />);
-    fireEvent.change(screen.getByPlaceholderText(/your password/i), { target: { value: "correct-horse" } });
+    type("DELETE 1");
     fireEvent.click(screen.getByRole("button", { name: /delete selected/i }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
     expect(supabase.functions.invoke).toHaveBeenCalledWith(
       "delete-doctor-account",
-      expect.objectContaining({ body: { doctor_ids: ["doc-1"], password: "correct-horse" } })
+      expect.objectContaining({ body: { doctor_ids: ["doc-1"] } })
     );
   });
 
-  it("on a 401, clears the password field and keeps the dialog open", async () => {
+  it("on an error keeps the dialog open and does not call onDeleted", async () => {
     vi.mocked(supabase.functions.invoke).mockResolvedValue({
       data: null,
-      error: { context: { status: 401, json: async () => ({ error: "Incorrect password" }) } },
+      error: { context: { status: 403, json: async () => ({ error: "Forbidden" }) } },
     } as unknown as InvokeResult);
     const onClose = vi.fn();
-    render(<BulkDeleteDoctorsDialog targets={targets} onClose={onClose} onDeleted={vi.fn()} />);
-    const passwordInput = screen.getByPlaceholderText(/your password/i) as HTMLInputElement;
-    fireEvent.change(passwordInput, { target: { value: "wrong-password" } });
+    const onDeleted = vi.fn();
+    render(<BulkDeleteDoctorsDialog targets={targets} onClose={onClose} onDeleted={onDeleted} />);
+    type("DELETE 1");
     fireEvent.click(screen.getByRole("button", { name: /delete selected/i }));
-    await waitFor(() => expect(passwordInput.value).toBe(""));
+    await waitFor(() => expect(supabase.functions.invoke).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole("button", { name: /delete selected/i })).not.toBeDisabled());
     expect(onClose).not.toHaveBeenCalled();
+    expect(onDeleted).not.toHaveBeenCalled();
   });
 });

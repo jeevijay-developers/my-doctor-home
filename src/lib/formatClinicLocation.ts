@@ -54,7 +54,7 @@ export const formatClinicLocation = (
   let resolvedState: string | null = state?.trim() || null;
   if (!resolvedState && address) {
     const lower = address.toLowerCase();
-    resolvedState = INDIAN_STATES.find((s) => lower.includes(s.toLowerCase())) || null;
+    resolvedState = INDIAN_STATES.find((st) => new RegExp(`(^|[^a-z])${st.toLowerCase()}($|[^a-z])`).test(lower)) || null;
   }
 
   if (district && resolvedState) return `${district}, ${resolvedState}`;

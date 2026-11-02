@@ -9,6 +9,9 @@ const AI_BLOG_CORS: CorsOptions = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const MAX_TOPIC_LENGTH = 300;
+const MAX_NAME_LENGTH = 100;
+
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 serve(async (req) => {
@@ -39,10 +42,40 @@ serve(async (req) => {
       });
     }
 
-    const { topic, doctorName, specialization } = await req.json();
+    let parsed: any;
+    try {
+      parsed = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Bad request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const badRequest = (error: string) =>
+      new Response(JSON.stringify({ error }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    // Validate and bound everything that reaches the prompt (cost/quota abuse, prompt injection).
+    // doctorName / specialization sit inside the system prompt, so control characters and
+    // newlines are flattened to spaces and quotes dropped.
+    const oneLine = (v: unknown, max: number): string | null | undefined => {
+      if (v === undefined || v === null || v === "") return undefined;
+      if (typeof v !== "string") return null;
+      const cleaned = v.replace(/[\x00-\x1f\x7f\u2028\u2029"`]+/g, " ").replace(/\s+/g, " ").trim();
+      return cleaned.length > max ? null : cleaned;
+    };
+    const rawTopic = parsed?.topic;
+    if (typeof rawTopic !== "string" || !rawTopic.trim()) return badRequest("topic is required");
+    if (rawTopic.length > MAX_TOPIC_LENGTH) return badRequest(`topic must be at most ${MAX_TOPIC_LENGTH} characters`);
+    const topic = rawTopic.replace(/[\x00-\x1f\x7f\u2028\u2029"]+/g, " ").replace(/\s+/g, " ").trim();
+    const doctorName = oneLine(parsed?.doctorName, MAX_NAME_LENGTH);
+    const specialization = oneLine(parsed?.specialization, MAX_NAME_LENGTH);
+    if (doctorName === null) return badRequest("doctorName is invalid or too long");
+    if (specialization === null) return badRequest("specialization is invalid or too long");
+
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: "GEMINI_API_KEY secret is not set in Supabase Edge Function Secrets." }), {
+      console.error("ai-blog-writer: GEMINI_API_KEY is not configured");
+      return new Response(JSON.stringify({ error: "AI generation is not available right now." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -80,7 +113,7 @@ Rules:
     let geminiData: any = null;
 
     for (const model of modelCandidates) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
       for (let attempt = 0; attempt < 2; attempt++) {
         if (attempt > 0) {
@@ -89,7 +122,8 @@ Rules:
         try {
           const response = await fetch(geminiUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            // The key travels in a header, never in the URL, so no error text can contain it.
+            headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
             body: JSON.stringify({
               contents: [
                 {
@@ -143,24 +177,19 @@ Rules:
 
     if (!geminiData) {
       const lastAttempt = attempts[attempts.length - 1];
-      let mainError = lastAttempt?.text || "AI generation failed";
-      try {
-        const json = JSON.parse(mainError);
-        if (json.error?.message) mainError = json.error.message;
-      } catch (_) {}
-
-      return new Response(JSON.stringify({
-        error: mainError,
-        attempts: attempts.map(a => `${a.model} (${a.status}): ${a.text}`)
-      }), {
-        status: lastAttempt?.status || 500,
+      // Upstream bodies / network errors stay in the server log; the client gets a generic message.
+      console.error("ai-blog-writer: Gemini failed", attempts.map((a) => `${a.model} (${a.status})`));
+      const upstream = lastAttempt?.status;
+      const status = upstream === 429 ? 429 : upstream === 504 ? 504 : 502;
+      return new Response(JSON.stringify({ error: "AI generation failed. Please try again in a moment." }), {
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     let rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!rawText) {
-      console.error("ai-blog-writer: unexpected Gemini response shape", JSON.stringify(geminiData));
+      console.error("ai-blog-writer: unexpected Gemini response shape");
       return new Response(JSON.stringify({ error: "AI generation failed — no content returned by model." }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -174,7 +203,7 @@ Rules:
     try {
       article = JSON.parse(rawText);
     } catch (jsonErr) {
-      console.error("ai-blog-writer: JSON parse error", jsonErr, rawText);
+      console.error("ai-blog-writer: JSON parse error", (jsonErr as Error)?.message);
       article = { title: topic, excerpt: "", content: rawText, category: "General Health" };
     }
 
@@ -183,7 +212,7 @@ Rules:
     });
   } catch (e) {
     console.error("ai-blog-writer error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: "Something went wrong. Please try again." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

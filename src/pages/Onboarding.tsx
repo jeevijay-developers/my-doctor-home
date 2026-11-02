@@ -120,6 +120,8 @@ const Onboarding = () => {
         qualifications: form.qualifications, experience_years: parseInt(form.experience_years) || 0,
         clinic_name: form.clinic_name, city: form.city, address: form.address,
         phone: form.phone, slug, onboarding_completed: true,
+        consultation_fee: parseInt(form.consultation_fee) || 0,
+        bio: form.bio.trim().slice(0, 2000) || null,
       }).eq("id", user.id);
       if (error) throw error;
       setSavedSlug(slug);

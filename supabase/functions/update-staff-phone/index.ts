@@ -3,7 +3,8 @@
 // auth.users.phone, which only the service-role admin API can change — hence a
 // dedicated function rather than a direct staff_members update. Authorization
 // mirrors the old reset-staff-password: the owning doctor, or a staff member of
-// the same doctor holding staff.edit (never themselves).
+// the same doctor holding staff.edit (never themselves) whose own permissions are
+// a superset of the target's (no taking over a more privileged colleague).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { beginStaffRequest, json, normalizeStaffPhone } from "../_shared/staffPermissions.ts";
 
@@ -39,24 +40,36 @@ Deno.serve(async (req) => {
   if (!phone) return json(400, { error: "Enter a valid phone number, e.g. +919876543210" });
   if (staffId === callerId) return json(403, { error: "Staff cannot change their own phone number" });
 
-  const { data: target } = await admin.from("staff_members").select("id, doctor_id, phone").eq("id", staffId).maybeSingle();
-  if (!target) return json(404, { error: "Staff account not found" });
-
+  // Authorize BEFORE looking the target up so callers with no authority get the
+  // same 403 for existing and non-existing ids (no staff-id enumeration).
+  // Authority = owning doctor (profile), or an ACTIVE staff member holding staff.edit.
   const { data: callerProfile } = await admin.from("profiles").select("id").eq("id", callerId).maybeSingle();
-  let authorized = false;
-  if (callerProfile && callerProfile.id === target.doctor_id) {
-    authorized = true;
+  let authorityDoctorId: string | null = null;
+  let callerPermissions: Record<string, boolean> | null = null; // null = owning doctor
+  if (callerProfile) {
+    authorityDoctorId = callerProfile.id;
   } else {
     const { data: callerStaff } = await admin.from("staff_members").select("doctor_id, status, permissions").eq("id", callerId).maybeSingle();
-    if (
-      callerStaff && callerStaff.status === "active" &&
-      callerStaff.doctor_id === target.doctor_id &&
-      (callerStaff.permissions as Record<string, boolean>)?.["staff.edit"] === true
-    ) {
-      authorized = true;
+    if (callerStaff && callerStaff.status === "active" && (callerStaff.permissions as Record<string, boolean>)?.["staff.edit"] === true) {
+      authorityDoctorId = callerStaff.doctor_id;
+      callerPermissions = callerStaff.permissions as Record<string, boolean>;
     }
   }
-  if (!authorized) return json(403, { error: "Not authorized to change this staff member's phone number" });
+  const DENIED = "Not authorized to change this staff member's phone number";
+  if (!authorityDoctorId) return json(403, { error: DENIED });
+
+  const { data: target } = await admin.from("staff_members").select("id, doctor_id, phone, permissions").eq("id", staffId).maybeSingle();
+  if (!target) return json(404, { error: "Staff account not found" });
+  if (target.doctor_id !== authorityDoctorId) return json(403, { error: DENIED });
+
+  // The phone IS the login identity, so changing it is account takeover of that user.
+  // A staff (non-doctor) caller may therefore only re-point colleagues whose permissions
+  // are a subset of their own; anyone holding a permission the caller lacks is doctor-only.
+  if (callerPermissions) {
+    const targetPerms = (target.permissions ?? {}) as Record<string, unknown>;
+    const higher = Object.entries(targetPerms).some(([k, v]) => v === true && callerPermissions![k] !== true);
+    if (higher) return json(403, { error: DENIED });
+  }
 
   if (target.phone === phone) return json(200, { ok: true });
 

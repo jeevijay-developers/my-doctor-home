@@ -115,7 +115,8 @@ Deno.serve(async (req) => {
   }
 
   // Reject a slot that's already in the past
-  const apptTs = new Date(`${booking.date}T${booking.time_slot.length === 5 ? booking.time_slot + ":00" : booking.time_slot}`);
+  // Slots are IST wall-clock times; the Deno runtime is UTC, so the zone must be explicit.
+  const apptTs = new Date(`${booking.date}T${booking.time_slot.length === 5 ? booking.time_slot + ":00" : booking.time_slot}+05:30`);
   if (isNaN(apptTs.getTime()) || apptTs < new Date()) {
     return json(400, { error: "SLOT_IN_PAST" });
   }

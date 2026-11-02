@@ -78,7 +78,7 @@ const ManageAppointment = () => {
     if (!slug) return;
     setClinicError(null);
     (async () => {
-      const { data: prof, error: profErr } = await supabase.from("profiles").select("*").eq("slug", slug).eq("onboarding_completed", true).single();
+      const { data: prof, error: profErr } = await supabase.from("profiles").select("id, full_name, clinic_name, slug").eq("slug", slug).eq("onboarding_completed", true).single();
       if (profErr || !prof) {
         // PGRST116 = no row: the clinic does not exist. Anything else is a failed request.
         setClinicError(profErr && profErr.code !== "PGRST116" ? "network" : "missing");
@@ -125,7 +125,7 @@ const ManageAppointment = () => {
     }
     setAppt(row as Appt);
     const { data: checkupData } = await (supabase as any).rpc("get_upcoming_checkup", {
-      _doctor_id: doctor.id, _phone: row.patient_phone,
+      _doctor_id: doctor.id, _phone: row.patient_phone, _token: row.token_number,
     });
     const checkupRow = Array.isArray(checkupData) ? checkupData[0] : checkupData;
     setUpcomingCheckup(checkupRow || null);
@@ -295,7 +295,7 @@ const ManageAppointment = () => {
                   <div className="flex justify-between"><span className="text-text-gray">Patient</span><span className="font-medium">{appt.patient_name}</span></div>
                   <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="font-medium">{appt.service_name}</span></div>
                   <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="font-medium">{format(parseISO(appt.date), "EEE, d MMM yyyy")}</span></div>
-                  <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="font-medium">{appt.time_slot || "Walk-in"}</span></div>
+                  <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="font-medium">{appt.time_slot ? format(parseISO(`2000-01-01T${appt.time_slot.slice(0, 5)}`), "h:mm a") : "Walk-in"}</span></div>
                   <div className="flex justify-between items-center pt-1">
                     <span className="text-text-gray">Status</span>
                     <Badge variant="outline" className={`capitalize ${statusStyle(appt.status)}`}>{appt.status}</Badge>

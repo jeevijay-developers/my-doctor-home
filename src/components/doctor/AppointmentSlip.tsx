@@ -5,7 +5,7 @@ import {
   Stethoscope, Building2, ClipboardList, Calendar, Clock, User, Phone,
   IndianRupee, BadgeCheck, MapPin, Globe, Bell, Download, Printer, X,
 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import doctyliaLogo from "@/assets/doctylia-logo.webp";
 import { getClinicMapsUrl } from "@/lib/clinicLocation";
@@ -88,7 +88,8 @@ const AppointmentSlip = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[720px] p-0 gap-0 max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:border-0 bg-white">
+      <DialogContent className="max-w-[720px] p-0 gap-0 max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:border-0 bg-white" aria-describedby={undefined}>
+        <DialogTitle className="sr-only">Appointment slip</DialogTitle>
         <style>{`
           @media print {
             @page { size: A4 portrait; margin: 10mm; }

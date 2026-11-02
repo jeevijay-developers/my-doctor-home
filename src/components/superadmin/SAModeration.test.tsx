@@ -10,12 +10,12 @@ vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn() }));
 vi.mock("@/lib/adminAudit", () => ({ logAdminAction: vi.fn() }));
 
 const updateEq = vi.fn();
-let updateResult: { error: { message: string } | null } = { error: null };
+let updateResult: { data?: unknown[]; error: { message: string } | null } = { data: [{ id: "x" }], error: null };
 beforeEach(() => {
   updateEq.mockReset();
   vi.mocked(toast).mockClear();
   vi.mocked(logAdminAction).mockClear();
-  updateResult = { error: null };
+  updateResult = { data: [{ id: "x" }], error: null };
 });
 
 const posts = [
@@ -34,7 +34,7 @@ const mockData = () => {
     update: (patch: any) => ({
       eq: (...a: any[]) => {
         updateEq(patch, ...a);
-        return Promise.resolve(updateResult);
+        return { select: () => Promise.resolve(updateResult) };
       },
     }),
   });
@@ -127,6 +127,18 @@ describe("SAModeration hide from Health Articles hub", () => {
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith({ title: "Failed", description: "boom", variant: "destructive" }),
     );
+    expect(logAdminAction).not.toHaveBeenCalled();
+  });
+
+  it("shows an error toast (not success) when RLS filtered the update to zero rows", async () => {
+    mockData();
+    updateResult = { data: [], error: null };
+    render(<SAModeration />);
+    fireEvent.click(await screen.findByText("Dr. A"));
+    const row = (await screen.findByText("Post A1")).closest("tr")!;
+    fireEvent.click(within(row).getByRole("button", { name: "Hide from hub" }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Not saved", variant: "destructive" })));
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Hidden from Health Articles" }));
     expect(logAdminAction).not.toHaveBeenCalled();
   });
 

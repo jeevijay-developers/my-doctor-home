@@ -24,8 +24,10 @@ Deno.serve(async (req) => {
   const { data: claims } = await scoped.auth.getClaims(authHeader.slice(7));
   const callerId = claims?.claims?.sub as string | undefined;
   if (!callerId) return json(401, { error: "Invalid token" });
-  const { data: isOwner } = await admin.rpc("has_role", { _user_id: callerId, _role: "admin" });
-  if (!isOwner) return json(403, { error: "Only owners can manage the team" });
+  // Owner-only, fail closed: team members live outside user_roles, and only a strict
+  // boolean true from has_role(admin) counts (an error or any other shape is a denial).
+  const { data: isOwner, error: roleErr } = await admin.rpc("has_role", { _user_id: callerId, _role: "admin" });
+  if (roleErr || isOwner !== true) return json(403, { error: "Only owners can manage the team" });
 
   let body: any;
   try {

@@ -30,11 +30,14 @@ export function normalizePersonName(name: string): string {
 export function formatDoctorName(rawName: string): string {
   const trimmed = normalizePersonName(rawName);
   if (!trimmed) return "";
-  return /^dr\.?\s/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`;
+  if (/^dr\.?\s/i.test(trimmed)) return trimmed;
+  const glued = trimmed.match(/^dr\.(\S.*)$/i);
+  if (glued) return `Dr. ${normalizePersonName(glued[1])}`;
+  return /^dr\.?$/i.test(trimmed) ? "" : `Dr. ${trimmed}`;
 }
 
 export function doctorDisplayName(profile: any): string {
-  return formatDoctorName((profile?.display_name || profile?.full_name || "").trim());
+  return formatDoctorName((profile?.display_name?.trim() || profile?.full_name?.trim() || ""));
 }
 
 export function buildDoctorMeta({ origin, profile, settings }: DoctorSeoInput) {

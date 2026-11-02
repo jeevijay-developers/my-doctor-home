@@ -64,5 +64,5 @@ export function resolveStatValue(stat: QuickStatItem, profile?: any): string {
     const exp = profile?.experience_years ?? 0;
     return `${exp}+`;
   }
-  return stat.value || "";
+  return "";
 }

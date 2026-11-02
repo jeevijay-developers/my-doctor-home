@@ -34,9 +34,10 @@ Deno.serve(async (req) => {
   if (!isAdmin) return json(403, { error: "Admin only" });
 
   let payment_id: string | undefined;
-  let partial_amount: number | undefined; // optional partial refund in rupees
+  let partial_amount: unknown; // optional partial refund in rupees
   try {
-    ({ payment_id, partial_amount } = await req.json());
+    const parsed = await req.json();
+    ({ payment_id, partial_amount } = parsed ?? {});
   } catch {
     return json(400, { error: "Bad request" });
   }
@@ -44,7 +45,7 @@ Deno.serve(async (req) => {
 
   const { data: payment, error: payErr } = await admin
     .from("payments")
-    .select("id, status, appointment_id, razorpay_payment_id, amount, is_mock, transfer_status")
+    .select("id, status, appointment_id, razorpay_payment_id, amount, is_mock, transfer_status, raw_response")
     .eq("id", payment_id)
     .maybeSingle();
   if (payErr) return json(500, { error: payErr.message });
@@ -53,9 +54,41 @@ Deno.serve(async (req) => {
     return json(400, { error: `Only captured payments can be refunded (this one is ${payment.status})` });
   }
 
+  // Amounts are tracked in integer paise. `raw_response.refunded_paise_total` is the running
+  // total of partial refunds already issued through this function.
+  const totalPaise = Math.round(Number(payment.amount) * 100);
+  const alreadyPaise = Math.max(0, Number((payment.raw_response as any)?.refunded_paise_total) || 0);
+  const remainingPaise = totalPaise - alreadyPaise;
+  let refundAmountPaise = remainingPaise; // default: refund whatever is left
+  if (partial_amount !== undefined && partial_amount !== null) {
+    if (typeof partial_amount !== "number" || !Number.isFinite(partial_amount) || partial_amount <= 0) {
+      return json(400, { error: "partial_amount must be a positive number" });
+    }
+    refundAmountPaise = Math.round(partial_amount * 100);
+    if (refundAmountPaise < 1 || refundAmountPaise > remainingPaise) {
+      return json(400, { error: `partial_amount exceeds the refundable balance (${remainingPaise / 100})` });
+    }
+  }
+  if (!Number.isFinite(remainingPaise) || remainingPaise <= 0) {
+    return json(400, { error: "Nothing left to refund on this payment" });
+  }
+  const isFull = refundAmountPaise === remainingPaise;
+  const refundedTotal = alreadyPaise + refundAmountPaise;
+
   const nowIso = new Date().toISOString();
 
   // ---- MOCK MODE ----
+  if (payment.is_mock && !isFull) {
+    await admin.from("payments").update({ raw_response: { refunded_paise_total: refundedTotal } }).eq("id", payment.id);
+    await admin.from("admin_audit_log").insert({
+      admin_user_id: uid,
+      action: "refund_payment_partial",
+      target_table: "payments",
+      target_id: payment.id,
+      details: { amount_refunded: refundAmountPaise / 100, total_refunded: refundedTotal / 100, appointment_id: payment.appointment_id, is_mock: true },
+    });
+    return json(200, { ok: true, payment_id: payment.id, status: "captured", partial: true, is_mock: true });
+  }
   if (payment.is_mock) {
     await admin.from("payments").update({ status: "refunded", needs_refund: false, transfer_status: "reversed" }).eq("id", payment.id);
     await admin.from("transfers").update({ status: "reversed", reversed_at: nowIso }).eq("payment_id", payment.id);
@@ -88,11 +121,6 @@ Deno.serve(async (req) => {
 
   try {
     const basicAuth = btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`);
-    // Amount in paise — if partial, use that; else full amount
-    const refundAmountPaise = partial_amount
-      ? Math.round(partial_amount * 100)
-      : Math.round(Number(payment.amount) * 100);
-
     const res = await fetch(`https://api.razorpay.com/v1/payments/${payment.razorpay_payment_id}/refund`, {
       method: "POST",
       headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
@@ -110,11 +138,39 @@ Deno.serve(async (req) => {
       return json(502, { error: rzRefund?.error?.description || "Razorpay refund API failed" });
     }
 
+    if (!isFull) {
+      // Partial refund: the payment stays captured (the remainder can still be refunded),
+      // the appointment stays as it is, and only the running total is recorded.
+      await admin.from("payments").update({ raw_response: { ...rzRefund, refunded_paise_total: refundedTotal } }).eq("id", payment.id);
+      await admin.from("admin_audit_log").insert({
+        admin_user_id: uid,
+        action: "refund_payment_partial",
+        target_table: "payments",
+        target_id: payment.id,
+        details: {
+          razorpay_refund_id: rzRefund.id,
+          amount_refunded: rzRefund.amount / 100,
+          total_refunded: refundedTotal / 100,
+          appointment_id: payment.appointment_id,
+          is_mock: false,
+        },
+      });
+      return json(200, {
+        ok: true,
+        payment_id: payment.id,
+        razorpay_refund_id: rzRefund.id,
+        amount_refunded: rzRefund.amount / 100,
+        status: rzRefund.status,
+        partial: true,
+        remaining: (totalPaise - refundedTotal) / 100,
+      });
+    }
+
     await admin.from("payments").update({
       status: "refunded",
       needs_refund: false,
       transfer_status: "reversed",
-      raw_response: rzRefund,
+      raw_response: { ...rzRefund, refunded_paise_total: refundedTotal },
     }).eq("id", payment.id);
 
     await admin.from("transfers").update({ status: "reversed", reversed_at: nowIso }).eq("payment_id", payment.id);

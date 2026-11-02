@@ -4,6 +4,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { logAdminAction } from "@/lib/adminAudit";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
@@ -16,10 +17,14 @@ const BulkDeleteDoctorsDialog = ({ targets, onClose, onDeleted }: {
   targets: Target[]; onClose: () => void; onDeleted: () => void;
 }) => {
   const [deleting, setDeleting] = useState(false);
+  const [typed, setTyped] = useState("");
   const count = targets.length;
+  // Superadmins sign in by OTP (no password), so the guard is a typed count.
+  const expected = `DELETE ${count}`;
+  const confirmed = typed.trim().toUpperCase() === expected;
 
   const confirmDelete = async () => {
-    if (count === 0) return;
+    if (count === 0 || !confirmed) return;
     setDeleting(true);
     const { data: { session } } = await supabase.auth.getSession();
     const { data, error } = await supabase.functions.invoke("delete-doctor-account", {
@@ -44,12 +49,13 @@ const BulkDeleteDoctorsDialog = ({ targets, onClose, onDeleted }: {
         description: `${failed.length} failed: ${failed[0].error}${failed.length > 1 ? ` (+${failed.length - 1} more)` : ""}`,
       });
     }
+    setTyped("");
     onClose();
     onDeleted();
   };
 
   return (
-    <AlertDialog open={count > 0} onOpenChange={(o) => !o && onClose()}>
+    <AlertDialog open={count > 0} onOpenChange={(o) => { if (!o) { setTyped(""); onClose(); } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {count} selected doctor{count === 1 ? "" : "s"}?</AlertDialogTitle>
@@ -57,11 +63,24 @@ const BulkDeleteDoctorsDialog = ({ targets, onClose, onDeleted }: {
             This permanently deletes each selected doctor's login, profile, patients, appointments,
             prescriptions, staff accounts, and all billing/payment history. This cannot be undone.
           </AlertDialogDescription>
+          <div className="space-y-2 pt-2">
+            <label htmlFor="bulk-delete-confirm" className="text-sm text-foreground">
+              Type <span className="font-mono font-semibold">{expected}</span> to confirm
+            </label>
+            <Input
+              id="bulk-delete-confirm"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder={expected}
+              autoComplete="off"
+              disabled={deleting}
+            />
+          </div>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            disabled={deleting}
+            disabled={deleting || !confirmed}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground disabled:opacity-50"
             onClick={(e) => { e.preventDefault(); confirmDelete(); }}
           >

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock3, Tag, User } from "lucide-react";
+import { PUBLIC_PROFILE_COLUMNS } from "@/lib/publicProfileColumns";
 import { format } from "date-fns";
 import { blogPostPath } from "@/lib/seo/blogSeo";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,12 +80,14 @@ const BlogListPage = () => {
     };
 
     const load = async () => {
-      const { data: profile } = await supabase
+      const { data: rawProfile } = await supabase
         .from("profiles")
-        .select("*")
+        .select(PUBLIC_PROFILE_COLUMNS)
         .eq("slug", slug)
         .eq("onboarding_completed", true)
         .single();
+      // Explicit column list (anon cannot read the sensitive columns); typed as the full row.
+      const profile = rawProfile as unknown as Tables<"profiles"> | null;
 
       if (!active) return;
       if (!profile) {

@@ -23,6 +23,9 @@ export type ProfileState = {
   setProfile: (p: Tables<"profiles"> | null) => void;
   refetch: () => Promise<void>;
   isStaff: boolean;
+  // Signed in, but neither a doctor nor an ACTIVE staff member (disabled / unknown
+  // staff). Such a session has no permissions at all.
+  noAccess: boolean;
   staffPermissions: Permissions;
   staffName: string | null;
   can: (key: PermissionKey) => boolean;
@@ -46,6 +49,7 @@ function useProfileState(enabled: boolean): ProfileState {
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [loading, setLoading] = useState(enabled);
   const [isStaff, setIsStaff] = useState(false);
+  const [noAccess, setNoAccess] = useState(false);
   const [staffPermissions, setStaffPermissions] = useState<Permissions>({});
   const [staffName, setStaffName] = useState<string | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
@@ -59,6 +63,7 @@ function useProfileState(enabled: boolean): ProfileState {
     if (ownProfile) {
       setProfile((prev) => (sameRow(prev, ownProfile) ? prev : ownProfile));
       setIsStaff(false);
+      setNoAccess(false);
       setStaffPermissions({});
       setStaffName(null);
       setLoading(false);
@@ -73,6 +78,7 @@ function useProfileState(enabled: boolean): ProfileState {
 
     if (staffRow && staffRow.status === "active") {
       setIsStaff(true);
+      setNoAccess(false);
       setStaffPermissions((staffRow.permissions as Permissions) || {});
       setStaffName(staffRow.staff_name);
       const { data: doctorProfile } = await supabase.from("profiles").select("*").eq("id", staffRow.doctor_id).maybeSingle();
@@ -81,6 +87,7 @@ function useProfileState(enabled: boolean): ProfileState {
     } else {
       setProfile(null);
       setIsStaff(false);
+      setNoAccess(true);
       setStaffPermissions({});
       setStaffName(null);
     }
@@ -113,9 +120,9 @@ function useProfileState(enabled: boolean): ProfileState {
 
   // Doctors always pass every check — the permission system exists
   // exclusively to restrict staff, never the doctor's own account.
-  const can = useCallback((key: PermissionKey) => !isStaff || staffPermissions[key] === true, [isStaff, staffPermissions]);
+  const can = useCallback((key: PermissionKey) => (noAccess ? false : !isStaff || staffPermissions[key] === true), [noAccess, isStaff, staffPermissions]);
 
-  return { profile, loading, setProfile, refetch: fetchProfile, isStaff, staffPermissions, staffName, can, authUserId };
+  return { profile, loading, setProfile, refetch: fetchProfile, isStaff, noAccess, staffPermissions, staffName, can, authUserId };
 }
 
 const ProfileContext = createContext<ProfileState | null>(null);

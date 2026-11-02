@@ -17,15 +17,26 @@ function formatDateOnly(d: Date): string {
 // Advances a YYYY-MM-DD date string forward by one cycle of the given
 // frequency. Operates in UTC date-only arithmetic to avoid timezone drift
 // (these map to Postgres `date` columns, which have no time component).
+// Month arithmetic clamps the day to the last day of the target month
+// (31 Jan + 1 month = 28/29 Feb), never rolling over into the next month.
+// Same algorithm as src/lib/checkupReminders.ts.
+function addMonthsClamped(d: Date, months: number): void {
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, lastDay));
+}
+
 export function addFrequency(dateStr: string, frequency: Frequency, customIntervalDays: number | null): string {
   const d = parseDateOnly(dateStr);
   switch (frequency) {
     case "weekly": d.setUTCDate(d.getUTCDate() + 7); break;
     case "every_15_days": d.setUTCDate(d.getUTCDate() + 15); break;
-    case "monthly": d.setUTCMonth(d.getUTCMonth() + 1); break;
-    case "every_3_months": d.setUTCMonth(d.getUTCMonth() + 3); break;
-    case "every_6_months": d.setUTCMonth(d.getUTCMonth() + 6); break;
-    case "yearly": d.setUTCFullYear(d.getUTCFullYear() + 1); break;
+    case "monthly": addMonthsClamped(d, 1); break;
+    case "every_3_months": addMonthsClamped(d, 3); break;
+    case "every_6_months": addMonthsClamped(d, 6); break;
+    case "yearly": addMonthsClamped(d, 12); break;
     case "custom": d.setUTCDate(d.getUTCDate() + (customIntervalDays && customIntervalDays > 0 ? customIntervalDays : 30)); break;
   }
   return formatDateOnly(d);

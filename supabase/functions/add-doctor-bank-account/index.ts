@@ -4,13 +4,12 @@
 // Account keys are configured (live mode) we also link them to Razorpay so
 // create-doctor-payout can pay out immediately once approved.
 //
-// Mock mode (mock-payment-mode-testing-prompt.md, Part 6): with no
-// RAZORPAYX keys configured this resolves to mock automatically — linking is
-// simulated (fake contact/fund-account ids, verified=true, is_mock=true) so
-// doctor-side payout/settlement UI can be tested end-to-end today without
-// waiting on real RazorpayX activation.
+// Mock mode: ONLY when PAYMENT_MODE=mock is set explicitly — linking is
+// simulated (fake contact/fund-account ids, verified=true, is_mock=true). With
+// no keys and no explicit mock mode the details are saved unverified/unlinked, so
+// production never shows fake "linked" accounts.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolvePaymentMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { isExplicitMockMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 
 const RAZORPAYX_KEY_ID = Deno.env.get("RAZORPAYX_KEY_ID");
 const RAZORPAYX_KEY_SECRET = Deno.env.get("RAZORPAYX_KEY_SECRET");
@@ -78,12 +77,17 @@ Deno.serve(async (req) => {
 
   const { data: profile } = await admin.from("profiles").select("full_name").eq("id", uid).maybeSingle();
 
+  // Store (and send to Razorpay) exactly the trimmed values that were validated above.
+  const accountNumberClean = hasBank ? String(account_number).trim() : null;
+  const ifscClean = hasBank ? String(ifsc).trim().toUpperCase() : null;
+  const upiClean = hasUpi ? String(upi_id).trim() : null;
+
   const record: Record<string, unknown> = {
     doctor_id: uid,
     account_holder_name: account_holder_name || profile?.full_name || null,
-    account_number: hasBank ? account_number : null,
-    ifsc: hasBank ? ifsc.toUpperCase() : null,
-    upi_id: hasUpi ? upi_id : null,
+    account_number: accountNumberClean,
+    ifsc: ifscClean,
+    upi_id: upiClean,
     verified: false,
     razorpay_contact_id: null,
     razorpay_fund_account_id: null,
@@ -91,9 +95,8 @@ Deno.serve(async (req) => {
   };
 
   const hasLiveKeys = Boolean(RAZORPAYX_KEY_ID && RAZORPAYX_KEY_SECRET);
-  const mode = resolvePaymentMode(hasLiveKeys);
 
-  if (mode === "mock") {
+  if (isExplicitMockMode()) {
     // Simulated linking — no RazorpayX call, no real KYC. Lets doctor-side
     // payout/settlement UI be tested end-to-end without waiting on real
     // RazorpayX activation.
@@ -112,12 +115,12 @@ Deno.serve(async (req) => {
         ? await razorpayxFetch("/fund_accounts", {
             contact_id: contact.id,
             account_type: "bank_account",
-            bank_account: { name: record.account_holder_name, ifsc, account_number },
+            bank_account: { name: record.account_holder_name, ifsc: ifscClean, account_number: accountNumberClean },
           })
         : await razorpayxFetch("/fund_accounts", {
             contact_id: contact.id,
             account_type: "vpa",
-            vpa: { address: upi_id },
+            vpa: { address: upiClean },
           });
       record.razorpay_contact_id = contact.id;
       record.razorpay_fund_account_id = fundAccount.id;
@@ -127,7 +130,7 @@ Deno.serve(async (req) => {
       // Still save the raw details below so the doctor doesn't lose their input.
     }
   }
-  // else: live mode requested but no keys configured — save unlinked/pending,
+  // else: no keys configured (and not explicit mock mode) — save unlinked/pending,
   // same fallback as before this feature existed.
 
   const { data: saved, error } = await admin
