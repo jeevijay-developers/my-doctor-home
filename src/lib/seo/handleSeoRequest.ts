@@ -22,7 +22,10 @@ const PAGE_SIZE = 24;
 /** Pages past this are a 404 before any redirect or upstream call (keeps the RPC offset within int4). */
 const MAX_ARTICLES_PAGE = 1000;
 const UPSTREAM_TIMEOUT_MS = 5000;
-const SITE_CACHE = "public, max-age=0, s-maxage=300, stale-while-revalidate=86400";
+// Crawlers visit a page every few days at best, so a short CDN lifetime meant they almost always hit a
+// cold render (0.7-1.9s, dominated by round trips to the database). One hour fresh plus a week of
+// stale-while-revalidate keeps them on the cached copy; the browser app still shows live data.
+const SITE_CACHE = "public, max-age=0, s-maxage=3600, stale-while-revalidate=604800";
 
 /** fetch with a hard timeout and one retry on network errors (not on HTTP error statuses). */
 async function timedFetch(f: typeof fetch, url: string, init: RequestInit = {}): Promise<Response> {

@@ -44,7 +44,7 @@ describe("handleSeoRequest - doctor", () => {
     expect(html).toContain('href="https://doctylia.com/dr/dr-a"');
     expect(html).toContain("Ear wash");
     expect(html).toContain('"@type":["Physician","MedicalBusiness"]');
-    expect(res.headers.get("Cache-Control")).toContain("s-maxage=300");
+    expect(res.headers.get("Cache-Control")).toContain("s-maxage=3600");
   });
 
   it("404s unknown slugs with noindex", async () => {
@@ -206,7 +206,7 @@ describe("handleSeoRequest - health articles hub", () => {
     expect(html).toContain('href="https://doctylia.com/health-articles"');
     expect(html).toContain('"@type":"CollectionPage"');
     expect(html).toContain('href="/dr/dr-a/blog/post-1"');
-    expect(res.headers.get("Cache-Control")).toContain("s-maxage=300");
+    expect(res.headers.get("Cache-Control")).toContain("s-maxage=3600");
   });
 
   it("passes category and page offsets to the RPC", async () => {
