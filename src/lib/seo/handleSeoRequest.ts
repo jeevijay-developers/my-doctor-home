@@ -11,6 +11,7 @@ import { buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName, doctorHubPaths }
 import { buildBlogListHead, buildBlogPostHead, blogPostPath, doctorPath, encodePathSegment, UUID_RE } from "./blogSeo";
 import { ARTICLES_BASE, ARTICLES_PAGE_SIZE, articlesPath, buildArticlesHead, isArticlesIndexable, type ArticleFacet, type HubArticle } from "./healthArticlesSeo";
 import { INDEXABLE, NOINDEX, renderPage } from "./injectHead";
+import { buildStaticPageHead } from "./staticPages";
 
 export interface SeoEnv {
   SUPABASE_URL?: string;
@@ -258,6 +259,13 @@ export async function handleSeoRequest(
 
   const template = await loadTemplate(origin, f);
   if (!template) return new Response("Service temporarily unavailable", { status: 503, headers: { "Cache-Control": "no-store" } });
+
+  // Static marketing pages need no upstream data, so they are served even when Supabase is unreachable.
+  if (kind === "page") {
+    const head = buildStaticPageHead(origin, url.searchParams.get("path") ?? "");
+    return head ? htmlResponse(renderPage(template, head), 200, SITE_CACHE) : shell(template, kind);
+  }
+
   if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return shell(template, kind);
 
   const up = new Upstream(env.SUPABASE_URL.replace(/\/$/, ""), env.SUPABASE_ANON_KEY, f);

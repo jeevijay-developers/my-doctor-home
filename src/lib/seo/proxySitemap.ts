@@ -2,7 +2,26 @@
 // gateway rewrites its Content-Type to text/plain. Vercel proxies it through
 // api/sitemap.ts so crawlers receive application/xml.
 //
+// It also drops pages that are served `noindex` (the login page): a sitemap must only list
+// URLs we want indexed, and Search Console flags "submitted URL marked noindex" otherwise.
+//
 // NOTE: relative imports only - Vercel's bundler does not resolve "@/".
+import { NOINDEX_STATIC_PATHS } from "./staticPages";
+
+/** Removes <url> entries whose <loc> is one of the given paths on any host. */
+export function dropPaths(xml: string, paths: readonly string[]): string {
+  if (paths.length === 0) return xml;
+  return xml.replace(/<url>[\s\S]*?<\/url>\s*/g, (entry) => {
+    const loc = /<loc>([^<]*)<\/loc>/.exec(entry)?.[1] ?? "";
+    let path = "";
+    try {
+      path = new URL(loc.replace(/&amp;/g, "&")).pathname;
+    } catch {
+      return entry;
+    }
+    return paths.includes(path) ? "" : entry;
+  });
+}
 
 export async function proxySitemap(
   req: Request,
@@ -22,7 +41,7 @@ export async function proxySitemap(
     if (!upstream.ok || !body.startsWith("<?xml")) {
       return new Response("sitemap unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
     }
-    return new Response(body, {
+    return new Response(dropPaths(body, NOINDEX_STATIC_PATHS), {
       status: 200,
       headers: {
         "Content-Type": "application/xml; charset=utf-8",

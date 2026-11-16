@@ -324,3 +324,30 @@ describe("handleSeoRequest - hostile blog slugs", () => {
     expect(list).toContain(`href="/dr/dr-a/blog/${encodePathSegment(evil)}"`);
   });
 });
+
+describe("handleSeoRequest - static pages", () => {
+  it("serves each marketing page with its own title and canonical, without touching Supabase", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/profiles": () => new Response("boom", { status: 500 }) });
+    const res = await handler(req("kind=page&path=/about"), {}, f);
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain("<title>About Us | Doctylia</title>");
+    expect(html).toContain('<link rel="canonical" href="https://doctylia.com/about" />');
+    expect(html).toContain("index, follow");
+    expect(html).toContain("<h1>About Doctylia</h1>");
+  });
+
+  it("keeps the login page out of the index", async () => {
+    const handler = await fresh();
+    const html = await (await handler(req("kind=page&path=/auth"), env, fakeFetch({}))).text();
+    expect(html).toContain('<link rel="canonical" href="https://doctylia.com/auth" />');
+    expect(html).toContain('content="noindex, follow"');
+  });
+
+  it("falls back to the plain shell for an unknown path", async () => {
+    const handler = await fresh();
+    const res = await handler(req("kind=page&path=/nope"), env, fakeFetch({}));
+    expect(await res.text()).toBe(TEMPLATE);
+  });
+});

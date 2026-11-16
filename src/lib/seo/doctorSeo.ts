@@ -58,7 +58,7 @@ export function buildDoctorMeta({ origin, profile, settings }: DoctorSeoInput) {
     else {
       const specPart = profile?.specialization ? `, ${profile.specialization}` : "";
       const exp = profile?.experience_years ? ` (${profile.experience_years}+ years experience)` : "";
-      description = `Book an appointment with ${name}${specPart}${city}${exp}. View clinic timings, consultation fees, services, and verified patient reviews on Doctylia.`;
+      description = `Book an appointment with ${name}${specPart}${city}${exp}. Clinic timings, fees, services and patient reviews on Doctylia.`;
     }
   }
 

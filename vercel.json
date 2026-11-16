@@ -32,6 +32,11 @@
   ],
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/about", "destination": "/api/seo?kind=page&path=/about" },
+    { "source": "/terms", "destination": "/api/seo?kind=page&path=/terms" },
+    { "source": "/privacy", "destination": "/api/seo?kind=page&path=/privacy" },
+    { "source": "/refund-policy", "destination": "/api/seo?kind=page&path=/refund-policy" },
+    { "source": "/auth", "destination": "/api/seo?kind=page&path=/auth" },
     { "source": "/dr/:slug", "destination": "/api/seo?kind=doctor&slug=:slug" },
     { "source": "/dr/:slug/blog", "destination": "/api/seo?kind=blog&slug=:slug" },
     { "source": "/dr/:slug/blog/:post", "destination": "/api/seo?kind=post&slug=:slug&post=:post" },

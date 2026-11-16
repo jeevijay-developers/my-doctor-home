@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { proxySitemap } from "./proxySitemap";
+import { dropPaths, proxySitemap } from "./proxySitemap";
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?><urlset></urlset>`;
 const req = (qs = "") => new Request(`https://doctylia.com/api/sitemap${qs}`);
@@ -25,5 +25,31 @@ describe("proxySitemap", () => {
     expect((await proxySitemap(req(), "https://x", (async () => new Response("<html>")) as typeof fetch)).status).toBe(502);
     expect((await proxySitemap(req(), "https://x", (async () => { throw new Error("net"); }) as typeof fetch)).status).toBe(502);
     expect((await proxySitemap(req(), undefined)).status).toBe(503);
+  });
+});
+
+describe("dropPaths", () => {
+  const xml = `<?xml version="1.0"?><urlset>
+<url><loc>https://doctylia.com/</loc></url>
+<url><loc>https://doctylia.com/auth</loc><changefreq>monthly</changefreq></url>
+<url><loc>https://doctylia.com/dr/auth</loc></url>
+<url><loc>https://doctylia.com/about</loc></url>
+</urlset>`;
+
+  it("removes only the exact paths, keeping look-alikes", () => {
+    const out = dropPaths(xml, ["/auth"]);
+    expect(out).not.toContain("https://doctylia.com/auth<");
+    expect(out).toContain("https://doctylia.com/dr/auth");
+    expect(out).toContain("https://doctylia.com/about");
+    expect(out).toContain("<urlset>");
+  });
+
+  it("is a no-op for an empty list, and proxySitemap applies it to the login page", async () => {
+    expect(dropPaths(xml, [])).toBe(xml);
+    const f = (async () => new Response(xml)) as typeof fetch;
+    const res = await proxySitemap(req(), "https://x.supabase.co", f);
+    const body = await res.text();
+    expect(body).not.toContain("https://doctylia.com/auth<");
+    expect(body).toContain("https://doctylia.com/about");
   });
 });
