@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
+import { DIRECTORY_HIDDEN } from "@/lib/siteSwitches";
 
 const LandingNavbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -48,7 +49,7 @@ const LandingNavbar = () => {
     { label: "Features", to: "/features" },
     { label: "Pricing", to: "/pricing" },
     { label: "Blog", to: "/health-articles" },
-    { label: "Find a Doctor", to: "/doctors" },
+    ...(DIRECTORY_HIDDEN ? [] : [{ label: "Find a Doctor", to: "/doctors" }]),
     { label: "FAQ", to: "/", hash: "#faq" },
   ];
 

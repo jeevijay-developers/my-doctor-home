@@ -30,6 +30,10 @@
       ]
     }
   ],
+  "redirects": [
+    { "source": "/doctors", "destination": "/", "permanent": false },
+    { "source": "/doctors/:path*", "destination": "/", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/about", "destination": "/api/seo?kind=page&path=/about" },

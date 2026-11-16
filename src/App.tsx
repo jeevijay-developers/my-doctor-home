@@ -9,6 +9,7 @@ import LandingPage from "./pages/LandingPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MaintenanceGate from "./components/MaintenanceGate";
 import Analytics from "./components/shared/Analytics";
+import { DIRECTORY_HIDDEN } from "./lib/siteSwitches";
 
 const FeaturesPage = lazy(() => import("./pages/FeaturesPage"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
@@ -120,9 +121,15 @@ const App = () => (
                 <Route path="notifications" element={<SAPermissionGate permission={"notifications.view"}><SANotificationTesting /></SAPermissionGate>} />
                 <Route path="team" element={<SAPermissionGate permission={null}><SATeam /></SAPermissionGate>} />
               </Route>
-              <Route path="/doctors" element={<DoctorDirectory />} />
-              <Route path="/doctors/:city" element={<DoctorDirectory />} />
-              <Route path="/doctors/:city/:specialty" element={<DoctorDirectory />} />
+              {DIRECTORY_HIDDEN ? (
+                <Route path="/doctors/*" element={<Navigate to="/" replace />} />
+              ) : (
+                <>
+                  <Route path="/doctors" element={<DoctorDirectory />} />
+                  <Route path="/doctors/:city" element={<DoctorDirectory />} />
+                  <Route path="/doctors/:city/:specialty" element={<DoctorDirectory />} />
+                </>
+              )}
               <Route path="/health-articles" element={<HealthArticlesHub />} />
               <Route path="/health-articles/:category" element={<HealthArticlesHub />} />
               <Route path="/dr/:slug" element={<DoctorPublicPage />} />

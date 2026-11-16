@@ -7,6 +7,20 @@
 //
 // NOTE: relative imports only - Vercel's bundler does not resolve "@/".
 import { NOINDEX_STATIC_PATHS } from "./staticPages";
+import { DIRECTORY_HIDDEN } from "../siteSwitches";
+
+/** Removes the directory hubs (/doctors, /doctors/...) while the directory is switched off. */
+export function dropDirectoryHubs(xml: string): string {
+  return xml.replace(/<url>[\s\S]*?<\/url>\s*/g, (entry) => {
+    const loc = /<loc>([^<]*)<\/loc>/.exec(entry)?.[1] ?? "";
+    try {
+      const path = new URL(loc.replace(/&amp;/g, "&")).pathname;
+      return path === "/doctors" || path.startsWith("/doctors/") ? "" : entry;
+    } catch {
+      return entry;
+    }
+  });
+}
 
 /** Removes <url> entries whose <loc> is one of the given paths on any host. */
 export function dropPaths(xml: string, paths: readonly string[]): string {
@@ -41,7 +55,8 @@ export async function proxySitemap(
     if (!upstream.ok || !body.startsWith("<?xml")) {
       return new Response("sitemap unavailable", { status: 502, headers: { "Cache-Control": "no-store" } });
     }
-    return new Response(dropPaths(body, NOINDEX_STATIC_PATHS), {
+    const cleaned = dropPaths(body, NOINDEX_STATIC_PATHS);
+    return new Response(DIRECTORY_HIDDEN ? dropDirectoryHubs(cleaned) : cleaned, {
       status: 200,
       headers: {
         "Content-Type": "application/xml; charset=utf-8",

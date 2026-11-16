@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { dropPaths, proxySitemap } from "./proxySitemap";
+import { dropDirectoryHubs, dropPaths, proxySitemap } from "./proxySitemap";
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?><urlset></urlset>`;
 const req = (qs = "") => new Request(`https://doctylia.com/api/sitemap${qs}`);
@@ -25,6 +25,23 @@ describe("proxySitemap", () => {
     expect((await proxySitemap(req(), "https://x", (async () => new Response("<html>")) as typeof fetch)).status).toBe(502);
     expect((await proxySitemap(req(), "https://x", (async () => { throw new Error("net"); }) as typeof fetch)).status).toBe(502);
     expect((await proxySitemap(req(), undefined)).status).toBe(503);
+  });
+});
+
+describe("dropDirectoryHubs", () => {
+  const xml = `<?xml version="1.0"?><urlset>
+<url><loc>https://doctylia.com/doctors</loc></url>
+<url><loc>https://doctylia.com/doctors/kota/ent</loc></url>
+<url><loc>https://doctylia.com/dr/doctors</loc></url>
+<url><loc>https://doctylia.com/health-articles</loc></url>
+</urlset>`;
+
+  it("removes /doctors and its hubs but keeps look-alikes and other pages", () => {
+    const out = dropDirectoryHubs(xml);
+    expect(out).not.toContain("https://doctylia.com/doctors<");
+    expect(out).not.toContain("/doctors/kota/ent");
+    expect(out).toContain("https://doctylia.com/dr/doctors");
+    expect(out).toContain("https://doctylia.com/health-articles");
   });
 });
 

@@ -1,12 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { Facebook, Instagram, Linkedin, Youtube, Twitter, Receipt, Lock } from "lucide-react";
+import { Facebook, Instagram, Linkedin, Twitter, Receipt, Lock } from "lucide-react";
+import { DIRECTORY_HIDDEN } from "@/lib/siteSwitches";
 
 const SOCIAL_LINKS = [
-  { Icon: Facebook, label: "Doctylia on Facebook", href: "https://facebook.com/doctylia" },
-  { Icon: Instagram, label: "Doctylia on Instagram", href: "https://instagram.com/doctylia" },
-  { Icon: Linkedin, label: "Doctylia on LinkedIn", href: "https://linkedin.com/company/doctylia" },
-  { Icon: Youtube, label: "Doctylia on YouTube", href: "https://youtube.com/@doctylia" },
-  { Icon: Twitter, label: "Doctylia on X", href: "https://x.com/doctylia" },
+  { Icon: Facebook, label: "Doctylia on Facebook", href: "https://www.facebook.com/share/1K9HHgUwAP/" },
+  { Icon: Instagram, label: "Doctylia on Instagram", href: "https://www.instagram.com/doctylia_official/" },
+  { Icon: Linkedin, label: "Doctylia on LinkedIn", href: "https://www.linkedin.com/in/doctylia-smart-clinic-management-258576435" },
+  { Icon: Twitter, label: "Doctylia on X", href: "https://x.com/smartclinisf" },
 ];
 
 const LandingFooter = () => {
@@ -93,7 +93,7 @@ const LandingFooter = () => {
               <h4 className={col}>Company</h4>
               <ul className={list}>
                 <li><Link to="/about" onClick={handleAboutUsClick} className={lnk}>About Us</Link></li>
-                <li><Link to="/doctors" className={lnk}>Find a Doctor</Link></li>
+                {!DIRECTORY_HIDDEN && <li><Link to="/doctors" className={lnk}>Find a Doctor</Link></li>}
                 <li><Link to="/health-articles" className={lnk}>Blog</Link></li>
                 <li>{renderSectionLink("#contact", "Contact")}</li>
               </ul>
