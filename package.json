@@ -98,7 +98,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@e2e-dev/web": "^0.15.4",
+    "@e2e-dev/web": "0.15.4",
     "@eslint/js": "^9.32.0",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "@playwright/test": "^1.57.0",
