@@ -105,6 +105,8 @@ Deno.serve(async (req) => {
     const urls = [
       urlEntry("/", "weekly", "1.0"),
       urlEntry("/about", "monthly", "0.6"),
+      urlEntry("/features", "monthly", "0.7"),
+      urlEntry("/pricing", "monthly", "0.7"),
       urlEntry("/terms", "yearly", "0.3"),
       urlEntry("/privacy", "yearly", "0.3"),
       urlEntry("/refund-policy", "yearly", "0.3"),

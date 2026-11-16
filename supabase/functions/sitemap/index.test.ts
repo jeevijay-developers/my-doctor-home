@@ -21,7 +21,7 @@ describe("sitemap", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toContain("application/xml");
     expect(res.headers.get("Cache-Control")).toContain("max-age=3600");
-    expect(locs(xml)).toEqual(["/", "/about", "/auth", "/terms", "/privacy", "/refund-policy"]);
+    expect(locs(xml)).toEqual(["/", "/about", "/features", "/pricing", "/auth", "/terms", "/privacy", "/refund-policy"]);
     expect(xml).not.toContain("<lastmod>");
     expect(xml).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
   });

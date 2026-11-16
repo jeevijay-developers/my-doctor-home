@@ -1,64 +1,59 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-const faqs = [
-  { q: "Is there really a free trial with no credit card?", a: "Yes! You get 7 days of full access to all features. No credit card required. No strings attached." },
-  { q: "How quickly can I get my website live?", a: "Most doctors have their website live within 10 minutes. Our onboarding wizard walks you through every step." },
-  { q: "Can patients book and pay online?", a: "Absolutely. Patients can book appointments, select services, and pay via UPI, card, or net banking - all from your website." },
-  { q: "Do I need any technical knowledge?", a: "Not at all. If you can use WhatsApp, you can use Doctylia. Everything is designed for non-technical users." },
-  { q: "Can I use my own domain like www.drname.com?", a: "Yes! Custom domains are available for ₹4,999/year one-time setup. Your Doctylia branding is completely removed." },
-  { q: "Is my patient data secure?", a: "100%. We use enterprise-grade encryption, secure cloud hosting, and comply with Indian data protection standards." },
-  { q: "What happens after the free trial ends?", a: "You can choose a plan that fits your needs. Your data, website, and settings are all preserved. If you don't subscribe, your website goes offline but data stays safe for 30 days." },
-  { q: "Can I migrate my existing patient data?", a: "Yes! You can import patient records via CSV upload, or our support team can help you migrate from other platforms for free." },
-  { q: "Do you offer support in Hindi / regional languages?", a: "Our support team speaks Hindi, English, and several regional languages. The AI blog writer also supports Hindi content generation (more languages coming soon)." },
+export const LANDING_FAQS: { q: string; a: string }[] = [
+  {
+    q: "Can I link my own existing clinic domain (e.g., drarunsharma.com)?",
+    a: "Yes. On the Pro and Premium plans you can connect your own custom domain (for example www.drname.com), or stay on your free doctylia.com/dr/ address.",
+  },
+  {
+    q: "Is patient medical record data compliant and encrypted?",
+    a: "Your patient data is encrypted in transit and stored on secure cloud infrastructure with strict access controls. Your patient records remain your confidential property and are never shared or mined.",
+  },
+  {
+    q: "How fast can my clinic actually start accepting bookings?",
+    a: "Most doctors are live within 10 minutes. Enter your qualifications, OPD schedule and consultation fee, and the onboarding wizard sets up your clinic website and online booking page.",
+  },
+  {
+    q: "Can my receptionist handle billing without seeing confidential EMR notes?",
+    a: "Yes. Staff accounts use role-based access: you choose which sections (patients, appointments, billing and more) each team member can open, so a receptionist can work on the front desk without access to the sections you keep to yourself.",
+  },
+  {
+    q: "Can I import my past patient records and contacts from Excel?",
+    a: "Yes. You can import your existing patient records with a CSV upload, and our support team can help you migrate from other platforms.",
+  },
 ];
 
 const FAQ = () => (
-  <section id="faq" className="bg-secondary py-12 sm:py-16 md:py-20">
-    <div className="container mx-auto px-4 sm:px-5">
-      <div className="mx-auto grid max-w-[1280px] gap-6 sm:gap-8 md:grid-cols-[1.05fr_1.35fr] md:items-start md:gap-10 lg:gap-12">
-        <div className="min-w-0 pt-1 md:pt-3">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-teal sm:text-sm md:text-[13px]">
-            FAQ
-          </span>
-          <h2 className="mt-2 max-w-[420px] font-heading text-[2.8rem] font-extrabold leading-[0.9] tracking-[-0.05em] text-primary sm:text-[3.5rem] md:mt-3 md:text-[5rem] lg:text-[5.25rem]">
-            Frequently
-            <br />
-            Asked
-            <br />
-            Questions
-          </h2>
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base md:mt-6 md:text-lg md:text-[1.05rem]">
-            Can't find the answer you're looking for? <a href="#contact" className="font-medium text-royal hover:underline">Contact our team</a>.
-          </p>
-          <div className="mt-5 overflow-hidden rounded-[22px] border border-border shadow-md sm:mt-6 md:mt-8 md:shadow-[0_10px_24px_rgba(31,74,136,0.12)]">
-            <img
-              src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=280&fit=crop&q=80"
-              alt="Doctor consulting with patient"
-              className="h-[230px] w-full object-cover sm:h-52 md:h-[310px] lg:h-[340px]"
-              loading="lazy"
-            />
-          </div>
-        </div>
-
-        <div className="min-w-0 md:pt-2">
-          <Accordion type="single" collapsible className="space-y-2 sm:space-y-3 md:space-y-3">
-            {faqs.map((f, i) => (
-              <AccordionItem
-                key={i}
-                value={`faq-${i}`}
-                className="rounded-[18px] border border-[#cfe1f8] bg-[#edf5ff] px-3 transition-all data-[state=open]:border-[#9ec1ef] data-[state=open]:bg-white data-[state=open]:shadow-[0_10px_18px_rgba(38,94,167,0.12)] sm:px-5 md:rounded-[18px] md:border-[#cfe1f8] md:bg-[#edf5ff] md:px-5 md:shadow-none md:data-[state=open]:border-[#9ec1ef] md:data-[state=open]:bg-white md:data-[state=open]:shadow-[0_10px_18px_rgba(38,94,167,0.12)]"
-              >
-                <AccordionTrigger className="gap-2 py-3 text-left font-heading text-sm font-semibold text-primary transition-all hover:no-underline sm:py-4 sm:text-base md:py-5 md:text-[1.05rem] md:font-semibold md:leading-6 md:text-[#1a3d6e] [&>svg]:h-4 [&>svg]:w-4 md:[&>svg]:h-5 md:[&>svg]:w-5 [&>svg]:text-primary md:[&>svg]:text-[#1a6ac6] [&[data-state=open]>svg]:rotate-180">
-                  {f.q}
-                </AccordionTrigger>
-                <AccordionContent className="pb-3 text-sm leading-relaxed text-muted-foreground sm:pb-4 md:pb-4 md:pr-10 md:text-[0.96rem] md:leading-7 md:text-[#49607c]">
-                  {f.a}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
+  <section id="faq" className="bg-secondary/40 py-14 md:py-20" aria-labelledby="faq-heading">
+    <div className="container mx-auto px-4">
+      <div className="mx-auto mb-10 max-w-3xl text-center md:mb-14">
+        <span className="inline-block rounded-full bg-secondary px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-primary md:text-sm">
+          Frequently Answered Questions
+        </span>
+        <h2 id="faq-heading" className="mt-3 font-heading text-2xl font-bold text-navy sm:text-3xl md:text-4xl">
+          Everything you need to know about Doctylia
+        </h2>
+        <p className="mt-3 text-muted-foreground">
+          Simple answers to common questions asked by doctors and clinic directors.
+        </p>
       </div>
+
+      <Accordion type="single" collapsible className="mx-auto max-w-3xl space-y-3 md:space-y-4">
+        {LANDING_FAQS.map((f, i) => (
+          <AccordionItem
+            key={f.q}
+            value={`faq-${i}`}
+            className="rounded-xl border border-border bg-card px-4 shadow-sm data-[state=open]:border-royal/40 md:px-5"
+          >
+            <AccordionTrigger className="gap-3 py-4 text-left font-heading text-sm font-semibold text-navy hover:no-underline sm:text-base [&>svg]:text-primary">
+              {f.q}
+            </AccordionTrigger>
+            <AccordionContent className="border-t border-border pt-3 text-sm leading-relaxed text-muted-foreground">
+              {f.a}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
     </div>
   </section>
 );

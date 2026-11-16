@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Shield, Award, Clock, MapPin } from "lucide-react";
 
 const stats = [
-  { number: 2500, suffix: "+", label: "Doctors Trust Us", icon: Shield },
-  { number: 50000, suffix: "+", label: "Appointments Booked", icon: Clock },
-  { number: 200, suffix: "+", label: "Cities in India", icon: MapPin },
-  { number: 99.9, suffix: "%", label: "Uptime Guarantee", icon: Award },
+  { number: 2500, suffix: "+", title: "Active Physicians", caption: "Managing clinics autonomously every single day." },
+  { number: 50000, suffix: "+", title: "Monthly Consultations", caption: "Seamlessly booked and confirmed without phone calls." },
+  { number: 200, suffix: "+", title: "Indian Cities & Towns", caption: "From Tier-1 metro medical hubs to regional clinic centers." },
+  { number: 99.9, suffix: "%", title: "Cloud Reliability", caption: "End-to-end encrypted medical data with instant zero-loss backup." },
 ];
 
 const formatNumber = (n: number) => {
@@ -44,19 +43,16 @@ const CountUp = ({ target, suffix }: { target: number; suffix: string }) => {
 };
 
 const TrustBar = () => (
-  <section className="py-8 md:py-12 bg-primary relative overflow-hidden">
-    <div className="absolute inset-0 bg-gradient-to-r from-primary via-royal/30 to-primary opacity-50" />
-    <div className="container mx-auto px-4 relative">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+  <section className="w-full py-8 md:py-12 bg-primary border-y border-white/10">
+    <div className="container mx-auto px-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         {stats.map((s) => (
-          <div key={s.label} className="text-center">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <s.icon className="h-4 w-4 md:h-5 md:w-5 text-teal-bright hidden sm:block" />
-              <div className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl text-white">
-                <CountUp target={s.number} suffix={s.suffix} />
-              </div>
+          <div key={s.title} className="p-4 md:p-6 rounded-2xl bg-white/10 backdrop-blur-md shadow-sm border border-white/15">
+            <div className="font-heading font-extrabold text-2xl md:text-4xl text-white">
+              <CountUp target={s.number} suffix={s.suffix} />
             </div>
-            <div className="text-xs md:text-sm text-primary-foreground/70">{s.label}</div>
+            <div className="font-semibold text-sm md:text-lg text-white mt-1">{s.title}</div>
+            <div className="text-xs md:text-sm text-white/80 mt-1">{s.caption}</div>
           </div>
         ))}
       </div>

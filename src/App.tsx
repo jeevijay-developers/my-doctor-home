@@ -10,6 +10,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import MaintenanceGate from "./components/MaintenanceGate";
 import Analytics from "./components/shared/Analytics";
 
+const FeaturesPage = lazy(() => import("./pages/FeaturesPage"));
+const PricingPage = lazy(() => import("./pages/PricingPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -90,6 +92,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/about" element={<AboutPage />} />
+              <Route path="/features" element={<FeaturesPage />} />
+              <Route path="/pricing" element={<PricingPage />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/refund-policy" element={<RefundPolicy />} />

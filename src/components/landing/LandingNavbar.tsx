@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
 const LandingNavbar = () => {
@@ -45,130 +44,84 @@ const LandingNavbar = () => {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [mobileOpen]);
 
-  const navLinks = [
-    { label: "Contact", href: "#contact" },
+  const NAV_LINKS: { label: string; to: string; hash?: string }[] = [
+    { label: "Features", to: "/features" },
+    { label: "Pricing", to: "/pricing" },
+    { label: "Blog", to: "/health-articles" },
+    { label: "Find a Doctor", to: "/doctors" },
+    { label: "FAQ", to: "/", hash: "#faq" },
   ];
 
+  const linkClass =
+    "text-sm font-semibold text-muted-foreground transition-colors hover:text-primary";
+  const demoClass =
+    "inline-flex items-center justify-center rounded-full bg-royal px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary active:scale-[0.98]";
+
+  const renderLink = (link: (typeof NAV_LINKS)[number], className: string, onClick?: () => void) =>
+    link.hash && onLandingPage ? (
+      <a key={link.label} href={link.hash} className={className} onClick={onClick}>{link.label}</a>
+    ) : (
+      <Link key={link.label} to={link.hash ? `${link.to}${link.hash}` : link.to} className={className} onClick={onClick}>
+        {link.label}
+      </Link>
+    );
+
+  const renderDemo = (className: string, onClick?: () => void) =>
+    onLandingPage ? (
+      <a href="#contact" className={className} onClick={onClick}>Book Demo</a>
+    ) : (
+      <Link to="/#contact" className={className} onClick={onClick}>Book Demo</Link>
+    );
+
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "bg-white/60 shadow-lg backdrop-blur-2xl border-b border-border/30" : "bg-transparent"}`}>
-      <div className="container mx-auto flex items-center justify-between h-16 px-4">
-        <Link to="/" className="flex items-center">
-          <img src="/doctylia-logo.webp" alt="Doctylia" className="h-9" />
-        </Link>
-
-        <div className="hidden md:flex items-center gap-7">
-          <Link
-            to="/"
-            onClick={handleHomeClick}
-            className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
-          >
-            Home
-          </Link>
-          <Link
-            to="/about"
-            className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
-          >
-            About
-          </Link>
-          <Link
-            to="/doctors"
-            className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
-          >
-            Find a Doctor
-          </Link>
-          <Link
-            to="/health-articles"
-            className="text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full"
-          >
-            Health Articles
-          </Link>
-          {navLinks.map((link) => {
-            const linkClassName = "text-sm font-medium text-muted-foreground hover:text-royal transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-royal after:transition-all hover:after:w-full";
-            return onLandingPage ? (
-              <a key={link.label} href={link.href} className={linkClassName}>{link.label}</a>
-            ) : (
-              <Link key={link.label} to={`/${link.href}`} className={linkClassName}>{link.label}</Link>
-            );
-          })}
-        </div>
-
-        <div className="hidden md:flex items-center gap-3">
-          <Link to="/auth?mode=login">
-            <Button variant="ghost" size="sm" className="text-primary font-medium">Login</Button>
-          </Link>
-          <Link to="/auth?mode=signup">
-            <Button size="sm" className="bg-royal hover:bg-royal/90 text-white font-semibold shadow-sm">
-              Start Free Trial
-            </Button>
+    <header className="fixed left-0 right-0 top-0 z-50 border-b border-border/40 bg-white/90 shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4 md:h-20 md:px-8">
+        <div className="flex flex-shrink-0 items-center">
+          <Link to="/" onClick={handleHomeClick} aria-label="Doctylia home" className="flex items-center">
+            <img src="/doctylia-logo.webp" alt="Doctylia" className="h-8 w-auto md:h-9" />
           </Link>
         </div>
 
-        <button ref={mobileToggleRef} className="md:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
+        <nav aria-label="Main" className="hidden items-center gap-6 lg:flex xl:gap-8">
+          {NAV_LINKS.map((link) => renderLink(link, linkClass))}
+        </nav>
+
+        <div className="hidden flex-shrink-0 items-center gap-5 lg:flex">
+          <Link to="/auth?mode=login" className="text-sm font-semibold text-navy transition-colors hover:text-primary">
+            Doctor Login
+          </Link>
+          {renderDemo(demoClass)}
+        </div>
+
+        <button
+          ref={mobileToggleRef}
+          className="lg:hidden"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen(!mobileOpen)}
+        >
           {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
-      {/*
-        Always mounted (not conditionally rendered) so both the open AND
-        close transitions can actually play - a conditionally-rendered panel
-        would unmount instantly on close with no time to animate. Visibility
-        is driven purely by the translate-x transform; `fixed` positioning
-        keeps it out of normal document flow so sliding it off-screen to the
-        right never triggers horizontal page overflow.
-      */}
+      {/* Always mounted so open and close transitions both animate; `fixed` keeps the
+          off-screen panel from causing horizontal overflow. */}
       <div
         ref={mobileMenuRef}
-        className={`md:hidden fixed top-16 right-0 z-50 w-3/4 max-w-xs max-h-[calc(100vh-4rem)] bg-white border-l border-border shadow-lg px-4 pt-4 pb-10 space-y-3 overflow-y-auto transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 top-16 z-50 max-h-[calc(100vh-4rem)] w-3/4 max-w-xs space-y-3 overflow-y-auto border-l border-border bg-white px-4 pb-10 pt-4 shadow-lg transition-transform duration-300 ease-in-out lg:hidden ${
           mobileOpen ? "translate-x-0" : "translate-x-full"
         }`}
         aria-hidden={!mobileOpen}
       >
-        <Link
-          to="/"
-          onClick={(e) => { handleHomeClick(e); setMobileOpen(false); }}
-          className="block text-sm font-medium text-muted-foreground py-1"
-        >
-          Home
-        </Link>
-        <Link
-          to="/about"
-          onClick={() => setMobileOpen(false)}
-          className="block text-sm font-medium text-muted-foreground py-1"
-        >
-          About
-        </Link>
-        <Link
-          to="/doctors"
-          onClick={() => setMobileOpen(false)}
-          className="block text-sm font-medium text-muted-foreground py-1"
-        >
-          Find a Doctor
-        </Link>
-        <Link
-          to="/health-articles"
-          onClick={() => setMobileOpen(false)}
-          className="block text-sm font-medium text-muted-foreground py-1"
-        >
-          Health Articles
-        </Link>
-        {navLinks.map((link) => {
-          const mobileLinkClassName = "block text-sm font-medium text-muted-foreground py-1";
-          return onLandingPage ? (
-            <a key={link.label} href={link.href} className={mobileLinkClassName} onClick={() => setMobileOpen(false)}>{link.label}</a>
-          ) : (
-            <Link key={link.label} to={`/${link.href}`} className={mobileLinkClassName} onClick={() => setMobileOpen(false)}>{link.label}</Link>
-          );
-        })}
+        {NAV_LINKS.map((link) => renderLink(link, "block py-1 text-sm font-semibold text-muted-foreground", () => setMobileOpen(false)))}
         <div className="flex gap-2 pt-3">
           <Link to="/auth?mode=login" className="flex-1" onClick={() => setMobileOpen(false)}>
-            <Button variant="outline" className="w-full" size="sm">Login</Button>
+            <span className="inline-flex w-full items-center justify-center rounded-full border border-border py-2 text-sm font-semibold text-navy">Doctor Login</span>
           </Link>
-          <Link to="/auth?mode=signup" className="flex-1" onClick={() => setMobileOpen(false)}>
-            <Button className="w-full bg-royal text-white" size="sm">Start Free Trial</Button>
-          </Link>
+          {renderDemo("flex-1 inline-flex items-center justify-center rounded-full bg-royal py-2 text-sm font-semibold text-white", () => setMobileOpen(false))}
         </div>
       </div>
-    </nav>
+    </header>
   );
 };
 

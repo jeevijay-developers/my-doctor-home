@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Facebook, Instagram, Linkedin, Youtube, Twitter } from "lucide-react";
+import { Facebook, Instagram, Linkedin, Youtube, Twitter, Receipt, Lock } from "lucide-react";
 
 const SOCIAL_LINKS = [
   { Icon: Facebook, label: "Doctylia on Facebook", href: "https://facebook.com/doctylia" },
@@ -34,24 +34,35 @@ const LandingFooter = () => {
 
   const renderSectionLink = (hash: string, label: string) =>
     onLandingPage ? (
-      <a href={hash} className="hover:text-white transition-colors">{label}</a>
+      <a href={hash} className="transition-colors hover:text-primary">{label}</a>
     ) : (
-      <Link to={`/${hash}`} className="hover:text-white transition-colors">{label}</Link>
+      <Link to={`/${hash}`} className="transition-colors hover:text-primary">{label}</Link>
     );
 
+  const col = "mb-3 font-heading text-[15px] font-semibold text-navy";
+  const list = "space-y-2.5 text-[13px] text-muted-foreground";
+  const lnk = "transition-colors hover:text-primary";
+
   return (
-    <footer className="bg-primary pt-10 md:pt-14 pb-6 md:pb-8">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-3 md:grid-cols-4 gap-6 md:gap-8 pb-8 md:pb-10 border-b border-primary-foreground/10">
-          {/* Brand */}
-          <div className="col-span-3 md:col-span-1">
-            <Link to="/" onClick={handleHomeClick} className="inline-block mb-3">
-              <img src="/doctylia-logo.webp" alt="Doctylia" loading="lazy" decoding="async" className="h-8 brightness-0 invert" />
+    <footer className="w-full bg-secondary">
+      <div className="mx-auto max-w-[1440px] px-4 pb-6 pt-10 md:px-8 md:pt-14">
+        <div className="grid grid-cols-1 gap-10 pb-10 lg:grid-cols-12">
+          <div className="flex flex-col gap-4 lg:col-span-5">
+            <Link to="/" onClick={handleHomeClick} className="inline-block">
+              <img src="/doctylia-logo.webp" alt="Doctylia" loading="lazy" decoding="async" className="h-7 w-auto" />
             </Link>
-            <p className="text-sm text-primary-foreground/60 leading-relaxed">
-              The Complete Doctor Platform. India's #1 AI-powered SaaS for medical practices.
-            </p>
-            <div className="flex gap-3 mt-4">
+            <div className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+              Empowering doctors with next-generation automated billing, scheduling, and patient management.
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                <Receipt className="h-3.5 w-3.5 text-teal" /> GST Compliant
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                <Lock className="h-3.5 w-3.5 text-primary" /> 256-bit Encryption
+              </span>
+            </div>
+            <div className="flex gap-3">
               {SOCIAL_LINKS.map(({ Icon, label, href }) => (
                 <a
                   key={label}
@@ -59,50 +70,50 @@ const LandingFooter = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="w-8 h-8 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-royal transition-colors"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-card transition-colors hover:bg-royal hover:text-white"
                 >
-                  <Icon className="h-4 w-4 text-primary-foreground/70" />
+                  <Icon className="h-4 w-4" />
                 </a>
               ))}
             </div>
           </div>
-          {/* Product */}
-          <div>
-            <h4 className="font-heading font-semibold text-white mb-3 md:mb-4 text-sm">Product</h4>
-            <ul className="space-y-2 md:space-y-2.5 text-sm text-primary-foreground/60">
-              <li>{renderSectionLink("#features", "Features")}</li>
-              <li>{renderSectionLink("#pricing", "Pricing")}</li>
-              <li>{renderSectionLink("#how-it-works", "How It Works")}</li>
-              <li>{renderSectionLink("#faq", "FAQ")}</li>
-            </ul>
-          </div>
-          {/* Company */}
-          <div>
-            <h4 className="font-heading font-semibold text-white mb-3 md:mb-4 text-sm">Company</h4>
-            <ul className="space-y-2 md:space-y-2.5 text-sm text-primary-foreground/60">
-              <li><Link to="/about" onClick={handleAboutUsClick} className="hover:text-white transition-colors">About Us</Link></li>
-              <li><Link to="/doctors" className="hover:text-white transition-colors">Find a Doctor</Link></li>
-              <li><Link to="/health-articles" className="hover:text-white transition-colors">Health Articles</Link></li>
-              <li>{renderSectionLink("#contact", "Contact")}</li>
-            </ul>
-          </div>
-          {/* Legal */}
-          <div>
-            <h4 className="font-heading font-semibold text-white mb-3 md:mb-4 text-sm">Legal</h4>
-            <ul className="space-y-2 md:space-y-2.5 text-sm text-primary-foreground/60">
-              <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
-              <li><Link to="/refund-policy" className="hover:text-white transition-colors">Refund Policy</Link></li>
-            </ul>
+
+          <div className="grid grid-cols-3 gap-6 lg:col-span-7 lg:gap-8">
+            <div>
+              <h4 className={col}>Product</h4>
+              <ul className={list}>
+                <li><Link to="/features" className={lnk}>Features</Link></li>
+                <li>{renderSectionLink("#specialties", "Specialties")}</li>
+                <li><Link to="/pricing" className={lnk}>Pricing</Link></li>
+                <li>{renderSectionLink("#how-it-works", "How It Works")}</li>
+                <li>{renderSectionLink("#faq", "FAQ")}</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className={col}>Company</h4>
+              <ul className={list}>
+                <li><Link to="/about" onClick={handleAboutUsClick} className={lnk}>About Us</Link></li>
+                <li><Link to="/doctors" className={lnk}>Find a Doctor</Link></li>
+                <li><Link to="/health-articles" className={lnk}>Blog</Link></li>
+                <li>{renderSectionLink("#contact", "Contact")}</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className={col}>Legal</h4>
+              <ul className={list}>
+                <li><Link to="/privacy" className={lnk}>Privacy Policy</Link></li>
+                <li><Link to="/terms" className={lnk}>Terms of Service</Link></li>
+                <li><Link to="/refund-policy" className={lnk}>Refund Policy</Link></li>
+              </ul>
+            </div>
           </div>
         </div>
-        <div className="flex flex-col md:flex-row items-center justify-between mt-5 md:mt-6 gap-2 md:gap-3">
-          <div className="text-xs md:text-sm text-primary-foreground/40 text-center md:text-left">
-            © {new Date().getFullYear()} Doctylia by <a href="https://jeevijay.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors underline underline-offset-2">Jeevijay Technologies Pvt. Ltd.</a> All Rights Reserved.
+
+        <div className="flex flex-col items-center justify-between gap-2 border-t border-border pt-5 text-xs text-muted-foreground md:flex-row">
+          <div className="text-center md:text-left">
+            © {new Date().getFullYear()} Doctylia by <a href="https://jeevijay.com" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-primary">Jeevijay Technologies Pvt. Ltd.</a> All Rights Reserved.
           </div>
-          <div className="flex items-center gap-1.5 text-xs md:text-sm text-primary-foreground/40">
-            A product by <a href="https://jeevijay.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Jeevijay Technologies</a> · Made in India 🇮🇳
-          </div>
+          <div>Made in India 🇮🇳</div>
         </div>
       </div>
     </footer>

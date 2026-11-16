@@ -23,6 +23,20 @@ export const STATIC_PAGES: Record<string, StaticPage> = {
     h1: "About Doctylia",
     index: true,
   },
+  "/features": {
+    title: "Features | Doctylia",
+    description:
+      "Doctylia features: branded clinic website, WhatsApp reminders, GST invoices with UPI QR, digital Rx and EMR, AI blog writer, teleconsultation and analytics.",
+    h1: "Doctylia Features",
+    index: true,
+  },
+  "/pricing": {
+    title: "Pricing | Doctylia",
+    description:
+      "Simple monthly plans for doctors on Doctylia. Start a 7-day free trial, then pick Pro or Premium, or request a custom plan.",
+    h1: "Doctylia Pricing",
+    index: true,
+  },
   "/terms": {
     title: "Terms of Service | Doctylia",
     description:

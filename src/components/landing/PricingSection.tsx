@@ -1,122 +1,109 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Star } from "lucide-react";
 import { usePlanPrices } from "@/hooks/usePlanPrices";
+import { DEFAULT_APPOINTMENT_CAP, getTierFeatures } from "@/lib/planFeatures";
 
 const PricingSection = () => {
   const { proPrice, premiumPrice } = usePlanPrices();
 
   const plans = [
     {
-      name: "Pro",
-      price: `₹${proPrice.toLocaleString("en-IN")}`,
-      period: "/month",
-      desc: "Perfect for solo doctors going digital",
-      features: [
-        "Your branded website",
-        "Online appointment booking",
-        "Up to 100 appointments/month",
-        "Basic analytics",
-        "AI blog writer",
-        "Billing & invoices",
-      ],
+      key: "pro" as const,
+      name: "Pro Practice",
+      badge: "Solo Practitioner",
+      desc: "Designed for solo doctors modernizing their private clinic or OPD chamber.",
+      price: proPrice,
+      cta: "Start Free 7-Day Trial",
       popular: false,
     },
     {
-      name: "Premium",
-      price: `₹${premiumPrice.toLocaleString("en-IN")}`,
-      period: "/month",
-      desc: "For growing practices that need everything",
-      features: [
-        "Everything in Pro",
-        "Unlimited appointments",
-        "Online consultation",
-        "Patient records",
-        "Regular checkup alert",
-        "Staff roles & access",
-      ],
+      key: "premium" as const,
+      name: "Premium Clinic",
+      badge: "Full Autopilot",
+      desc: "Complete clinical control with staff roles, online consultation, and no appointment limits.",
+      price: premiumPrice,
+      cta: "Upgrade to Premium Clinic",
       popular: true,
     },
   ];
 
   return (
-    <section id="pricing" className="py-16 md:py-20 bg-white">
+    <section id="pricing" className="bg-background py-14 md:py-20" aria-labelledby="pricing-heading">
       <div className="container mx-auto px-4">
-        <div className="text-center max-w-2xl mx-auto mb-10 md:mb-12">
-          <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">
-            Pricing
+        <div className="mx-auto mb-12 max-w-3xl text-center md:mb-14">
+          <span className="inline-block rounded-full bg-secondary px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-primary md:text-sm">
+            Simple, Doctor-Friendly Pricing
           </span>
-          <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
-            Simple, Transparent Pricing
+          <h2 id="pricing-heading" className="mt-3 font-heading text-2xl font-bold text-navy sm:text-3xl md:text-4xl">
+            Transparent plans that scale with your clinical practice
           </h2>
-          <p className="text-sm md:text-base text-muted-foreground mt-3">
-            All plans include a 7-day free trial. No credit card required.
+          <p className="mt-3 text-muted-foreground">
+            All plans include our 7-day fully functional trial. No credit card required to start.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-5 md:gap-6 max-w-3xl mx-auto items-stretch">
+        <div className="mx-auto grid max-w-4xl grid-cols-2 items-stretch gap-3 sm:gap-6 md:gap-8">
           {plans.map((p, i) => (
             <motion.div
-              key={p.name}
+              key={p.key}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.12 }}
-              whileHover={{ y: -6 }}
               className="h-full"
             >
               <div
-                className={`relative rounded-2xl border-2 p-4 sm:p-6 md:p-8 h-full flex flex-col transition-shadow ${
-                  p.popular
-                    ? "border-royal shadow-xl shadow-royal/10 bg-white"
-                    : "border-border bg-white hover:shadow-lg"
+                className={`relative flex h-full flex-col justify-between rounded-2xl bg-card p-4 transition-shadow sm:p-6 md:p-8 ${
+                  p.popular ? "shadow-xl ring-2 ring-primary" : "border border-border shadow-sm hover:shadow-md"
                 }`}
               >
                 {p.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-royal to-teal text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1 whitespace-nowrap">
-                    <Sparkles className="h-3 w-3" /> Most Popular
+                  <span className="absolute -top-3.5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow-md sm:px-4 sm:text-xs">
+                    <Star className="h-3 w-3 fill-current" aria-hidden="true" /> Most Popular
                   </span>
                 )}
-
-                <h3 className="font-heading font-bold text-base sm:text-lg md:text-xl text-primary">
-                  {p.name}
-                </h3>
-                <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground mt-1">
-                  {p.desc}
-                </p>
-
-                <div className="mt-3 sm:mt-4 md:mt-5">
-                  <span className="font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl text-primary">
-                    {p.price}
-                  </span>
-                  <span className="text-muted-foreground text-xs sm:text-sm">
-                    {p.period}
-                  </span>
-                </div>
-
-                <ul className="mt-4 sm:mt-5 md:mt-6 space-y-2 sm:space-y-2.5 md:space-y-3 flex-1">
-                  {p.features.map((f) => (
-                    <li
-                      key={f}
-                      className="flex items-start gap-1.5 sm:gap-2 text-[11px] sm:text-xs md:text-sm text-foreground"
+                <div>
+                  <div className="mb-3 flex flex-col items-start gap-2 md:mb-4 md:flex-row md:items-center md:justify-between">
+                    <h3 className="font-heading text-base font-bold text-navy sm:text-lg md:text-xl">{p.name}</h3>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-semibold sm:text-xs ${
+                        p.popular ? "bg-royal/10 text-primary" : "bg-secondary text-muted-foreground"
+                      }`}
                     >
-                      <Check className="h-3.5 w-3.5 md:h-4 md:w-4 text-success mt-0.5 shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
+                      {p.badge}
+                    </span>
+                  </div>
+                  <div className="mb-4 text-xs text-muted-foreground sm:text-sm md:mb-6">{p.desc}</div>
+                  <div className="mb-5 flex flex-wrap items-baseline gap-1 md:mb-8">
+                    <span className="font-heading text-2xl font-extrabold text-navy sm:text-3xl md:text-4xl">
+                      ₹{p.price.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-xs text-muted-foreground sm:text-sm">/ month</span>
+                  </div>
+                  <ul className="space-y-2 sm:space-y-3">
+                    {getTierFeatures(p.key, DEFAULT_APPOINTMENT_CAP).map((f, fi) => (
+                      <li
+                        key={f}
+                        className={`flex items-start gap-2 text-[11px] sm:text-sm md:items-center md:gap-3 ${
+                          p.popular && fi === 1 ? "font-semibold text-navy" : "text-foreground"
+                        }`}
+                      >
+                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success md:mt-0 md:h-[18px] md:w-[18px]" aria-hidden="true" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
                 <Link
                   to="/auth?mode=signup"
-                  className="block mt-4 sm:mt-6 md:mt-7"
+                  className={`mt-6 inline-flex w-full items-center justify-center rounded-lg px-2 py-3 text-center text-xs font-semibold shadow-sm transition-colors sm:text-sm md:mt-8 md:py-3.5 ${
+                    p.popular
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "bg-secondary text-navy hover:bg-secondary/70"
+                  }`}
                 >
-                  <Button
-                    className={`w-full ${p.popular ? "bg-royal hover:bg-royal/90 text-white shadow-md shadow-royal/20" : ""}`}
-                    variant={p.popular ? "default" : "outline"}
-                  >
-                    Upgrade
-                  </Button>
+                  {p.cta}
                 </Link>
               </div>
             </motion.div>

@@ -1,210 +1,206 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, CheckCircle, Sparkles } from "lucide-react";
-import { useState, useEffect } from "react";
-import heroAvif from "@/assets/hero-doctor.avif";
-import heroDoctor from "@/assets/hero-doctor.webp";
+import {
+  ArrowRight,
+  CheckCircle,
+  Sparkles,
+  PlayCircle,
+  UserPlus,
+  Receipt,
+  MessageCircle,
+  Printer,
+  TrendingUp,
+  Star,
+} from "lucide-react";
 
-const rotatingWords = ["Website Builder", "Appointment System", "Billing Tool", "AI Blog Writer", "Patient Manager"];
+const queue = [
+  { token: "#A-14", patient: "Vikas Sengupta (42M)", visit: "Hypertension follow-up", status: "In consultation", tone: "bg-success/10 text-success" },
+  { token: "#A-15", patient: "Mrs. Rekha V. (35F)", visit: "HbA1c report review", status: "Next in room", tone: "bg-royal/10 text-royal" },
+  { token: "#T-04", patient: "Karan Mehra (29M)", visit: "Prescription renewal", status: "Waiting room", tone: "bg-warning/10 text-warning" },
+];
 
-const LandingHero = () => {
-  const [wordIndex, setWordIndex] = useState(0);
+const heroChecks = ["No credit card required", "Set up in under 10 minutes", "Cancel or pause anytime"];
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setWordIndex((prev) => (prev + 1) % rotatingWords.length);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
+/** Illustrative product preview. Names and figures are sample data, not real patients. */
+const OpdPreview = () => (
+  <div className="relative w-full min-w-0">
+    <div className="rounded-2xl border border-border bg-card shadow-xl shadow-royal/10 overflow-hidden">
+      {/* Browser chrome */}
+      <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-2">
+        <span className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+        <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
+        <span className="h-2.5 w-2.5 rounded-full bg-success/60" />
+        <span className="ml-2 truncate rounded-md bg-card px-2 py-0.5 text-[10px] text-muted-foreground">
+          doctylia.com/admin/queue
+        </span>
+        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+          <span className="h-1.5 w-1.5 rounded-full bg-success" /> Live OPD
+        </span>
+      </div>
 
-  return (
-    <section className="pt-20 pb-10 md:pt-28 md:pb-20 bg-gradient-to-br from-white via-secondary to-cloud-blue overflow-hidden relative">
-      {/* Animated decorative blobs */}
-      <motion.div
-        animate={{ scale: [1, 1.2, 1], opacity: [0.05, 0.08, 0.05] }}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-20 right-10 w-48 md:w-72 h-48 md:h-72 bg-royal rounded-full blur-3xl"
-      />
-      <motion.div
-        animate={{ scale: [1, 1.3, 1], opacity: [0.05, 0.1, 0.05] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-        className="absolute bottom-10 left-10 w-36 md:w-56 h-36 md:h-56 bg-teal rounded-full blur-3xl"
-      />
-      {/* Floating particles - hidden on mobile */}
-      <motion.div animate={{ y: [0, -20, 0], x: [0, 10, 0] }} transition={{ duration: 7, repeat: Infinity }} className="absolute top-1/3 left-[15%] w-3 h-3 rounded-full bg-royal/20 hidden md:block" />
-      <motion.div animate={{ y: [0, 15, 0], x: [0, -8, 0] }} transition={{ duration: 5, repeat: Infinity, delay: 1 }} className="absolute top-1/4 right-[25%] w-2 h-2 rounded-full bg-teal/30 hidden md:block" />
+      <div className="space-y-3 p-3 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="truncate font-heading text-sm font-bold text-navy">Dr. Arun Sharma, MD</div>
+            <div className="truncate text-[11px] text-muted-foreground">Cardio-Diabetic Care Clinic</div>
+          </div>
+          <div className="flex gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-lg bg-royal px-2.5 py-1.5 text-[11px] font-semibold text-white">
+              <UserPlus className="h-3 w-3" /> New patient
+            </span>
+            <span className="hidden items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold text-navy sm:inline-flex">
+              <Receipt className="h-3 w-3" /> GST bill
+            </span>
+          </div>
+        </div>
 
-      <div className="container mx-auto px-4 relative">
-        <div className="grid grid-cols-1 gap-5 items-center sm:grid-cols-2 md:gap-6 lg:gap-10">
-          {/* Left */}
-          <motion.div
-            initial={{ opacity: 0, x: -40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
-            className="order-1 space-y-3 min-w-0 sm:space-y-4 md:order-1 md:space-y-6"
-          >
-            <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-              <motion.span
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-ai-purple/10 text-ai-purple text-xs font-semibold whitespace-nowrap"
-              >
-                <Sparkles className="h-3 w-3" /> AI-Powered
-              </motion.span>
-              <motion.span
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success/10 text-success text-xs font-semibold"
-              >
-                🔥 2,500+ doctors joined
-              </motion.span>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-border bg-secondary/50 p-2.5">
+            <div className="text-[10px] text-muted-foreground">Today's appointments</div>
+            <div className="font-heading text-xl font-bold text-navy">38</div>
+            <div className="text-[10px] text-muted-foreground">8 teleconsults</div>
+          </div>
+          <div className="rounded-xl border border-border bg-secondary/50 p-2.5">
+            <div className="text-[10px] text-muted-foreground">Live OPD waiting</div>
+            <div className="font-heading text-xl font-bold text-navy">14</div>
+            <div className="text-[10px] text-muted-foreground">Avg wait 9 min</div>
+          </div>
+          <div className="rounded-xl border border-border bg-secondary/50 p-2.5">
+            <div className="text-[10px] text-muted-foreground">Net revenue (MTD)</div>
+            <div className="flex items-center gap-1 font-heading text-xl font-bold text-navy">
+              ₹1,75,250
             </div>
-
-            <h1 className="font-heading font-extrabold text-[2.1rem] leading-[1.02] text-primary sm:text-5xl md:text-5xl lg:text-[56px]">
-              <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                Grow Your Practice
-              </motion.span>
-              <br />
-              <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-gradient">
-                with India's #1
-              </motion.span>
-              <br />
-              <span className="relative inline-block h-[1.4em] overflow-hidden align-bottom leading-[1.2]">
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={wordIndex}
-                    initial={{ y: 40, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -40, opacity: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="text-gradient inline-block"
-                  >
-                    {rotatingWords[wordIndex]}
-                  </motion.span>
-                </AnimatePresence>
-              </span>
-            </h1>
-
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="text-sm md:text-lg text-muted-foreground max-w-lg leading-relaxed">
-              Join <strong className="text-foreground">2,500+ doctors</strong> who automated their practice. Branded website, booking, billing & patient management - all in one. <strong className="text-foreground">7-day free trial</strong>.
-            </motion.p>
-
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }} className="flex flex-row gap-2 sm:gap-3">
-              <Link to="/auth?mode=signup" className="flex-1 min-w-0">
-                <Button className="bg-royal hover:bg-royal/90 text-white gap-2 h-11 px-3 text-xs sm:text-sm shadow-lg shadow-royal/20 w-full">
-                  Start 7-Day Free Trial <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <a href="#how-it-works" className="flex-1 min-w-0">
-                <Button variant="outline" className="h-11 px-3 text-xs sm:text-sm border-2 w-full">
-                  See How It Works
-                </Button>
-              </a>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }} className="flex flex-col sm:flex-row sm:flex-wrap gap-y-1 sm:gap-x-4 sm:gap-y-1.5 text-xs text-muted-foreground pt-1">
-              {["No credit card required", "Set up in 10 minutes", "Cancel anytime"].map((t) => (
-                <span key={t} className="flex items-center gap-1 sm:gap-1.5">
-                  <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" /> {t}
-                </span>
-              ))}
-            </motion.div>
-          </motion.div>
-
-          {/* Right - Doctor Image + Floating cards */}
-          <motion.div
-            initial={{ opacity: 0, x: 40, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
-            className="order-2 relative mt-4 flex justify-center md:order-2 md:mt-4 lg:mt-0"
-          >
-            <div className="relative flex w-full max-w-[360px] items-end justify-center md:max-w-none">
-              <div className="w-full rounded-[28px] border border-[#dfeaf5] bg-[#dfeaf3] p-2 shadow-[0_10px_20px_rgba(74,97,120,0.08)] md:border-0 md:bg-transparent md:p-0 md:shadow-none">
-                <picture>
-                  <source srcSet={heroAvif} type="image/avif" />
-                  <source srcSet={heroDoctor} type="image/webp" />
-                  <img
-                    src={heroDoctor}
-                    alt="Doctor using Doctylia on a tablet in clinic"
-                    className="mx-auto h-[300px] w-full rounded-[24px] object-cover object-center md:h-auto md:w-[280px] md:drop-shadow-2xl lg:w-[420px]"
-                  />
-                </picture>
-              </div>
-
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute right-2 top-3 block rounded-[18px] bg-white/90 px-3 py-2 shadow-[0_10px_18px_rgba(27,37,54,0.12)] ring-1 ring-[#e8edf5] md:hidden"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#dff7eb]">
-                    <CheckCircle className="h-4 w-4 text-[#1fa36c]" />
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-[#5d6f83]">Next Slot</div>
-                    <div className="text-[13px] font-semibold text-[#1c2e3d]">5:30 PM</div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, delay: 1, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute bottom-7 left-3 block rounded-[18px] bg-white/90 px-3 py-2 shadow-[0_10px_18px_rgba(27,37,54,0.12)] ring-1 ring-[#e8edf5] md:hidden"
-              >
-                <div className="text-[10px] text-[#5d6f83]">Revenue</div>
-                <div className="text-[13px] font-semibold text-[#1fa36c]">₹1.24L ↑</div>
-              </motion.div>
-
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, delay: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute right-1 top-[42%] block rounded-[18px] bg-white/90 px-3 py-2 shadow-[0_10px_18px_rgba(27,37,54,0.12)] ring-1 ring-[#e8edf5] md:hidden"
-              >
-                <div className="text-[10px] text-[#5d6f83]">Rating</div>
-                <div className="text-[13px] font-semibold text-[#f2a90f]">★ 4.9</div>
-              </motion.div>
-
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="hidden md:block absolute -top-1 right-0 bg-white rounded-md sm:rounded-xl shadow-lg px-1 py-0.5 sm:px-3 sm:py-2 border border-border"
-              >
-                <div className="flex items-center gap-0.5 sm:gap-2">
-                  <div className="hidden sm:flex w-7 h-7 rounded-full bg-success/10 items-center justify-center">
-                    <CheckCircle className="h-3.5 w-3.5 text-success" />
-                  </div>
-                  <div>
-                    <div className="text-[5px] sm:text-[10px] text-muted-foreground leading-tight">Next Slot</div>
-                    <div className="text-[6px] sm:text-xs font-bold text-primary leading-tight whitespace-nowrap">5:30 PM</div>
-                  </div>
-                </div>
-              </motion.div>
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, delay: 1, repeat: Infinity, ease: "easeInOut" }}
-                className="hidden md:block absolute bottom-6 -left-2 sm:bottom-12 sm:-left-4 bg-white rounded-md sm:rounded-xl shadow-lg px-1 py-0.5 sm:px-3 sm:py-2 border border-border"
-              >
-                <div className="text-[5px] sm:text-[10px] text-muted-foreground leading-tight">Revenue</div>
-                <div className="text-[6px] sm:text-base font-bold text-success leading-tight whitespace-nowrap">₹1.24L ↑</div>
-              </motion.div>
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, delay: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="hidden md:block absolute top-1/3 -right-1 sm:-right-2 bg-white rounded-md sm:rounded-xl shadow-lg px-1 py-0.5 sm:px-3 sm:py-2 border border-border"
-              >
-                <div className="text-[5px] sm:text-[10px] text-muted-foreground leading-tight">Rating</div>
-                <div className="text-[6px] sm:text-xs font-bold text-warning leading-tight whitespace-nowrap">★ 4.9</div>
-              </motion.div>
+            <div className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-success">
+              <TrendingUp className="h-3 w-3" /> +24.3%
             </div>
-          </motion.div>
+          </div>
+          <div className="rounded-xl border border-border bg-secondary/50 p-2.5">
+            <div className="text-[10px] text-muted-foreground">Patient satisfaction</div>
+            <div className="font-heading text-xl font-bold text-navy">99.2%</div>
+            <div className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+              <Star className="h-3 w-3 fill-warning text-warning" /> 4.9 rating
+            </div>
+          </div>
+        </div>
+
+        {/* Queue: list rows (the dense table would not fit this card at narrow widths) */}
+        <div className="rounded-xl border border-border">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <div className="text-xs font-semibold text-navy">Active consultation queue</div>
+            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              <MessageCircle className="h-3 w-3 text-success" /> Synced with WhatsApp
+            </span>
+          </div>
+          <ul className="divide-y divide-border">
+            {queue.map((q) => (
+              <li key={q.token} className="flex items-center gap-2 px-3 py-2">
+                <span className="w-11 shrink-0 font-heading text-xs font-bold text-royal">{q.token}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs font-medium text-navy">{q.patient}</div>
+                  <div className="truncate text-[10px] text-muted-foreground">{q.visit}</div>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${q.tone}`}>{q.status}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
-    </section>
-  );
-};
+    </div>
+
+    {/* Floating invoice card */}
+    <motion.div
+      animate={{ y: [0, -8, 0] }}
+      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      className="mt-3 w-full rounded-xl border border-border bg-card p-3 shadow-lg sm:absolute sm:-bottom-28 sm:-left-6 sm:mt-0 sm:w-52"
+    >
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">GST invoice · fast pay</div>
+      <div className="mt-1.5 space-y-0.5 text-[11px] text-navy">
+        <div className="flex justify-between"><span>Consultation</span><span>₹800</span></div>
+        <div className="flex justify-between"><span>ECG</span><span>₹400</span></div>
+        <div className="flex justify-between border-t border-border pt-1 font-bold"><span>Total</span><span>₹1,200</span></div>
+      </div>
+      <div className="mt-2 flex gap-1.5 text-[10px] font-semibold">
+        <span className="inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-success/10 py-1 text-success">
+          <MessageCircle className="h-3 w-3" /> WhatsApp
+        </span>
+        <span className="inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-secondary py-1 text-navy">
+          <Printer className="h-3 w-3" /> Print
+        </span>
+      </div>
+    </motion.div>
+  </div>
+);
+
+const LandingHero = () => (
+  <section className="relative overflow-hidden bg-gradient-to-br from-white via-secondary to-cloud-blue pt-20 pb-12 md:pt-28 md:pb-24">
+    <motion.div
+      animate={{ scale: [1, 1.2, 1], opacity: [0.05, 0.08, 0.05] }}
+      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute right-10 top-20 h-48 w-48 rounded-full bg-royal blur-3xl md:h-72 md:w-72"
+    />
+    <motion.div
+      animate={{ scale: [1, 1.3, 1], opacity: [0.05, 0.1, 0.05] }}
+      transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      className="absolute bottom-10 left-10 h-36 w-36 rounded-full bg-teal blur-3xl md:h-56 md:w-56"
+    />
+
+    <div className="container relative mx-auto px-4">
+      <div className="grid grid-cols-1 items-center gap-10 sm:grid-cols-2 sm:gap-8 lg:gap-14">
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="min-w-0 space-y-4 md:space-y-6"
+        >
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-ai-purple/10 px-3 py-1 text-xs font-semibold text-ai-purple">
+            <Sparkles className="h-3 w-3" /> Built for doctors &amp; modern clinics
+          </span>
+
+          <h1 className="font-heading text-[2.1rem] font-extrabold leading-[1.05] tracking-tight text-primary sm:text-4xl md:text-5xl lg:text-[56px]">
+            Grow your practice with{" "}
+            <span className="text-gradient">modern, automated clinical care</span>
+          </h1>
+
+          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground md:text-lg">
+            Replace paperwork, missed appointments and manual billing. Doctylia gives you a branded website,
+            online booking, 1-click GST invoices, WhatsApp patient workflows and digital prescriptions in one place.
+          </p>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+            <Link to="/auth?mode=signup" className="sm:flex-1">
+              <Button className="h-11 w-full gap-2 bg-royal px-4 text-sm text-white shadow-lg shadow-royal/20 hover:bg-royal/90">
+                Start 7-day free trial <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <a href="#demo" className="sm:flex-1">
+              <Button variant="outline" className="h-11 w-full gap-2 border-2 px-4 text-sm">
+                <PlayCircle className="h-4 w-4" /> See how it works
+              </Button>
+            </a>
+          </div>
+
+          <ul className="flex flex-col gap-y-1 pt-1 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-4">
+            {heroChecks.map((t) => (
+              <li key={t} className="flex items-center gap-1.5">
+                <CheckCircle className="h-3.5 w-3.5 shrink-0 text-success" /> {t}
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, x: 30, scale: 0.97 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
+          className="min-w-0 sm:pb-28"
+          aria-label="Example of the Doctylia live OPD dashboard (sample data)"
+        >
+          <OpdPreview />
+        </motion.div>
+      </div>
+    </div>
+  </section>
+);
 
 export default LandingHero;

@@ -3,105 +3,33 @@ import { useLocation } from "react-router-dom";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import LandingHero from "@/components/landing/LandingHero";
 import TrustBar from "@/components/landing/TrustBar";
-import MediaLogos from "@/components/landing/MediaLogos";
 import FeaturesGrid from "@/components/landing/FeaturesGrid";
 import BeforeAfter from "@/components/landing/BeforeAfter";
-import HowItWorks from "@/components/landing/HowItWorks";
-import DashboardPreview from "@/components/landing/DashboardPreview";
 import Specialties from "@/components/landing/Specialties";
-import LatestArticles from "@/components/landing/LatestArticles";
+import DemoBanner from "@/components/landing/DemoBanner";
+import CaseStudies from "@/components/landing/CaseStudies";
 import PricingSection from "@/components/landing/PricingSection";
 import Testimonials from "@/components/landing/Testimonials";
-import FAQ from "@/components/landing/FAQ";
+import FAQ, { LANDING_FAQS } from "@/components/landing/FAQ";
 import ContactSection from "@/components/landing/ContactSection";
-import AboutSummary from "@/components/landing/AboutSummary";
-import CaseStudies from "@/components/landing/CaseStudies";
-import { jsonLdScript } from "@/lib/jsonLd";
 import CTABanner from "@/components/landing/CTABanner";
 import LandingFooter from "@/components/landing/LandingFooter";
 import AnimatedSection from "@/components/landing/AnimatedSection";
+import { jsonLdScript } from "@/lib/jsonLd";
 
 const LANDING_TITLE = "Doctylia - India's #1 Practice Management & Website Platform for Doctors";
 const LANDING_DESCRIPTION =
   "Doctylia gives doctors in India their own branded website, 24/7 online appointment booking, patient medical records, GST billing, AI blog writer, and WhatsApp reminders. Start your 7-day free trial.";
 
+// Structured data must match the FAQ answers visible on the page.
 const LANDING_FAQ_SCHEMA = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "How quickly can I set up my clinic website?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Most doctors are live within 10 minutes! Simply enter your details, choose your specialty, upload your photo, and your professional website is ready. No coding or design skills needed.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Will my website show up on Google when patients search for me?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes! Every Doctylia website is built with SEO best practices - proper meta tags, fast loading, mobile optimization, and Google Business integration. Patients searching for your name or specialty in your city will find you easily.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "How does the online appointment booking work?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Patients visit your website, select a service, pick an available date and time slot based on your schedule, and confirm the booking. Both you and the patient receive instant WhatsApp and email confirmations.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Is my patient data safe and private?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Absolutely. We use 256-bit SSL encryption, HIPAA-ready cloud infrastructure, and strict access controls. Your patient data is stored on secure servers in India and is never shared with third parties.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Can I use my own domain name like www.drsharma.com?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes! On the Pro and Premium plans, you can connect your own custom domain (e.g., www.drsharma.com) or use our free subdomain (doctylia.com/dr/dr-sharma).",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "How does the AI Blog Writer work?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Just enter a health topic (e.g., '5 Tips for Managing Diabetes in Summer'), and our AI generates a well-researched, patient-friendly blog post in seconds. You can edit and publish it directly to your website to attract more patients from Google.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Can I manage multiple clinic locations?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes! The Premium plan supports up to 3 clinic locations, each with its own address, working hours, and booking calendar - all managed from one dashboard.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What if I want to cancel my subscription?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "You can cancel anytime from your dashboard with one click - no lock-in contracts, no cancellation fees. Every paid plan starts with a 7-day free trial, and we also offer a 30-day money-back guarantee.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Do I need any technical knowledge to use Doctylia?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Not at all! If you can use WhatsApp, you can use Doctylia. Our interface is designed specifically for busy doctors - everything is point-and-click simple. Plus, our support team is always available on WhatsApp to help.",
-      },
-    },
-  ],
+  mainEntity: LANDING_FAQS.map(({ q, a }) => ({
+    "@type": "Question",
+    name: q,
+    acceptedAnswer: { "@type": "Answer", text: a },
+  })),
 };
 
 function upsertMeta(selector: string, attr: "name" | "property", key: string, content: string) {
@@ -162,33 +90,23 @@ const LandingPage = () => {
       <main>
         <LandingHero />
         <TrustBar />
-        <MediaLogos />
         <AnimatedSection>
           <FeaturesGrid />
-        </AnimatedSection>
-        <AnimatedSection>
-          <AboutSummary />
         </AnimatedSection>
         <AnimatedSection>
           <BeforeAfter />
         </AnimatedSection>
         <AnimatedSection>
-          <HowItWorks />
-        </AnimatedSection>
-        <AnimatedSection>
-          <DashboardPreview />
-        </AnimatedSection>
-        <AnimatedSection>
           <Specialties />
         </AnimatedSection>
         <AnimatedSection>
-          <LatestArticles />
-        </AnimatedSection>
-        <AnimatedSection>
-          <PricingSection />
+          <DemoBanner />
         </AnimatedSection>
         <AnimatedSection>
           <CaseStudies />
+        </AnimatedSection>
+        <AnimatedSection>
+          <PricingSection />
         </AnimatedSection>
         <AnimatedSection>
           <Testimonials />

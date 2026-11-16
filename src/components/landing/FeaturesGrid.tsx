@@ -1,148 +1,74 @@
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Globe, CalendarCheck, CreditCard, Users, Brain, Video, BarChart3 } from "lucide-react";
-import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import featureWebsite from "@/assets/feature-website.webp";
-import featureAppointments from "@/assets/feature-appointments.webp";
-import featureBilling from "@/assets/feature-billing.webp";
-import featurePatients from "@/assets/feature-patients.webp";
-import featureAiBlog from "@/assets/feature-ai-blog.webp";
-import featureConsultation from "@/assets/feature-consultation.webp";
-import featureWhatsapp from "@/assets/feature-whatsapp.webp";
-import featureAnalytics from "@/assets/feature-analytics.webp";
+import { Globe, MessageCircle, Receipt, FilePenLine, Brain, Video, Users, BarChart3, ArrowRight } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import AnimatedItem from "./AnimatedItem";
 
-const features = [
-  { icon: Globe, title: "Your Own Website", desc: "A branded website patients can find and book from, live within 10 minutes.", color: "bg-royal/10 text-royal", img: featureWebsite, bg: "bg-gradient-to-br from-royal/5 to-teal/5" },
-  { icon: CalendarCheck, title: "Smart Appointments", desc: "Online booking with automated WhatsApp reminders.", color: "bg-success/10 text-success", img: featureAppointments, bg: "bg-gradient-to-br from-teal/5 to-success/5" },
-  { icon: CreditCard, title: "Billing & Invoices", desc: "GST invoices and UPI payments through Razorpay, in the same dashboard.", color: "bg-teal/10 text-teal", img: featureBilling, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
-  { icon: Users, title: "Patient Records", desc: "Digital patient history, prescriptions, and reports in one place.", color: "bg-ai-purple/10 text-ai-purple", img: featurePatients, bg: "bg-gradient-to-br from-ai-purple/5 to-royal/5" },
-  { icon: Brain, title: "AI Blog Writer", desc: "Draft an SEO health article from a topic, then edit and publish it on your site.", color: "bg-spark/10 text-spark", img: featureAiBlog, bg: "bg-gradient-to-br from-spark/10 to-teal/5" },
-  { icon: Video, title: "Online Consultation", desc: "Video consultations from your branded site - no app download needed.", color: "bg-teal/10 text-teal", img: featureConsultation, bg: "bg-gradient-to-br from-teal/5 to-royal/5" },
-  { icon: WhatsAppIcon, title: "WhatsApp Integration", desc: "Automatic reminders, confirmations, and follow-ups on WhatsApp.", color: "bg-success/10 text-success", img: featureWhatsapp, bg: "bg-gradient-to-br from-success/5 to-teal/5" },
-  { icon: BarChart3, title: "Analytics Dashboard", desc: "See revenue, patients, and growth from one dashboard.", color: "bg-royal/10 text-royal", img: featureAnalytics, bg: "bg-gradient-to-br from-royal/5 to-primary/5" },
+type Feature = {
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+  badge: string;
+  img: string;
+  iconBox: string;
+  badgeColor: string;
+};
+
+const features: Feature[] = [
+  { icon: Globe, title: "Instant Branded Clinic Site", desc: "Launch your mobile-ready clinic portal in under 10 minutes with custom domain support and verified doctor credentials.", badge: "SEO Optimized", img: "/stitch/landing-02.png", iconBox: "bg-royal/10 text-royal", badgeColor: "text-primary" },
+  { icon: MessageCircle, title: "Smart WhatsApp Engine", desc: "Automated appointment booking, instant directions, and 24-hour reminder pings sent straight to your patient's WhatsApp.", badge: "Reduces No-Shows by 48%", img: "/stitch/landing-03.png", iconBox: "bg-success/10 text-success", badgeColor: "text-success" },
+  { icon: Receipt, title: "1-Click GST Invoices & UPI", desc: "Instant GST-compliant invoices with QR codes for fast UPI, card, or cash payments. Directly calculate tax splits and export reports for your CA.", badge: "Instant Razorpay/UPI QR", img: "/stitch/landing-04.png", iconBox: "bg-teal/10 text-teal", badgeColor: "text-primary" },
+  { icon: FilePenLine, title: "Digital Rx & Smart EMR", desc: "100,000+ Indian drug formulations database. Create customized Rx templates with dosage instructions, lab orders, and historical comparisons.", badge: "Print or WhatsApp PDF", img: "/stitch/landing-05.png", iconBox: "bg-navy/10 text-navy", badgeColor: "text-primary" },
+  { icon: Brain, title: "AI Patient Education Blog", desc: "Draft localized clinical articles on health symptoms in seconds. Educate your community and build local doctor authority on autopilot.", badge: "1-Click Auto-Publish", img: "/stitch/landing-06.png", iconBox: "bg-ai-purple/10 text-ai-purple", badgeColor: "text-primary" },
+  { icon: Video, title: "Zero-App HD Teleconsult", desc: "Patients join via browser link with zero installation required. Includes clinical screen sharing, real-time vital notes, and in-call prescription drafting.", badge: "Encrypted WebRTC", img: "/stitch/landing-07.png", iconBox: "bg-teal/10 text-teal", badgeColor: "text-primary" },
+  { icon: Users, title: "Staff & Receptionist Portals", desc: "Provide receptionists with front-desk token queues and cash registers while keeping clinical diagnosis and confidential records doctor-restricted.", badge: "Role-Based Permissions", img: "/stitch/landing-08.png", iconBox: "bg-navy/10 text-navy", badgeColor: "text-primary" },
+  { icon: BarChart3, title: "Clinical Growth Analytics", desc: "Monitor OPD volume trends, revenue streams by procedure, patient return rates, and peak consultation hours from one visual executive cockpit.", badge: "Live Financial Ledger", img: "/stitch/landing-09.png", iconBox: "bg-success/10 text-success", badgeColor: "text-success" },
 ];
 
-const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
-const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } } };
-
-const featurePairs: Array<Array<(typeof features)[number]>> = [];
-
-features.forEach((feature, idx) => {
-  if (idx % 2 === 0) {
-    featurePairs.push([feature]);
-    return;
-  }
-
-  const lastPair = featurePairs[featurePairs.length - 1];
-  if (lastPair) {
-    lastPair.push(feature);
-  }
-});
-
-const FeatureCard = ({ f }: { f: (typeof features)[number] }) => (
-  <motion.div
-    key={f.title}
-    variants={item}
-    whileHover={{ y: -6, rotateY: 2, rotateX: -2 }}
-    style={{ perspective: 800 }}
-    className="group rounded-xl bg-white border border-border hover:border-royal/30 hover:shadow-xl transition-all duration-300 overflow-hidden"
-  >
-    <div className={`h-24 sm:h-32 md:h-36 overflow-hidden flex items-center justify-center ${f.bg}`}>
-      <motion.img
-        src={f.img}
-        alt={f.title}
-        className="h-16 sm:h-24 md:h-28 w-auto max-w-full object-contain"
-        whileHover={{ scale: 1.1 }}
-        transition={{ duration: 0.4 }}
-        loading="lazy"
-      />
-    </div>
-    <div className="p-3 md:p-5">
-      <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${f.color} flex items-center justify-center mb-2 md:mb-3`}>
-        <f.icon className="h-3.5 w-3.5 md:h-5 md:w-5" />
+const FeaturesGrid = () => (
+  <section id="features" className="w-full py-12 md:py-20 bg-muted/40">
+    <div className="container mx-auto px-4">
+      <div className="max-w-3xl mx-auto text-center mb-10 md:mb-14">
+        <span className="inline-block px-3.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wider">
+          Everything your practice needs
+        </span>
+        <h2 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl text-navy mt-4">
+          Built specifically to simplify the clinical workday
+        </h2>
+        <p className="text-muted-foreground mt-4">
+          One comprehensive clinical workstation. Zero clunky software, no multiple subscriptions.
+        </p>
       </div>
-      <h3 className="font-heading font-semibold text-primary text-xs sm:text-sm md:text-base">{f.title}</h3>
-      <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 leading-relaxed">{f.desc}</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl mx-auto">
+        {features.map((f, i) => (
+          <AnimatedItem key={f.title} index={i % 4} staggerMs={80} className="h-full">
+            <div className="h-full bg-card rounded-3xl p-5 md:p-6 border border-border shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div>
+                <div className="bg-gradient-to-b from-royal/5 to-teal/5 rounded-2xl h-44 md:h-48 flex items-center justify-center p-3 mb-5 overflow-hidden">
+                  <img
+                    src={f.img}
+                    alt={f.title}
+                    loading="lazy"
+                    className="w-full h-full max-h-40 object-contain drop-shadow-sm transition-transform duration-300 hover:scale-105"
+                  />
+                </div>
+                <div className="flex items-center gap-2.5 mb-2">
+                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${f.iconBox}`}>
+                    <f.icon className="h-4 w-4" />
+                  </span>
+                  <h3 className="font-heading text-[17px] font-bold text-navy leading-tight">{f.title}</h3>
+                </div>
+                <div className="text-[13px] text-muted-foreground leading-relaxed">{f.desc}</div>
+              </div>
+              <div className={`mt-6 pt-4 border-t border-border flex items-center justify-between gap-2 text-sm font-semibold ${f.badgeColor}`}>
+                <span>{f.badge}</span>
+                <ArrowRight className="h-4 w-4 flex-shrink-0" />
+              </div>
+            </div>
+          </AnimatedItem>
+        ))}
+      </div>
     </div>
-  </motion.div>
+  </section>
 );
-
-const FeaturesGrid = () => {
-  const [api, setApi] = useState<CarouselApi>();
-  const [selected, setSelected] = useState(0);
-
-  useEffect(() => {
-    if (!api) return;
-    const onSelect = () => setSelected(api.selectedScrollSnap());
-    onSelect();
-    api.on("select", onSelect);
-    api.on("reInit", onSelect);
-    return () => {
-      api.off("select", onSelect);
-    };
-  }, [api]);
-
-  return (
-    <section id="features" className="py-16 md:py-20 bg-white">
-      <div className="container mx-auto px-4">
-        <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-          <span className="text-xs md:text-sm font-semibold text-teal uppercase tracking-wider">Features</span>
-          <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-primary mt-2">
-            Everything Your Practice Needs
-          </h2>
-          <p className="text-sm md:text-base text-muted-foreground mt-3">
-            One platform to run, grow, and automate your entire medical practice.
-          </p>
-        </div>
-
-        <motion.div
-          variants={container}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-60px" }}
-          className="relative md:hidden"
-        >
-          <Carousel setApi={setApi} opts={{ align: "start" }} className="px-1">
-            <CarouselContent className="-ml-3">
-              {featurePairs.map((pair, pairIndex) => (
-                <CarouselItem key={`feature-pair-${pairIndex}`} className="pl-3 basis-[94%]">
-                  <div className="grid grid-cols-2 gap-3">
-                    {pair.map((f) => (
-                      <FeatureCard key={f.title} f={f} />
-                    ))}
-                  </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent" />
-          <div className="flex justify-center gap-2 mt-4">
-            {featurePairs.map((_, i) => (
-              <button
-                key={`feature-pair-dot-${i}`}
-                aria-label={`Go to feature pair ${i + 1}`}
-                onClick={() => api?.scrollTo(i)}
-                className={`h-2 rounded-pill transition-all ${i === selected ? "w-6 bg-royal" : "w-2 bg-royal/25"}`}
-              />
-            ))}
-          </div>
-        </motion.div>
-
-        <motion.div
-          variants={container}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-60px" }}
-          className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5"
-        >
-          {features.map((f) => (
-            <FeatureCard key={f.title} f={f} />
-          ))}
-        </motion.div>
-      </div>
-    </section>
-  );
-};
 
 export default FeaturesGrid;

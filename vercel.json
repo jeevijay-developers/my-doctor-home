@@ -33,6 +33,8 @@
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/about", "destination": "/api/seo?kind=page&path=/about" },
+    { "source": "/features", "destination": "/api/seo?kind=page&path=/features" },
+    { "source": "/pricing", "destination": "/api/seo?kind=page&path=/pricing" },
     { "source": "/terms", "destination": "/api/seo?kind=page&path=/terms" },
     { "source": "/privacy", "destination": "/api/seo?kind=page&path=/privacy" },
     { "source": "/refund-policy", "destination": "/api/seo?kind=page&path=/refund-policy" },
