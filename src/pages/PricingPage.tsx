@@ -25,17 +25,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { usePlanPrices } from "@/hooks/usePlanPrices";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { DEFAULT_APPOINTMENT_CAP, getTierFeatures } from "@/lib/planFeatures";
+import { CUSTOM_PLAN_COPY, CUSTOM_PLAN_FEATURES } from "@/lib/customPlanMarketing";
 
 const ANNUAL_DISCOUNT = 0.2;
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
-
-const CUSTOM_FEATURES = [
-  "A feature set built around your practice",
-  "Negotiated monthly price on top of Pro or Premium",
-  "Custom monthly appointment limit",
-  "Reviewed and approved by the Doctylia team",
-  "Request it from your admin panel once you are on Pro or Premium",
-];
 
 type Cell = boolean | string;
 const COMPARE: { group: string; rows: { label: string; pro: Cell; premium: Cell; custom: Cell }[] }[] = [
@@ -321,24 +314,22 @@ const PricingPage = () => {
             <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-6 shadow-sm transition-shadow hover:shadow-md">
               <div>
                 <div className="flex items-center justify-between pb-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Multi-Location &amp; Hospital</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{CUSTOM_PLAN_COPY.badge}</span>
                   <span className="rounded-lg bg-muted p-2 text-navy">
                     <Building2 className="h-5 w-5" />
                   </span>
                 </div>
-                <h3 className="mt-1 font-heading text-xl font-bold text-navy">Custom Plan</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Tailored for larger practices that need a different feature set or appointment volume.
-                </p>
+                <h3 className="mt-1 font-heading text-xl font-bold text-navy">{CUSTOM_PLAN_COPY.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{CUSTOM_PLAN_COPY.desc}</p>
                 <div className="my-5">
                   <div className="flex items-baseline gap-1.5">
                     <span className="font-heading text-4xl font-bold text-navy">Custom</span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">Price agreed on top of Pro or Premium</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{CUSTOM_PLAN_COPY.priceNote}</p>
                 </div>
                 <div className="space-y-3">
                   <div className="text-sm font-semibold text-navy">Tailored to your practice:</div>
-                  {CUSTOM_FEATURES.map((f) => (
+                  {CUSTOM_PLAN_FEATURES.map((f) => (
                     <div key={f} className="flex items-start gap-2.5">
                       <CheckCircle2 className="mt-0.5 h-[18px] w-[18px] shrink-0 text-navy" />
                       <span className="text-sm text-foreground">{f}</span>

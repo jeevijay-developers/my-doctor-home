@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Check, Star } from "lucide-react";
+import { Check, SlidersHorizontal, Star } from "lucide-react";
 import { usePlanPrices } from "@/hooks/usePlanPrices";
 import { DEFAULT_APPOINTMENT_CAP, getTierFeatures } from "@/lib/planFeatures";
+import { CUSTOM_PLAN_COPY, CUSTOM_PLAN_FEATURES } from "@/lib/customPlanMarketing";
 
 const PricingSection = () => {
   const { proPrice, premiumPrice } = usePlanPrices();
@@ -43,7 +44,7 @@ const PricingSection = () => {
           </p>
         </div>
 
-        <div className="mx-auto grid max-w-4xl grid-cols-2 items-stretch gap-3 sm:gap-6 md:gap-8">
+        <div className="mx-auto grid max-w-4xl grid-cols-2 items-stretch gap-3 sm:gap-6 md:gap-8 lg:max-w-6xl lg:grid-cols-3">
           {plans.map((p, i) => (
             <motion.div
               key={p.key}
@@ -108,6 +109,47 @@ const PricingSection = () => {
               </div>
             </motion.div>
           ))}
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: plans.length * 0.12 }}
+            className="col-span-2 h-full lg:col-span-1"
+          >
+            <div className="relative flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:p-6 md:p-8">
+              <div>
+                <div className="mb-3 flex flex-col items-start gap-2 md:mb-4 md:flex-row md:items-center md:justify-between">
+                  <h3 className="font-heading text-base font-bold text-navy sm:text-lg md:text-xl">{CUSTOM_PLAN_COPY.name}</h3>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[10px] font-semibold text-muted-foreground sm:text-xs">
+                    <SlidersHorizontal className="h-3 w-3" aria-hidden="true" /> {CUSTOM_PLAN_COPY.badge}
+                  </span>
+                </div>
+                <div className="mb-4 text-xs text-muted-foreground sm:text-sm md:mb-6">{CUSTOM_PLAN_COPY.desc}</div>
+                <div className="mb-5 md:mb-8">
+                  <span className="font-heading text-2xl font-extrabold text-navy sm:text-3xl md:text-4xl">{CUSTOM_PLAN_COPY.priceLabel}</span>
+                  <div className="mt-1 text-xs text-muted-foreground sm:text-sm">{CUSTOM_PLAN_COPY.priceNote}</div>
+                </div>
+                <ul className="space-y-2 sm:space-y-3">
+                  {CUSTOM_PLAN_FEATURES.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-[11px] text-foreground sm:text-sm md:items-center md:gap-3">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success md:mt-0 md:h-[18px] md:w-[18px]" aria-hidden="true" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-6 md:mt-8">
+                <Link
+                  to="/auth?mode=signup"
+                  className="inline-flex w-full items-center justify-center rounded-lg bg-secondary px-2 py-3 text-center text-xs font-semibold text-navy shadow-sm transition-colors hover:bg-secondary/70 sm:text-sm md:py-3.5"
+                >
+                  {CUSTOM_PLAN_COPY.cta}
+                </Link>
+                <p className="mt-2 text-center text-xs text-muted-foreground">{CUSTOM_PLAN_COPY.ctaNote}</p>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </div>
     </section>
