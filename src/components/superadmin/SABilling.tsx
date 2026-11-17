@@ -21,7 +21,6 @@ import {
 } from "@/lib/subscriptionRevenue";
 import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
 import { isDemoMode, demoPayments, DEMO_ESTIMATED_MRR } from "@/lib/demoData";
-import DemoBanner from "./DemoBanner";
 
 interface UpgradePaymentRow {
   id: string;
@@ -162,7 +161,6 @@ const SABilling = () => {
 
   return (
     <div className="space-y-6">
-      {demo && <DemoBanner />}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((c) => (
           <StatCard key={c.label} {...c} />
