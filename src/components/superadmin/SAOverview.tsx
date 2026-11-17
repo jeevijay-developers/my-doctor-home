@@ -4,13 +4,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Users, Sparkles, CheckCircle2, XCircle, CalendarCheck, IndianRupee } from "lucide-react";
 import { Link } from "react-router-dom";
+import { isDemoMode, demoOverview } from "@/lib/demoData";
+import DemoBanner from "./DemoBanner";
 
 const SAOverview = () => {
   const [stats, setStats] = useState({ totalDoctors: 0, trials: 0, active: 0, expired: 0, appointments: 0, revenue: 0 });
   const [chart, setChart] = useState<{ month: string; count: number }[]>([]);
   const [trialsEnding, setTrialsEnding] = useState<any[]>([]);
 
+  const demo = isDemoMode();
+
   useEffect(() => {
+    if (demo) {
+      const d = demoOverview();
+      setStats(d.stats);
+      setChart(d.chart);
+      setTrialsEnding(d.trialsEnding);
+      return;
+    }
     (async () => {
       const [{ data: profiles }, { count: apptCount }, { data: inv }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, clinic_name, plan_status, trial_end, created_at"),
@@ -52,6 +63,7 @@ const SAOverview = () => {
 
   return (
     <div className="space-y-6 bg-background/60 -m-2 p-2 rounded-2xl">
+      {demo && <DemoBanner />}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {cards.map((c) => (
           <Card key={c.label} className="rounded-2xl border-transparent bg-card shadow-sm hover:shadow-md transition-shadow">

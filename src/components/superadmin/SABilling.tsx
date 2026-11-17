@@ -20,6 +20,8 @@ import {
   type PaymentStatusBucket,
 } from "@/lib/subscriptionRevenue";
 import { usePlanPrices, planPricesToRecord } from "@/hooks/usePlanPrices";
+import { isDemoMode, demoPayments, DEMO_ESTIMATED_MRR } from "@/lib/demoData";
+import DemoBanner from "./DemoBanner";
 
 interface UpgradePaymentRow {
   id: string;
@@ -80,13 +82,20 @@ const SABilling = () => {
     setCustomPlans(new Map(((plans ?? []) as unknown as CustomPlan[]).map((c) => [c.doctor_id, c])));
   };
 
+  const demo = isDemoMode();
+
   useEffect(() => {
+    if (demo) {
+      setPayments(demoPayments());
+      return;
+    }
     loadPayments();
     loadSubscribers();
-  }, []);
+  }, [demo]);
 
   // Realtime: keep the platform-wide payment list current without a manual refresh.
   useEffect(() => {
+    if (demo) return;
     const channel = supabase
       .channel("sa-billing-plan-upgrade-payments")
       .on("postgres_changes", { event: "*", schema: "public", table: "plan_upgrade_payments" }, () => loadPayments())
@@ -98,7 +107,9 @@ const SABilling = () => {
   }, []);
 
   const totals = computeRevenueTotals(payments);
-  const estimatedMRR = computeEstimatedMRR(subscribers, planPricesToRecord({ proPrice, premiumPrice }), customPlans);
+  const estimatedMRR = demo
+    ? DEMO_ESTIMATED_MRR
+    : computeEstimatedMRR(subscribers, planPricesToRecord({ proPrice, premiumPrice }), customPlans);
 
   const statCards = [
     { label: "Today's Subscription Revenue", value: `₹${totals.today.toLocaleString("en-IN")}`, icon: Calendar, gradient: "from-royal to-teal" },
@@ -151,6 +162,7 @@ const SABilling = () => {
 
   return (
     <div className="space-y-6">
+      {demo && <DemoBanner />}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((c) => (
           <StatCard key={c.label} {...c} />
