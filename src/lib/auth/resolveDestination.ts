@@ -17,7 +17,7 @@ export async function resolvePostLoginDestination(
   { onboarding }: { onboarding: boolean },
 ): Promise<Destination> {
   const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
-  if (isAdmin) return { to: "/superadmin" };
+  if (isAdmin) return { to: "/superadmin/overview?demo=1" };
 
   const { data: member } = await supabase
     .from("superadmin_team_members")

@@ -40,9 +40,9 @@ beforeEach(() => {
 });
 
 describe("resolvePostLoginDestination", () => {
-  it("owner (has_role admin) goes to /superadmin and short-circuits", async () => {
+  it("owner (has_role admin) goes to /superadmin/overview?demo=1 and short-circuits", async () => {
     state.isAdmin = true;
-    expect(await resolvePostLoginDestination("u", { onboarding: true })).toEqual({ to: "/superadmin" });
+    expect(await resolvePostLoginDestination("u", { onboarding: true })).toEqual({ to: "/superadmin/overview?demo=1" });
     expect(state.fromCalls).toEqual([]);
     expect(state.rpcCalls).toEqual(["has_role"]);
   });
