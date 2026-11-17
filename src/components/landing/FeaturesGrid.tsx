@@ -1,4 +1,4 @@
-import { Globe, MessageCircle, Receipt, FilePenLine, Brain, Video, Users, BarChart3, ArrowRight } from "lucide-react";
+import { Globe, MessageCircle, Receipt, FilePenLine, Brain, Video, Users, BarChart3 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import AnimatedItem from "./AnimatedItem";
 
@@ -61,7 +61,6 @@ const FeaturesGrid = () => (
               </div>
               <div className={`mt-6 pt-4 border-t border-border flex items-center justify-between gap-2 text-sm font-semibold ${f.badgeColor}`}>
                 <span>{f.badge}</span>
-                <ArrowRight className="h-4 w-4 flex-shrink-0" />
               </div>
             </div>
           </AnimatedItem>
