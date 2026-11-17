@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import DemoVideoDialog from "@/components/landing/DemoVideoDialog";
 import { CheckCircle2, PlayCircle, Sparkles } from "lucide-react";
 
 const heroChecks = ["No credit card required", "Set up in under 10 minutes", "Cancel or pause anytime"];
@@ -110,12 +111,9 @@ const LandingHero = () => (
           >
             <Sparkles className="h-5 w-5" /> Start 7-Day Free Trial
           </Link>
-          <a
-            href="#demo"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-card px-7 py-3.5 font-heading text-base font-semibold text-navy shadow-sm transition-all hover:bg-secondary sm:w-auto"
-          >
-            <PlayCircle className="h-5 w-5 text-royal" /> Watch 3-Min Interactive Demo
-          </a>
+          <DemoVideoDialog className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-card px-7 py-3.5 font-heading text-base font-semibold text-navy shadow-sm transition-all hover:bg-secondary sm:w-auto">
+            <PlayCircle className="h-5 w-5 text-royal" /> Watch 4-Min Interactive Demo
+          </DemoVideoDialog>
         </div>
 
         <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-2 text-[13px] font-semibold text-muted-foreground">
