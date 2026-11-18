@@ -20,6 +20,7 @@ import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, getDoctorTierPrice, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP, hasNoActivePlan } from "@/lib/planFeatures";
 import { formatIstDate } from "@/lib/istDate";
 import ProfilePage from "./ProfilePage";
+import DeleteAccountDialog from "./DeleteAccountDialog";
 import CustomPlanSection from "./CustomPlanSection";
 import { useCustomPlan } from "@/hooks/useCustomPlan";
 import { applyCustomPlanToBullets } from "@/lib/customPlan";
@@ -33,6 +34,7 @@ const SettingsPage = () => {
 
   const [pendingPlan, setPendingPlan] = useState<any>(null);
   const [cancellingScheduled, setCancellingScheduled] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -307,9 +309,14 @@ const SettingsPage = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-3">Permanently delete your account and all associated data. This action cannot be undone.</p>
-                <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => toast.info("Please contact support to delete your account.")}>
-                  <Trash2 className="h-4 w-4 mr-2" /> Delete Account
-                </Button>
+                {isStaff ? (
+                  <p className="text-sm text-muted-foreground">Only the clinic owner can delete the account.</p>
+                ) : (
+                  <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => setDeleteOpen(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete Account
+                  </Button>
+                )}
+                <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} />
               </CardContent>
             </Card>
           </div>

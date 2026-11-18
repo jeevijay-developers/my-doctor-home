@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.submit-patient-query]
 verify_jwt = false
+
+[functions.delete-doctor-account]
+verify_jwt = false

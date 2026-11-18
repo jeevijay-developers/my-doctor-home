@@ -1,116 +1,137 @@
-// Super Admin-only: permanently delete one or more doctor accounts.
-// profiles.id is 1:1 with auth.users.id, and nearly every doctor-owned table
-// (patients, appointments, staff_members, invoices, payments, payouts,
-// services, reviews, support_tickets, etc.) has doctor_id REFERENCES
-// profiles(id) ON DELETE CASCADE, so deleting the auth user cascades almost
-// everything. The one known exception: prescriptions.doctor_id has no
-// foreign key at all, so it's cleaned up explicitly afterward — deleting the
-// auth user first means a doctor is always fully gone even if that cleanup
-// step has a hiccup, rather than risking wiping their prescriptions while
-// leaving the account and dashboard intact.
+// Doctor self-service account deletion, confirmed by a phone OTP — no
+// superadmin approval involved.
 //
-// Accepts a batch (doctor_ids: string[]) since the Super Admin UI is a
-// bulk-select-and-delete flow, not one action per doctor. Each id is
-// processed independently so one failure doesn't abort the rest of the
-// batch — the response reports exactly which ids succeeded and which
-// failed (and why) so the frontend can show an accurate summary.
+// Flow (the browser does steps 1-2 with Supabase Auth, this function does 3):
+//   1. supabase.auth.signInWithOtp({ phone: <the account's own registered phone> })
+//   2. supabase.auth.verifyOtp(...)  -> issues a fresh session whose JWT `amr`
+//      claim records an OTP sign-in with a timestamp
+//   3. POST here. We require that OTP sign-in to be recent (<= 5 minutes), so a
+//      stolen/old session alone can never delete the account.
 //
-// "Database error loading user": some accounts (confirmed: this project's
-// E2E/test-seeded doctors) fail admin.auth.admin.deleteUser() with this
-// GoTrue error because the Admin API's own internal read of auth.users
-// (joined with auth.identities etc.) fails for that row — nothing in this
-// project's RLS/triggers/grants causes it (verified: the only trigger on
-// auth.users is AFTER INSERT, structurally incapable of firing on delete).
-// When that happens we fall back to admin_delete_auth_user(), a
-// SECURITY DEFINER SQL function (see its migration for the full writeup)
-// that deletes the auth.users row directly — a real, complete deletion via
-// the same ON DELETE CASCADE chain, not a suppressed error or fake success.
-// That function is reachable only by the service_role, so this fallback
-// never weakens the admin gate above.
+// Only doctor owners may use this. Clinic staff, superadmin team members and
+// platform admins are refused. Deleting the auth user cascades to `profiles`
+// and everything keyed to it (ON DELETE CASCADE); storage objects have no FK,
+// so they are removed explicitly first.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { beginPaymentRequest, json } from "../_shared/paymentMode.ts";
-import { hasSuperadminPermission } from "../_shared/superadminPermissions.ts";
+import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
+import { enforceRateLimit } from "../_shared/rateLimit.ts";
+
+const CORS: CorsOptions = {
+  allowHeaders: "authorization, x-client-info, apikey, content-type",
+};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const OTP_MAX_AGE_SECONDS = 5 * 60;
+const BUCKETS = ["doctor-uploads", "patient-documents"] as const;
+
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+type Amr = { method?: string; timestamp?: number };
+
+/** True when the token carries a phone-OTP sign-in from the last few minutes. */
+function hasRecentOtp(amr: unknown, nowSeconds = Math.floor(Date.now() / 1000)): boolean {
+  if (!Array.isArray(amr)) return false;
+  return (amr as Amr[]).some(
+    (entry) =>
+      (entry?.method === "otp" || entry?.method === "sms") &&
+      typeof entry.timestamp === "number" &&
+      nowSeconds - entry.timestamp <= OTP_MAX_AGE_SECONDS &&
+      entry.timestamp - nowSeconds < 60,
+  );
+}
+
+// deno-lint-ignore no-explicit-any
+async function removeFolder(admin: any, bucket: string, prefix: string): Promise<void> {
+  const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000 });
+  if (error || !data) return;
+  const files: string[] = [];
+  for (const item of data) {
+    // Folders come back without an id; recurse into them.
+    if (item.id) files.push(`${prefix}/${item.name}`);
+    else await removeFolder(admin, bucket, `${prefix}/${item.name}`);
+  }
+  if (files.length) await admin.storage.from(bucket).remove(files);
+}
 
 Deno.serve(async (req) => {
-  const preflight = beginPaymentRequest(req);
+  bindCorsRequest(req, CORS);
+  const preflight = handleCors(req, CORS);
   if (preflight) return preflight;
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return json(401, { error: "Missing authorization" });
-  const scoped = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { data: claims } = await scoped.auth.getClaims(authHeader.slice(7));
-  const callerId = claims?.claims?.sub as string | undefined;
-  if (!callerId) return json(401, { error: "Invalid token" });
-  const isAdmin = await hasSuperadminPermission(admin, callerId, "doctors.delete");
-  if (!isAdmin) return json(403, { error: "Admin only" });
+  const scoped = createClient(SUPABASE_URL, ANON_KEY);
+  const { data: claimsData } = await scoped.auth.getClaims(authHeader.slice(7));
+  const claims = claimsData?.claims;
+  const userId = claims?.sub as string | undefined;
+  if (!userId) return json(401, { error: "Invalid token" });
 
-  let doctor_ids: unknown;
+  let body: { confirm?: unknown };
   try {
-    ({ doctor_ids } = await req.json());
+    body = await req.json();
   } catch {
     return json(400, { error: "Bad request" });
   }
-  if (!Array.isArray(doctor_ids) || doctor_ids.length === 0 || !doctor_ids.every((id) => typeof id === "string")) {
-    return json(400, { error: "doctor_ids must be a non-empty array of strings" });
+  if (body?.confirm !== true) return json(400, { error: "Deletion was not confirmed." });
+
+  if (!hasRecentOtp(claims?.amr)) {
+    return json(403, {
+      error: "otp_required",
+      message: "Verify the OTP sent to your registered mobile number to delete your account.",
+    });
   }
 
-  const deleted: string[] = [];
-  const failed: { id: string; error: string }[] = [];
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-  for (const doctorId of doctor_ids as string[]) {
-    // Never delete the caller, an owner (admin role) or a superadmin-team member through
-    // this endpoint: bootstrap-admin gives the owner a profiles row, so "has a profile"
-    // alone would let a doctors.delete delegate wipe the platform owner.
-    if (doctorId === callerId) {
-      failed.push({ id: doctorId, error: "You cannot delete your own account" });
-      continue;
-    }
-    const { data: targetIsAdmin, error: roleErr } = await admin.rpc("has_role", { _user_id: doctorId, _role: "admin" });
-    if (roleErr || (targetIsAdmin !== false && targetIsAdmin != null)) {
-      failed.push({ id: doctorId, error: "Owner/admin accounts cannot be deleted here" });
-      continue;
-    }
-    const { data: teamRow, error: teamErr } = await admin.from("superadmin_team_members").select("id").eq("id", doctorId).maybeSingle();
-    if (teamErr || teamRow) {
-      failed.push({ id: doctorId, error: "Superadmin team accounts cannot be deleted here" });
-      continue;
-    }
+  const limited = await enforceRateLimit(admin, {
+    key: `delete-doctor-account:user:${userId}`,
+    limit: 5,
+    windowSeconds: 60 * 60,
+  });
+  if (limited) return limited;
 
-    const { data: target } = await admin.from("profiles").select("id").eq("id", doctorId).maybeSingle();
-    if (!target) {
-      failed.push({ id: doctorId, error: "Doctor not found" });
-      continue;
-    }
+  const [{ data: profile }, { data: staff }, { data: team }, { data: roles }] = await Promise.all([
+    admin.from("profiles").select("id").eq("id", userId).maybeSingle(),
+    admin.from("staff_members").select("id").eq("id", userId).maybeSingle(),
+    admin.from("superadmin_team_members").select("id").eq("id", userId).maybeSingle(),
+    admin.from("user_roles").select("role").eq("user_id", userId),
+  ]);
+  if (staff || team || (roles && roles.length > 0)) {
+    return json(403, { error: "This account type cannot be deleted from here. Please contact support." });
+  }
+  if (!profile) return json(404, { error: "Doctor account not found" });
 
-    const { error: deleteUserError } = await admin.auth.admin.deleteUser(doctorId);
-    if (deleteUserError) {
-      console.error("delete-doctor-account: auth.deleteUser failed, trying SQL fallback", { doctorId, message: deleteUserError.message });
-      const { error: fallbackError } = await admin.rpc("admin_delete_auth_user", { _user_id: doctorId });
-      if (fallbackError) {
-        console.error("delete-doctor-account: SQL fallback also failed", { doctorId, message: fallbackError.message });
-        failed.push({ id: doctorId, error: `${deleteUserError.message}; fallback also failed: ${fallbackError.message}` });
-        continue;
-      }
-      console.log("delete-doctor-account: SQL fallback succeeded", { doctorId });
-    }
+  // Staff logins belong to this clinic; they have no profile of their own, so
+  // remove them too or they would be orphaned logins pointing at nothing.
+  const { data: staffRows } = await admin.from("staff_members").select("id").eq("doctor_id", userId);
 
-    const { error: prescriptionsError } = await admin.from("prescriptions").delete().eq("doctor_id", doctorId);
-    if (prescriptionsError) {
-      // Account is already gone (the important part); log and continue
-      // rather than reporting failure for a step that's just cleaning up
-      // leftovers on an account that's otherwise fully deleted.
-      console.error("delete-doctor-account: prescriptions cleanup failed", { doctorId, message: prescriptionsError.message });
+  for (const bucket of BUCKETS) {
+    try {
+      await removeFolder(admin, bucket, userId);
+    } catch (err) {
+      console.error("delete-doctor-account: storage cleanup failed", { bucket, message: err instanceof Error ? err.message : err });
     }
-
-    deleted.push(doctorId);
   }
 
-  return json(200, { ok: true, deleted, failed });
+  const { error: authErr } = await admin.auth.admin.deleteUser(userId);
+  if (authErr) {
+    console.error("delete-doctor-account: deleteUser failed", { userId, message: authErr.message });
+    return json(500, { error: "Could not delete your account. Please try again or contact support." });
+  }
+
+  for (const row of staffRows ?? []) {
+    const { error } = await admin.auth.admin.deleteUser(row.id);
+    if (error) console.error("delete-doctor-account: staff login cleanup failed", { staffId: row.id, message: error.message });
+  }
+
+  return json(200, { ok: true });
 });
