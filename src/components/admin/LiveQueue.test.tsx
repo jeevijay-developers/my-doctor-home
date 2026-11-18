@@ -67,6 +67,29 @@ describe("LiveQueue", () => {
     expect(screen.getByText("Done")).toBeInTheDocument();
   });
 
+  it("starts the time window as the whole day and offers a reset once narrowed", async () => {
+    setRows(
+      { ...base, id: "3", patient_name: "Meena Waiting", queue_number: 3, sort_time: "21:10:00" },
+      { ...base, id: "4", patient_name: "Karan Waiting", queue_number: 4, sort_time: "22:15:00" },
+    );
+    render(<LiveQueue doctorId="d1" canAct />);
+
+    const from = (await screen.findByLabelText("From")) as HTMLInputElement;
+    const to = screen.getByLabelText("To") as HTMLInputElement;
+    expect(from.value).toBe("00:00");
+    expect(to.value).toBe("23:59");
+    expect(screen.queryByRole("button", { name: /reset to full day/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Karan Waiting")).toBeInTheDocument();
+
+    fireEvent.change(to, { target: { value: "21:30" } });
+    expect(screen.queryByText("Karan Waiting")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /reset to full day/i }));
+    expect(from.value).toBe("00:00");
+    expect(to.value).toBe("23:59");
+    expect(screen.getByText("Karan Waiting")).toBeInTheDocument();
+  });
+
   it("calls the next patient through the server function", async () => {
     setRows({ ...base, id: "3", patient_name: "Meena Waiting", queue_number: 3, sort_time: "21:10:00" });
     render(<LiveQueue doctorId="d1" canAct />);
@@ -90,8 +113,18 @@ describe("LiveQueue", () => {
     expect(within(dialog).getByText(/collect ₹300/i)).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "UPI" }));
 
+    // UPI needs its UTR before anything is sent.
+    fireEvent.click(within(dialog).getByRole("button", { name: /confirm payment/i }));
+    expect(await within(dialog).findByText(/12-digit UTR/i)).toBeInTheDocument();
+    expect(rpc).not.toHaveBeenCalled();
+
+    fireEvent.change(within(dialog).getByLabelText(/UTR \/ UPI reference no/i), { target: { value: "412345678901" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /confirm payment/i }));
+
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
-    expect(rpc.mock.calls[0][1]).toMatchObject({ _action: "mark_paid", _appointment_id: "2", _payment_method: "upi" });
+    expect(rpc.mock.calls[0][1]).toMatchObject({
+      _action: "mark_paid", _appointment_id: "2", _payment_method: "upi", _payment_reference: "412345678901",
+    });
     expect(rpc.mock.calls[1][1]).toMatchObject({ _action: "call_next", _expect: "2" });
   });
 
@@ -105,10 +138,11 @@ describe("LiveQueue", () => {
     fireEvent.click(await screen.findByRole("button", { name: /call now/i }));
     expect(rpc).not.toHaveBeenCalled();
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cash" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /confirm payment/i }));
 
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
     expect(rpc.mock.calls[0][1]).toMatchObject({ _action: "mark_paid", _appointment_id: "2", _payment_method: "cash" });
+    expect(rpc.mock.calls[0][1]).not.toHaveProperty("_payment_reference");
     expect(rpc.mock.calls[1][1]).toMatchObject({ _action: "call", _appointment_id: "3", _expect: "2" });
   });
 

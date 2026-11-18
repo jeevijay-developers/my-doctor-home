@@ -1,4 +1,4 @@
-import { csvRow } from "@/lib/csv";
+import { csvCell } from "@/lib/csv";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,7 @@ import { FEATURE_KEYS } from "@/lib/features";
 import LockedFeatureCard from "./LockedFeatureCard";
 import DateFilter from "@/components/shared/DateFilter";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
+import { paymentMethodLabel } from "@/lib/paymentDetails";
 
 type Invoice = {
   id: string;
@@ -43,7 +44,11 @@ type Invoice = {
   commission_amount?: number | null;
   net_amount?: number | null;
   refunded_at?: string | null;
+  payment_method?: string | null;
+  payment_reference?: string | null;
 };
+
+const PAYMENT_MODES = ["cash", "upi", "card", "online"] as const;
 
 type LedgerRow = {
   id: string;
@@ -82,6 +87,7 @@ const BillingPage = () => {
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [filter, setFilter] = useState("all");
+  const [modeFilter, setModeFilter] = useState("all");
   // Transactions list defaults to the current month; switching to Date
   // narrows it to a single day instead. Mirrors the period-filter UX in
   // AppointmentsPage (DateFilter + PaginationBar).
@@ -355,12 +361,17 @@ const BillingPage = () => {
     payment_status: "paid" | "pending" | "refunded" | "pay_at_clinic";
     status: string;
     is_mock: boolean;
+    // cash / upi / card / online / other; null when the payment is unpaid or was never recorded.
+    payment_mode: string | null;
+    payment_reference: string | null;
   };
 
   const invoiceTx: TxRow[] = invoices.map(i => {
     const split = resolveSplit({ grossAmount: Number(i.amount || 0), appointmentId: i.appointment_id, inv: i });
     return {
       key: `inv-${i.id}`,
+      payment_mode: i.payment_method ?? (apptGatewayById.get(i.appointment_id) ? "online" : null),
+      payment_reference: i.payment_reference ?? null,
       patient_name: i.patient_name,
       service_name: i.service_name,
       date: invoiceDate(i),
@@ -388,6 +399,8 @@ const BillingPage = () => {
         : (a.payment_status || "pending");
       return {
         key: `apt-${a.id}`,
+        payment_mode: paymentStatus === "paid" ? (a.payment_gateway ? "online" : a.payment_method ?? null) : null,
+        payment_reference: paymentStatus === "paid" ? a.payment_reference ?? null : null,
         patient_name: a.patient_name,
         service_name: a.service_name,
         date: a.date,
@@ -438,13 +451,26 @@ const BillingPage = () => {
     });
   };
 
-  const statusFiltered = filter === "all" ? transactions : transactions.filter(t => t.payment_status === filter);
-
-  const filtered = !periodActive
-    ? statusFiltered
+  const periodTransactions = !periodActive
+    ? transactions
     : periodMode === "month"
-    ? statusFiltered.filter(t => t.date >= selectedMonthStart && t.date <= selectedMonthEnd)
-    : statusFiltered.filter(t => t.date === selectedDateStr);
+    ? transactions.filter(t => t.date >= selectedMonthStart && t.date <= selectedMonthEnd)
+    : transactions.filter(t => t.date === selectedDateStr);
+
+  const filtered = periodTransactions
+    .filter(t => filter === "all" || t.payment_status === filter)
+    .filter(t => modeFilter === "all" || t.payment_mode === modeFilter);
+
+  // How the money actually arrived, for the period on screen: paid transactions only, so
+  // pending, pay-at-clinic and refunded rows never inflate cash / UPI / card totals.
+  const paidInPeriod = periodTransactions.filter(t => t.payment_status === "paid");
+  const modeTotals = PAYMENT_MODES.map(mode => {
+    const rows = paidInPeriod.filter(t => t.payment_mode === mode);
+    return { mode, label: paymentMethodLabel(mode), count: rows.length, total: rows.reduce((s, t) => s + t.amount, 0) };
+  });
+  const unrecordedRows = paidInPeriod.filter(t => !t.payment_mode || !(PAYMENT_MODES as readonly string[]).includes(t.payment_mode));
+  const unrecordedTotal = unrecordedRows.reduce((s, t) => s + t.amount, 0);
+  const paidInPeriodTotal = paidInPeriod.reduce((s, t) => s + t.amount, 0);
 
   const totalCount = filtered.length;
   const pageStart = (page - 1) * PAGE_SIZE;
@@ -480,12 +506,19 @@ const BillingPage = () => {
       "Net Credited (INR)": a.net_amount,
       "Settlement Status": a.settlement_label,
       "Payment Status": a.payment_status,
+      "Payment Mode": a.payment_mode ? paymentMethodLabel(a.payment_mode) : "",
+      "Payment Reference (UTR)": a.payment_reference ?? "",
       "Appointment Status": a.status,
       "Mock": a.is_mock ? "yes" : "no",
     }));
     if (rows.length === 0) { toast.error("No transactions to export"); return; }
     const headers = Object.keys(rows[0]);
-    const csv = [headers.join(","), ...rows.map(r => csvRow(headers.map(h => (r as any)[h])))].join("\n");
+    // A 12-digit UTR would open in Excel as 1.23457E+11, so that column is forced to text.
+    const asText = (v: unknown) => (v === "" || v == null ? "" : `="${String(v).replace(/"/g, '""')}"`);
+    const csv = [
+      headers.join(","),
+      ...rows.map(r => headers.map(h => (h === "Payment Reference (UTR)" ? asText((r as any)[h]) : csvCell((r as any)[h]))).join(",")),
+    ].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -636,6 +669,13 @@ const BillingPage = () => {
                       <SelectItem value="pay_at_clinic">Pay at Clinic</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Select value={modeFilter} onValueChange={setModeFilter}>
+                    <SelectTrigger className="w-36 h-9" aria-label="Payment mode"><SelectValue placeholder="Payment Mode" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Modes</SelectItem>
+                      {PAYMENT_MODES.map((m) => <SelectItem key={m} value={m}>{paymentMethodLabel(m)}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <Button size="sm" variant="outline" onClick={exportTransactionsCSV} className="h-9">
                     <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
                   </Button>
@@ -779,6 +819,11 @@ const BillingPage = () => {
                             </div>
                             <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-shrink-0">
                               <Badge variant="outline" className={`text-[10px] ${pc.bg} ${pc.text}`}>{pc.label}</Badge>
+                              {a.payment_status === "paid" && (
+                                <Badge variant="outline" className="text-[10px]" title={a.payment_reference ? `Ref: ${a.payment_reference}` : undefined}>
+                                  {paymentMethodLabel(a.payment_mode)}{a.payment_reference ? ` · ${a.payment_reference}` : ""}
+                                </Badge>
+                              )}
                               {(a.payment_status === "paid" || a.payment_status === "pay_at_clinic") && (
                                 <Badge variant="outline" className={`text-[10px] ${settlementBadgeClass}`}>
                                   {a.settlement_label}
@@ -807,6 +852,7 @@ const BillingPage = () => {
               )}
             </div>
 
+            <div className="space-y-4">
             <Card className="border-border/60 shadow-none">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -827,6 +873,34 @@ const BillingPage = () => {
                 />
               </CardContent>
             </Card>
+
+            <Card className="border-border/60 shadow-none" data-testid="payment-mode-breakdown">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-teal" /> Collected by Mode
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                {modeTotals.map((m) => (
+                  <div key={m.mode} className="flex items-center justify-between text-sm" data-testid={`mode-total-${m.mode}`}>
+                    <span className="text-muted-foreground">{m.label} <span className="text-[11px]">({m.count})</span></span>
+                    <span className="font-semibold text-foreground">₹{m.total.toLocaleString("en-IN")}</span>
+                  </div>
+                ))}
+                {unrecordedRows.length > 0 && (
+                  <div className="flex items-center justify-between text-sm" data-testid="mode-total-unrecorded">
+                    <span className="text-muted-foreground">Not recorded <span className="text-[11px]">({unrecordedRows.length})</span></span>
+                    <span className="font-semibold text-foreground">₹{unrecordedTotal.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm border-t border-border pt-2.5">
+                  <span className="font-medium text-foreground">Total paid</span>
+                  <span className="font-heading font-bold text-foreground">₹{paidInPeriodTotal.toLocaleString("en-IN")}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Gross amounts for the period shown, paid transactions only.</p>
+              </CardContent>
+            </Card>
+            </div>
           </div>
         </TabsContent>
 
@@ -854,6 +928,7 @@ const BillingPage = () => {
                         <div className="font-medium text-foreground text-sm truncate">{inv.invoice_number}</div>
                         <div className="text-xs text-muted-foreground truncate">
                           {inv.patient_name} · {inv.service_name} · {format(new Date(inv.created_at), "d MMM yyyy")}
+                          {inv.payment_method ? ` · ${paymentMethodLabel(inv.payment_method)}${inv.payment_reference ? ` ${inv.payment_reference}` : ""}` : ""}
                         </div>
                       </div>
                     </div>

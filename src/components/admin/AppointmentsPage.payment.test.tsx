@@ -65,17 +65,63 @@ describe("AppointmentsPage - completing an unpaid visit", () => {
     updates.length = 0;
   });
 
-  it("asks how the patient paid, records it, then completes", async () => {
+  it("asks how the patient paid, records a UPI payment with its UTR, then completes", async () => {
     await openCompleteMenu();
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/collect ₹300/i)).toBeInTheDocument();
     expect(updates).toHaveLength(0);
 
     fireEvent.click(within(dialog).getByRole("button", { name: "UPI" }));
+    fireEvent.change(within(dialog).getByLabelText(/UTR \/ UPI reference no/i), { target: { value: "412345678901" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /confirm payment/i }));
 
     await waitFor(() => expect(updates).toHaveLength(1));
-    expect(rpc).toHaveBeenCalledWith("queue_action", { _action: "mark_paid", _appointment_id: "appt-1", _payment_method: "upi" });
+    expect(rpc).toHaveBeenCalledWith("queue_action", {
+      _action: "mark_paid", _appointment_id: "appt-1", _payment_method: "upi", _payment_reference: "412345678901",
+    });
     expect(updates[0]).toMatchObject({ status: "completed" });
+  });
+
+  it("records cash without a reference", async () => {
+    await openCompleteMenu();
+    const dialog = await screen.findByRole("dialog");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /confirm payment/i }));
+
+    await waitFor(() => expect(updates).toHaveLength(1));
+    expect(rpc).toHaveBeenCalledWith("queue_action", {
+      _action: "mark_paid", _appointment_id: "appt-1", _payment_method: "cash", _payment_reference: null,
+    });
+  });
+
+  it("will not record a UPI or card payment without its reference", async () => {
+    await openCompleteMenu();
+    const dialog = await screen.findByRole("dialog");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "UPI" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /confirm payment/i }));
+    expect(await within(dialog).findByText(/12-digit UTR/i)).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Card" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /confirm payment/i }));
+    expect(await within(dialog).findByText(/approval code or the last 4 digits/i)).toBeInTheDocument();
+
+    expect(rpc).not.toHaveBeenCalled();
+    expect(updates).toHaveLength(0);
+  });
+
+  it("explains a UTR the server says is already recorded, and does not complete", async () => {
+    const { toast } = await import("sonner");
+    rpc.mockResolvedValue({ data: { ok: false, error: "DUPLICATE_PAYMENT_REFERENCE" }, error: null });
+    await openCompleteMenu();
+    const dialog = await screen.findByRole("dialog");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "UPI" }));
+    fireEvent.change(within(dialog).getByLabelText(/UTR \/ UPI reference no/i), { target: { value: "412345678901" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /confirm payment/i }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("This UTR is already recorded against another payment."));
+    expect(updates).toHaveLength(0);
   });
 
   it("lets the doctor complete without payment, which records no payment", async () => {
@@ -94,7 +140,7 @@ describe("AppointmentsPage - completing an unpaid visit", () => {
     await openCompleteMenu();
     const dialog = await screen.findByRole("dialog");
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cash" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /confirm payment/i }));
 
     await waitFor(() => expect(rpc).toHaveBeenCalled());
     expect(updates).toHaveLength(0);

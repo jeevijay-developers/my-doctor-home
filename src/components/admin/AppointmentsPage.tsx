@@ -13,7 +13,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +22,11 @@ import { toast } from "sonner";
 import { format, isSameDay, parseISO } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import LiveQueue from "./LiveQueue";
-import { PAYMENT_METHODS, clinicToday, isUnpaid, queueErrorMessage } from "@/lib/queue";
+import { clinicToday, isUnpaid, queueErrorMessage } from "@/lib/queue";
+import { PaymentCollectDialog, PaymentCollectFields } from "./PaymentCollect";
+import PatientVitalsFields from "./PatientVitalsFields";
+import { methodNeedsReference, paymentDbErrorMessage, paymentMethodLabel, paymentReferenceError, paymentReferenceToStore } from "@/lib/paymentDetails";
+import { nameError, parseWeight, vitalsErrors } from "@/lib/patientIntake";
 import { generateBookingToken } from "@/lib/bookingToken";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
@@ -47,13 +51,16 @@ type Appointment = {
   reschedule_count?: number | null;
   queue_number?: number | null;
   payment_method?: string | null;
+  payment_gateway?: string | null;
+  payment_reference?: string | null;
+  patient_weight?: number | null;
   zoom_meeting_id?: string | null;
   zoom_join_url?: string | null;
 };
 
-const paymentLabel = (a: { payment_status: string; payment_method?: string | null }) => {
+const paymentLabel = (a: { payment_status: string; payment_method?: string | null; payment_gateway?: string | null }) => {
   switch (a.payment_status) {
-    case "paid": return a.payment_method ? `Paid · ${a.payment_method.toUpperCase()}` : "Paid";
+    case "paid": return a.payment_method || a.payment_gateway ? `Paid · ${paymentMethodLabel(a.payment_method, a.payment_gateway)}` : "Paid";
     case "pay_at_clinic": return "Due at clinic";
     case "refunded": return "Refunded";
     default: return "Unpaid";
@@ -103,6 +110,7 @@ const AppointmentsPage = () => {
   const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
   const blankNewAppt = () => ({
     patient_name: "", patient_phone: "", service_name: "", appointment_type: "clinic",
+    patient_age: "", patient_gender: "", patient_weight: "",
     date: clinicToday(), time_slot: WALK_IN_TIME,
     amount: defaultAppointmentAmount(profile?.consultation_fee),
     status: "pending",
@@ -111,12 +119,14 @@ const AppointmentsPage = () => {
   // Walk-ins pay on the spot, so the booking dialog records the payment by default.
   const [countersPaid, setCountersPaid] = useState(true);
   const [payMethod, setPayMethod] = useState<string>("cash");
+  const [payRef, setPayRef] = useState("");
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [adding, setAdding] = useState(false);
   const addingRef = useRef(false);
   const [view, setView] = useState<"list" | "queue">("list");
   const handleNewOpenChange = (open: boolean) => {
     setShowNew(open);
-    if (open) { setNewAppt(blankNewAppt()); setCountersPaid(true); setPayMethod("cash"); }
+    if (open) { setNewAppt(blankNewAppt()); setCountersPaid(true); setPayMethod("cash"); setPayRef(""); setSubmitAttempted(false); }
   };
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -326,8 +336,10 @@ const AppointmentsPage = () => {
     }
   };
 
-  const markPaid = async (id: string, method: string): Promise<boolean> => {
-    const { data, error } = await (supabase as any).rpc("queue_action", { _action: "mark_paid", _appointment_id: id, _payment_method: method });
+  const markPaid = async (id: string, method: string, reference: string | null): Promise<boolean> => {
+    const { data, error } = await (supabase as any).rpc("queue_action", {
+      _action: "mark_paid", _appointment_id: id, _payment_method: method, _payment_reference: reference,
+    });
     if (error || !data?.ok) { toast.error(queueErrorMessage(data?.error)); return false; }
     toast.success("Payment recorded");
     load();
@@ -337,13 +349,16 @@ const AppointmentsPage = () => {
   // An invoice exists only for money actually received, so finishing a visit that has not
   // been paid asks how it was paid (or lets the doctor bill later).
   const [payPrompt, setPayPrompt] = useState<Appointment | null>(null);
-  const completeWithPayment = async (method: string | null) => {
+  const completeWithPayment = async (method: string | null, reference: string | null = null) => {
     if (!payPrompt) return;
     const target = payPrompt;
     setPayPrompt(null);
-    if (method && !(await markPaid(target.id, method))) return;
+    if (method && !(await markPaid(target.id, method, reference))) return;
     await updateStatus(target.id, "completed");
   };
+
+  // "Collect payment" from the appointment detail panel.
+  const [collectFor, setCollectFor] = useState<Appointment | null>(null);
 
   // Shared by both the card kebab menu and the detail panel so the two
   // entry points never diverge — both list every other valid status as an
@@ -402,9 +417,20 @@ const AppointmentsPage = () => {
 
   const addAppointment = async () => {
     if (!profile || adding) return;
-    if (!newAppt.patient_name.trim()) { toast.error("Patient name is required"); return; }
-    if (newAppt.patient_phone.trim() && !isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
+    setSubmitAttempted(true);
+    const nameProblem = nameError(newAppt.patient_name);
+    if (nameProblem) { toast.error(nameProblem); return; }
+    if (!newAppt.patient_phone.trim()) { toast.error("Phone number is required"); return; }
+    if (!isValidIndianPhone(newAppt.patient_phone)) { toast.error(phoneErrorMessage); return; }
+    if (!newAppt.service_name.trim()) { toast.error("Service is required"); return; }
+    const vitalsProblem = Object.values(vitalsErrors({ age: newAppt.patient_age, gender: newAppt.patient_gender, weight: newAppt.patient_weight }))[0];
+    if (vitalsProblem) { toast.error(vitalsProblem); return; }
     if (newAppt.amount < 0) { toast.error("Amount cannot be negative"); return; }
+    const paidNow = countersPaid && Number(newAppt.amount) > 0;
+    if (paidNow) {
+      const refProblem = paymentReferenceError(payMethod, payRef);
+      if (refProblem) { toast.error(refProblem); return; }
+    }
     const isWalkIn = newAppt.time_slot === WALK_IN_TIME;
     // Block past date / time for scheduled appointments. Walk-ins have no scheduled time.
     if (!isWalkIn) {
@@ -434,19 +460,25 @@ const AppointmentsPage = () => {
       }
 
       const token = generateBookingToken();
-      const { status, time_slot, ...rest } = newAppt;
-      const serviceName = rest.service_name.trim() || "Clinic Visit";
-      const paidNow = countersPaid && Number(rest.amount) > 0;
+      const { status, time_slot, patient_age, patient_gender, patient_weight, ...rest } = newAppt;
       const { error } = await supabase.from("appointments").insert({
-        doctor_id: profile.id, ...rest, time_slot: isWalkIn ? null : time_slot, service_name: serviceName,
+        doctor_id: profile.id, ...rest, time_slot: isWalkIn ? null : time_slot, service_name: rest.service_name.trim(),
+        patient_name: rest.patient_name.trim(),
         appointment_type: "clinic",
         patient_phone: normalizedPhone,
+        patient_age: Number(patient_age), patient_gender, patient_weight: parseWeight(patient_weight),
         token_number: token, status: status as any,
         payment_status: (paidNow ? "paid" : "pending") as any,
-        ...(paidNow ? { payment_method: payMethod, paid_at: new Date().toISOString() } : {}),
+        ...(paidNow ? {
+          payment_method: payMethod, paid_at: new Date().toISOString(),
+          payment_reference: paymentReferenceToStore(payMethod, payRef),
+        } : {}),
       } as any);
       if (error) {
-        if (error.message.includes("MONTHLY_APPOINTMENT_CAP_REACHED")) {
+        const paymentProblem = paymentDbErrorMessage(error);
+        if (paymentProblem) {
+          toast.error(paymentProblem);
+        } else if (error.message.includes("MONTHLY_APPOINTMENT_CAP_REACHED")) {
           toast.error("You've reached your plan's monthly appointment limit. Upgrade to Premium for unlimited appointments.");
         } else if (error.message.includes("SLOT_FULL")) {
           setSlotConflict({ time: newAppt.time_slot });
@@ -513,28 +545,48 @@ const AppointmentsPage = () => {
               <Plus className="h-4 w-4 mr-1" /> New Appointment
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Add Appointment</DialogTitle></DialogHeader>
             <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="new-appt-name" className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label>
-                  <Input id="new-appt-name" placeholder="Full name" value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} className="h-10" />
+                  <Input id="new-appt-name" placeholder="Full name" maxLength={100} value={newAppt.patient_name} onChange={(e) => setNewAppt({ ...newAppt, patient_name: e.target.value })} aria-invalid={submitAttempted && !!nameError(newAppt.patient_name)} className="h-10" />
+                  {submitAttempted && nameError(newAppt.patient_name) && (
+                    <p className="text-[11px] text-destructive">{nameError(newAppt.patient_name)}</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="new-appt-phone" className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                  <PhoneInput id="new-appt-phone" value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="Phone number (optional)" className="h-10" />
-                  {newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone) && (
+                  <Label htmlFor="new-appt-phone" className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone *</Label>
+                  <PhoneInput id="new-appt-phone" value={newAppt.patient_phone} onChange={(e) => setNewAppt({ ...newAppt, patient_phone: e.target.value })} placeholder="10-digit mobile number" className="h-10" />
+                  {newAppt.patient_phone && !isValidIndianPhone(newAppt.patient_phone) ? (
                     <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
-                  )}
-                  {!newAppt.patient_phone.trim() && (
-                    <p className="text-[11px] text-muted-foreground">Add a phone number so repeat visits join the same patient record and the patient can follow the queue.</p>
+                  ) : submitAttempted && !newAppt.patient_phone.trim() ? (
+                    <p className="text-[11px] text-destructive">Phone number is required</p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">Repeat visits join the same patient record, and the patient can follow the queue.</p>
                   )}
                 </div>
               </div>
+              <PatientVitalsFields
+                idPrefix="new-appt"
+                age={newAppt.patient_age}
+                gender={newAppt.patient_gender}
+                weight={newAppt.patient_weight}
+                onChange={(patch) => setNewAppt((prev) => ({
+                  ...prev,
+                  ...(patch.age !== undefined ? { patient_age: patch.age } : {}),
+                  ...(patch.gender !== undefined ? { patient_gender: patch.gender } : {}),
+                  ...(patch.weight !== undefined ? { patient_weight: patch.weight } : {}),
+                }))}
+                errors={submitAttempted ? vitalsErrors({ age: newAppt.patient_age, gender: newAppt.patient_gender, weight: newAppt.patient_weight }) : {}}
+              />
               <div className="space-y-1.5">
-                <Label htmlFor="new-appt-service">Service <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                <Input id="new-appt-service" value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} placeholder="e.g. Clinic Visit" className="h-10" />
+                <Label htmlFor="new-appt-service">Service *</Label>
+                <Input id="new-appt-service" maxLength={100} value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} placeholder="e.g. Clinic Visit" aria-invalid={submitAttempted && !newAppt.service_name.trim()} className="h-10" />
+                {submitAttempted && !newAppt.service_name.trim() && (
+                  <p className="text-[11px] text-destructive">Service is required</p>
+                )}
               </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -544,7 +596,7 @@ const AppointmentsPage = () => {
                 <div className="space-y-1.5">
                   <Label>Time Slot</Label>
                   <Select value={newAppt.time_slot} onValueChange={(v) => setNewAppt({ ...newAppt, time_slot: v })}>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10" aria-label="Time slot"><SelectValue /></SelectTrigger>
                     <SelectContent className="max-h-[200px]">
                       {timeSlots.map(t => <SelectItem key={t} value={t}>{t === WALK_IN_TIME ? "Walk-in" : t}</SelectItem>)}
                     </SelectContent>
@@ -569,12 +621,14 @@ const AppointmentsPage = () => {
                   <Label htmlFor="counter-paid" className="text-sm font-normal cursor-pointer">Payment received at the counter</Label>
                 </div>
                 {countersPaid && newAppt.amount > 0 && (
-                  <Select value={payMethod} onValueChange={setPayMethod}>
-                    <SelectTrigger className="h-9" aria-label="Payment method"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_METHODS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <PaymentCollectFields
+                    idPrefix="new-appt"
+                    method={payMethod}
+                    reference={payRef}
+                    onMethodChange={(m) => { setPayMethod(m); setPayRef(""); }}
+                    onReferenceChange={setPayRef}
+                    error={submitAttempted && methodNeedsReference(payMethod) ? paymentReferenceError(payMethod, payRef) : null}
+                  />
                 )}
               </div>
               <Button onClick={() => addAppointment()} disabled={writeDisabled || adding} className="w-full h-10 bg-royal hover:bg-royal/90">{adding ? "Adding…" : "Add Appointment"}</Button>
@@ -890,6 +944,10 @@ const AppointmentsPage = () => {
                       { label: "Type", value: viewing.appointment_type },
                       { label: "Amount", value: `₹${viewing.amount}` },
                       { label: "Payment", value: paymentLabel(viewing) },
+                      ...(viewing.payment_reference ? [{ label: viewing.payment_method === "upi" ? "UTR" : "Card ref.", value: viewing.payment_reference }] : []),
+                      ...(viewing.patient_age != null ? [{ label: "Age", value: `${viewing.patient_age} yrs` }] : []),
+                      ...(viewing.patient_gender ? [{ label: "Gender", value: viewing.patient_gender }] : []),
+                      ...(viewing.patient_weight != null ? [{ label: "Weight", value: `${viewing.patient_weight} kg` }] : []),
                     ].map((item) => (
                       <div key={item.label} className="bg-secondary rounded-xl p-3">
                         <div className="text-[11px] text-muted-foreground mb-1">{item.label}</div>
@@ -901,13 +959,9 @@ const AppointmentsPage = () => {
                   {can("appointments.edit") && ["pending", "pay_at_clinic"].includes(viewing.payment_status) && (
                     <div className="space-y-2">
                       <div className="text-xs text-muted-foreground uppercase tracking-wide">Collect payment (₹{viewing.amount})</div>
-                      <div className="flex flex-wrap gap-2">
-                        {PAYMENT_METHODS.map((m) => (
-                          <Button key={m.value} size="sm" variant="outline" className="h-9 text-xs" disabled={writeDisabled} onClick={() => markPaid(viewing.id, m.value)}>
-                            Paid · {m.label}
-                          </Button>
-                        ))}
-                      </div>
+                      <Button size="sm" variant="outline" className="h-9 text-xs" disabled={writeDisabled} onClick={() => setCollectFor(viewing)}>
+                        Record payment
+                      </Button>
                     </div>
                   )}
 
@@ -992,22 +1046,26 @@ const AppointmentsPage = () => {
       </AlertDialog>
 
       {/* Payment prompt when finishing an unpaid visit */}
-      <Dialog open={!!payPrompt} onOpenChange={(o) => !o && setPayPrompt(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Collect ₹{payPrompt?.amount}</DialogTitle>
-            <DialogDescription>{payPrompt?.patient_name} has not paid yet. How did they pay?</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-3 gap-2">
-            {PAYMENT_METHODS.map((m) => (
-              <Button key={m.value} variant="outline" onClick={() => completeWithPayment(m.value)}>{m.label}</Button>
-            ))}
-          </div>
-          <DialogFooter className="sm:justify-center">
-            <Button variant="ghost" size="sm" onClick={() => completeWithPayment(null)}>Complete without payment</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PaymentCollectDialog
+        open={!!payPrompt}
+        onOpenChange={(o) => !o && setPayPrompt(null)}
+        title={`Collect ₹${payPrompt?.amount ?? ""}`}
+        description={`${payPrompt?.patient_name ?? ""} has not paid yet. How did they pay?`}
+        onConfirm={(method, reference) => completeWithPayment(method, reference)}
+        secondary={{ label: "Complete without payment", onClick: () => completeWithPayment(null) }}
+      />
+
+      {/* Payment recorded from the appointment detail panel */}
+      <PaymentCollectDialog
+        open={!!collectFor}
+        onOpenChange={(o) => !o && setCollectFor(null)}
+        title={`Collect ₹${collectFor?.amount ?? ""}`}
+        description={`How did ${collectFor?.patient_name ?? "the patient"} pay?`}
+        onConfirm={async (method, reference) => {
+          if (!collectFor) return;
+          if (await markPaid(collectFor.id, method, reference)) setCollectFor(null);
+        }}
+      />
 
       {/* Status-change confirmation when leaving a final state */}
       <AlertDialog open={!!confirmingChange} onOpenChange={(o) => !o && setConfirmingChange(null)}>

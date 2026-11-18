@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
-import { CountryCodeSelect } from "@/components/ui/country-code-select";
+import { CountryCodeSelect, COUNTRY_CODES } from "@/components/ui/country-code-select";
 import { DigitsInput } from "@/components/ui/digits-input";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,14 @@ const specializations = [
   "Dentist", "Urologist", "Pulmonologist", "Gastroenterologist", "Oncologist",
   "Endocrinologist", "Nephrologist", "Rheumatologist", "Surgeon", "Other",
 ];
+
+// Strips the dial code (longest match wins, e.g. "+1" vs "+91") from an
+// E.164 phone like "+919876543210" so it fits the local-number-only field
+// next to CountryCodeSelect, which already shows the "+91" part.
+const stripDialCode = (e164: string) => {
+  const match = [...COUNTRY_CODES].sort((a, b) => b.dial.length - a.dial.length).find((c) => e164.startsWith(c.dial));
+  return match ? e164.slice(match.dial.length) : e164.replace(/^\+/, "");
+};
 
 const steps = [
   { num: 1, label: "Your Details", icon: Stethoscope, desc: "Professional info" },
@@ -59,7 +67,8 @@ const Onboarding = () => {
       const { data: prof } = await supabase.from("profiles").select("onboarding_completed, full_name").eq("id", user.id).maybeSingle();
       if (prof?.onboarding_completed) { navigate("/admin/dashboard", { replace: true }); return; }
       const name = prof?.full_name || user.user_metadata?.full_name || "";
-      setForm((f) => ({ ...f, full_name: name }));
+      const phone = user.phone ? stripDialCode(user.phone) : "";
+      setForm((f) => ({ ...f, full_name: name, phone }));
       setChecking(false);
     });
   }, [navigate]);

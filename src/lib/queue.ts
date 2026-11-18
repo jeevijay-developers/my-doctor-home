@@ -2,6 +2,8 @@
 // holds the authoritative rules — the database orders and mutates the line; this
 // file only mirrors the ordering so the screen can render it).
 
+import { PAYMENT_DB_ERRORS } from "./paymentDetails";
+
 export type QueueAppointment = {
   id: string;
   patient_name: string;
@@ -110,12 +112,6 @@ export function isUnpaid(a: Pick<QueueAppointment, "payment_status">): boolean {
   return a.payment_status === "pending" || a.payment_status === "pay_at_clinic";
 }
 
-export const PAYMENT_METHODS = [
-  { value: "cash", label: "Cash" },
-  { value: "upi", label: "UPI" },
-  { value: "card", label: "Card" },
-] as const;
-
 export const QUEUE_ERRORS: Record<string, string> = {
   FORBIDDEN: "You don't have permission to run the queue.",
   NOT_AUTHENTICATED: "Please sign in again.",
@@ -128,6 +124,7 @@ export const QUEUE_ERRORS: Record<string, string> = {
   REASON_REQUIRED: "Please give a reason — patients can see the order change.",
   PAYMENT_METHOD_REQUIRED: "Choose how the patient paid.",
   ALREADY_SETTLED: "This payment is already settled.",
+  ...PAYMENT_DB_ERRORS,
   STALE: "The queue changed on another device. It has been refreshed - please check and try again.",
 };
 

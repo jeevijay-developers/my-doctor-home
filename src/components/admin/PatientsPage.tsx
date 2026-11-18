@@ -1,19 +1,18 @@
-import { csvCell } from "@/lib/csv";
+import { patientsToCsv } from "@/lib/patientCsv";
+import PatientImportDialog from "./PatientImportDialog";
 import { clinicToday } from "@/lib/queue";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Users, Plus, Search, Mail, Calendar as CalendarIcon, Activity, Download, Trash2, X, FileHeart } from "lucide-react";
+import { Users, Plus, Search, Mail, Calendar as CalendarIcon, Activity, Download, Upload, Trash2, X, FileHeart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { DigitsInput } from "@/components/ui/digits-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,14 +24,18 @@ import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import DateFilter from "@/components/shared/DateFilter";
+import PatientVitalsFields from "./PatientVitalsFields";
+import { emailError, nameError, parseWeight, vitalsErrors } from "@/lib/patientIntake";
 
 const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
 type Patient = {
   id: string; name: string; phone: string; email: string | null;
-  age: number | null; gender: string | null; first_visit: string | null;
+  age: number | null; gender: string | null; weight?: number | null; first_visit: string | null;
   last_visit: string | null; total_visits: number; notes: string | null;
 };
+
+const blankNewPatient = () => ({ name: "", phone: "", email: "", age: "", gender: "", weight: "" });
 
 const PatientsPage = () => {
   const { profile, isStaff, can } = useProfile();
@@ -50,7 +53,9 @@ const PatientsPage = () => {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
   const [datesWithVisits, setDatesWithVisits] = useState<Set<string>>(new Set());
-  const [newPatient, setNewPatient] = useState({ name: "", phone: "", email: "", age: "", gender: "" });
+  const [newPatient, setNewPatient] = useState(blankNewPatient);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [deleting, setDeleting] = useState<Patient | null>(null);
 
   // Bulk selection state (mirrors AppointmentsPage pattern)
@@ -161,24 +166,29 @@ const PatientsPage = () => {
   }, [profile]);
 
   const addPatient = async () => {
+    if (!profile) return;
+    setSubmitAttempted(true);
     const name = newPatient.name.trim();
-    if (!profile || !name || !newPatient.phone) return;
+    const nameProblem = nameError(newPatient.name);
+    if (nameProblem) { toast.error(nameProblem); return; }
+    if (!newPatient.phone.trim()) { toast.error("Phone number is required"); return; }
     if (!isValidIndianPhone(newPatient.phone)) { toast.error(phoneErrorMessage); return; }
-    if (newPatient.age && (Number(newPatient.age) < 0 || Number(newPatient.age) > 120)) {
-      toast.error("Please enter a valid age (0–120)");
-      return;
-    }
+    const vitalsProblem = Object.values(vitalsErrors(newPatient))[0];
+    if (vitalsProblem) { toast.error(vitalsProblem); return; }
+    const emailProblem = emailError(newPatient.email);
+    if (emailProblem) { toast.error(emailProblem); return; }
     const { error } = await supabase.from("patients").insert({
       doctor_id: profile.id, name, phone: normalizeIndianPhone(newPatient.phone),
-      email: newPatient.email.trim() || null, age: newPatient.age ? Number(newPatient.age) : null,
-      gender: newPatient.gender || null,
+      email: newPatient.email.trim() || null, age: Number(newPatient.age),
+      gender: newPatient.gender, weight: parseWeight(newPatient.weight),
     });
     if (error) {
       toast.error(error.code === "23505" ? "A patient with this name and phone number already exists." : "Could not add patient");
       return;
     }
     setShowNew(false);
-    setNewPatient({ name: "", phone: "", email: "", age: "", gender: "" });
+    setNewPatient(blankNewPatient());
+    setSubmitAttempted(false);
     load();
     toast.success("Patient added");
   };
@@ -202,33 +212,8 @@ const PatientsPage = () => {
       if (!data || data.length < 1000) break;
     }
     if (!rows.length) { toast.info("No patients to export"); return; }
-    // Force Excel to treat a value as text (prevents scientific notation on
-    // phone numbers and prevents dates from collapsing to "#######").
-    const asText = (v: string | number | null | undefined) => {
-      if (v === null || v === undefined || v === "") return "";
-      const s = String(v).replace(/"/g, '""');
-      return `="${s}"`;
-    };
-    const fmtDate = (d: string | null | undefined) => {
-      if (!d) return "";
-      // Stored as YYYY-MM-DD → display DD/MM/YYYY
-      const [y, m, day] = d.split("-");
-      return y && m && day ? `${day}/${m}/${y}` : d;
-    };
-    const headers = ["Name", "Phone", "Email", "Age", "Gender", "First Visit", "Last Visit", "Total Visits", "Notes"];
-    const csvRows = rows.map((p) => [
-      csvCell(p.name),
-      asText(p.phone),
-      csvCell(p.email),
-      p.age ?? "",
-      csvCell(p.gender),
-      asText(fmtDate(p.first_visit)),
-      asText(fmtDate(p.last_visit)),
-      p.total_visits,
-      csvCell(p.notes),
-    ]);
-    const csv = [headers.join(","), ...csvRows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    // Built by the shared exporter so the columns always match what the importer reads.
+    const blob = new Blob([patientsToCsv(rows)], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = `patients-${clinicToday()}.csv`;
@@ -253,7 +238,26 @@ const PatientsPage = () => {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => exportPatients()} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
           {can("patients.add") && (
-          <Dialog open={showNew} onOpenChange={setShowNew}>
+            <Button
+              variant="outline"
+              className="h-10"
+              disabled={writeDisabled}
+              title={writeDisabled ? "Upgrade to continue editing" : undefined}
+              onClick={() => setShowImport(true)}
+            >
+              <Upload className="h-4 w-4 mr-1.5" /> Import CSV
+            </Button>
+          )}
+          {can("patients.add") && profile && (
+            <PatientImportDialog
+              open={showImport}
+              onOpenChange={setShowImport}
+              doctorId={profile.id}
+              onImported={() => { load(); loadDatesWithVisits(); }}
+            />
+          )}
+          {can("patients.add") && (
+          <Dialog open={showNew} onOpenChange={(open) => { setShowNew(open); if (open) { setNewPatient(blankNewPatient()); setSubmitAttempted(false); } }}>
             <DialogTrigger asChild>
               <Button
                 className="bg-royal hover:bg-royal/90"
@@ -263,40 +267,41 @@ const PatientsPage = () => {
                 <Plus className="h-4 w-4 mr-1" /> Add Patient
               </Button>
             </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Add Patient</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Name *</Label>
-                <Input value={newPatient.name} onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })} className="h-10" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-patient-name">Name *</Label>
+                  <Input id="new-patient-name" maxLength={100} value={newPatient.name} onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })} aria-invalid={submitAttempted && !!nameError(newPatient.name)} className="h-10" />
+                  {submitAttempted && nameError(newPatient.name) && (
+                    <p className="text-[11px] text-destructive">{nameError(newPatient.name)}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-patient-phone">Phone *</Label>
+                  <PhoneInput id="new-patient-phone" value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
+                  {newPatient.phone && !isValidIndianPhone(newPatient.phone) ? (
+                    <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
+                  ) : submitAttempted && !newPatient.phone.trim() ? (
+                    <p className="text-[11px] text-destructive">Phone number is required</p>
+                  ) : null}
+                </div>
               </div>
+              <PatientVitalsFields
+                idPrefix="new-patient"
+                age={newPatient.age}
+                gender={newPatient.gender}
+                weight={newPatient.weight}
+                onChange={(patch) => setNewPatient((prev) => ({ ...prev, ...patch }))}
+                errors={submitAttempted ? vitalsErrors(newPatient) : {}}
+              />
               <div className="space-y-1.5">
-                <Label>Phone *</Label>
-                <PhoneInput value={newPatient.phone} onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
-                {newPatient.phone && !isValidIndianPhone(newPatient.phone) && (
-                  <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
+                <Label htmlFor="new-patient-email">Email <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                <Input id="new-patient-email" type="email" value={newPatient.email} onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })} aria-invalid={submitAttempted && !!emailError(newPatient.email)} className="h-10" />
+                {submitAttempted && emailError(newPatient.email) && (
+                  <p className="text-[11px] text-destructive">{emailError(newPatient.email)}</p>
                 )}
-              </div>
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input value={newPatient.email} onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })} className="h-10" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Age</Label>
-                  <DigitsInput maxLength={3} value={newPatient.age} onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })} className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Gender</Label>
-                  <Select value={newPatient.gender} onValueChange={(v) => setNewPatient({ ...newPatient, gender: v })}>
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
               <Button onClick={addPatient} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Add Patient</Button>
             </div>
@@ -563,6 +568,7 @@ const PatientsPage = () => {
                     },
                     { label: "Age", value: selected.age ? `${selected.age} years` : "—", icon: Activity },
                     { label: "Gender", value: selected.gender || "—", icon: Users },
+                    { label: "Weight", value: selected.weight != null ? `${selected.weight} kg` : "—", icon: Activity },
                     { label: "Total Visits", value: String(selected.total_visits), icon: CalendarIcon },
                   ].map(item => (
                     <div key={item.label} className="bg-secondary rounded-xl p-3">

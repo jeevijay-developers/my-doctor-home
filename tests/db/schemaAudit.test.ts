@@ -86,7 +86,7 @@ describe("function execute privileges", () => {
 
   it("snapshot: functions executable by signed-in users but not anon", () => {
     expect(sqlCol(`${FUNCS} and has_function_privilege('authenticated',p.oid,'execute') and not has_function_privilege('anon',p.oid,'execute') order by 1`)).toEqual([
-      "get_appointment_cap_usage(uuid)", "get_doctor_plan_details(uuid)", "queue_action(text,uuid,text,text,text)",
+      "get_appointment_cap_usage(uuid)", "get_doctor_plan_details(uuid)", "queue_action(text,uuid,text,text,text,text)",
       "rebase_custom_plan(uuid)",
       "review_plan_request(uuid,text,text[],numeric,timestamp with time zone,timestamp with time zone,text,integer)",
       "set_custom_plan_appointments_limit(uuid,integer)", "submit_plan_request(text[],text[],text,integer)",

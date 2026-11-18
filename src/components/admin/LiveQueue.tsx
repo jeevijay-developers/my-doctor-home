@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Clock, Copy, ExternalLink, MoreVertical, PhoneCall, RotateCcw, SkipForward, Star, Users } from "lucide-react";
+import { PaymentCollectDialog } from "./PaymentCollect";
 import {
-  PAYMENT_METHODS,
   averageConsultMinutes,
   clinicToday,
   estimateWaitMinutes,
@@ -40,6 +40,10 @@ const tokenLabel = (n: number | null) => (n == null ? "—" : `#${n}`);
 // "call" = the patient in the room is unpaid and staff asked to call someone else out of order.
 type PendingPayment = { appointment: QueueAppointment; then: "next" | "complete" | "call"; callId?: string };
 
+// The time window starts as the whole clinic day, so the fields always show a real time.
+const DAY_START = "00:00";
+const DAY_END = "23:59";
+
 // Data older than this is not trustworthy enough to act on or to show as live.
 const STALE_AFTER_MS = 45000;
 
@@ -47,12 +51,13 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
   const [rows, setRows] = useState<QueueAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState(DAY_START);
+  const [to, setTo] = useState(DAY_END);
   const [showDone, setShowDone] = useState(false);
   const [tick, setTick] = useState(0);
   const [lastOkAt, setLastOkAt] = useState<number | null>(null);
   const [payFor, setPayFor] = useState<PendingPayment | null>(null);
+  const [markPaidFor, setMarkPaidFor] = useState<QueueAppointment | null>(null);
   const [priorityFor, setPriorityFor] = useState<QueueAppointment | null>(null);
   const [priorityReason, setPriorityReason] = useState("");
   const today = clinicToday();
@@ -119,7 +124,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
 
   // `expect` = who this screen believes is in the room right now ("none" or an appointment id).
   // If another device changed that, the server answers STALE instead of completing the wrong patient.
-  const run = async (action: string, appointmentId?: string, reason?: string, method?: string, expect?: string): Promise<boolean> => {
+  const run = async (action: string, appointmentId?: string, reason?: string, method?: string, expect?: string, reference?: string | null): Promise<boolean> => {
     if (busyRef.current) { toast.info("Still working on the previous action..."); return false; }
     busyRef.current = true;
     setBusy(true);
@@ -130,6 +135,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
         _reason: reason ?? null,
         _payment_method: method ?? null,
         _expect: expect ?? null,
+        ...(reference ? { _payment_reference: reference } : {}),
       });
       if (error || !data?.ok) {
         toast.error(queueErrorMessage(data?.error));
@@ -171,11 +177,11 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
     run("call", target.id, undefined, undefined, serving ? serving.id : "none");
   };
 
-  const confirmPayment = async (method: string | null) => {
+  const confirmPayment = async (method: string | null, reference: string | null = null) => {
     if (!payFor) return;
     const { appointment, then, callId } = payFor;
     setPayFor(null);
-    if (method && !(await run("mark_paid", appointment.id, undefined, method))) return;
+    if (method && !(await run("mark_paid", appointment.id, undefined, method, undefined, reference))) return;
     if (then === "call") await run("call", callId, undefined, undefined, appointment.id);
     else if (then === "next") await run("call_next", undefined, undefined, undefined, appointment.id);
     else await run("complete", appointment.id);
@@ -192,8 +198,9 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
     }
   };
 
-  const markPaidLater = async (a: QueueAppointment, method: string) => {
-    await run("mark_paid", a.id, undefined, method);
+  const markPaidLater = async (method: string, reference: string | null) => {
+    if (!markPaidFor) return;
+    if (await run("mark_paid", markPaidFor.id, undefined, method, undefined, reference)) setMarkPaidFor(null);
   };
 
   const publicLink = doctorSlug ? `${window.location.origin}/dr/${doctorSlug}/queue` : null;
@@ -233,14 +240,14 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
         <div className="flex items-end gap-2 flex-wrap">
           <div className="space-y-1">
             <Label htmlFor="queue-from" className="text-xs">From</Label>
-            <Input id="queue-from" type="time" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 w-32" />
+            <Input id="queue-from" type="time" value={from} onChange={(e) => setFrom(e.target.value || DAY_START)} className="h-9 w-32" />
           </div>
           <div className="space-y-1">
             <Label htmlFor="queue-to" className="text-xs">To</Label>
-            <Input id="queue-to" type="time" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 w-32" />
+            <Input id="queue-to" type="time" value={to} onChange={(e) => setTo(e.target.value || DAY_END)} className="h-9 w-32" />
           </div>
-          {(from || to) && (
-            <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFrom(""); setTo(""); }}>Clear window</Button>
+          {(from !== DAY_START || to !== DAY_END) && (
+            <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFrom(DAY_START); setTo(DAY_END); }}>Reset to full day</Button>
           )}
         </div>
         {publicLink && (
@@ -433,16 +440,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
                       </div>
                     </div>
                     {canAct && isUnpaid(a) && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="outline" className="h-8 text-xs" disabled={disabled}>Mark paid</Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {PAYMENT_METHODS.map((m) => (
-                            <DropdownMenuItem key={m.value} onClick={() => markPaidLater(a, m.value)}>{m.label}</DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <Button size="sm" variant="outline" className="h-8 text-xs" disabled={disabled} onClick={() => setMarkPaidFor(a)}>Mark paid</Button>
                     )}
                   </CardContent>
                 </Card>
@@ -453,22 +451,25 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
       )}
 
       {/* Payment prompt */}
-      <Dialog open={!!payFor} onOpenChange={(o) => !o && setPayFor(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Collect ₹{payFor?.appointment.amount}</DialogTitle>
-            <DialogDescription>{payFor?.appointment.patient_name} hasn't paid yet. How did they pay?</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-3 gap-2">
-            {PAYMENT_METHODS.map((m) => (
-              <Button key={m.value} variant="outline" disabled={busy} onClick={() => confirmPayment(m.value)}>{m.label}</Button>
-            ))}
-          </div>
-          <DialogFooter className="sm:justify-center">
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => confirmPayment(null)}>Continue without payment</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PaymentCollectDialog
+        open={!!payFor}
+        onOpenChange={(o) => !o && setPayFor(null)}
+        busy={busy}
+        title={`Collect ₹${payFor?.appointment.amount ?? ""}`}
+        description={`${payFor?.appointment.patient_name ?? ""} hasn't paid yet. How did they pay?`}
+        onConfirm={(method, reference) => confirmPayment(method, reference)}
+        secondary={{ label: "Continue without payment", onClick: () => confirmPayment(null) }}
+      />
+
+      {/* "Mark paid" on a finished visit */}
+      <PaymentCollectDialog
+        open={!!markPaidFor}
+        onOpenChange={(o) => !o && setMarkPaidFor(null)}
+        busy={busy}
+        title={`Collect ₹${markPaidFor?.amount ?? ""}`}
+        description={`How did ${markPaidFor?.patient_name ?? "the patient"} pay?`}
+        onConfirm={markPaidLater}
+      />
 
       {/* Priority reason */}
       <Dialog open={!!priorityFor} onOpenChange={(o) => !o && setPriorityFor(null)}>

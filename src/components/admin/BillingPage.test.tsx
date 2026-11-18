@@ -103,6 +103,33 @@ describe("BillingPage - plan gating", () => {
     (globalThis as any).__mockAppointments = undefined;
   });
 
+  it("splits paid revenue by cash / UPI / card / online and shows the UTR", async () => {
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
+    const today = new Date().toISOString().slice(0, 10);
+    const base = { service_name: "Consultation", date: today, status: "completed" };
+    (globalThis as any).__mockAppointments = [
+      { ...base, id: "a1", patient_name: "Cash Pat", amount: 300, payment_status: "paid", payment_method: "cash" },
+      { ...base, id: "a2", patient_name: "Upi Pat", amount: 500, payment_status: "paid", payment_method: "upi", payment_reference: "412345678901" },
+      { ...base, id: "a3", patient_name: "Card Pat", amount: 200, payment_status: "paid", payment_method: "card", payment_reference: "4242" },
+      { ...base, id: "a4", patient_name: "Online Pat", amount: 400, payment_status: "paid", payment_method: null, payment_gateway: "razorpay" },
+      { ...base, id: "a5", patient_name: "Old Pat", amount: 100, payment_status: "paid", payment_method: null },
+      { ...base, id: "a6", patient_name: "Unpaid Pat", amount: 999, payment_status: "pending", payment_method: null },
+    ];
+    render(<MemoryRouter><BillingPage /></MemoryRouter>);
+    await screen.findByText("Upi Pat");
+
+    expect(screen.getByTestId("mode-total-cash")).toHaveTextContent("₹300");
+    expect(screen.getByTestId("mode-total-upi")).toHaveTextContent("₹500");
+    expect(screen.getByTestId("mode-total-card")).toHaveTextContent("₹200");
+    expect(screen.getByTestId("mode-total-online")).toHaveTextContent("₹400");
+    expect(screen.getByTestId("mode-total-unrecorded")).toHaveTextContent("₹100");
+    // Unpaid money is never counted as collected.
+    expect(screen.getByTestId("payment-mode-breakdown")).toHaveTextContent("₹1,500");
+    expect(screen.getByText("UPI · 412345678901")).toBeInTheDocument();
+    expect(screen.getByText("Card · 4242")).toBeInTheDocument();
+    (globalThis as any).__mockAppointments = undefined;
+  });
+
   it("never inserts an invoice client-side (the DB trigger owns it: completed AND paid only)", async () => {
     vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
     const insert = vi.fn();

@@ -93,8 +93,10 @@ export type Database = {
           patient_id: string | null
           patient_name: string
           patient_phone: string
+          patient_weight: number | null
           payment_gateway: string | null
           payment_method: string | null
+          payment_reference: string | null
           payment_status: Database["public"]["Enums"]["payment_status"]
           priority: number
           priority_reason: string | null
@@ -136,8 +138,10 @@ export type Database = {
           patient_id?: string | null
           patient_name: string
           patient_phone: string
+          patient_weight?: number | null
           payment_gateway?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           priority?: number
           priority_reason?: string | null
@@ -179,8 +183,10 @@ export type Database = {
           patient_id?: string | null
           patient_name?: string
           patient_phone?: string
+          patient_weight?: number | null
           payment_gateway?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           priority?: number
           priority_reason?: string | null
@@ -662,6 +668,8 @@ export type Database = {
           invoice_number: string
           net_amount: number | null
           patient_name: string
+          payment_method: string | null
+          payment_reference: string | null
           refunded_at: string | null
           service_name: string
           status: string
@@ -681,6 +689,8 @@ export type Database = {
           invoice_number: string
           net_amount?: number | null
           patient_name: string
+          payment_method?: string | null
+          payment_reference?: string | null
           refunded_at?: string | null
           service_name: string
           status?: string
@@ -700,6 +710,8 @@ export type Database = {
           invoice_number?: string
           net_amount?: number | null
           patient_name?: string
+          payment_method?: string | null
+          payment_reference?: string | null
           refunded_at?: string | null
           service_name?: string
           status?: string
@@ -1611,6 +1623,7 @@ export type Database = {
           phone: string
           total_visits: number
           updated_at: string
+          weight: number | null
         }
         Insert: {
           age?: number | null
@@ -1627,6 +1640,7 @@ export type Database = {
           phone: string
           total_visits?: number
           updated_at?: string
+          weight?: number | null
         }
         Update: {
           age?: number | null
@@ -1643,6 +1657,7 @@ export type Database = {
           phone?: string
           total_visits?: number
           updated_at?: string
+          weight?: number | null
         }
         Relationships: [
           {
@@ -3186,6 +3201,17 @@ export type Database = {
         Returns: number
       }
       queue_action: {
+        Args: {
+          _action: string
+          _appointment_id?: string
+          _expect?: string
+          _payment_method?: string
+          _payment_reference?: string
+          _reason?: string
+        }
+        Returns: Json
+      }
+      queue_action_core: {
         Args: {
           _action: string
           _appointment_id?: string

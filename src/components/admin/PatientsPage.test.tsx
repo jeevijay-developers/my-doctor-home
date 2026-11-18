@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import PatientsPage from "./PatientsPage";
 import { createTableMock } from "@/test/tableMock";
@@ -110,6 +110,36 @@ describe("PatientsPage", () => {
     expect(screen.getByRole("button", { name: /Add Patient/ })).toBeDisabled();
   });
 
+  it("doctor sees Import CSV and it opens the import dialog", async () => {
+    renderPage();
+    await screen.findAllByText("Ravi Kumar");
+    fireEvent.click(screen.getByRole("button", { name: /Import CSV/ }));
+    expect(await screen.findByText("Import patients from CSV")).toBeInTheDocument();
+  });
+
+  it("staff need patients.add to import", async () => {
+    h.isStaff = true;
+    h.granted = ["patients.view"];
+    renderPage();
+    await screen.findAllByText("Ravi Kumar");
+    expect(screen.queryByRole("button", { name: /Import CSV/ })).not.toBeInTheDocument();
+  });
+
+  it("staff with patients.add can import", async () => {
+    h.isStaff = true;
+    h.granted = ["patients.view", "patients.add"];
+    renderPage();
+    await screen.findAllByText("Ravi Kumar");
+    expect(screen.getByRole("button", { name: /Import CSV/ })).toBeInTheDocument();
+  });
+
+  it("Import CSV is disabled during the grace period", async () => {
+    h.trial = "grace";
+    renderPage();
+    await screen.findAllByText("Ravi Kumar");
+    expect(screen.getByRole("button", { name: /Import CSV/ })).toBeDisabled();
+  });
+
   const openAdd = async () => {
     renderPage();
     await screen.findAllByText("Ravi Kumar");
@@ -120,6 +150,21 @@ describe("PatientsPage", () => {
     const btns = screen.getAllByRole("button", { name: "Add Patient" });
     fireEvent.click(btns[btns.length - 1]);
   };
+  const chooseGender = (label: "Male" | "Female" | "Other") => {
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("combobox", { name: /gender/i }));
+    fireEvent.click(screen.getByRole("option", { name: label }));
+  };
+  // Name + phone + age + gender: everything the form requires.
+  type Gender = "Male" | "Female" | "Other";
+  const fillRequired = (over: { name?: string; phone?: string; age?: string; gender?: Gender | null } = {}) => {
+    const defaults: { name: string; phone: string; age: string; gender: Gender | null } = { name: "New Person", phone: "9876500009", age: "34", gender: "Female" };
+    const v = { ...defaults, ...over };
+    fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: v.name } });
+    fireEvent.change(screen.getByPlaceholderText("10-digit mobile"), { target: { value: v.phone } });
+    fireEvent.change(screen.getByPlaceholderText("Years"), { target: { value: v.age } });
+    if (v.gender) chooseGender(v.gender);
+  };
+  const noInsert = () => !patientQueries().some((q: any) => q.ops.some((o: any[]) => o[0] === "insert"));
 
   it("rejects an invalid phone number and inserts nothing", async () => {
     await openAdd();
@@ -131,24 +176,67 @@ describe("PatientsPage", () => {
     expect(patientQueries().some((q: any) => q.ops.some((o: any[]) => o[0] === "insert"))).toBe(false);
   });
 
-  it("inserts a valid patient for this doctor with a normalised phone", async () => {
+  it("inserts a valid patient for this doctor with a normalised phone, age, gender and weight", async () => {
     await openAdd();
-    fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: "New Person" } });
-    fireEvent.change(screen.getByPlaceholderText("10-digit mobile"), { target: { value: "9876500009" } });
+    fillRequired();
+    fireEvent.change(screen.getByPlaceholderText("e.g. 62"), { target: { value: "62.5" } });
     submitAdd();
     await waitFor(() => expect(h.success).toHaveBeenCalledWith("Patient added"));
     const ins = patientQueries().find((q: any) => q.ops.some((o: any[]) => o[0] === "insert"));
     const row = ins.ops.find((o: any[]) => o[0] === "insert")[1];
-    expect(row).toMatchObject({ doctor_id: "doc-1", name: "New Person" });
+    expect(row).toMatchObject({ doctor_id: "doc-1", name: "New Person", age: 34, gender: "female", weight: 62.5 });
     expect(String(row.phone)).toContain("9876500009");
+  });
+
+  it("leaves weight empty when it is not entered", async () => {
+    await openAdd();
+    fillRequired();
+    submitAdd();
+    await waitFor(() => expect(h.success).toHaveBeenCalledWith("Patient added"));
+    const ins = patientQueries().find((q: any) => q.ops.some((o: any[]) => o[0] === "insert"));
+    expect(ins.ops.find((o: any[]) => o[0] === "insert")[1].weight).toBeNull();
+  });
+
+  it("requires a phone number", async () => {
+    await openAdd();
+    fillRequired({ phone: "" });
+    submitAdd();
+    expect(await screen.findByText("Phone number is required")).toBeInTheDocument();
+    expect(noInsert()).toBe(true);
+  });
+
+  it("requires an age and a gender", async () => {
+    await openAdd();
+    fillRequired({ age: "", gender: null });
+    submitAdd();
+    expect(await screen.findByText("Age is required")).toBeInTheDocument();
+    expect(screen.getByText("Select the patient's gender")).toBeInTheDocument();
+    expect(noInsert()).toBe(true);
+  });
+
+  it("rejects an age above 120, a bad weight and a malformed email", async () => {
+    await openAdd();
+    fillRequired({ age: "150" });
+    submitAdd();
+    expect(await screen.findByText(/valid age/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Years"), { target: { value: "40" } });
+    fireEvent.change(screen.getByPlaceholderText("e.g. 62"), { target: { value: "700" } });
+    submitAdd();
+    expect(await screen.findByText(/between 0.5 and 500 kg/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("e.g. 62"), { target: { value: "70" } });
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "not-an-email" } });
+    submitAdd();
+    expect(await screen.findByText("Enter a valid email address")).toBeInTheDocument();
+    expect(noInsert()).toBe(true);
   });
 
   it("duplicate patients get a specific message", async () => {
     mock.current.tables.patients = (ops: any[]) =>
       ops.some((o) => o[0] === "insert") ? { data: null, error: { code: "23505", message: "dup" } } : { data: patients, count: 2 };
     await openAdd();
-    fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: "New Person" } });
-    fireEvent.change(screen.getByPlaceholderText("10-digit mobile"), { target: { value: "9876500009" } });
+    fillRequired();
     submitAdd();
     await waitFor(() => expect(h.error).toHaveBeenCalledWith("A patient with this name and phone number already exists."));
   });
@@ -201,7 +289,7 @@ describe("PatientsPage", () => {
     it("exports every patient with a header row, a BOM, and phone numbers as text", async () => {
       const csv = await exportCsv();
       expect(blobs[0].type).toContain("text/csv");
-      expect(csv).toContain("Name,Phone,Email,Age,Gender,First Visit,Last Visit,Total Visits,Notes");
+      expect(csv).toContain("Name,Phone,Email,Age,Gender,Weight (kg),First Visit,Last Visit,Total Visits,Notes");
       expect(csv).toContain('="9876500001"');
       expect(csv).toContain("Ravi Kumar");
       expect(h.success).toHaveBeenCalledWith("Exported 2 patients to CSV");
