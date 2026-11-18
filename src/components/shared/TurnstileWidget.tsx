@@ -107,6 +107,9 @@ const TurnstileWidget = ({
             return;
           widgetIdRef.current = window.turnstile.render(containerRef.current, {
             sitekey: siteKey,
+            // Must be set: the edge functions reject tokens whose `action`
+            // doesn't match what they expect ("contact", "booking", ...).
+            action,
             theme: "light",
             size: "flexible",
             callback: (token: string) => onTokenRef.current(token),

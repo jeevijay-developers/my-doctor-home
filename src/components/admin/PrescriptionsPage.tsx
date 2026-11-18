@@ -2,13 +2,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
-  FileText, Plus, Search, Calendar, Pill, Stethoscope, User, Trash2, X, Pencil, Download, ClipboardList,
+  FileText, Plus, Search, Pill, Stethoscope, Trash2, X, Pencil, Download, ClipboardList,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DigitsInput } from "@/components/ui/digits-input";
-import { AmountInput } from "@/components/ui/amount-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
@@ -29,6 +28,9 @@ import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import DateFilter from "@/components/shared/DateFilter";
+import PrescriptionPatientFields from "./PrescriptionPatientFields";
+import { prescriptionVitalsError, type PatientOption } from "@/lib/prescriptionPatient";
+import { parseWeight } from "@/lib/patientIntake";
 
 const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
@@ -293,7 +295,7 @@ const PrescriptionsPage = () => {
   const [dateFilterActive, setDateFilterActive] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [showNew, setShowNew] = useState(false);
-  const [patients, setPatients] = useState<{ id: string; name: string; phone: string; gender: string | null }[]>([]);
+  const [patients, setPatients] = useState<PatientOption[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [formMedicines, setFormMedicines] = useState<MedicineFormItem[]>([]);
 
@@ -331,10 +333,10 @@ const PrescriptionsPage = () => {
     // before the appointment is completed.
     const { data } = await supabase
       .from("patients")
-      .select("id, name, phone, gender")
+      .select("id, name, phone, gender, age, weight")
       .eq("doctor_id", profile.id)
       .order("name");
-    setPatients((data || []).map(({ id, name, phone, gender }) => ({ id, name, phone, gender })));
+    setPatients((data || []).map(({ id, name, phone, gender, age, weight }) => ({ id, name, phone, gender, age, weight })));
   };
 
   // Reset to page 1 whenever the search term changes underneath the pager.
@@ -424,14 +426,8 @@ const PrescriptionsPage = () => {
 
   const addPrescription = async () => {
     if (!profile || !form.patient_name.trim()) { toast.error("Patient name is required"); return; }
-    if (form.patient_age && (Number(form.patient_age) < 0 || Number(form.patient_age) > 120)) {
-      toast.error("Please enter a valid age (0–120)");
-      return;
-    }
-    if (form.patient_weight && Number(form.patient_weight) < 0) {
-      toast.error("Weight cannot be negative");
-      return;
-    }
+    const vitalsError = prescriptionVitalsError(form);
+    if (vitalsError) { toast.error(vitalsError); return; }
     const medError = validateMedicines(formMedicines);
     if (medError) { toast.error(medError); return; }
     const { data, error } = await supabase.from("prescriptions").insert({
@@ -442,7 +438,7 @@ const PrescriptionsPage = () => {
       medicines: toMedicineItems(formMedicines),
       date: form.date,
       patient_age: form.patient_age ? Number(form.patient_age) : null,
-      patient_weight: form.patient_weight ? Number(form.patient_weight) : null,
+      patient_weight: parseWeight(form.patient_weight),
     }).select().single();
     if (error) { toast.error("Could not add prescription"); return; }
     setShowNew(false);
@@ -456,14 +452,8 @@ const PrescriptionsPage = () => {
   const saveEdit = async () => {
     if (!viewing) return;
     if (!editForm.patient_name.trim()) { toast.error("Patient name is required"); return; }
-    if (editForm.patient_age && (Number(editForm.patient_age) < 0 || Number(editForm.patient_age) > 120)) {
-      toast.error("Please enter a valid age (0–120)");
-      return;
-    }
-    if (editForm.patient_weight && Number(editForm.patient_weight) < 0) {
-      toast.error("Weight cannot be negative");
-      return;
-    }
+    const editVitalsError = prescriptionVitalsError(editForm);
+    if (editVitalsError) { toast.error(editVitalsError); return; }
     const medError = validateMedicines(editFormMedicines);
     if (medError) { toast.error(medError); return; }
     const { error } = await supabase.from("prescriptions").update({
@@ -473,7 +463,7 @@ const PrescriptionsPage = () => {
       medicines: toMedicineItems(editFormMedicines),
       date: editForm.date,
       patient_age: editForm.patient_age ? Number(editForm.patient_age) : null,
-      patient_weight: editForm.patient_weight ? Number(editForm.patient_weight) : null,
+      patient_weight: parseWeight(editForm.patient_weight),
     }).eq("id", viewing.id);
     if (error) { toast.error("Could not save changes"); return; }
     toast.success("Prescription updated");
@@ -493,15 +483,6 @@ const PrescriptionsPage = () => {
     });
     setEditFormMedicines(fromMedicineItems(parseMedicineItems(viewing.medicines)));
     setEditing(true);
-  };
-
-  const selectPatient = (patientId: string) => {
-    const p = patients.find(pt => pt.id === patientId);
-    if (p) setForm({ ...form, patient_id: p.id, patient_name: p.name });
-  };
-  const selectEditPatient = (patientId: string) => {
-    const p = patients.find(pt => pt.id === patientId);
-    if (p) setEditForm({ ...editForm, patient_id: p.id, patient_name: p.name });
   };
 
   const toggleSelected = (id: string) => {
@@ -552,37 +533,13 @@ const PrescriptionsPage = () => {
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Add Prescription</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              {patients.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label>Select Existing Patient</Label>
-                  <Select value={form.patient_id} onValueChange={(v) => selectPatient(v)}>
-                    <SelectTrigger className="h-10"><SelectValue placeholder="-- Or type name below --" /></SelectTrigger>
-                    <SelectContent className="max-h-[200px]">
-                      {patients.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.phone})</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label>
-                  <Input value={form.patient_name} onChange={(e) => setForm({ ...form, patient_name: e.target.value })} className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Date</Label>
-                  <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="h-10" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Age</Label>
-                  <DigitsInput maxLength={3} value={form.patient_age} onChange={(e) => setForm({ ...form, patient_age: e.target.value })} className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Weight (kg)</Label>
-                  <AmountInput value={form.patient_weight} onChange={(e) => setForm({ ...form, patient_weight: e.target.value })} className="h-10" />
-                </div>
-              </div>
+              <PrescriptionPatientFields
+                idPrefix="new-rx"
+                selectLabel="Select Existing Patient"
+                patients={patients}
+                value={form}
+                onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+              />
 
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
@@ -871,37 +828,13 @@ const PrescriptionsPage = () => {
                 </div>
               ) : (
                 <div className="mt-6 space-y-4">
-                  {patients.length > 0 && (
-                    <div className="space-y-1.5">
-                      <Label>Linked Patient</Label>
-                      <Select value={editForm.patient_id} onValueChange={(v) => selectEditPatient(v)}>
-                        <SelectTrigger className="h-10"><SelectValue placeholder="-- Or type name below --" /></SelectTrigger>
-                        <SelectContent className="max-h-[200px]">
-                          {patients.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.phone})</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Patient Name *</Label>
-                      <Input value={editForm.patient_name} onChange={(e) => setEditForm({ ...editForm, patient_name: e.target.value })} className="h-10" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Date</Label>
-                      <Input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} className="h-10" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label>Age</Label>
-                      <DigitsInput maxLength={3} value={editForm.patient_age} onChange={(e) => setEditForm({ ...editForm, patient_age: e.target.value })} className="h-10" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Weight (kg)</Label>
-                      <AmountInput value={editForm.patient_weight} onChange={(e) => setEditForm({ ...editForm, patient_weight: e.target.value })} className="h-10" />
-                    </div>
-                  </div>
+                  <PrescriptionPatientFields
+                    idPrefix="edit-rx"
+                    selectLabel="Linked Patient"
+                    patients={patients}
+                    value={editForm}
+                    onChange={(patch) => setEditForm((prev) => ({ ...prev, ...patch }))}
+                  />
 
                   <div className="space-y-1.5">
                     <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
