@@ -47,7 +47,7 @@ function upsertCanonical(href: string) {
 }
 
 const DoctorPageContent = () => {
-  const { profile, settings, loading, services, reviews, gallery } = useDoctorData();
+  const { profile, settings, loading, services, reviews } = useDoctorData();
   const { hash } = useLocation();
 
   const doctorName = useMemo(() => doctorDisplayName(profile), [profile]);
@@ -156,7 +156,7 @@ const DoctorPageContent = () => {
 
   const showAbout = settings.show_about !== false;
   const showServices = settings.show_services !== false && services.length > 0;
-  const showGallery = Boolean(settings.show_gallery) && gallery.length > 0;
+  const showGallery = Boolean(settings.show_gallery);
   const showReviews = settings.show_reviews !== false;
   const showBlog = settings.show_blog !== false;
   const showClinicDetails = settings.show_clinic_details !== false;

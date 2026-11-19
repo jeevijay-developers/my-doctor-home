@@ -4,27 +4,15 @@ import { Menu, X, Moon, Sun } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import { supabase } from "@/integrations/supabase/client";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
 import { scrollToSection } from "@/lib/scrollToSection";
 
 
 const Navbar = () => {
-  const { profile, settings, services, gallery } = useDoctorData();
+  const { profile, settings, services } = useDoctorData();
   const { slug } = useParams<{ slug: string }>();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [hasPublishedBlog, setHasPublishedBlog] = useState(false);
   const { mode, setTheme } = usePanelTheme("doctylia-patient-theme");
-
-  useEffect(() => {
-    if (!profile?.id) { setHasPublishedBlog(false); return; }
-    supabase
-      .from("blog_posts")
-      .select("id", { count: "exact", head: true })
-      .eq("doctor_id", profile.id)
-      .eq("is_published", true)
-      .then(({ count }) => setHasPublishedBlog((count ?? 0) > 0));
-  }, [profile?.id]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -55,10 +43,10 @@ const Navbar = () => {
 
 
 
-  const showBlogLink = hasPublishedBlog && slug && settings?.show_blog !== false;
+  const isBlogActive = settings?.show_blog !== false;
   const isServicesActive = settings?.show_services !== false && (services?.length || 0) > 0;
   const isAboutActive = settings?.show_about !== false;
-  const isGalleryActive = settings?.show_gallery === true && (gallery?.length || 0) > 0;
+  const isGalleryActive = settings?.show_gallery === true;
   const isReviewsActive = settings?.show_reviews !== false;
   const isContactActive = settings?.show_clinic_details !== false;
 
@@ -67,6 +55,7 @@ const Navbar = () => {
     { label: "About", target: "about", show: isAboutActive },
     { label: "Gallery", target: "gallery", show: isGalleryActive },
     { label: "Reviews", target: "reviews", show: isReviewsActive },
+    { label: "Blog", target: "blog", show: isBlogActive },
     { label: "Contact", target: "contact", show: isContactActive },
   ].filter((link) => link.show);
 
@@ -111,11 +100,6 @@ const Navbar = () => {
                 {link.label}
               </button>
             ))}
-            {showBlogLink && (
-              <Link to={`/dr/${slug}/blog`} className="text-sm font-medium text-text-dark transition-colors hover:text-primary-600 dark:text-foreground">
-                Blog
-              </Link>
-            )}
             {slug && (
               <Link to={`/dr/${slug}/manage`} className="text-sm font-medium text-text-dark transition-colors hover:text-primary-600 dark:text-foreground">
                 My Appointment
@@ -183,11 +167,6 @@ const Navbar = () => {
                     {link.label}
                   </button>
                 ))}
-                {showBlogLink && (
-                  <Link to={`/dr/${slug}/blog`} onClick={() => setMobileOpen(false)} className={mobileLinkClass}>
-                    Blog
-                  </Link>
-                )}
                 {slug && (
                   <Link to={`/dr/${slug}/manage`} onClick={() => setMobileOpen(false)} className={mobileLinkClass}>
                     My Appointment

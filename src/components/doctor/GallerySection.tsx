@@ -96,7 +96,11 @@ const GallerySection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) 
             </p>
           </div>
 
-          {showCarousel ? (
+          {photos.length === 0 ? (
+            <p className="mx-auto mt-9 max-w-md rounded-2xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400 sm:mt-12">
+              No photos available yet. Check back soon.
+            </p>
+          ) : showCarousel ? (
             <Carousel
               setApi={setCarouselApi}
               opts={{ align: "start", loop: photos.length > 3 }}

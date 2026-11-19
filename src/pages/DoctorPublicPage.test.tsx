@@ -91,11 +91,11 @@ describe("DoctorPublicPage", () => {
     for (const s of ["blog", "gallery", "booking", "query"]) expect(screen.getByText(`SECTION:${s}`)).toBeInTheDocument();
   });
 
-  it("hides services when there are none, and gallery when it is on but empty", () => {
+  it("hides services when there are none, but still shows the gallery section (empty state) when it is on", () => {
     ctx.value = base({ services: [], settings: { show_gallery: true }, gallery: [] });
     renderPage();
     expect(screen.queryByText("SECTION:services")).not.toBeInTheDocument();
-    expect(screen.queryByText("SECTION:gallery")).not.toBeInTheDocument();
+    expect(screen.getByText("SECTION:gallery")).toBeInTheDocument();
   });
 
   it("sets the document title and a canonical link for the doctor, and restores the title on unmount", () => {
