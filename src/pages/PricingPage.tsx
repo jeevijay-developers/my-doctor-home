@@ -5,9 +5,7 @@ import {
   BadgeCheck,
   Building2,
   Calculator,
-  CalendarCheck,
   CheckCircle2,
-  Clock,
   Minus,
   Receipt,
   Sparkles,
@@ -180,16 +178,11 @@ const PricingPage = () => {
     },
   ];
 
-  // Monthly revenue is straight arithmetic from the two sliders:
-  //   patients per day x fee = daily revenue, x working days = monthly revenue.
-  // The no-show and hours-saved figures are illustrative; their assumptions are stated on the card.
+  // Straight arithmetic from the two sliders: patients per day x fee = daily revenue.
+  // The monthly figure is that daily revenue over 26 working days.
   const workingDays = 26;
   const dailyRevenue = patients * fee;
   const monthlyRevenue = dailyRevenue * workingDays;
-  const noShowsPrevented = Math.round(patients * workingDays * 0.04);
-  const hoursSaved = Math.round((patients * workingDays * 3) / 60);
-  const recoveredRevenue = noShowsPrevented * fee;
-  const extraConsultsPerWeek = Math.round(noShowsPrevented / (workingDays / 6));
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background pt-16 md:pt-20">
@@ -355,10 +348,9 @@ const PricingPage = () => {
                 <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-royal">
                   <Calculator className="h-3.5 w-3.5" /> Practice financial impact calculator
                 </div>
-                <h2 className="font-heading text-2xl font-bold text-navy md:text-3xl">Calculate your clinic revenue &amp; time saved</h2>
+                <h2 className="font-heading text-2xl font-bold text-navy md:text-3xl">Calculate your clinic revenue</h2>
                 <p className="text-sm text-muted-foreground md:text-base">
-                  See how automated appointment reminders and faster billing can give time and revenue back to your
-                  practice each month.
+                  See what your practice earns from the patients you see each day.
                 </p>
                 <div className="space-y-6 pt-2">
                   <div>
@@ -388,44 +380,23 @@ const PricingPage = () => {
 
               <div className="flex flex-col gap-4 rounded-xl bg-muted/60 p-4 md:p-6 lg:col-span-5">
                 <div className="rounded-lg bg-card p-4 shadow-sm">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your monthly clinic revenue</div>
-                  <div className="mt-1 font-heading text-3xl font-bold text-royal md:text-4xl">{inr(monthlyRevenue)}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your daily clinic revenue</div>
+                  <div className="mt-1 font-heading text-3xl font-bold text-royal md:text-4xl">{inr(dailyRevenue)}</div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {patients} patients × {inr(fee)} = {inr(dailyRevenue)} per day × {workingDays} working days
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Estimated upside with Doctylia</span>
-                  <span className="rounded-full bg-spark px-2.5 py-0.5 text-[10px] font-bold uppercase text-navy">Illustrative</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg bg-card p-3 shadow-sm">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-4 w-4 text-success" /> Staff hours saved
-                    </div>
-                    <div className="mt-1 font-heading text-2xl font-bold text-navy">{hoursSaved} hrs</div>
-                    <div className="text-[11px] text-muted-foreground">on billing &amp; calls</div>
-                  </div>
-                  <div className="rounded-lg bg-card p-3 shadow-sm">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <CalendarCheck className="h-4 w-4 text-royal" /> No-shows prevented
-                    </div>
-                    <div className="mt-1 font-heading text-2xl font-bold text-navy">{noShowsPrevented} slots</div>
-                    <div className="text-[11px] text-muted-foreground">via reminders</div>
+                    {patients} patients × {inr(fee)}
                   </div>
                 </div>
                 <div className="rounded-lg bg-card p-4 shadow-sm">
-                  <div className="text-xs text-muted-foreground">Revenue recovered from prevented no-shows</div>
-                  <div className="mt-1 font-heading text-3xl font-bold text-success md:text-4xl">{inr(recoveredRevenue)}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your monthly clinic revenue</div>
+                  <div className="mt-1 font-heading text-3xl font-bold text-success md:text-4xl">{inr(monthlyRevenue)}</div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {noShowsPrevented} slots × {inr(fee)} per month, about {extraConsultsPerWeek} extra consultations a week without longer working hours.
+                    {inr(dailyRevenue)} per day × {workingDays} working days
                   </div>
                 </div>
                 <div className="flex items-center gap-4 pt-1">
                   <img src="/stitch/landing-09.png" alt="Clinic growth chart" className="h-auto w-20 shrink-0 object-contain sm:w-24" loading="lazy" />
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Illustrative estimate only: assumes {workingDays} working days, 4% of visits recovered from no-shows
-                    and 3 minutes of admin saved per patient. Your results will vary.
+                    Illustrative estimate only: assumes {workingDays} working days a month. Your results will vary.
                   </p>
                 </div>
               </div>
