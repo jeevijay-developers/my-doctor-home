@@ -21,6 +21,7 @@ import { Star } from "lucide-react";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { FEATURE_KEYS } from "@/lib/features";
 import { DEFAULT_QUICK_STATS, AVAILABLE_STAT_ICONS, QuickStatItem } from "@/lib/quickStats";
+import { buildDoctorMeta } from "@/lib/seo/doctorSeo";
 import { SLOT_DURATION_OPTIONS, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
 
 type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
@@ -73,8 +74,17 @@ const MyWebsite = () => {
           // not JSON keywords
         }
       }
+      // Pre-fill blank SEO fields with the same text the public page would generate, so the
+      // doctor sees (and can refine) the real title/description instead of an empty box.
+      const auto = buildDoctorMeta({
+        origin: window.location.origin,
+        profile,
+        settings: { ...settingsRes.data, seo_title: "", seo_description: "" },
+      });
       setSettings({
         ...settingsRes.data,
+        seo_title: settingsRes.data.seo_title?.trim() ? settingsRes.data.seo_title : auto.title,
+        seo_description: settingsRes.data.seo_description?.trim() ? settingsRes.data.seo_description : auto.description,
         quick_stats: parsedStats || DEFAULT_QUICK_STATS,
       });
     }
@@ -884,8 +894,9 @@ const MyWebsite = () => {
             <AccordionItem value="websettings" className="border rounded-xl px-4">
               <AccordionTrigger className="text-sm font-semibold text-primary">Website Settings</AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
-                <div><Label>SEO Title</Label><Input value={settings.seo_title || ""} onChange={(e) => updateSetting("seo_title", e.target.value)} placeholder="Dr. Name — Specialization" /></div>
-                <div><Label>SEO Description</Label><Textarea value={settings.seo_description || ""} onChange={(e) => updateSetting("seo_description", e.target.value)} rows={2} placeholder="Your page description for Google..." /></div>
+                <div><Label>SEO Title</Label><Input value={settings.seo_title || ""} onChange={(e) => updateSetting("seo_title", e.target.value)} maxLength={70} placeholder="Dr. Name — Specialization" /></div>
+                <div><Label>SEO Description</Label><Textarea value={settings.seo_description || ""} onChange={(e) => updateSetting("seo_description", e.target.value)} rows={3} maxLength={160} placeholder="Your page description for Google..." />
+                  <p className="mt-1 text-xs text-muted-foreground">Auto-filled from your profile — edit it to change how your site appears on Google.</p></div>
                 <div><Label>WhatsApp Number</Label><FormattedPhoneInput value={settings.whatsapp_number || ""} onChange={(e) => updateSetting("whatsapp_number", e.target.value)} placeholder="+919XXXXXXXX" /></div>
                 <div><Label>WhatsApp Pre-fill Message</Label><Input value={settings.whatsapp_message || ""} onChange={(e) => updateSetting("whatsapp_message", e.target.value)} /></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

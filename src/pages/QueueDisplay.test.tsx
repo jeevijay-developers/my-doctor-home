@@ -41,7 +41,7 @@ describe("QueueDisplay", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "setInterval", "clearTimeout", "clearInterval", "Date"] });
     vi.setSystemTime(new Date("2026-10-31T10:00:00Z"));
     mock.current = createTableMock();
-    mock.current.tables.profiles = { data: { id: "d1", full_name: "Asha Rao", clinic_name: "Asha Clinic" } };
+    mock.current.tables.profiles = { data: { id: "d1", full_name: "Asha Rao", clinic_name: "Asha Clinic", specialization: "Cardiologist", city: "Pune" } };
     mock.current.rpcs.get_public_queue = () => queue();
   });
   afterEach(() => vi.useRealTimers());
@@ -63,12 +63,14 @@ describe("QueueDisplay", () => {
   it("shows numbers only: now serving, next up, waiting and seen counts, clinic name", async () => {
     renderPage();
     await flush();
-    expect(screen.getByText("Asha Clinic")).toBeInTheDocument();
+    expect(screen.getByText("Dr. Asha Rao")).toBeInTheDocument();
+    expect(screen.getByText("Cardiologist")).toBeInTheDocument();
+    expect(screen.getByText("Asha Clinic, Pune")).toBeInTheDocument();
     expect(screen.getByText("#7")).toBeInTheDocument();
     expect(screen.getByText("#8")).toBeInTheDocument();
     expect(screen.getByText("#9")).toBeInTheDocument();
-    expect(screen.getByText(/4 waiting/)).toBeInTheDocument();
-    expect(screen.getByText(/12 seen today/)).toBeInTheDocument();
+    expect(screen.getByLabelText("4 waiting")).toBeInTheDocument();
+    expect(screen.getByLabelText("12 seen today")).toBeInTheDocument();
     expect(mock.current.rpc).toHaveBeenCalledWith("get_public_queue", { _doctor_id: "d1" });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -99,6 +101,15 @@ describe("QueueDisplay", () => {
     });
     await flush();
     expect(screen.getByText("Asha Clinic")).toBeInTheDocument();
+  });
+
+  it("works for a doctor with no photo, name or specialty yet", async () => {
+    mock.current.tables.profiles = { data: { id: "d1", clinic_name: "Asha Clinic" } };
+    renderPage();
+    await flush();
+    expect(screen.getByText("Asha Clinic")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByText("#7")).toBeInTheDocument();
   });
 
   it("warns that numbers may be out of date after 20s without a successful refresh, keeping the last numbers", async () => {
