@@ -121,29 +121,6 @@ const BlogPage = () => {
 
   const removeFeaturedImage = () => setForm((f) => ({ ...f, featured_image_url: "" }));
 
-  // Auto-enable show_blog once, the very first time a post gets published for this doctor.
-  const maybeAutoEnableBlogVisibility = async () => {
-    if (!profile) return;
-    const { data: ws } = await supabase
-      .from("website_settings")
-      .select("show_blog, blog_auto_enabled")
-      .eq("doctor_id", profile.id)
-      .single();
-    // Only auto-enable once: if we haven't auto-enabled before AND it's currently off.
-    if (ws && !(ws as any).blog_auto_enabled && !ws.show_blog) {
-      await supabase
-        .from("website_settings")
-        .update({ show_blog: true, blog_auto_enabled: true } as any)
-        .eq("doctor_id", profile.id);
-      toast({ title: "Blog is now live on your website" });
-    } else if (ws && !(ws as any).blog_auto_enabled) {
-      await supabase
-        .from("website_settings")
-        .update({ blog_auto_enabled: true } as any)
-        .eq("doctor_id", profile.id);
-    }
-  };
-
   const save = async () => {
     if (!profile || !form.title.trim()) {
       toast({ title: "Title is required", variant: "destructive" });
@@ -162,14 +139,14 @@ const BlogPage = () => {
       ai_assisted: form.ai_assisted,
     };
 
-    if (editing) {
-      await supabase.from("blog_posts").update(payload as any).eq("id", editing.id);
-      toast({ title: "Post updated" });
-    } else {
-      await supabase.from("blog_posts").insert({ ...payload, doctor_id: profile.id } as any);
-      toast({ title: "Post created" });
+    const { error } = editing
+      ? await supabase.from("blog_posts").update(payload as any).eq("id", editing.id)
+      : await supabase.from("blog_posts").insert({ ...payload, doctor_id: profile.id } as any);
+    if (error) {
+      toast({ title: "Could not save post", description: error.message, variant: "destructive" });
+      return;
     }
-    if (form.is_published) await maybeAutoEnableBlogVisibility();
+    toast({ title: editing ? "Post updated" : "Post created" });
     setShowEditor(false);
     load();
   };
@@ -188,11 +165,14 @@ const BlogPage = () => {
 
   const togglePublish = async (post: BlogPost) => {
     const newStatus = !post.is_published;
-    await supabase.from("blog_posts").update({
+    const { error } = await supabase.from("blog_posts").update({
       is_published: newStatus,
       published_at: nextPublishedAt(post, newStatus),
     }).eq("id", post.id);
-    if (newStatus) await maybeAutoEnableBlogVisibility();
+    if (error) {
+      toast({ title: newStatus ? "Could not publish" : "Could not unpublish", description: error.message, variant: "destructive" });
+      return;
+    }
     toast({ title: newStatus ? "Published" : "Unpublished" });
     load();
   };

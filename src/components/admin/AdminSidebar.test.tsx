@@ -11,7 +11,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { signOut: 
 
 const ALL_LINKS = [
   "Dashboard", "My Website", "Appointments", "Patients", "Prescriptions", "Reviews",
-  "Inquiries", "Blog", "Billing", "Staff Management", "Settings",
+  "Inquiries", "Blog", "Revenue", "Staff Management", "Settings",
 ];
 
 const renderSidebar = () =>
@@ -52,7 +52,7 @@ describe("AdminSidebar", () => {
     renderSidebar();
     expect(screen.getByRole("link", { name: "Patients" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Appointments" })).toBeInTheDocument();
-    for (const l of ["Dashboard", "Billing", "Staff Management", "Settings", "Blog"]) {
+    for (const l of ["Dashboard", "Revenue", "Staff Management", "Settings", "Blog"]) {
       expect(screen.queryByRole("link", { name: l })).not.toBeInTheDocument();
     }
   });

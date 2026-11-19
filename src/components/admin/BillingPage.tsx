@@ -573,7 +573,7 @@ const BillingPage = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
-        <CreditCard className="h-6 w-6 text-success" /> Billing & Revenue
+        <CreditCard className="h-6 w-6 text-success" /> Revenue
       </h1>
 
       <div className="grid sm:grid-cols-3 gap-4">

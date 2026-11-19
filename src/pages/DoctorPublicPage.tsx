@@ -158,7 +158,7 @@ const DoctorPageContent = () => {
   const showServices = settings.show_services !== false && services.length > 0;
   const showGallery = Boolean(settings.show_gallery) && gallery.length > 0;
   const showReviews = settings.show_reviews !== false;
-  const showBlog = Boolean(settings.show_blog);
+  const showBlog = settings.show_blog !== false;
   const showClinicDetails = settings.show_clinic_details !== false;
 
   const servicesColor = showServices ? nextCardColor() : undefined;

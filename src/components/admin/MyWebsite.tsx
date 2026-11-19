@@ -856,7 +856,7 @@ const MyWebsite = () => {
               <AccordionTrigger className="text-sm font-semibold text-primary">
                 <div className="flex items-center justify-between w-full pr-2">
                   Blog
-                  <Switch checked={settings.show_blog ?? false} onCheckedChange={(v) => updateSetting("show_blog", v)} onClick={(e) => e.stopPropagation()} />
+                  <Switch checked={settings.show_blog ?? true} onCheckedChange={(v) => updateSetting("show_blog", v)} onClick={(e) => e.stopPropagation()} />
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pb-4 space-y-2">

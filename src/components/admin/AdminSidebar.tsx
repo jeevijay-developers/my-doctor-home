@@ -30,7 +30,7 @@ const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; per
   { title: "Reviews", url: "/admin/reviews", icon: MessageSquare, permission: "reviews.view" },
   { title: "Inquiries", url: "/admin/inquiries", icon: Mail, permission: "inquiries.view" },
   { title: "Blog", url: "/admin/blog", icon: FileText, permission: "blog.view" },
-  { title: "Billing", url: "/admin/billing", icon: CreditCard, permission: "billing.view" },
+  { title: "Revenue", url: "/admin/billing", icon: CreditCard, permission: "billing.view" },
   { title: "Staff Management", url: "/admin/staff", icon: UserCog, permission: "staff.view" },
   // Profile now lives inside Settings as a tab, so Settings is gated on
   // profile.view (not doctor-only anymore): staff who can view their own

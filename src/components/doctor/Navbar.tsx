@@ -8,7 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
 import { scrollToSection } from "@/lib/scrollToSection";
 
-const DEFAULT_AVATAR = "https://lh3.googleusercontent.com/aida-public/AB6AXuClyFEerp4mAd3k1VHT2_ClTS4H1V1BmPJkNVr37q5OOjti61-JQUkFAbyfeWKvo6ML3RO8g0cOSiBFAZ_M3hr8OkEJHKAXd2ghxJPkeqXf1--VXbE2MdghyYalIdnll8fHn_jFT0D1348IzPSnm3J4ouWgd0Af9lf1EIr4GvtpG_atHK1cR82IwImf6HuP7nrsJGUWE3ErViCFvFykM9nJLqxT9sA-w-2mYn_vQ1-cDdfOQP_aCOT_";
 
 const Navbar = () => {
   const { profile, settings, services, gallery } = useDoctorData();
@@ -56,7 +55,7 @@ const Navbar = () => {
 
 
 
-  const showBlogLink = hasPublishedBlog && slug && settings?.show_blog === true;
+  const showBlogLink = hasPublishedBlog && slug && settings?.show_blog !== false;
   const isServicesActive = settings?.show_services !== false && (services?.length || 0) > 0;
   const isAboutActive = settings?.show_about !== false;
   const isGalleryActive = settings?.show_gallery === true && (gallery?.length || 0) > 0;
@@ -73,7 +72,7 @@ const Navbar = () => {
 
   const docName = profile?.full_name ? `Dr. ${profile.full_name}` : "Dr. Rajkumar Prajapati";
   const docSpec = profile?.specialization || "General Physician";
-  const avatarSrc = profile?.profile_photo_url || DEFAULT_AVATAR;
+  const avatarSrc = profile?.profile_photo_url || "";
 
   const toggleTheme = () => {
     setTheme(mode === "dark" ? "light" : "dark");
@@ -86,11 +85,15 @@ const Navbar = () => {
       <header className="fixed inset-x-0 top-0 z-[60] h-16 border-b border-border/40 bg-white/95 px-4 shadow-sm backdrop-blur-md dark:bg-card/95">
         <div className="container mx-auto flex h-full items-center justify-between px-0">
           <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={scrollToTop}>
-            <img
-              src={avatarSrc}
-              alt={docName}
-              className="h-10 w-10 shrink-0 rounded-full object-cover"
-            />
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={docName}
+                className="h-10 w-10 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <span className="h-10 w-10 shrink-0 rounded-full bg-muted" aria-hidden="true" />
+            )}
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold leading-tight text-text-dark dark:text-foreground">
                 {docName}

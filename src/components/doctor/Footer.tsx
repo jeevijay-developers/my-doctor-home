@@ -131,7 +131,7 @@ const Footer = ({ profileOverride }: FooterProps) => {
                     <ChevronRight className="h-4 w-4 text-[#3C83FC] transition-transform group-hover:translate-x-0.5" /> {item.label}
                   </Link>
                 ))}
-                {(settings?.show_blog || isArticleRoute) && (
+                {(settings?.show_blog !== false || isArticleRoute) && (
                   <Link to={`${doctorBasePath}/blog`} className="group flex items-center gap-2 text-sm text-slate-300 transition hover:text-white">
                     <ChevronRight className="h-4 w-4 text-[#3C83FC] transition-transform group-hover:translate-x-0.5" /> Health Articles
                   </Link>

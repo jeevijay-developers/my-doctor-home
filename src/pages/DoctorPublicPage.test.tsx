@@ -68,11 +68,16 @@ describe("DoctorPublicPage", () => {
 
   it("renders the default sections; booking and contact form are always present", () => {
     renderPage();
-    for (const s of ["navbar", "hero", "services", "about", "booking", "reviews", "clinic", "query", "footer"]) {
+    for (const s of ["navbar", "hero", "services", "about", "blog", "booking", "reviews", "clinic", "query", "footer"]) {
       expect(screen.getByText(`SECTION:${s}`)).toBeInTheDocument();
     }
-    // opt-in sections are off by default
+    // the gallery is opt-in and off by default
     expect(screen.queryByText("SECTION:gallery")).not.toBeInTheDocument();
+  });
+
+  it("hides the blog section only when the doctor switches it off", () => {
+    ctx.value = base({ settings: { show_blog: false } });
+    renderPage();
     expect(screen.queryByText("SECTION:blog")).not.toBeInTheDocument();
   });
 

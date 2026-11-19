@@ -96,7 +96,7 @@ const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => 
     };
   }, [carouselApi]);
 
-  if (settings?.show_blog === false || loading || posts.length === 0 || !slug) return null;
+  if (settings?.show_blog === false || loading || !slug) return null;
 
   return (
     <section id="blog" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
@@ -112,7 +112,11 @@ const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => 
           </p>
         </div>
 
-        {showCarousel ? (
+        {posts.length === 0 ? (
+          <p className="mx-auto mt-9 max-w-md rounded-2xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400 sm:mt-12">
+            No blogs available yet. Check back soon for new articles.
+          </p>
+        ) : showCarousel ? (
           <Carousel setApi={setCarouselApi} opts={{ align: "start", loop: posts.length > 3 }} className="mx-auto mt-9 max-w-6xl sm:mt-12">
             <CarouselContent className="-ml-4 pb-2">
               {posts.map((post) => (
@@ -143,11 +147,11 @@ const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => 
           </div>
         )}
 
-        <div className="mt-8 text-center">
+        {posts.length > 0 && <div className="mt-8 text-center">
           <Link to={`/dr/${slug}/blog`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-primary-500 bg-white px-6 text-sm font-bold text-primary-500 transition-all hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md dark:bg-gray-900 dark:hover:bg-blue-950/30">
             View All Articles <ArrowRight className="h-4 w-4" />
           </Link>
-        </div>
+        </div>}
       </div>
     </section>
   );
