@@ -280,9 +280,9 @@ const FeatureSection = ({ f, flip }: { f: Feature; flip: boolean }) => {
   return (
     <section
       id={f.id}
-      className="scroll-mt-32 grid grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-8 lg:gap-16 items-center"
+      className="scroll-mt-32 grid grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-8 lg:gap-12 items-center"
     >
-      <AnimatedSection className={`lg:col-span-7 relative group ${flip ? "order-2" : "order-1"}`}>
+      <AnimatedSection className={`lg:col-span-5 relative group ${flip ? "order-2" : "order-1"}`}>
         <div
           className={`absolute -inset-2 sm:-inset-4 bg-gradient-to-tr ${tone.glow} rounded-3xl blur-xl opacity-60 group-hover:opacity-90 transition duration-500`}
         />
@@ -305,23 +305,23 @@ const FeatureSection = ({ f, flip }: { f: Feature; flip: boolean }) => {
             alt={f.alt}
             loading="lazy"
             className={`w-full rounded-xl sm:rounded-2xl ${
-              f.contain ? "max-h-[460px] object-contain" : "h-auto object-cover"
+              f.contain ? "max-h-[340px] object-contain" : "h-auto object-cover"
             }`}
           />
         </div>
       </AnimatedSection>
 
-      <AnimatedSection className={`lg:col-span-5 flex flex-col min-w-0 ${flip ? "order-1" : "order-2"}`}>
+      <AnimatedSection className={`lg:col-span-7 flex flex-col min-w-0 ${flip ? "order-1" : "order-2"}`}>
         <div
           className={`inline-flex items-center gap-1.5 sm:gap-2 self-start px-2 sm:px-3 py-1 rounded-full bg-muted ${tone.text} text-[9px] sm:text-xs font-semibold uppercase tracking-wider`}
         >
           <TagIcon className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
           {f.tag}
         </div>
-        <h2 className="mt-3 sm:mt-4 font-heading text-base sm:text-2xl lg:text-3xl font-bold text-navy tracking-tight leading-tight">
+        <h2 className="mt-3 sm:mt-4 font-heading text-base sm:text-2xl lg:text-4xl font-bold text-navy tracking-tight leading-tight">
           {f.title}
         </h2>
-        <p className="mt-2 sm:mt-3 text-[11px] sm:text-base lg:text-lg text-muted-foreground leading-relaxed">
+        <p className="mt-2 sm:mt-3 text-[11px] sm:text-base lg:text-xl text-muted-foreground leading-relaxed">
           {f.lead}
         </p>
         <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-3.5">
@@ -332,12 +332,12 @@ const FeatureSection = ({ f, flip }: { f: Feature; flip: boolean }) => {
               >
                 <Check className="h-2.5 w-2.5 sm:h-4 sm:w-4" />
               </span>
-              <span className="text-[11px] sm:text-sm lg:text-base text-navy font-medium leading-snug">{b}</span>
+              <span className="text-[11px] sm:text-sm lg:text-lg text-navy font-medium leading-snug">{b}</span>
             </li>
           ))}
         </ul>
         <div
-          className={`mt-5 sm:mt-8 self-start inline-flex items-start sm:items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-muted ${tone.text} text-[10px] sm:text-sm font-semibold`}
+          className={`mt-5 sm:mt-8 self-start inline-flex items-start sm:items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-muted ${tone.text} text-[10px] sm:text-sm lg:text-base font-semibold`}
         >
           <BadgeIcon className="h-3.5 w-3.5 sm:h-[18px] sm:w-[18px] shrink-0 mt-px sm:mt-0" />
           <span>{f.badge}</span>

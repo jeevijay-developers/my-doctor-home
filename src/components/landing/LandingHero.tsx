@@ -4,69 +4,6 @@ import { CheckCircle2, PlayCircle, Sparkles } from "lucide-react";
 
 const heroChecks = ["No credit card required", "Set up in under 10 minutes", "Cancel or pause anytime"];
 
-/* Wordmarks for the "Trusted by" strip, as drawn in the Stitch design. */
-const wordmark = { fontFamily: "'Plus Jakarta Sans', Inter, sans-serif", fontWeight: 800, letterSpacing: "-0.02em" } as const;
-
-const TrustedLogos = () => (
-  <div className="mx-auto mt-12 max-w-6xl px-4 md:mt-16">
-    <div className="flex flex-col items-center justify-between gap-6 py-4 lg:flex-row lg:gap-10">
-      <span className="flex-shrink-0 text-[15px] font-medium text-muted-foreground">Trusted by the best</span>
-      <div className="flex w-full flex-wrap items-center justify-center gap-8 sm:gap-10 md:gap-12 lg:justify-between">
-        <svg className="h-8 w-auto" viewBox="0 0 160 36" fill="none" role="img" aria-label="Apollo Clinic">
-          <g transform="translate(0, 2)">
-            <circle cx="16" cy="16" r="15" fill="#FFF5EA" stroke="#E47A22" strokeWidth="1.5" />
-            <path d="M16 6v20M6 16h20" stroke="#E47A22" strokeLinecap="round" strokeWidth="3" />
-            <circle cx="16" cy="16" r="4" fill="#006699" />
-          </g>
-          <text x="40" y="22" fill="#0E2A47" fontSize="17" style={wordmark}>
-            Apollo<tspan fill="#E47A22" fontSize="14" fontWeight="600">CLINIC</tspan>
-          </text>
-        </svg>
-        <svg className="h-8 w-auto" viewBox="0 0 148 36" fill="none" role="img" aria-label="Fortis">
-          <g transform="translate(0, 3)">
-            <path d="M15 4c-5.5 0-10 4.5-10 10 0 7 10 16 10 16s10-9 10-16c0-5.500-4.500-10-10-10z" fill="#E31C24" opacity="0.15" />
-            <circle cx="15" cy="11" r="3.5" fill="#008A44" />
-            <path d="M9 16c2-1 4.5-1.500 6-1.500s4 .5 6 1.500c-1 4.500-6 9.500-6 9.500s-5-5-6-9.500z" fill="#E31C24" />
-            <path d="M12 18.500h6M15 15.500v6" stroke="#FFFFFF" strokeLinecap="round" strokeWidth="1.500" />
-          </g>
-          <text x="36" y="22" fill="#008A44" fontSize="17" style={wordmark}>
-            Fortis<tspan fill="#E31C24" fontSize="18" fontWeight="900">+</tspan>
-          </text>
-        </svg>
-        <svg className="h-8 w-auto" viewBox="0 0 165 36" fill="none" role="img" aria-label="Max Healthcare">
-          <g transform="translate(0, 3)">
-            <rect x="2" y="2" width="26" height="26" rx="6" fill="#DC2626" />
-            <path d="M9 15h12M15 9v12" stroke="#FFFFFF" strokeLinecap="round" strokeWidth="3" />
-            <circle cx="23" cy="7" r="3" fill="#0E2A47" />
-          </g>
-          <text x="38" y="22" fill="#0E2A47" fontSize="17" style={wordmark}>
-            Max <tspan fill="#434655" fontSize="15" fontWeight="600">Healthcare</tspan>
-          </text>
-        </svg>
-        <svg className="h-8 w-auto" viewBox="0 0 176 36" fill="none" role="img" aria-label="Manipal Hospitals">
-          <g transform="translate(0, 3)">
-            <circle cx="15" cy="15" r="14" stroke="#0072CE" strokeWidth="2" />
-            <circle cx="15" cy="15" r="9" stroke="#F58220" strokeWidth="2" />
-            <path d="M15 9v12M9 15h12" stroke="#0072CE" strokeLinecap="round" strokeWidth="2.200" />
-          </g>
-          <text x="38" y="22" fill="#0072CE" fontSize="16" style={wordmark}>
-            Manipal<tspan fill="#F58220" fontSize="14" fontWeight="600">Hospitals</tspan>
-          </text>
-        </svg>
-        <svg className="h-8 w-auto" viewBox="0 0 172 36" fill="none" role="img" aria-label="Medanta Medicity">
-          <g transform="translate(0, 3)">
-            <path d="M15 4c-5 0-9 4-9 9 0 7 9 14 9 14s9-7 9-14c0-5-4-9-9-9z" fill="#FF6B00" />
-            <path d="M15 8v10M10 13h10" stroke="#FFFFFF" strokeLinecap="round" strokeWidth="2" />
-          </g>
-          <text x="36" y="22" fill="#0E2A47" fontSize="17" style={wordmark}>
-            Medanta<tspan dx="2" fill="#FF6B00" fontSize="11" fontWeight="500">MEDICITY</tspan>
-          </text>
-        </svg>
-      </div>
-    </div>
-  </div>
-);
-
 const LandingHero = () => (
   <section
     className="relative w-full overflow-hidden pb-16 pt-28 md:pb-24 md:pt-32"
@@ -150,7 +87,6 @@ const LandingHero = () => (
         </div>
       </div>
 
-      <TrustedLogos />
     </div>
   </section>
 );
