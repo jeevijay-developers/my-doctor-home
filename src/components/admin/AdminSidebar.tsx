@@ -21,7 +21,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; permission: PermissionKey | null }[] = [
+const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; permission: PermissionKey | null; alwaysVisible?: boolean }[] = [
   { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard, permission: "dashboard.view" },
   { title: "My Website", url: "/admin/my-website", icon: Globe, permission: "website.view" },
   { title: "Appointments", url: "/admin/appointments", icon: CalendarCheck, permission: "appointments.view" },
@@ -32,6 +32,8 @@ const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; per
   { title: "Blog", url: "/admin/blog", icon: FileText, permission: "blog.view" },
   { title: "Revenue", url: "/admin/billing", icon: CreditCard, permission: "billing.view" },
   { title: "Staff Management", url: "/admin/staff", icon: UserCog, permission: "staff.view" },
+  // Not permission-gated (matches the /admin/support route): every doctor and staff member can raise a ticket.
+  { title: "Contact Support", url: "/admin/support", icon: LifeBuoy, permission: null, alwaysVisible: true },
   // Profile now lives inside Settings as a tab, so Settings is gated on
   // profile.view (not doctor-only anymore): staff who can view their own
   // profile need a way to reach it, and Settings is that page now.
@@ -55,7 +57,7 @@ const AdminSidebar = () => {
   // window, however briefly, would mean a staff member momentarily sees
   // sections they were never granted. Show nothing until it settles instead.
   const visibleItems = loading ? [] : mainItems.filter((item) => {
-    if (!isStaff) return true;
+    if (!isStaff || item.alwaysVisible) return true;
     if (item.permission === null) return false;
     return can(item.permission);
   });
@@ -123,15 +125,6 @@ const AdminSidebar = () => {
 
       <SidebarFooter className="bg-sidebar p-3 space-y-1 border-t border-sidebar-border">
 
-        <NavLink
-          to="/admin/support"
-          onClick={closeMobileSidebar}
-          className="flex items-center gap-2 text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 max-lg:min-h-[44px] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-          activeClassName="!bg-sidebar-accent !text-sidebar-accent-foreground"
-        >
-          <LifeBuoy className="h-4 w-4" />
-          <span className={collapsed ? "sr-only" : undefined}>Contact Support</span>
-        </NavLink>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <button className="flex items-center gap-2 text-sidebar-foreground hover:text-destructive hover:bg-sidebar-accent text-sm font-medium w-full px-2 py-1.5 max-lg:min-h-[44px] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">

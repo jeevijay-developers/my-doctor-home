@@ -69,7 +69,14 @@ export function renderPage(template: string, page: PageHead): string {
 
   html = html.replace(/<\/head>/i, () => `    ${tags}\n  </head>`);
   if (page.bodyHtml) {
-    html = html.replace(/<div id="root"><\/div>/, () => `<div id="root">${page.bodyHtml}</div>`);
+    // Visually hidden (not display:none, which crawlers may discount) so people don't see
+    // the raw crawler text flash before React mounts and replaces #root's contents.
+    const hidden =
+      "position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0";
+    html = html.replace(
+      /<div id="root"><\/div>/,
+      () => `<div id="root"><div style="${hidden}">${page.bodyHtml}</div></div>`,
+    );
   }
   return html;
 }

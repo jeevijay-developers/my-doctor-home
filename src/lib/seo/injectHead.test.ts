@@ -113,7 +113,9 @@ describe("renderPage", () => {
 
   it("injects bodyHtml into #root only when provided", () => {
     expect(renderPage(TEMPLATE, page())).toContain('<div id="root"></div>');
-    expect(renderPage(TEMPLATE, page({ bodyHtml: "<main>hi</main>" }))).toContain('<div id="root"><main>hi</main></div>');
+    const out = renderPage(TEMPLATE, page({ bodyHtml: "<main>hi</main>" }));
+    expect(out).toMatch(/<div id="root"><div style="[^"]*clip:rect\(0,0,0,0\)[^"]*"><main>hi<\/main><\/div><\/div>/);
+    expect(out).not.toMatch(/display:\s*none/);
   });
 
   it("leaves the template alone for #root with attributes (documented exact-match)", () => {

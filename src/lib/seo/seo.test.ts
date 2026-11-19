@@ -120,7 +120,7 @@ describe("renderPage", () => {
   });
 
   it("injects the body into #root", () => {
-    expect(html).toContain('<div id="root"><main>hi</main></div>');
+    expect(html).toMatch(/<div id="root"><div style="[^"]*clip:rect\(0,0,0,0\)[^"]*"><main>hi<\/main><\/div><\/div>/);
   });
 });
 
