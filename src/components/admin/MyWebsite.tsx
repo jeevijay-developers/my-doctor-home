@@ -178,6 +178,18 @@ const MyWebsite = () => {
     toast({ title: "Hero photo uploaded — click Save to publish it" });
   };
 
+  const handleAboutPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile || !canEditWebsite) return;
+    const ext = file.name.split(".").pop();
+    const path = `${profile.id}/about-photo.${ext}`;
+    const { error } = await supabase.storage.from("doctor-uploads").upload(path, file, { upsert: true });
+    if (error) { toast({ title: "Upload failed", description: error.message, variant: "destructive" }); return; }
+    const { data: { publicUrl } } = supabase.storage.from("doctor-uploads").getPublicUrl(path);
+    updateSetting("about_photo_url", `${publicUrl}?v=${Date.now()}`);
+    toast({ title: "About photo uploaded — click Save to publish it" });
+  };
+
   const addService = () => {
     if (!canEditWebsite) return;
     setServices([...services, { name: "", description: "", price: 500, type: "clinic", duration: 30, active: true, sort_order: services.length }]);
@@ -297,9 +309,9 @@ const MyWebsite = () => {
                   <Label className="text-xs">Hero Photo</Label>
                   <div className="flex items-center gap-3 mt-1">
                     <div className="w-14 h-14 rounded-lg bg-secondary border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
-                      {(settings.hero_photo_url || profile?.profile_photo_url) ? (
+                      {settings.hero_photo_url ? (
                         <img
-                          src={settings.hero_photo_url || profile?.profile_photo_url}
+                          src={settings.hero_photo_url}
                           alt="Hero"
                           className="w-full h-full object-cover"
                         />
@@ -319,14 +331,14 @@ const MyWebsite = () => {
                             className="text-xs text-muted-foreground hover:underline text-left"
                             onClick={() => updateSetting("hero_photo_url", null)}
                           >
-                            Use Profile Photo Instead
+                            Remove Photo
                           </button>
                         )}
                       </div>
                     )}
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Defaults to your Profile photo until you upload one here.
+                    Only used in the hero banner. Your Profile photo is not used here.
                   </p>
                 </div>
 
@@ -567,6 +579,38 @@ const MyWebsite = () => {
                 <p className="text-xs text-muted-foreground">
                   Edit your name, specialization, qualifications, experience, phone, clinic and consultation fee. Changes reflect on your public website and Profile page.
                 </p>
+                <div>
+                  <Label className="text-xs">About Photo</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    <div className="w-14 h-14 rounded-lg bg-secondary border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
+                      {settings.about_photo_url ? (
+                        <img src={settings.about_photo_url} alt="About" className="w-full h-full object-cover" />
+                      ) : (
+                        <UserCircle className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    {canEditWebsite && (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-royal hover:underline cursor-pointer">
+                          <input type="file" accept="image/*" className="hidden" onChange={handleAboutPhotoUpload} />
+                          {settings.about_photo_url ? "Change Photo" : "Upload Photo"}
+                        </label>
+                        {settings.about_photo_url && (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:underline text-left"
+                            onClick={() => updateSetting("about_photo_url", null)}
+                          >
+                            Remove Photo
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Only used in the About section. Your Profile photo is not used here.
+                  </p>
+                </div>
                 <Button size="sm" onClick={() => setAboutOpen(true)}>Edit About / Profile</Button>
               </AccordionContent>
             </AccordionItem>

@@ -72,7 +72,7 @@ describe("BillingPage - plan gating", () => {
         <BillingPage />
       </MemoryRouter>
     );
-    expect(screen.getByText(/billing & revenue/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /^revenue$/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /upgrade now/i })).not.toBeInTheDocument();
   });
 

@@ -77,7 +77,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
   const stats = configuredStats.filter((stat) => stat.active !== false);
   const patientStat = stats.find((stat) => stat.id === "patients" || stat.icon === "Users");
   const patientCount = patientStat ? resolveStatValue(patientStat, profile) : "2,000+";
-  const heroPhotoSrc = settings?.hero_photo_url || profile?.profile_photo_url || null;
+  const heroPhotoSrc = settings?.hero_photo_url || null;
   const headlineLine1 = settings?.hero_headline_line1 || "Trusted Care for";
   const headlineLine2 = settings?.hero_headline_line2 || "You & Your Family";
   const heroDescription = settings?.hero_description || "Compassionate, personalized and professional healthcare for a better tomorrow.";

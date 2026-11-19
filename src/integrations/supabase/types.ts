@@ -2799,6 +2799,7 @@ export type Database = {
           hero_headline_line2: string
           hero_hours_label: string
           hero_location_label: string
+          about_photo_url: string | null
           hero_photo_url: string | null
           hero_primary_button_label: string
           hero_secondary_button_label: string
@@ -2850,6 +2851,7 @@ export type Database = {
           hero_headline_line2?: string
           hero_hours_label?: string
           hero_location_label?: string
+          about_photo_url?: string | null
           hero_photo_url?: string | null
           hero_primary_button_label?: string
           hero_secondary_button_label?: string
@@ -2901,6 +2903,7 @@ export type Database = {
           hero_headline_line2?: string
           hero_hours_label?: string
           hero_location_label?: string
+          about_photo_url?: string | null
           hero_photo_url?: string | null
           hero_primary_button_label?: string
           hero_secondary_button_label?: string

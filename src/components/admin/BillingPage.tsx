@@ -824,7 +824,8 @@ const BillingPage = () => {
                                   {paymentMethodLabel(a.payment_mode)}{a.payment_reference ? ` · ${a.payment_reference}` : ""}
                                 </Badge>
                               )}
-                              {(a.payment_status === "paid" || a.payment_status === "pay_at_clinic") && (
+                              {/* Bank settlement only applies to online (Razorpay) payments; counter payments never go to a bank transfer. */}
+                              {a.payment_status === "paid" && a.payment_mode === "online" && (
                                 <Badge variant="outline" className={`text-[10px] ${settlementBadgeClass}`}>
                                   {a.settlement_label}
                                 </Badge>

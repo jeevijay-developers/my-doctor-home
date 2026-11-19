@@ -7,7 +7,7 @@ import { scrollToSection } from "@/lib/scrollToSection";
 const PRIMARY = "#3C83FC";
 
 const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
-  const { profile } = useDoctorData();
+  const { profile, settings } = useDoctorData();
 
   const doctorName = profile?.full_name || "Doctor";
   const specialization = profile?.specialization || "General Physician";
@@ -25,7 +25,7 @@ const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) =>
     profile?.registration_number ? `Reg. No.: ${profile.registration_number}` : null,
   ].filter((item): item is string => Boolean(item));
 
-  const photoSrc = profile?.profile_photo_url || null;
+  const photoSrc = settings?.about_photo_url || null;
 
   return (
     <section id="about" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
