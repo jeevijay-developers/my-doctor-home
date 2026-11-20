@@ -212,10 +212,7 @@ export const PrescriptionSlipCard = ({ profile, prescription }: { profile: any; 
               {/* Rx / medicines */}
               <div className="relative mt-6 min-h-[180px]">
                 <RxWatermark />
-                <div className="font-heading font-extrabold text-4xl relative" style={{ color: ROYAL }}>
-                  R<span className="align-sub text-2xl">x</span>
-                </div>
-                <div className="mt-5 relative">
+                <div className="relative">
                   {(prescription.medicines?.length ?? 0) > 0 ? (
                     <div className="space-y-4">
                       {prescription.medicines.map((m, i) => {
