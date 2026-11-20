@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_IMPORT_ROWS, PATIENT_EXPORT_HEADERS, cleanCell, parseCsv, parsePatientCsv, patientImportTemplate, patientKey, patientsToCsv, splitDuplicates } from "./patientCsv";
+import { MAX_IMPORT_ROWS, PATIENT_EXPORT_HEADERS, cleanCell, parseCsv, parseDateCell, parsePatientCsv, patientImportTemplate, patientKey, patientSinceDate, patientsToCsv, splitDuplicates } from "./patientCsv";
 
 describe("parseCsv", () => {
   it("splits plain rows and cells", () => {
@@ -43,6 +43,7 @@ describe("cleanCell", () => {
 });
 
 const HEADER = "Name,Phone,Email,Age,Gender,Weight (kg),Notes";
+const NO_HISTORY = { patient_since: null, first_visit: null, last_visit: null, total_visits: 0 };
 
 describe("parsePatientCsv", () => {
   it("reads a valid file into normalised rows", () => {
@@ -50,8 +51,8 @@ describe("parsePatientCsv", () => {
     expect(r.fileError).toBeNull();
     expect(r.errors).toEqual([]);
     expect(r.rows).toEqual([
-      { line: 2, name: "Ravi Kumar", phone: "9876543210", email: "ravi@x.com", age: 40, gender: "male", weight: 72.5, notes: "Diabetic" },
-      { line: 3, name: "Meena", phone: "9876543211", email: null, age: 29, gender: "female", weight: null, notes: null },
+      { line: 2, name: "Ravi Kumar", phone: "9876543210", email: "ravi@x.com", age: 40, gender: "male", weight: 72.5, notes: "Diabetic", ...NO_HISTORY },
+      { line: 3, name: "Meena", phone: "9876543211", email: null, age: 29, gender: "female", weight: null, notes: null, ...NO_HISTORY },
     ]);
   });
 
@@ -117,7 +118,7 @@ describe("parsePatientCsv", () => {
 });
 
 describe("splitDuplicates", () => {
-  const row = (line: number, name: string, phone: string) => ({ line, name, phone, email: null, age: 30, gender: "male" as const, weight: null, notes: null });
+  const row = (line: number, name: string, phone: string) => ({ line, name, phone, email: null, age: 30, gender: "male" as const, weight: null, notes: null, ...NO_HISTORY });
 
   it("builds the same key as the database unique index (phone + lower-cased trimmed name)", () => {
     expect(patientKey("  Ravi KUMAR ", "9876543210")).toBe("9876543210|ravi kumar");
@@ -147,16 +148,16 @@ const exportRow = (over: Partial<ExportRow> = {}): ExportRow => ({
 
 describe("patientsToCsv", () => {
   it("writes the header with every patient-form field including weight, then the system columns", () => {
-    expect(PATIENT_EXPORT_HEADERS.join(",")).toBe("Name,Phone,Email,Age,Gender,Weight (kg),First Visit,Last Visit,Total Visits,Notes");
+    expect(PATIENT_EXPORT_HEADERS.join(",")).toBe("Name,Phone,Email,Age,Gender,Weight (kg),Patient Since,First Visit,Last Visit,Total Visits,Notes");
     const csv = patientsToCsv([exportRow()]);
     expect(csv.charCodeAt(0)).toBe(0xfeff);
-    expect(csv.split("\n")[0]).toBe("\ufeffName,Phone,Email,Age,Gender,Weight (kg),First Visit,Last Visit,Total Visits,Notes");
+    expect(csv.split("\n")[0]).toBe("\ufeffName,Phone,Email,Age,Gender,Weight (kg),Patient Since,First Visit,Last Visit,Total Visits,Notes");
   });
 
   it("writes one row per patient with the phone as text, dates as DD/MM/YYYY and blanks for missing values", () => {
     const lines = patientsToCsv([exportRow(), exportRow({ name: "Meena", phone: "9876543211", email: null, age: null, gender: null, weight: null, first_visit: null, last_visit: null, total_visits: 0, notes: null })]).split("\n");
-    expect(lines[1]).toBe('Ravi Kumar,="9876543210",ravi@x.com,40,male,72.5,="01/09/2026",="20/10/2026",3,Diabetic');
-    expect(lines[2]).toBe('Meena,="9876543211",,,,,,,0,');
+    expect(lines[1]).toBe('Ravi Kumar,="9876543210",ravi@x.com,40,male,72.5,="01/09/2026",="01/09/2026",="20/10/2026",3,Diabetic');
+    expect(lines[2]).toBe('Meena,="9876543211",,,,,,,,0,');
   });
 
   it("neutralises spreadsheet formulas in names and notes", () => {
@@ -191,10 +192,67 @@ describe("export -> import round trip", () => {
 describe("patientImportTemplate", () => {
   it("is a valid file with the importable columns and two example rows", () => {
     const t = patientImportTemplate();
-    expect(t.split("\n")[0]).toBe("\ufeffName,Phone,Email,Age,Gender,Weight (kg),Notes");
+    expect(t.split("\n")[0]).toBe("\ufeffName,Phone,Email,Age,Gender,Weight (kg),Notes,Patient Since,First Visit,Last Visit,Total Visits");
     const parsed = parsePatientCsv(t);
     expect(parsed.fileError).toBeNull();
     expect(parsed.errors).toEqual([]);
     expect(parsed.rows).toHaveLength(2);
+  });
+});
+
+
+describe("parseDateCell", () => {
+  it("reads DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY and YYYY-MM-DD", () => {
+    expect(parseDateCell("25/12/2023")).toBe("2023-12-25");
+    expect(parseDateCell("5-3-2021")).toBe("2021-03-05");
+    expect(parseDateCell("05.03.2021")).toBe("2021-03-05");
+    expect(parseDateCell("2021-03-05")).toBe("2021-03-05");
+    expect(parseDateCell("=01/09/2026")).toBe("2026-09-01");
+  });
+  it("rejects dates that do not exist and formats it cannot read", () => {
+    for (const bad of ["31/02/2023", "2023-13-01", "12/25/2023", "25/12/23", "1850-01-01", "yesterday", ""]) {
+      expect(parseDateCell(bad)).toBeNull();
+    }
+  });
+});
+
+describe("history columns", () => {
+  const H = `${HEADER},Patient Since,First Visit,Last Visit,Total Visits`;
+  const parse = (cells: string) => parsePatientCsv(`${H}
+Ravi,9876543210,,40,male,,,${cells}`);
+
+  it("keeps the dates and visit count from the file", () => {
+    const r = parse("15/03/2019,15/03/2019,02/09/2025,14");
+    expect(r.errors).toEqual([]);
+    expect(r.rows[0]).toMatchObject({ patient_since: "2019-03-15", first_visit: "2019-03-15", last_visit: "2025-09-02", total_visits: 14 });
+  });
+
+  it("uses First Visit as Patient Since when only that is given, and leaves everything empty when nothing is", () => {
+    expect(parse(",10/01/2020,,").rows[0]).toMatchObject({ patient_since: "2020-01-10", first_visit: "2020-01-10", total_visits: 0 });
+    expect(parse(",,,").rows[0]).toMatchObject({ patient_since: null, first_visit: null, last_visit: null, total_visits: 0 });
+  });
+
+  it("explains each problem with the dates and the visit count", () => {
+    expect(parse("31/02/2020,,,").errors[0].messages).toContain("Patient Since must be a real date like 25/12/2023");
+    expect(parse(",01/01/2999,,").errors[0].messages).toContain("First Visit cannot be in the future");
+    expect(parse(",10/05/2022,01/05/2022,").errors[0].messages).toContain("Last Visit cannot be before First Visit");
+    expect(parse("01/06/2022,01/05/2022,,").errors[0].messages).toContain("Patient Since cannot be after First Visit");
+    expect(parse(",,,-3").errors[0].messages[0]).toMatch(/Total Visits must be a whole number/);
+    expect(parse(",,,2.5").errors[0].messages[0]).toMatch(/Total Visits must be a whole number/);
+  });
+
+  it("round-trips the history through an export", () => {
+    const parsed = parsePatientCsv(patientsToCsv([exportRow({ patient_since: "2019-03-15", first_visit: "2019-03-15", last_visit: "2025-09-02", total_visits: 14 })]));
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows[0]).toMatchObject({ patient_since: "2019-03-15", first_visit: "2019-03-15", last_visit: "2025-09-02", total_visits: 14 });
+  });
+});
+
+describe("patientSinceDate", () => {
+  it("prefers the stored date, then the first visit, then the day the record was added (clinic time)", () => {
+    expect(patientSinceDate({ patient_since: "2019-03-15", first_visit: "2020-01-01", created_at: "2026-11-20T00:00:00Z" })).toBe("2019-03-15");
+    expect(patientSinceDate({ first_visit: "2020-01-01", created_at: "2026-11-20T00:00:00Z" })).toBe("2020-01-01");
+    expect(patientSinceDate({ created_at: "2026-11-19T20:00:00Z" })).toBe("2026-11-20");
+    expect(patientSinceDate({})).toBeNull();
   });
 });

@@ -1620,6 +1620,7 @@ export type Database = {
           last_visit: string | null
           name: string
           notes: string | null
+          patient_since: string | null
           phone: string
           total_visits: number
           updated_at: string
@@ -1637,6 +1638,7 @@ export type Database = {
           last_visit?: string | null
           name: string
           notes?: string | null
+          patient_since?: string | null
           phone: string
           total_visits?: number
           updated_at?: string
@@ -1654,6 +1656,7 @@ export type Database = {
           last_visit?: string | null
           name?: string
           notes?: string | null
+          patient_since?: string | null
           phone?: string
           total_visits?: number
           updated_at?: string
@@ -3382,6 +3385,9 @@ export type Database = {
         | "ct_scan"
         | "previous_prescription"
         | "other"
+        | "discharge_summary"
+        | "ecg"
+        | "ultrasound"
       medication_status: "active" | "completed"
       notification_channel: "whatsapp" | "sms" | "in_app"
       notification_status:
@@ -3563,6 +3569,9 @@ export const Constants = {
         "ct_scan",
         "previous_prescription",
         "other",
+        "discharge_summary",
+        "ecg",
+        "ultrasound",
       ],
       medication_status: ["active", "completed"],
       notification_channel: ["whatsapp", "sms", "in_app"],

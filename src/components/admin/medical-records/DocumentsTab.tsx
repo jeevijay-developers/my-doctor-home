@@ -4,7 +4,7 @@
 // every preview/download goes through a short-lived signed URL requested by
 // the owning doctor's own session, matching the bucket's RLS.
 import { useEffect, useRef, useState } from "react";
-import { FileText, Plus, Trash2, Eye, Download, File as FileIcon } from "lucide-react";
+import { FileText, Plus, Trash2, Eye, Download, File as FileIcon, Camera, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -23,6 +23,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { dbErrorMessage } from "@/lib/dbErrorMessage";
+import {
+  ACCEPTED_EXTENSIONS, DOCUMENT_TYPE_LABEL, MAX_BATCH_FILES, MAX_DOCUMENT_BYTES, baseName, defaultDocumentDate,
+  documentFileProblem, prepareImage, sniffMime, suggestDocumentType,
+} from "@/lib/patientDocuments";
+import { clinicToday } from "@/lib/queue";
 
 type Doc = {
   id: string; document_name: string; document_type: string; file_path: string; file_type: string | null;
@@ -30,12 +35,18 @@ type Doc = {
 };
 type VisitOpt = { id: string; visit_date: string };
 
-const TYPE_LABEL: Record<string, string> = {
-  lab_report: "Lab Report", xray: "X-Ray", mri: "MRI", ct_scan: "CT Scan",
-  previous_prescription: "Previous Prescription", other: "Other",
+const TYPE_LABEL = DOCUMENT_TYPE_LABEL;
+
+// One file waiting to be attached. Name, type and date are each editable before upload.
+type QueueItem = {
+  key: string;
+  file: File;
+  name: string;
+  type: string;
+  date: string;
+  status: "ready" | "uploading" | "done" | "error";
+  error?: string;
 };
-const ACCEPTED = ".pdf,.jpg,.jpeg,.png,.webp";
-const ACCEPTED_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
 // crypto.randomUUID() only exists in secure contexts (HTTPS, or localhost/127.0.0.1) —
 // it's undefined on a plain-HTTP LAN origin like http://192.168.x.x:8080, which this
@@ -56,11 +67,14 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
   const [docs, setDocs] = useState<Doc[]>([]);
   const [visits, setVisits] = useState<VisitOpt[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [items, setItems] = useState<QueueItem[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [form, setForm] = useState({ document_name: "", document_type: "other", document_date: new Date().toISOString().slice(0, 10), notes: "", visit_id: "" });
+  const [preparing, setPreparing] = useState(false);
+  // Shared by every file in the batch.
+  const [form, setForm] = useState({ notes: "", visit_id: "" });
   const [deleting, setDeleting] = useState<Doc | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     const { data } = await supabase.from("patient_documents").select("*").eq("patient_id", patientId).is("deleted_at", null).order("document_date", { ascending: false });
@@ -73,57 +87,105 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
   useEffect(() => { load(); }, [patientId]);
 
   const openAdd = () => {
-    setFile(null);
-    setForm({ document_name: "", document_type: "other", document_date: new Date().toISOString().slice(0, 10), notes: "", visit_id: "" });
+    setItems([]);
+    setForm({ notes: "", visit_id: "" });
     setDialogOpen(true);
   };
 
-  const pickFile = (f: File | null) => {
-    if (!f) { setFile(null); return; }
-    if (!ACCEPTED_MIME.includes(f.type)) { toast.error("Only PDF, JPG, JPEG, PNG or WebP files are supported"); return; }
-    setFile(f);
-    if (!form.document_name) setForm((prev) => ({ ...prev, document_name: f.name.replace(/\.[^.]+$/, "") }));
+  const addFiles = async (picked: FileList | File[] | null) => {
+    const files = Array.from(picked ?? []);
+    if (files.length === 0) return;
+    setPreparing(true);
+    try {
+      const problems: string[] = [];
+      const added: QueueItem[] = [];
+      let room = MAX_BATCH_FILES - items.length;
+      for (const original of files) {
+        if (room <= 0) { problems.push(`Only ${MAX_BATCH_FILES} files can be added at a time`); break; }
+        const mime = await sniffMime(original);
+        const problem = documentFileProblem(original, mime);
+        if (problem) { problems.push(problem); continue; }
+        // The type is taken from the real bytes, not the name the phone or scanner gave it.
+        const typed = mime && original.type !== mime ? new File([original], original.name, { type: mime, lastModified: original.lastModified }) : original;
+        const file = await prepareImage(typed);
+        if (file.size > MAX_DOCUMENT_BYTES) { problems.push(`${original.name}: still over ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB after shrinking`); continue; }
+        added.push({
+          key: randomUUID(), file, name: baseName(original.name), type: suggestDocumentType(original.name),
+          date: defaultDocumentDate(original), status: "ready",
+        });
+        room--;
+      }
+      if (added.length) setItems((prev) => [...prev, ...added]);
+      if (problems.length) toast.error(problems.slice(0, 3).join("\n") + (problems.length > 3 ? `\n+${problems.length - 3} more` : ""));
+    } finally {
+      setPreparing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+    }
   };
 
-  const upload = async () => {
-    if (!file) { toast.error("Choose a file to upload"); return; }
-    if (!form.document_name.trim()) { toast.error("Document name is required"); return; }
-    setUploading(true);
+  const patchItem = (key: string, patch: Partial<QueueItem>) =>
+    setItems((prev) => prev.map((i) => (i.key === key ? { ...i, ...patch } : i)));
+  const removeItem = (key: string) => setItems((prev) => prev.filter((i) => i.key !== key));
+
+  const uploadOne = async (item: QueueItem): Promise<string | null> => {
     let path: string | null = null;
     try {
-      const ext = file.name.split(".").pop();
+      const ext = item.file.name.split(".").pop();
       path = `${doctorId}/${patientId}/${Date.now()}-${randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("patient-documents").upload(path, file);
+      const { error: upErr } = await supabase.storage.from("patient-documents").upload(path, item.file);
       if (upErr) {
         console.error("patient-documents upload failed:", upErr);
-        toast.error(`Could not upload file: ${upErr.message}`);
-        return;
+        return `Could not upload file: ${upErr.message}`;
       }
       const { error } = await supabase.from("patient_documents").insert({
         patient_id: patientId, doctor_id: doctorId, created_by: doctorId,
-        document_name: form.document_name, document_type: form.document_type as DocumentType,
-        file_path: path, file_type: file.type, document_date: form.document_date,
+        document_name: item.name.trim(), document_type: item.type as DocumentType,
+        file_path: path, file_type: item.file.type, document_date: item.date,
         notes: form.notes || null, visit_id: form.visit_id || null,
       });
       if (error) {
         // Uploaded file is now orphaned in storage since the metadata row
         // failed — remove it so retrying doesn't leave duplicate blobs behind.
         await supabase.storage.from("patient-documents").remove([path]);
-        toast.error(dbErrorMessage(error, "patient_documents insert", "Could not save document record"));
-        return;
+        return dbErrorMessage(error, "patient_documents insert", "Could not save document record");
       }
-      toast.success("Document uploaded successfully.");
-      setDialogOpen(false);
-      load();
-      onChange?.();
+      return null;
     } catch (e) {
       // Guards against any unexpected synchronous/async throw (e.g. an
       // unavailable browser API) leaving the button stuck on "Uploading…"
       // forever with no request ever sent and no feedback to the user.
       console.error("patient-documents upload threw:", e);
-      toast.error("Could not upload file. Please try again.");
-    } finally {
-      setUploading(false);
+      return "Could not upload file. Please try again.";
+    }
+  };
+
+  const upload = async () => {
+    const todo = items.filter((i) => i.status !== "done");
+    if (todo.length === 0) { toast.error("Choose at least one file to upload"); return; }
+    const today = clinicToday();
+    const invalid = todo.find((i) => !i.name.trim() || !i.date || i.date > today);
+    if (invalid) {
+      toast.error(!invalid.name.trim() ? "Every document needs a name" : "Dates cannot be empty or in the future");
+      return;
+    }
+    setUploading(true);
+    let ok = 0;
+    let failed = 0;
+    // One at a time: keeps the connection usable on a clinic's slow wifi and gives clear per-file status.
+    for (const item of todo) {
+      patchItem(item.key, { status: "uploading", error: undefined });
+      const err = await uploadOne(item);
+      if (err) { failed++; patchItem(item.key, { status: "error", error: err }); }
+      else { ok++; patchItem(item.key, { status: "done" }); }
+    }
+    setUploading(false);
+    if (ok) { load(); onChange?.(); }
+    if (failed === 0) {
+      toast.success(ok === 1 ? "Document uploaded successfully." : `${ok} documents uploaded successfully.`);
+      setDialogOpen(false);
+    } else {
+      toast.error(`${failed} file${failed === 1 ? "" : "s"} could not be uploaded${ok ? ` (${ok} done)` : ""}. Fix or retry the ones marked below.`);
     }
   };
 
@@ -234,43 +296,72 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Upload Medical Document</DialogTitle></DialogHeader>
+      <Dialog open={dialogOpen} onOpenChange={(o) => { if (!uploading) setDialogOpen(o); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Upload Medical Documents</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>File * (PDF, JPG, JPEG, PNG, WebP)</Label>
+            <div className="space-y-2">
+              <Label>Files * (PDF, JPG, PNG, WebP — up to {MAX_DOCUMENT_BYTES / 1024 / 1024} MB each, {MAX_BATCH_FILES} at a time)</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" disabled={uploading || preparing} onClick={() => fileInputRef.current?.click()}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Choose files
+                </Button>
+                <Button type="button" variant="outline" size="sm" disabled={uploading || preparing} onClick={() => cameraInputRef.current?.click()}>
+                  <Camera className="h-3.5 w-3.5 mr-1" /> Take photo
+                </Button>
+                {preparing && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Preparing…</span>}
+              </div>
               <input
-                ref={fileInputRef}
-                type="file"
-                accept={ACCEPTED}
-                onChange={(e) => pickFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-foreground file:mr-3 file:h-9 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:text-sm file:font-medium hover:file:bg-secondary/80"
+                ref={fileInputRef} type="file" multiple accept={ACCEPTED_EXTENSIONS} aria-label="Choose files" className="hidden"
+                onChange={(e) => addFiles(e.target.files)}
               />
-              {file && <p className="text-xs text-muted-foreground">{file.name} · {(file.size / 1024).toFixed(0)} KB</p>}
+              <input
+                ref={cameraInputRef} type="file" accept="image/*" capture="environment" aria-label="Take photo" className="hidden"
+                onChange={(e) => addFiles(e.target.files)}
+              />
+              <p className="text-[11px] text-muted-foreground">Large photos are shrunk automatically. The date is taken from the file, so please check it.</p>
             </div>
-            <div className="space-y-1.5">
-              <Label>Document Name *</Label>
-              <Input value={form.document_name} onChange={(e) => setForm({ ...form, document_name: e.target.value })} className="h-10" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Document Type</Label>
-                <Select value={form.document_type} onValueChange={(v) => setForm({ ...form, document_type: v })}>
-                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(TYPE_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Date</Label>
-                <Input type="date" value={form.document_date} onChange={(e) => setForm({ ...form, document_date: e.target.value })} className="h-10" />
-              </div>
-            </div>
+
+            {items.length > 0 && (
+              <ul className="space-y-2" aria-label="Files to upload">
+                {items.map((it) => (
+                  <li key={it.key} className="rounded-lg border border-border/60 p-2.5 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={it.name} aria-label={`Name for ${it.file.name}`} disabled={uploading || it.status === "done"}
+                        onChange={(e) => patchItem(it.key, { name: e.target.value })} className="h-9 flex-1"
+                      />
+                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">{(it.file.size / 1024).toFixed(0)} KB</span>
+                      {it.status === "uploading" && <Loader2 className="h-4 w-4 animate-spin text-royal" aria-label="Uploading" />}
+                      {it.status === "done" && <CheckCircle2 className="h-4 w-4 text-success" aria-label="Uploaded" />}
+                      {it.status === "error" && <AlertCircle className="h-4 w-4 text-destructive" aria-label="Failed" />}
+                      {!uploading && it.status !== "done" && (
+                        <button type="button" onClick={() => removeItem(it.key)} aria-label={`Remove ${it.file.name}`} className="text-muted-foreground hover:text-destructive">
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Select value={it.type} disabled={uploading || it.status === "done"} onValueChange={(v) => patchItem(it.key, { type: v })}>
+                        <SelectTrigger className="h-9" aria-label={`Type for ${it.file.name}`}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(TYPE_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="date" value={it.date} max={clinicToday()} aria-label={`Date for ${it.file.name}`} disabled={uploading || it.status === "done"}
+                        onChange={(e) => patchItem(it.key, { date: e.target.value })} className="h-9"
+                      />
+                    </div>
+                    {it.error && <p role="alert" className="text-xs text-destructive">{it.error}</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+
             {visits.length > 0 && (
               <div className="space-y-1.5">
-                <Label>Related Visit (optional)</Label>
+                <Label>Related Visit (optional, applies to all)</Label>
                 <Select value={form.visit_id} onValueChange={(v) => setForm({ ...form, visit_id: v })}>
                   <SelectTrigger className="h-10"><SelectValue placeholder="-- None --" /></SelectTrigger>
                   <SelectContent className="max-h-[200px]">
@@ -280,11 +371,11 @@ const DocumentsTab = ({ patientId, doctorId, onChange }: { patientId: string; do
               </div>
             )}
             <div className="space-y-1.5">
-              <Label>Notes</Label>
+              <Label>Notes (applies to all)</Label>
               <Textarea value={form.notes} rows={2} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
-            <Button onClick={upload} disabled={uploading} className="w-full h-10 bg-royal hover:bg-royal/90">
-              {uploading ? "Uploading…" : "Upload Document"}
+            <Button onClick={upload} disabled={uploading || preparing || items.every((i) => i.status === "done")} className="w-full h-10 bg-royal hover:bg-royal/90">
+              {uploading ? "Uploading…" : items.length > 1 ? `Upload ${items.filter((i) => i.status !== "done").length} Documents` : "Upload Document"}
             </Button>
           </div>
         </DialogContent>

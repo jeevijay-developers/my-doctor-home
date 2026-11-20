@@ -92,7 +92,7 @@ describe("PatientImportDialog", () => {
 
     expect(await screen.findByText("Imported 1 patient")).toBeInTheDocument();
     expect(inserts()).toEqual([
-      [{ doctor_id: "doc-1", name: "Ravi Kumar", phone: "9876543210", email: null, age: 40, gender: "male", weight: 72.5, notes: null }],
+      [{ doctor_id: "doc-1", name: "Ravi Kumar", phone: "9876543210", email: null, age: 40, gender: "male", weight: 72.5, notes: null, patient_since: null, first_visit: null, last_visit: null, total_visits: 0 }],
     ]);
     expect(onImported).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/1 skipped because they already exist/i)).toBeInTheDocument();

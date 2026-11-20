@@ -1,4 +1,4 @@
-import { patientsToCsv } from "@/lib/patientCsv";
+import { patientsToCsv, patientSinceDate } from "@/lib/patientCsv";
 import PatientImportDialog from "./PatientImportDialog";
 import { clinicToday } from "@/lib/queue";
 import { useEffect, useRef, useState } from "react";
@@ -33,6 +33,7 @@ type Patient = {
   id: string; name: string; phone: string; email: string | null;
   age: number | null; gender: string | null; weight?: number | null; first_visit: string | null;
   last_visit: string | null; total_visits: number; notes: string | null;
+  patient_since?: string | null; created_at?: string | null;
 };
 
 const blankNewPatient = () => ({ name: "", phone: "", email: "", age: "", gender: "", weight: "" });
@@ -569,6 +570,7 @@ const PatientsPage = () => {
                     { label: "Age", value: selected.age ? `${selected.age} years` : "—", icon: Activity },
                     { label: "Gender", value: selected.gender || "—", icon: Users },
                     { label: "Weight", value: selected.weight != null ? `${selected.weight} kg` : "—", icon: Activity },
+                    { label: "Patient Since", value: (() => { const d = patientSinceDate(selected); return d ? format(new Date(`${d}T00:00:00`), "dd MMM yyyy") : "—"; })(), icon: CalendarIcon },
                     { label: "Total Visits", value: String(selected.total_visits), icon: CalendarIcon },
                   ].map(item => (
                     <div key={item.label} className="bg-secondary rounded-xl p-3">

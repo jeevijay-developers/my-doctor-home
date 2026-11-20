@@ -3,7 +3,8 @@ import { importPatients, type InsertFn } from "./patientImport";
 import type { ImportRow } from "./patientCsv";
 
 const row = (n: number, over: Partial<ImportRow> = {}): ImportRow => ({
-  line: n + 1, name: `Patient ${n}`, phone: `98765${String(n).padStart(5, "0")}`, email: null, age: 30, gender: "male", weight: null, notes: null, ...over,
+  line: n + 1, name: `Patient ${n}`, phone: `98765${String(n).padStart(5, "0")}`, email: null, age: 30, gender: "male", weight: null, notes: null,
+  patient_since: null, first_visit: null, last_visit: null, total_visits: 0, ...over,
 });
 const rows = (count: number) => Array.from({ length: count }, (_, i) => row(i));
 const ok = { error: null };
@@ -26,7 +27,7 @@ describe("importPatients", () => {
     await importPatients("doc-1", [row(1, { email: "a@b.co", weight: 62.5, notes: "n", age: 0, gender: "female" })], insert);
 
     expect(insert.mock.calls[0][0]).toEqual([
-      { doctor_id: "doc-1", name: "Patient 1", phone: "9876500001", email: "a@b.co", age: 0, gender: "female", weight: 62.5, notes: "n" },
+      { doctor_id: "doc-1", name: "Patient 1", phone: "9876500001", email: "a@b.co", age: 0, gender: "female", weight: 62.5, notes: "n", patient_since: null, first_visit: null, last_visit: null, total_visits: 0 },
     ]);
   });
 

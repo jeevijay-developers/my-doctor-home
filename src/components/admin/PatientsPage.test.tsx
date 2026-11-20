@@ -289,7 +289,7 @@ describe("PatientsPage", () => {
     it("exports every patient with a header row, a BOM, and phone numbers as text", async () => {
       const csv = await exportCsv();
       expect(blobs[0].type).toContain("text/csv");
-      expect(csv).toContain("Name,Phone,Email,Age,Gender,Weight (kg),First Visit,Last Visit,Total Visits,Notes");
+      expect(csv).toContain("Name,Phone,Email,Age,Gender,Weight (kg),Patient Since,First Visit,Last Visit,Total Visits,Notes");
       expect(csv).toContain('="9876500001"');
       expect(csv).toContain("Ravi Kumar");
       expect(h.success).toHaveBeenCalledWith("Exported 2 patients to CSV");

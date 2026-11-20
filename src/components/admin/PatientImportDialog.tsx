@@ -126,7 +126,7 @@ const PatientImportDialog = ({ open, onOpenChange, doctorId, onImported }: Props
         <DialogHeader>
           <DialogTitle>Import patients from CSV</DialogTitle>
           <DialogDescription>
-            Required columns: Name, Phone, Age and Gender. Email, Weight (kg) and Notes are optional. Up to {MAX_IMPORT_ROWS} patients and 2 MB per file.
+            Required columns: Name, Phone, Age and Gender. Optional: Email, Weight (kg), Notes, and the history columns Patient Since, First Visit, Last Visit and Total Visits (dates like 25/12/2023), so long-standing patients keep their real dates. Up to {MAX_IMPORT_ROWS} patients and 2 MB per file. Medical history and reports are added per patient after the import.
           </DialogDescription>
         </DialogHeader>
 

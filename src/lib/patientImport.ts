@@ -9,6 +9,10 @@ export type PatientInsert = {
   gender: string;
   weight: number | null;
   notes: string | null;
+  patient_since: string | null;
+  first_visit: string | null;
+  last_visit: string | null;
+  total_visits: number;
 };
 
 export type InsertFn = (rows: PatientInsert[]) => Promise<{ error: { code?: string; message: string } | null }>;
@@ -31,6 +35,10 @@ const toInsert = (doctorId: string, r: ImportRow): PatientInsert => ({
   gender: r.gender,
   weight: r.weight,
   notes: r.notes,
+  patient_since: r.patient_since,
+  first_visit: r.first_visit,
+  last_visit: r.last_visit,
+  total_visits: r.total_visits,
 });
 
 // Inserts in chunks (one request per 100 patients). If a chunk is refused, its rows are retried
