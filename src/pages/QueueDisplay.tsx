@@ -17,6 +17,8 @@ type QueueDoctor = {
 
 type PublicQueue = {
   now_serving: number | null;
+  /** Masked, e.g. "Aaryan K." — the server never sends the full name. */
+  now_serving_name?: string | null;
   next_up: number[];
   waiting: number;
   done: number;
@@ -171,6 +173,9 @@ const QueueDisplay = () => {
           <div className="font-heading font-extrabold text-[7rem] sm:text-[11rem] leading-none text-spark-bright mt-2">
             {queue.now_serving != null ? `#${queue.now_serving}` : "—"}
           </div>
+          {queue.now_serving != null && queue.now_serving_name && (
+            <p className="mt-3 font-heading font-bold text-3xl sm:text-5xl text-white break-words">{queue.now_serving_name}</p>
+          )}
           {queue.now_serving == null && <p className="text-white/60 mt-3">Waiting for the next patient</p>}
         </section>
 

@@ -75,6 +75,20 @@ describe("QueueDisplay", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("names the patient being served by the masked name the server sends, and nobody else", async () => {
+    mock.current.rpcs.get_public_queue = () => queue({ now_serving_name: "Aaryan K." });
+    renderPage();
+    await flush();
+    expect(screen.getByText("Aaryan K.")).toBeInTheDocument();
+  });
+
+  it("shows no name when nobody is being served", async () => {
+    mock.current.rpcs.get_public_queue = () => queue({ now_serving: null, now_serving_name: "Aaryan K.", next_up: [], waiting: 0 });
+    renderPage();
+    await flush();
+    expect(screen.queryByText("Aaryan K.")).not.toBeInTheDocument();
+  });
+
   it("shows a dash when nobody is being served and 'No one is waiting' when empty", async () => {
     mock.current.rpcs.get_public_queue = () => queue({ now_serving: null, next_up: [], waiting: 0 });
     renderPage();
