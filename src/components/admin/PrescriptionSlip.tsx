@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import QRCode from "qrcode";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,8 @@ type Props = {
   profile: any;
   prescription: PrescriptionSlipData | null;
   onDownload: () => void;
+  /** Optional extra action (e.g. the Share button) shown beside Print / Download. */
+  shareSlot?: ReactNode;
 };
 
 const ROYAL = "#1d4ed8";
@@ -91,20 +93,16 @@ const HeaderIcon = () => (
   </svg>
 );
 
-const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload }: Props) => {
+export const PrescriptionSlipCard = ({ profile, prescription }: { profile: any; prescription: PrescriptionSlipData }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
-
   const publicOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const doctorUrl = profile?.slug ? `${publicOrigin}/dr/${profile.slug}` : publicOrigin;
 
   useEffect(() => {
-    if (!open) return;
     QRCode.toDataURL(doctorUrl, { margin: 1, width: 300, color: { dark: ROYAL, light: "#FFFFFF" } })
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(""));
-  }, [open, doctorUrl]);
-
-  if (!prescription) return null;
+  }, [doctorUrl]);
 
   const clinicName = profile?.clinic_name || (profile?.full_name ? `Dr. ${profile.full_name} Clinic` : "Clinic");
   const clinicAddr = profile?.address || profile?.city || "";
@@ -113,16 +111,6 @@ const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload }: 
   const registrationNumber = profile?.registration_number || "";
   const signatureUrl = profile?.signature_url || "";
   const qualificationLine = [profile?.qualifications, profile?.specialization].filter(Boolean).join(" - ");
-
-  const handlePrint = () => {
-    document.body.classList.add("printing-prescription-slip");
-    const cleanup = () => {
-      document.body.classList.remove("printing-prescription-slip");
-      window.removeEventListener("afterprint", cleanup);
-    };
-    window.addEventListener("afterprint", cleanup);
-    setTimeout(() => window.print(), 100);
-  };
 
   const leftInfo: Array<{ label: string; value: string }> = [
     { label: "Patient Name", value: prescription.patient_name },
@@ -167,40 +155,6 @@ const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload }: 
   if (prescription.lifestyle_advice) adviceSections.push({ label: "Lifestyle Advice", value: prescription.lifestyle_advice });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[720px] p-0 gap-0 max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:border-0 bg-white">
-        <style>{`
-          @media print {
-            @page { size: A4 portrait; margin: 10mm; }
-            body.printing-prescription-slip > *:not([data-prescription-slip-print-root]) { display: none !important; }
-            body.printing-prescription-slip [data-prescription-slip-print-root] { display: block !important; position: static !important; }
-            [data-prescription-slip-print-hide] { display: none !important; }
-            [data-prescription-slip-print-root] .slip-card { box-shadow: none !important; }
-            [data-prescription-slip-row] { break-inside: avoid; }
-          }
-        `}</style>
-
-        {/*
-          Every color inside .slip-card is a fixed neutral (gray-*) or the
-          brand "royal" blue, deliberately NOT the theme-relative tokens
-          (text-foreground, bg-secondary, etc.) used elsewhere in the app.
-          Those tokens invert between light/dark mode — text-foreground
-          resolves to a near-white color in dark mode — but this card always
-          has an explicit bg-white "paper" background regardless of the
-          app's active theme, so theme-relative text would become
-          near-invisible white-on-white whenever a doctor has dark mode on.
-          AppointmentSlip.tsx avoids the same trap the same way, with its
-          own hardcoded TEAL constants instead of theme tokens.
-        */}
-        <div data-prescription-slip-print-root>
-          {/*
-            Split into header/body/footer so the "Download PDF" pipeline
-            (downloadPdfFromNode) can rasterize each independently: the
-            header is placed only on page 1, the footer is pinned to the
-            fixed bottom of every page, and the body is paginated to fill
-            whatever space is left on each page — see downloadSlip() in
-            PrescriptionsPage.tsx for the selectors passed in.
-          */}
           <div className="slip-card bg-white border border-gray-200">
             <div data-prescription-slip-header className="px-6 sm:px-8 pt-6 sm:pt-8">
               {/* Header */}
@@ -351,8 +305,62 @@ const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload }: 
               </div>
             </div>
           </div>
+  );
+};
+
+const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload, shareSlot }: Props) => {
+  if (!prescription) return null;
+
+  const handlePrint = () => {
+    document.body.classList.add("printing-prescription-slip");
+    const cleanup = () => {
+      document.body.classList.remove("printing-prescription-slip");
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    setTimeout(() => window.print(), 100);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-[720px] p-0 gap-0 max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible print:shadow-none print:border-0 bg-white">
+        <style>{`
+          @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            body.printing-prescription-slip > *:not([data-prescription-slip-print-root]) { display: none !important; }
+            body.printing-prescription-slip [data-prescription-slip-print-root] { display: block !important; position: static !important; }
+            [data-prescription-slip-print-hide] { display: none !important; }
+            [data-prescription-slip-print-root] .slip-card { box-shadow: none !important; }
+            [data-prescription-slip-row] { break-inside: avoid; }
+          }
+        `}</style>
+
+        {/*
+          Every color inside .slip-card is a fixed neutral (gray-*) or the
+          brand "royal" blue, deliberately NOT the theme-relative tokens
+          (text-foreground, bg-secondary, etc.) used elsewhere in the app.
+          Those tokens invert between light/dark mode — text-foreground
+          resolves to a near-white color in dark mode — but this card always
+          has an explicit bg-white "paper" background regardless of the
+          app's active theme, so theme-relative text would become
+          near-invisible white-on-white whenever a doctor has dark mode on.
+          AppointmentSlip.tsx avoids the same trap the same way, with its
+          own hardcoded TEAL constants instead of theme tokens.
+        */}
+        <div data-prescription-slip-print-root>
+          {/*
+            Split into header/body/footer so the "Download PDF" pipeline
+            (downloadPdfFromNode) can rasterize each independently: the
+            header is placed only on page 1, the footer is pinned to the
+            fixed bottom of every page, and the body is paginated to fill
+            whatever space is left on each page — see downloadSlip() in
+            PrescriptionsPage.tsx for the selectors passed in.
+          */}
+          <PrescriptionSlipCard profile={profile} prescription={prescription} />
+
 
           <div data-prescription-slip-print-hide className="flex flex-wrap gap-2 justify-end p-4 border-t bg-secondary/40">
+            {shareSlot}
             <Button variant="outline" onClick={handlePrint} className="gap-1.5">
               <Printer className="h-4 w-4" /> Print
             </Button>

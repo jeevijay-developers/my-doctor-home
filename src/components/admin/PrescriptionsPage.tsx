@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import PrescriptionShare from "./PrescriptionShare";
 import PrescriptionSlip, { PrescriptionSlipData, VisitSummary, VitalsSummary } from "./PrescriptionSlip";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { parseMedicineItems, type MedicineItem } from "@/lib/prescriptionMedicines";
@@ -311,6 +312,7 @@ const PrescriptionsPage = () => {
 
   const [slipOpen, setSlipOpen] = useState(false);
   const [slipPrescription, setSlipPrescription] = useState<PrescriptionSlipData | null>(null);
+  const [slipPatientPhone, setSlipPatientPhone] = useState<string | null>(null);
 
   const load = async () => {
     if (!profile) return;
@@ -352,10 +354,13 @@ const PrescriptionsPage = () => {
 
   const openSlip = async (rx: Prescription) => {
     let gender: string | null = null;
+    let phone: string | null = null;
     if (rx.patient_id) {
-      const { data } = await supabase.from("patients").select("gender").eq("id", rx.patient_id).maybeSingle();
+      const { data } = await supabase.from("patients").select("gender, phone").eq("id", rx.patient_id).maybeSingle();
       gender = data?.gender ?? null;
+      phone = data?.phone ?? null;
     }
+    setSlipPatientPhone(phone);
     let visit: VisitSummary = null;
     let vitals: VitalsSummary = null;
     if (rx.visit_id) {
@@ -920,6 +925,17 @@ const PrescriptionsPage = () => {
         profile={profile}
         prescription={slipPrescription}
         onDownload={downloadSlip}
+        shareSlot={
+          slipPrescription?.id && can("prescriptions.view") ? (
+            <PrescriptionShare
+              key={slipPrescription.id}
+              prescriptionId={slipPrescription.id}
+              patientName={slipPrescription.patient_name}
+              patientPhone={slipPatientPhone}
+              doctorName={profile?.full_name || ""}
+            />
+          ) : undefined
+        }
       />
     </div>
   );

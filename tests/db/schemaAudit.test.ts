@@ -58,7 +58,7 @@ describe("function execute privileges", () => {
   const INTENDED_ANON = [
     "blog_facets()", "cancel_appointment_by_token(uuid,text,text)", "directory_facets(text)", "directory_slugify(text)",
     "get_appointment_by_token(uuid,text,text)", "get_my_queue_status(uuid,text,text)", "get_public_feature_flags(uuid)",
-    "get_public_queue(uuid)", "get_queue_position(uuid)", "get_slot_counts(uuid,date,text)",
+    "get_public_queue(uuid)", "get_shared_prescription(text,text)", "get_queue_position(uuid)", "get_slot_counts(uuid,date,text)",
     "reschedule_appointment_by_token(uuid,text,text,date,text)", "search_blog_posts(text,text,integer,integer)",
     "search_doctors(text,text,text,integer,integer)",
   ];

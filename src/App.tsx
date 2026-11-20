@@ -28,6 +28,7 @@ const BlogListPage = lazy(() => import("./pages/BlogListPage"));
 const BlogPostPage = lazy(() => import("./pages/BlogPostPage"));
 const ManageAppointment = lazy(() => import("./pages/ManageAppointment"));
 const QueueDisplay = lazy(() => import("./pages/QueueDisplay"));
+const SharedPrescription = lazy(() => import("./pages/SharedPrescription"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const SuperAdminRoute = lazy(() => import("./components/SuperAdminRoute"));
 const SuperAdminLayout = lazy(() => import("./components/superadmin/SuperAdminLayout"));
@@ -137,6 +138,7 @@ const App = () => (
               <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
               <Route path="/dr/:slug/manage" element={<ManageAppointment />} />
               <Route path="/dr/:slug/queue" element={<QueueDisplay />} />
+              <Route path="/rx/:token" element={<SharedPrescription />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
