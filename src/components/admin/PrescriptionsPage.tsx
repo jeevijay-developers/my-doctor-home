@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import PrescriptionShare from "./PrescriptionShare";
 import PrescriptionSlip, { PrescriptionSlipData, VisitSummary, VitalsSummary } from "./PrescriptionSlip";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
+import { pdfFileName } from "@/lib/pdfFileName";
 import { parseMedicineItems, type MedicineItem } from "@/lib/prescriptionMedicines";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -398,7 +399,7 @@ const PrescriptionsPage = () => {
     if (!slipPrescription) return;
     downloadPdfFromNode(
       '[data-prescription-slip-print-root] [data-prescription-slip-body]',
-      `prescription-${slipPrescription.id || "preview"}.pdf`,
+      pdfFileName("Prescription", slipPrescription.patient_name, slipPrescription.date),
       {
         multiPage: true,
         headerSelector: '[data-prescription-slip-print-root] [data-prescription-slip-header]',

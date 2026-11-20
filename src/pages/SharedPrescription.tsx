@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PrescriptionSlipCard, type PrescriptionSlipData } from "@/components/admin/PrescriptionSlip";
 import { parseMedicineItems } from "@/lib/prescriptionMedicines";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
+import { pdfFileName } from "@/lib/pdfFileName";
 
 type Loaded = { doctor: any; prescription: PrescriptionSlipData };
 type Phase = "loading" | "phone" | "ready" | "gone" | "locked";
@@ -58,7 +59,7 @@ const SharedPrescription = () => {
   const download = () =>
     downloadPdfFromNode(
       "[data-prescription-slip-print-root] [data-prescription-slip-body]",
-      `prescription-${data?.prescription.id.slice(0, 8) ?? "rx"}.pdf`,
+      pdfFileName("Prescription", data?.prescription.patient_name, data?.prescription.date),
       {
         multiPage: true,
         headerSelector: "[data-prescription-slip-print-root] [data-prescription-slip-header]",

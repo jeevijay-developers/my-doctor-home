@@ -13,6 +13,7 @@ import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { generateBookingToken } from "@/lib/bookingToken";
 import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
+import { pdfFileName } from "@/lib/pdfFileName";
 import { FEATURE_KEYS } from "@/lib/features";
 import { usePaymentMode } from "@/hooks/usePaymentMode";
 import TestModeBadge from "@/components/shared/TestModeBadge";
@@ -316,8 +317,8 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
   };
 
-  const downloadSlip = () => downloadPdfFromNode('[data-slip-print-root] .slip-card', `appointment-${token}.pdf`);
-  const downloadPaymentSlip = () => downloadPdfFromNode('[data-payment-slip-print-root] .slip-card', `payment-receipt-${token}.pdf`);
+  const downloadSlip = () => downloadPdfFromNode('[data-slip-print-root] .slip-card', pdfFileName("Appointment", name, selectedDate ? format(selectedDate, "yyyy-MM-dd") : null, token));
+  const downloadPaymentSlip = () => downloadPdfFromNode('[data-payment-slip-print-root] .slip-card', pdfFileName("Payment-Receipt", name, selectedDate ? format(selectedDate, "yyyy-MM-dd") : null, token));
 
   // "Download Appointment/Payment Slip" on the confirmation screen open the
   // (printable) slip dialog and immediately trigger the PDF download once its
