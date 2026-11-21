@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowRight, BookOpen, CheckCircle2, ChevronRight, Clock3, FileSignature, Gavel, MailCheck, Rocket, Search,
-  Shield, ShieldCheck, Stethoscope, Tag, TrendingUp, User,
+  Shield, ShieldCheck, Stethoscope, Tag, TrendingUp, User, Users,
 } from "lucide-react";
 import { format } from "date-fns";
 import LandingNavbar from "@/components/landing/LandingNavbar";
@@ -32,7 +32,7 @@ const SPECIALTY_PLAYBOOKS = [
 const COMPLIANCE_ITEMS = [
   { icon: Shield, title: "DPDP Act 2023 for Outpatient Clinics", body: "Explicit consent requirements for storing patient phone numbers and WhatsApp messaging permissions." },
   { icon: FileSignature, title: "Digital Prescription Validity", body: "Requirements for doctor registration number, digital signatures, and schedule X drug restrictions under NMC guidelines." },
-  { icon: ShieldCheck, title: "ABDM Integration", body: "Ayushman Bharat Digital Mission (ABHA) standards for secure patient health record sharing." },
+  { icon: Users, title: "Role-Based Staff Access", body: "Choose which sections each receptionist or team member can open, so patient records stay limited to the people who need them." },
 ];
 
 const formatDate = (d?: string | null) => {
@@ -52,21 +52,21 @@ const FeaturedArticle = ({ article }: { article: HubArticle }) => {
   return (
     <article className="group relative overflow-hidden rounded-2xl border bg-card shadow-xl">
       <div className="grid grid-cols-1 items-stretch lg:grid-cols-12">
-        <div className="z-10 flex flex-col justify-between p-6 sm:p-10 lg:col-span-7 lg:p-12">
+        <div className="z-10 order-2 flex flex-col justify-between p-5 sm:p-10 lg:order-none lg:col-span-7 lg:p-12">
           <div>
-            <div className="mb-4 flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground">
+            <div className="mb-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-muted-foreground sm:mb-4">
               {article.category && (
                 <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">{article.category}</span>
               )}
               <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{article.reading_minutes} min read</span>
               {date && <><span aria-hidden>•</span><span>Published {date}</span></>}
             </div>
-            <h2 className="font-heading text-2xl font-bold leading-tight text-navy sm:text-3xl">
+            <h2 className="font-heading text-xl font-bold leading-tight text-navy sm:text-3xl">
               <Link to={articlePath(article)} className="transition-colors hover:text-royal after:absolute after:inset-0 after:content-['']">{article.title}</Link>
             </h2>
-            {article.excerpt && <p className="mt-4 line-clamp-4 text-base leading-relaxed text-muted-foreground">{article.excerpt}</p>}
+            {article.excerpt && <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground sm:mt-4 sm:line-clamp-4 sm:text-base">{article.excerpt}</p>}
           </div>
-          <div className="mt-6 flex items-center justify-between gap-3 border-t pt-6">
+          <div className="mt-5 flex items-center justify-between gap-3 border-t pt-4 sm:mt-6 sm:pt-6">
             <Link to={`/dr/${article.doctor_slug}`} className="relative z-10 flex min-w-0 items-center gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-primary shadow-inner">
                 {article.doctor_photo_url ? (
@@ -83,15 +83,15 @@ const FeaturedArticle = ({ article }: { article: HubArticle }) => {
             </span>
           </div>
         </div>
-        <div className="relative flex items-center justify-center overflow-hidden bg-gradient-to-tr from-secondary via-accent to-card p-6 sm:p-10 lg:col-span-5">
+        <div className="relative order-1 flex items-center justify-center overflow-hidden bg-gradient-to-tr from-secondary via-accent to-card p-4 sm:p-10 lg:order-none lg:col-span-5">
           <div className="absolute -right-4 -top-4 h-72 w-72 rounded-full bg-royal/10 blur-2xl" />
-          <div className="relative flex aspect-square w-full max-w-md items-center justify-center">
+          <div className="relative flex aspect-[16/10] w-full max-w-md items-center justify-center sm:aspect-square">
             {article.featured_image_url ? (
               <img src={article.featured_image_url} alt={article.title} width={640} height={640} loading="eager" fetchPriority="high" decoding="async"
-                className="max-h-[380px] w-full rounded-xl object-contain drop-shadow-2xl transition-transform duration-500 group-hover:scale-105" />
+                className="max-h-[220px] w-full rounded-xl object-contain drop-shadow-2xl sm:max-h-[380px] transition-transform duration-500 group-hover:scale-105" />
             ) : (
               <img src="/stitch/landing-06.png" alt="" width={640} height={640} loading="eager" decoding="async"
-                className="max-h-[380px] w-full object-contain drop-shadow-2xl transition-transform duration-500 group-hover:scale-105" />
+                className="max-h-[220px] w-full object-contain drop-shadow-2xl sm:max-h-[380px] transition-transform duration-500 group-hover:scale-105" />
             )}
           </div>
         </div>
@@ -104,9 +104,9 @@ const GridArticle = ({ article, priority }: { article: HubArticle; priority: boo
   const date = formatDate(article.published_at ?? article.updated_at);
   const { name, where } = authorOf(article);
   return (
-    <article className="group flex h-full flex-col justify-between rounded-2xl border bg-card p-6 shadow-md transition-all duration-300 hover:shadow-xl">
+    <article className="group flex h-full flex-col justify-between rounded-2xl border bg-card p-4 shadow-md transition-all duration-300 hover:shadow-xl sm:p-6">
       <div>
-        <div className="relative mb-5 flex h-44 w-full items-center justify-center overflow-hidden rounded-xl bg-secondary">
+        <div className="relative mb-4 flex aspect-[16/10] w-full sm:mb-5 sm:aspect-auto sm:h-44 items-center justify-center overflow-hidden rounded-xl bg-secondary">
           {article.featured_image_url ? (
             <img src={article.featured_image_url} alt={article.title} width={640} height={400} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
               className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105" />
@@ -122,16 +122,16 @@ const GridArticle = ({ article, priority }: { article: HubArticle; priority: boo
           )}
         </div>
         <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <span>{name}</span><span aria-hidden>•</span>
+          <span className="max-w-full truncate font-medium text-navy/80">{name}</span><span aria-hidden>•</span>
           <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{article.reading_minutes} min read</span>
           {date && <><span aria-hidden>•</span><span>{date}</span></>}
         </div>
-        <h3 className="font-heading text-lg font-bold leading-snug text-navy transition-colors group-hover:text-royal">
+        <h3 className="line-clamp-3 font-heading text-base font-bold leading-snug text-navy transition-colors group-hover:text-royal sm:text-lg">
           <Link to={articlePath(article)} className="after:absolute after:inset-0 after:content-['']">{article.title}</Link>
         </h3>
-        {article.excerpt && <p className="mt-3 line-clamp-3 text-base text-muted-foreground">{article.excerpt}</p>}
+        {article.excerpt && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:line-clamp-3 sm:text-base">{article.excerpt}</p>}
       </div>
-      <div className="mt-4 flex items-center justify-between pt-6">
+      <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3 sm:mt-4 sm:border-t-0 sm:pt-6">
         <Link to={`/dr/${article.doctor_slug}`} className="relative z-10 flex min-w-0 items-center gap-2 text-xs font-semibold text-royal hover:underline">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary">
             {article.doctor_photo_url ? <img src={article.doctor_photo_url} alt="" width={24} height={24} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <User className="h-3.5 w-3.5 text-muted-foreground" />}
@@ -148,27 +148,27 @@ const SpecialtyPlaybooks = () => {
   const [active, setActive] = useState(SPECIALTY_PLAYBOOKS[0].id);
   const item = SPECIALTY_PLAYBOOKS.find((s) => s.id === active) ?? SPECIALTY_PLAYBOOKS[0];
   return (
-    <div className="rounded-2xl border bg-card p-6 shadow-md sm:p-8 lg:col-span-7">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="rounded-2xl border bg-card p-4 shadow-md sm:p-8 lg:col-span-7">
+      <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4 sm:items-center">
         <div>
           <span className="text-xs font-semibold uppercase tracking-wider text-royal">Customized Clinical Workflows</span>
           <h3 className="mt-1 font-heading text-2xl font-bold text-navy">Specialty Playbooks</h3>
         </div>
         <Stethoscope className="h-7 w-7 text-royal" />
       </div>
-      <div className="flex flex-wrap gap-2 pb-6 pt-2" role="tablist" aria-label="Specialties">
+      <div className="-mx-4 mb-4 flex snap-x snap-proximity gap-2 overflow-x-auto px-4 pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mb-2 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-4 sm:pt-2" role="tablist" aria-label="Specialties">
         {SPECIALTY_PLAYBOOKS.map((s) => (
           <button key={s.id} type="button" role="tab" aria-selected={s.id === active} onClick={() => setActive(s.id)}
-            className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${s.id === active ? "bg-royal text-white shadow-sm" : "bg-secondary text-muted-foreground hover:bg-accent"}`}>
+            className={`shrink-0 snap-start whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all sm:rounded-lg sm:px-3.5 sm:py-1.5 ${s.id === active ? "bg-royal text-white shadow-sm" : "bg-secondary text-muted-foreground hover:bg-accent"}`}>
             {s.label}
           </button>
         ))}
       </div>
-      <div role="tabpanel" className="space-y-4 rounded-xl bg-secondary/60 p-5">
+      <div role="tabpanel" className="space-y-4 rounded-xl bg-secondary/60 p-4 sm:p-5">
         <div>
           <span className="mb-2 inline-block rounded bg-royal/10 px-2.5 py-0.5 text-[11px] font-semibold text-royal">{item.tag}</span>
           <h4 className="font-heading text-lg font-semibold text-navy">{item.title}</h4>
-          <p className="mt-1.5 text-base text-muted-foreground">{item.desc}</p>
+          <p className="mt-1.5 text-sm text-muted-foreground sm:text-base">{item.desc}</p>
         </div>
         <div className="grid grid-cols-1 gap-3 border-t pt-3 text-sm text-navy sm:grid-cols-2">
           {item.kpis.map((k) => (
@@ -300,20 +300,20 @@ const HealthArticlesHub = () => {
 
               <form onSubmit={onSearch} role="search" className="relative mt-8 w-full max-w-2xl">
                 <div className="relative flex items-center rounded-xl border bg-card p-2 shadow-md">
-                  <Search className="ml-3 mr-2 h-5 w-5 shrink-0 text-muted-foreground" />
+                  <Search className="ml-2 mr-1.5 h-5 w-5 shrink-0 text-muted-foreground sm:ml-3 sm:mr-2" />
                   <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Search articles, topics or doctors" aria-label="Search articles" maxLength={80}
-                    className="w-full min-w-0 border-0 bg-transparent px-1 text-base text-foreground outline-none placeholder:text-muted-foreground/70" />
-                  <button type="submit" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-royal px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-royal/90 active:scale-[0.98] sm:px-5">
-                    <span>Explore</span><ArrowRight className="h-4 w-4" />
+                    className="min-w-0 flex-1 border-0 bg-transparent px-1 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 sm:text-base" />
+                  <button type="submit" aria-label="Explore articles" className="ml-1 flex h-10 w-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-royal text-sm font-semibold text-white shadow-sm transition-all hover:bg-royal/90 active:scale-[0.98] sm:h-auto sm:w-auto sm:px-5 sm:py-2.5">
+                    <span className="hidden sm:inline">Explore</span><ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
               </form>
 
               {facets.length > 0 && (
-                <nav aria-label="Topics" className="mt-6 flex w-full max-w-4xl flex-wrap items-center justify-center gap-2">
-                  <Link to={articlesPath()} className={`rounded-full px-4 py-1.5 text-sm font-medium shadow-sm transition-all ${!category ? "bg-navy text-white" : "bg-card text-muted-foreground hover:bg-accent hover:text-royal"}`}>All Articles</Link>
+                <nav aria-label="Topics" className="-mx-4 mt-6 flex w-[calc(100%+2rem)] max-w-4xl snap-x snap-proximity items-center gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:w-full sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0">
+                  <Link to={articlesPath()} className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium shadow-sm transition-all ${!category ? "bg-navy text-white" : "bg-card text-muted-foreground hover:bg-accent hover:text-royal"}`}>All Articles</Link>
                   {facets.slice(0, 30).map((f) => (
-                    <Link key={f.slug} to={articlesPath(f.slug)} className={`rounded-full px-4 py-1.5 text-sm font-medium shadow-sm transition-all ${f.slug === category ? "bg-navy text-white" : "bg-card text-muted-foreground hover:bg-accent hover:text-royal"}`}>
+                    <Link key={f.slug} to={articlesPath(f.slug)} className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium shadow-sm transition-all ${f.slug === category ? "bg-navy text-white" : "bg-card text-muted-foreground hover:bg-accent hover:text-royal"}`}>
                       {f.label} <span className="opacity-70">({Number(f.post_count)})</span>
                     </Link>
                   ))}
@@ -348,15 +348,15 @@ const HealthArticlesHub = () => {
                 <section className="relative mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-6 lg:px-10"><FeaturedArticle article={rows[0]} /></section>
               )}
               {gridRows.length > 0 && (
-                <section className="mx-auto w-full max-w-[1440px] px-4 py-12 sm:px-6 lg:px-10">
-                  <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+                <section className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 sm:py-12 lg:px-10">
+                  <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
                     <div>
                       <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-royal"><TrendingUp className="h-[15px] w-[15px]" />Latest Editorials</div>
                       <h2 className="font-heading text-2xl font-bold text-navy">{q ? "Matching articles" : "Essential Health Guides from Practising Doctors"}</h2>
                     </div>
                     <span className="text-sm text-muted-foreground">Published by doctors on their own clinic pages</span>
                   </div>
-                  <ul className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                  <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
                     {gridRows.map((a, i) => <li key={a.id} className="relative"><GridArticle article={a} priority={page === 1 && i < 3} /></li>)}
                   </ul>
                   {pagination}
@@ -389,9 +389,6 @@ const HealthArticlesHub = () => {
                       </div>
                     ))}
                   </div>
-                </div>
-                <div className="mt-6 flex items-center justify-end border-t border-white/20 pt-4">
-                  <Link to={articlesPath()} className="flex items-center gap-1 text-sm font-semibold text-teal-bright hover:underline">All Articles <ArrowRight className="h-4 w-4" /></Link>
                 </div>
               </div>
             </div>

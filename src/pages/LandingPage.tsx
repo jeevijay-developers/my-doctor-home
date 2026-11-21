@@ -11,7 +11,6 @@ import CaseStudies from "@/components/landing/CaseStudies";
 import PricingSection from "@/components/landing/PricingSection";
 import Testimonials from "@/components/landing/Testimonials";
 import FAQ, { LANDING_FAQS } from "@/components/landing/FAQ";
-import ContactSection from "@/components/landing/ContactSection";
 import CTABanner from "@/components/landing/CTABanner";
 import LandingFooter from "@/components/landing/LandingFooter";
 import AnimatedSection from "@/components/landing/AnimatedSection";
@@ -113,9 +112,6 @@ const LandingPage = () => {
         </AnimatedSection>
         <AnimatedSection>
           <FAQ />
-        </AnimatedSection>
-        <AnimatedSection>
-          <ContactSection />
         </AnimatedSection>
         <CTABanner />
       </main>

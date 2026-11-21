@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
+import MobileCarousel from "./MobileCarousel";
 import testimonial1 from "@/assets/testimonial-doctor-1.webp";
 import testimonial2 from "@/assets/testimonial-doctor-2.webp";
 import testimonial3 from "@/assets/testimonial-doctor-3.webp";
@@ -35,7 +36,8 @@ const Testimonials = () => (
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+      <div className="mx-auto max-w-6xl">
+      <MobileCarousel label="Doctor reviews" desktopClassName="md:grid md:grid-cols-3 md:gap-6">
         {reviews.map((r, i) => (
           <motion.figure
             key={r.name}
@@ -58,6 +60,7 @@ const Testimonials = () => (
             </figcaption>
           </motion.figure>
         ))}
+      </MobileCarousel>
       </div>
     </div>
   </section>

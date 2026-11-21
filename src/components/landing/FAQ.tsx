@@ -2,8 +2,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 
 export const LANDING_FAQS: { q: string; a: string }[] = [
   {
-    q: "Can I link my own existing clinic domain (e.g., drarunsharma.com)?",
-    a: "Yes. On the Pro and Premium plans you can connect your own custom domain (for example www.drname.com), or stay on your free doctylia.com/dr/ address.",
+    q: "Do I get my own website where patients can book appointments online?",
+    a: "Yes. Every doctor gets a branded clinic website on their own doctylia.com/dr/ address, with your profile, services, timings and an online booking page. Share the link on WhatsApp, Instagram or Google and patients can book 24/7.",
   },
   {
     q: "Is patient medical record data compliant and encrypted?",

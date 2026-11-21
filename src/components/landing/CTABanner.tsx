@@ -22,12 +22,12 @@ const CTABanner = () => (
               <Rocket className="h-5 w-5 text-primary" aria-hidden="true" /> Claim Your 7-Day Free Trial
             </Button>
           </Link>
-          <a
-            href="#contact"
+          <Link
+            to="/contact?topic=demo"
             className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-white/10 px-8 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/20 sm:w-auto"
           >
             <CalendarDays className="h-5 w-5" aria-hidden="true" /> Schedule Clinic Walkthrough
-          </a>
+          </Link>
         </div>
         <div className="pt-2 text-sm text-white/70">
           ✓ No credit card required • Instant automated setup in 10 minutes • Dedicated phone onboarding support

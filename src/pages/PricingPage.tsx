@@ -406,29 +406,29 @@ const PricingPage = () => {
 
         {/* Invoice spotlight */}
         <section className="container mx-auto px-4 py-6">
-          <div className="grid grid-cols-2 items-center gap-4 rounded-2xl bg-secondary p-5 sm:gap-8 md:p-10">
-            <div className="flex flex-col gap-3">
-              <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-royal sm:text-[11px]">
+          <div className="grid grid-cols-1 items-center gap-5 rounded-2xl bg-secondary p-4 sm:grid-cols-2 sm:gap-8 sm:p-6 md:p-10">
+            <div className="order-2 flex flex-col gap-3 sm:order-1">
+              <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-royal">
                 <Receipt className="h-3.5 w-3.5" /> Built for Indian practices
               </div>
-              <h3 className="font-heading text-lg font-bold text-navy sm:text-2xl md:text-3xl">Automated GST invoices &amp; online payments</h3>
-              <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm md:text-base">
+              <h3 className="font-heading text-xl font-bold leading-snug text-navy sm:text-2xl md:text-3xl">Automated GST invoices &amp; online payments</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
                 Say goodbye to manual receipts. Doctylia creates GST invoices from the practice dashboard, right next to
                 appointments and patient records, and accepts UPI and card payments through Razorpay.
               </p>
-              <div className="hidden flex-wrap gap-2 pt-1 sm:flex">
+              <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:flex-wrap">
                 {["Invoice created when a visit is completed and paid", "Payment tracking in one place"].map((t) => (
-                  <span key={t} className="inline-flex items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-medium text-navy">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-success" /> {t}
+                  <span key={t} className="inline-flex items-center gap-2 rounded-xl bg-card px-3 py-2 text-xs font-medium text-navy sm:gap-1 sm:rounded-full sm:py-1">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-success sm:h-3.5 sm:w-3.5" /> {t}
                   </span>
                 ))}
               </div>
             </div>
-            <div className="flex items-center justify-center">
+            <div className="order-1 flex items-center justify-center rounded-xl bg-card/70 p-4 sm:order-2 sm:rounded-none sm:bg-transparent sm:p-0">
               <img
                 src="/stitch/landing-04.png"
                 alt="GST invoice with QR code"
-                className="h-auto w-full max-w-[320px] object-contain drop-shadow-xl transition-transform hover:scale-105"
+                className="h-auto w-full max-w-[240px] object-contain drop-shadow-xl sm:max-w-[320px] transition-transform hover:scale-105"
                 loading="lazy"
               />
             </div>
@@ -474,24 +474,35 @@ const PricingPage = () => {
             </table>
           </Card>
 
-          <div className="space-y-2 md:hidden">
+          {/* Mobile: one compact matrix per group, columns line up the three plans row by row. */}
+          <div className="space-y-4 md:hidden">
             {COMPARE.map((g) => (
-              <div key={g.group} className="space-y-2">
-                <div className="px-1 pt-2 text-xs font-semibold uppercase tracking-wider text-navy">{g.group}</div>
-                {g.rows.map((r) => (
-                  <Card key={r.label} className="p-3">
-                    <div className="mb-2 text-sm font-medium text-foreground">{r.label}</div>
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <Card key={g.group} className="overflow-hidden rounded-2xl shadow-sm">
+                <div className="bg-muted px-3 pt-3 pb-2 text-xs font-semibold uppercase tracking-wider text-navy">{g.group}</div>
+                <div className={`${MOBILE_COLS} items-end border-b border-border bg-muted/60 px-3 pb-2 text-[11px] font-bold uppercase tracking-wide`}>
+                  <span className="sr-only">Capability</span>
+                  <span />
+                  <span className="text-center text-muted-foreground">Pro</span>
+                  <span className="rounded-t-md bg-secondary py-1 text-center text-royal">Premium</span>
+                  <span className="text-center text-muted-foreground">Custom</span>
+                </div>
+                <ul>
+                  {g.rows.map((r) => (
+                    <li key={r.label} className={`${MOBILE_COLS} items-stretch border-b border-border px-3 last:border-b-0`}>
+                      <div className="py-3 pr-2 text-sm font-medium leading-snug text-foreground">{r.label}</div>
                       {([["Pro", r.pro], ["Premium", r.premium], ["Custom", r.custom]] as [string, Cell][]).map(([n, v]) => (
-                        <div key={n} className={`rounded-md p-1.5 ${n === "Premium" ? "bg-secondary" : "bg-muted/50"}`}>
-                          <div className="mb-1 text-[10px] uppercase text-muted-foreground">{n}</div>
+                        <div
+                          key={n}
+                          className={`flex items-center justify-center px-0.5 py-3 text-center text-[11px] leading-tight ${n === "Premium" ? "bg-secondary/60" : ""}`}
+                        >
+                          <span className="sr-only">{n}: </span>
                           <CellValue value={v} />
                         </div>
                       ))}
-                    </div>
-                  </Card>
-                ))}
-              </div>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
             ))}
           </div>
         </section>
@@ -553,6 +564,8 @@ const PricingPage = () => {
     </div>
   );
 };
+
+const MOBILE_COLS = "grid grid-cols-[minmax(0,1fr)_60px_60px_60px] gap-x-1";
 
 const CellValue = ({ value }: { value: Cell }) =>
   value === true ? (

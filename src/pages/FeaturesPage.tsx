@@ -28,6 +28,7 @@ import {
   Zap,
   Pill,
   type LucideIcon,
+  ArrowDown,
 } from "lucide-react";
 import LandingNavbar from "@/components/landing/LandingNavbar";
 import LandingFooter from "@/components/landing/LandingFooter";
@@ -280,13 +281,13 @@ const FeatureSection = ({ f, flip }: { f: Feature; flip: boolean }) => {
   return (
     <section
       id={f.id}
-      className="scroll-mt-32 grid grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-8 lg:gap-12 items-center"
+      className="scroll-mt-32 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-5 sm:gap-8 lg:gap-12 items-center"
     >
-      <AnimatedSection className={`lg:col-span-5 relative group ${flip ? "order-2" : "order-1"}`}>
+      <AnimatedSection className={`lg:col-span-5 relative group order-1 ${flip ? "sm:order-2" : "sm:order-1"}`}>
         <div
           className={`absolute -inset-2 sm:-inset-4 bg-gradient-to-tr ${tone.glow} rounded-3xl blur-xl opacity-60 group-hover:opacity-90 transition duration-500`}
         />
-        <div className="relative bg-card border border-border rounded-2xl sm:rounded-3xl p-2 sm:p-3 md:p-5 shadow-xl overflow-hidden flex flex-col">
+        <div className="relative bg-card border border-border rounded-2xl sm:rounded-3xl p-3 sm:p-3 md:p-5 shadow-xl overflow-hidden flex flex-col">
           {f.browserUrl && (
             <div className="flex items-center justify-between pb-2 sm:pb-3 px-1 sm:px-2 gap-2">
               <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
@@ -311,33 +312,33 @@ const FeatureSection = ({ f, flip }: { f: Feature; flip: boolean }) => {
         </div>
       </AnimatedSection>
 
-      <AnimatedSection className={`lg:col-span-7 flex flex-col min-w-0 ${flip ? "order-1" : "order-2"}`}>
+      <AnimatedSection className={`lg:col-span-7 flex flex-col min-w-0 order-2 ${flip ? "sm:order-1" : "sm:order-2"}`}>
         <div
-          className={`inline-flex items-center gap-1.5 sm:gap-2 self-start px-2 sm:px-3 py-1 rounded-full bg-muted ${tone.text} text-[9px] sm:text-xs font-semibold uppercase tracking-wider`}
+          className={`inline-flex items-center gap-1.5 sm:gap-2 self-start px-2 sm:px-3 py-1 rounded-full bg-muted ${tone.text} text-[11px] sm:text-xs font-semibold uppercase tracking-wider`}
         >
           <TagIcon className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
           {f.tag}
         </div>
-        <h2 className="mt-3 sm:mt-4 font-heading text-base sm:text-2xl lg:text-4xl font-bold text-navy tracking-tight leading-tight">
+        <h2 className="mt-3 sm:mt-4 font-heading text-xl sm:text-2xl lg:text-4xl font-bold text-navy tracking-tight leading-tight">
           {f.title}
         </h2>
-        <p className="mt-2 sm:mt-3 text-[11px] sm:text-base lg:text-xl text-muted-foreground leading-relaxed">
+        <p className="mt-2 sm:mt-3 text-sm sm:text-base lg:text-xl text-muted-foreground leading-relaxed">
           {f.lead}
         </p>
         <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-3.5">
           {f.bullets.map((b) => (
             <li key={b} className="flex items-start gap-2 sm:gap-3">
               <span
-                className={`shrink-0 mt-0.5 w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-muted flex items-center justify-center ${tone.text}`}
+                className={`shrink-0 mt-0.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-muted flex items-center justify-center ${tone.text}`}
               >
-                <Check className="h-2.5 w-2.5 sm:h-4 sm:w-4" />
+                <Check className="h-3 w-3 sm:h-4 sm:w-4" />
               </span>
-              <span className="text-[11px] sm:text-sm lg:text-lg text-navy font-medium leading-snug">{b}</span>
+              <span className="text-sm lg:text-lg text-navy font-medium leading-snug">{b}</span>
             </li>
           ))}
         </ul>
         <div
-          className={`mt-5 sm:mt-8 self-start inline-flex items-start sm:items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-muted ${tone.text} text-[10px] sm:text-sm lg:text-base font-semibold`}
+          className={`mt-5 sm:mt-8 self-start inline-flex items-start sm:items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-muted ${tone.text} text-xs sm:text-sm lg:text-base font-semibold`}
         >
           <BadgeIcon className="h-3.5 w-3.5 sm:h-[18px] sm:w-[18px] shrink-0 mt-px sm:mt-0" />
           <span>{f.badge}</span>
@@ -473,7 +474,78 @@ const FeaturesPage = () => {
                 Why Indian Doctors Choose Doctylia Over Fragmented Tools
               </h2>
             </AnimatedSection>
-            <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+            {/* Mobile: what you use today (problems) -> Doctylia (the answer). */}
+            <div className="mt-8 md:hidden">
+              <p className="mb-3 px-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                What most clinics use today
+              </p>
+              <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm divide-y divide-border">
+                {COMPARISON.filter((c) => !c.highlight).map((c) => {
+                  const Icon = c.icon;
+                  return (
+                    <div key={c.title} className="p-4">
+                      <div className="flex items-center gap-3">
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${c.iconWrap}`}>
+                          <Icon className="h-[18px] w-[18px]" />
+                        </span>
+                        <h3 className="font-heading text-base font-bold text-navy">{c.title}</h3>
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{c.desc}</p>
+                      <ul className="mt-3 space-y-1.5">
+                        {c.points.map((p) => (
+                          <li key={p} className="flex items-start gap-2 text-sm font-medium text-navy">
+                            <X className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+                            {p}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="mt-3 inline-block rounded-lg bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
+                        {c.outcome}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="relative z-10 -my-3 flex flex-col items-center" aria-hidden="true">
+                <span className="rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary-foreground shadow-md">
+                  Switch to
+                </span>
+                <ArrowDown className="mt-1 h-5 w-5 text-primary" />
+              </div>
+
+              {COMPARISON.filter((c) => c.highlight).map((c) => {
+                const Icon = c.icon;
+                return (
+                  <div key={c.title} className="mt-3 overflow-hidden rounded-2xl gradient-brand text-white shadow-2xl ring-2 ring-primary/30">
+                    <div className="p-5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${c.iconWrap}`}>
+                          <Icon className="h-5 w-5" />
+                        </span>
+                        <span className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider">
+                          Best choice
+                        </span>
+                      </div>
+                      <h3 className="mt-4 font-heading text-xl font-bold">{c.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-white/85">{c.desc}</p>
+                      <ul className="mt-4 space-y-2.5">
+                        {c.points.map((p) => (
+                          <li key={p} className="flex items-start gap-2 text-sm font-medium">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-bright" aria-hidden="true" />
+                            {p}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="bg-white/15 px-5 py-3.5 text-sm font-semibold">{c.outcome}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Tablet / desktop: three side-by-side cards. */}
+            <div className="mt-10 hidden md:grid grid-cols-3 gap-6">
               {COMPARISON.map((c) => {
                 const Icon = c.icon;
                 const PointIcon = c.highlight ? CheckCircle2 : Minus;
@@ -542,7 +614,7 @@ const FeaturesPage = () => {
                     Start 7-Day Free Trial <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
-                <Link to="/#contact">
+                <Link to="/contact?topic=demo">
                   <Button
                     size="lg"
                     variant="outline"

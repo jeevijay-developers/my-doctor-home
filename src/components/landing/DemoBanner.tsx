@@ -1,4 +1,5 @@
 import { Zap, Stethoscope, HelpCircle, CalendarDays, Check } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const pills = [
   { icon: Zap, label: "15-Min Tailored Session" },
@@ -46,13 +47,13 @@ const DemoBanner = () => (
                 </div>
                 <span className="text-[13px] font-semibold">450+ doctors booked this month</span>
               </div>
-              <a
-                href="#contact"
+              <Link
+                to="/contact?topic=demo"
                 className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-white text-navy font-heading text-base font-bold shadow-xl hover:bg-white/90 transition-all active:scale-[0.98]"
               >
                 <CalendarDays className="h-5 w-5" />
                 <span>Book a Live Clinic Demo</span>
-              </a>
+              </Link>
               <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-white/70 text-[11px]">
                 <span className="inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" />100% Free Consultation</span>
                 <span className="inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" />Zero Installation</span>

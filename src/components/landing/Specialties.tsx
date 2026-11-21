@@ -6,6 +6,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import MobileCarousel from "./MobileCarousel";
 
 type Tab = { value: string; label: string; icon: LucideIcon; card: number };
 
@@ -319,10 +320,12 @@ const Specialties = () => {
             </TabsList>
           </Tabs>
 
-          <div role="tabpanel" aria-live="polite" className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+          <div role="tabpanel" aria-live="polite">
+            <MobileCarousel label="Specialty workflows" resetKey={active} desktopClassName="md:grid md:grid-cols-3 md:gap-6">
             {visible.map((cardIndex, position) => (
               <Fragment key={cardIndex}>{cardRenderers[cardIndex](position === 0 ? "ring-2 ring-primary" : "")}</Fragment>
             ))}
+            </MobileCarousel>
           </div>
         </div>
       </div>

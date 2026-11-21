@@ -37,6 +37,13 @@ export const STATIC_PAGES: Record<string, StaticPage> = {
     h1: "Doctylia Pricing",
     index: true,
   },
+  "/contact": {
+    title: "Contact Us | Doctylia",
+    description:
+      "Contact the Doctylia team for a live demo, pricing help or support. Send an enquiry and we reply within 24 hours, Monday to Saturday.",
+    h1: "Contact Doctylia",
+    index: true,
+  },
   "/terms": {
     title: "Terms of Service | Doctylia",
     description:

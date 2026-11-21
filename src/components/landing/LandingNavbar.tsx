@@ -50,7 +50,7 @@ const LandingNavbar = () => {
     { label: "Pricing", to: "/pricing" },
     { label: "Blog", to: "/health-articles" },
     ...(DIRECTORY_HIDDEN ? [] : [{ label: "Find a Doctor", to: "/doctors" }]),
-    { label: "FAQ", to: "/", hash: "#faq" },
+    { label: "Contact", to: "/contact" },
   ];
 
   const linkClass =
@@ -67,12 +67,9 @@ const LandingNavbar = () => {
       </Link>
     );
 
-  const renderDemo = (className: string, onClick?: () => void) =>
-    onLandingPage ? (
-      <a href="#contact" className={className} onClick={onClick}>Book Demo</a>
-    ) : (
-      <Link to="/#contact" className={className} onClick={onClick}>Book Demo</Link>
-    );
+  const renderDemo = (className: string, onClick?: () => void) => (
+    <Link to="/contact?topic=demo" className={className} onClick={onClick}>Book Demo</Link>
+  );
 
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-border/40 bg-white/90 shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl">

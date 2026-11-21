@@ -65,7 +65,7 @@ const NotFound = () => {
             <Link to="/about" className="hover:text-royal transition-colors font-medium">
               About Doctylia
             </Link>
-            <Link to="/#contact" className="inline-flex items-center gap-1 hover:text-royal transition-colors font-medium">
+            <Link to="/contact" className="inline-flex items-center gap-1 hover:text-royal transition-colors font-medium">
               <HelpCircle className="h-3.5 w-3.5" /> Contact Support
             </Link>
           </div>

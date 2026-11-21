@@ -1,5 +1,6 @@
 import { CheckCircle2, MapPin, Clock, Star, TrendingUp, Timer, Syringe, IndianRupee } from "lucide-react";
 import type { ReactNode } from "react";
+import MobileCarousel from "./MobileCarousel";
 
 const Chip = ({ children, className }: { children: ReactNode; className: string }) => (
   <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${className}`}>{children}</span>
@@ -62,7 +63,8 @@ const CaseStudies = () => (
         </p>
       </div>
 
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="mx-auto max-w-6xl">
+      <MobileCarousel label="Case studies" desktopClassName="md:grid md:grid-cols-3 md:gap-6">
         {/* 1. Dermatology */}
         <article className={cardClass}>
           <div>
@@ -163,6 +165,7 @@ const CaseStudies = () => (
           </div>
           <Footer icon={<IndianRupee className="h-[18px] w-[18px]" aria-hidden="true" />} label="Recurring Revenue Gain" value="+₹85,000 / month" tone="bg-success/15 text-success" />
         </article>
+      </MobileCarousel>
       </div>
 
       <div className="mx-auto mt-6 max-w-3xl text-center text-xs text-muted-foreground">

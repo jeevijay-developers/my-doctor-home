@@ -83,9 +83,8 @@ const LandingFooter = () => {
               <h4 className={col}>Product</h4>
               <ul className={list}>
                 <li><Link to="/features" className={lnk}>Features</Link></li>
-                <li>{renderSectionLink("#specialties", "Specialties")}</li>
                 <li><Link to="/pricing" className={lnk}>Pricing</Link></li>
-                <li>{renderSectionLink("#how-it-works", "How It Works")}</li>
+                <li><Link to="/health-articles" className={lnk}>Blog</Link></li>
                 <li>{renderSectionLink("#faq", "FAQ")}</li>
               </ul>
             </div>
@@ -94,8 +93,7 @@ const LandingFooter = () => {
               <ul className={list}>
                 <li><Link to="/about" onClick={handleAboutUsClick} className={lnk}>About Us</Link></li>
                 {!DIRECTORY_HIDDEN && <li><Link to="/doctors" className={lnk}>Find a Doctor</Link></li>}
-                <li><Link to="/health-articles" className={lnk}>Blog</Link></li>
-                <li>{renderSectionLink("#contact", "Contact")}</li>
+                <li><Link to="/contact" className={lnk}>Contact</Link></li>
               </ul>
             </div>
             <div>

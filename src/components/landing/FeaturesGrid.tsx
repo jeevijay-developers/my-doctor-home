@@ -1,6 +1,7 @@
 import { Globe, MessageCircle, Receipt, FilePenLine, Brain, Video, Users, BarChart3 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import AnimatedItem from "./AnimatedItem";
+import MobileCarousel from "./MobileCarousel";
 
 type Feature = {
   icon: LucideIcon;
@@ -38,7 +39,8 @@ const FeaturesGrid = () => (
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto">
+      <MobileCarousel label="Platform features" desktopClassName="md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6">
         {features.map((f, i) => (
           <AnimatedItem key={f.title} index={i % 4} staggerMs={80} className="h-full">
             <div className="h-full bg-card rounded-3xl p-5 md:p-6 border border-border shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
@@ -65,6 +67,7 @@ const FeaturesGrid = () => (
             </div>
           </AnimatedItem>
         ))}
+      </MobileCarousel>
       </div>
     </div>
   </section>

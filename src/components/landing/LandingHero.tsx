@@ -53,10 +53,10 @@ const LandingHero = () => (
           </DemoVideoDialog>
         </div>
 
-        <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-2 text-[13px] font-semibold text-muted-foreground">
+        <ul className="flex flex-wrap items-center justify-center gap-x-3.5 gap-y-1.5 pt-2 text-xs font-semibold text-muted-foreground sm:gap-x-6 sm:gap-y-2 sm:text-[13px]">
           {heroChecks.map((t) => (
-            <li key={t} className="inline-flex items-center gap-1.5">
-              <CheckCircle2 className="h-[18px] w-[18px] text-success" /> {t}
+            <li key={t} className="inline-flex items-center gap-1 whitespace-nowrap sm:gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 sm:h-[18px] sm:w-[18px] text-success" /> {t}
             </li>
           ))}
         </ul>

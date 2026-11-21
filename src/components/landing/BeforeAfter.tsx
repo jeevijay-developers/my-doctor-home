@@ -1,4 +1,5 @@
-import { X, Check, XCircle, CheckCircle2 } from "lucide-react";
+import MobileCarousel from "./MobileCarousel";
+import { X, Check, XCircle, CheckCircle2, ArrowDown } from "lucide-react";
 
 const without = [
   ["Overwhelmed Reception Desk:", "Hundreds of interrupted calls and WhatsApp messages for booking slots and fee queries."],
@@ -31,7 +32,46 @@ const BeforeAfter = () => (
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 max-w-5xl mx-auto">
+      {/* Mobile / tablet: each problem is paired with its fix so the contrast is read card by card. */}
+      <div className="lg:hidden max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-4 px-1">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-destructive">
+            <X className="h-4 w-4" aria-hidden="true" /> Without Doctylia
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success">
+            <Check className="h-4 w-4" aria-hidden="true" /> With Doctylia
+          </span>
+        </div>
+        <MobileCarousel label="Without versus with Doctylia" desktopClassName="md:grid md:grid-cols-2 md:gap-6">
+          {without.map(([wt, wd], i) => {
+            const [dt, dd] = withDoctylia[i];
+            return (
+              <div key={wt} className="relative flex flex-col rounded-2xl bg-card shadow-sm border border-border overflow-hidden">
+                <div className="flex items-start gap-3 bg-destructive/5 p-4 pb-7">
+                  <XCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <div className="text-sm text-muted-foreground">
+                    <span className="sr-only">Without Doctylia: </span>
+                    <strong className="block text-foreground">{wt}</strong> {wd}
+                  </div>
+                </div>
+                <span className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md ring-4 ring-card" aria-hidden="true">
+                  <ArrowDown className="h-4 w-4" />
+                </span>
+                <div className="flex flex-1 items-start gap-3 bg-success/10 p-4 pt-7 border-t-2 border-primary/20">
+                  <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <div className="text-sm text-foreground">
+                    <span className="sr-only">With Doctylia: </span>
+                    <strong className="block text-navy">{dt}</strong> {dd}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </MobileCarousel>
+      </div>
+
+      {/* Desktop: two side-by-side columns. */}
+      <div className="hidden lg:grid grid-cols-2 gap-8 max-w-5xl mx-auto">
         <div className="p-6 md:p-8 rounded-2xl bg-card shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <span className="w-9 h-9 rounded-full bg-destructive/10 text-destructive flex items-center justify-center flex-shrink-0">
