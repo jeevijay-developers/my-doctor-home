@@ -176,7 +176,11 @@
   }
 
   html, body {
+    /* `hidden` here turns html/body into scroll containers, which silently breaks every
+       `position: sticky` on the site. `clip` hides the same overflow without that side effect;
+       browsers that don't know `clip` keep the `hidden` line. */
     overflow-x: hidden;
+    overflow-x: clip;
     width: 100%;
   }
 

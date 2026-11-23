@@ -1,19 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock3, Tag, User } from "lucide-react";
+import {
+  ArrowLeft, ArrowRight, BookOpen, CalendarCheck, Check, ChevronRight, Clock3, Info, Link2, MessageCircle, Sparkles, User,
+} from "lucide-react";
 import { PUBLIC_PROFILE_COLUMNS } from "@/lib/publicProfileColumns";
 import { format } from "date-fns";
 import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
-import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
 import Footer from "@/components/doctor/Footer";
+import ArticleToc, { MIN_TOC_HEADINGS } from "@/components/blog/ArticleToc";
+import { addHeadingIds } from "@/lib/articleToc";
 import { jsonLdScript } from "@/lib/jsonLd";
-import { UUID_RE, blogPostPath, buildBlogPostJsonLd, buildBlogPostMeta, stripMarkup } from "@/lib/seo/blogSeo";
+import { UUID_RE, blogPostPath, buildBlogPostJsonLd, buildBlogPostMeta } from "@/lib/seo/blogSeo";
 import { markdownToHtml } from "@/lib/markdown";
 import type { Tables } from "@/integrations/supabase/types";
 
 type BlogPost = Tables<"blog_posts">;
 type Doctor = Tables<"profiles">;
+type RelatedPost = Pick<BlogPost, "id" | "title" | "featured_image_url" | "category" | "published_at" | "created_at"> & {
+  slug?: string | null;
+};
 
 const readingTime = (content: string | null) =>
   Math.max(1, Math.ceil((content || "").replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length / 200));
@@ -55,11 +61,29 @@ function upsertCanonical(href: string) {
   };
 }
 
+const Avatar = ({ doctor, name, size }: { doctor: Doctor; name: string; size: number }) => (
+  <span
+    className="flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary ring-2 ring-border"
+    style={{ width: size, height: size }}
+  >
+    {doctor.profile_photo_url ? (
+      <img src={doctor.profile_photo_url} alt={name} width={size} height={size} decoding="async" className="h-full w-full object-cover" />
+    ) : (
+      <User className="h-1/2 w-1/2 text-primary" aria-hidden="true" />
+    )}
+  </span>
+);
+
 const BlogPostPage = () => {
   const { slug, postId } = useParams<{ slug: string; postId: string }>();
   const [post, setPost] = useState<BlogPost | null>(null);
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [loading, setLoading] = useState(true);
+  const [related, setRelated] = useState<RelatedPost[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const articleRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!slug || !postId) {
@@ -155,16 +179,78 @@ const BlogPostPage = () => {
     });
   }, [post?.content]);
 
+  // Headings get ids after sanitising so the contents list can link to every section.
+  const { html: contentHtml, headings } = useMemo(() => addHeadingIds(sanitizedContent), [sanitizedContent]);
+
   const structuredData = useMemo(() => {
     if (!post || !doctor) return null;
     return buildBlogPostJsonLd({ origin: window.location.origin, doctor, post });
   }, [post, doctor]);
 
+  // "More from this doctor" is a nicety: any failure just hides the row.
+  useEffect(() => {
+    if (!doctor || !post) return;
+    let active = true;
+    const loadRelated = async () => {
+      try {
+        const { data } = await supabase
+          .from("blog_posts")
+          .select("*")
+          .eq("doctor_id", doctor.id)
+          .eq("is_published", true)
+          .neq("id", post.id)
+          .order("published_at", { ascending: false })
+          .limit(3);
+        if (active && data) setRelated(data as unknown as RelatedPost[]);
+      } catch {
+        /* optional section */
+      }
+    };
+    void loadRelated();
+    return () => { active = false; };
+  }, [doctor, post]);
+
+  // Reading progress: how far through the article body the reader has scrolled.
+  useEffect(() => {
+    const el = articleRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const { top, height } = el.getBoundingClientRect();
+      const span = Math.max(height - window.innerHeight * 0.5, 1);
+      setProgress(Math.min(1, Math.max(0, (window.innerHeight * 0.3 - top) / span)));
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [contentHtml, post]);
+
+  // Highlights the section being read in the contents list.
+  useEffect(() => {
+    if (headings.length < MIN_TOC_HEADINGS || typeof IntersectionObserver === "undefined") return;
+    const els = headings.map((h) => document.getElementById(h.id)).filter((e): e is HTMLElement => !!e);
+    if (!els.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveId(visible[0].target.id);
+      },
+      { rootMargin: "-80px 0px -65% 0px" },
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [headings, contentHtml]);
+
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-gray-950">
-        <div className="flex flex-col items-center gap-4 text-sm font-semibold text-slate-500">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-100 border-t-[#3C83FC]" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 text-sm font-semibold text-muted-foreground">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-secondary border-t-primary" />
           Opening article…
         </div>
       </div>
@@ -177,12 +263,12 @@ const BlogPostPage = () => {
 
   if (!post || !doctor) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-5 dark:bg-gray-950">
-        <div className="max-w-md rounded-3xl border border-blue-100 bg-white p-10 text-center shadow-xl dark:border-blue-900/60 dark:bg-gray-900">
-          <BookOpen className="mx-auto h-11 w-11 text-[#3C83FC]" />
-          <h1 className="mt-4 font-heading text-2xl font-extrabold text-[#092b50] dark:text-white">Article not found</h1>
-          <p className="mt-2 text-slate-500 dark:text-slate-400">This article may have been removed or is no longer published.</p>
-          <Link to={`/dr/${slug}`} className="mt-6 inline-flex items-center gap-2 font-bold text-[#3C83FC] hover:underline">
+      <div className="flex min-h-screen items-center justify-center bg-background px-5">
+        <div className="max-w-md rounded-3xl border border-border bg-card p-10 text-center shadow-xl">
+          <BookOpen className="mx-auto h-11 w-11 text-primary" />
+          <h1 className="mt-4 font-heading text-2xl font-extrabold text-navy">Article not found</h1>
+          <p className="mt-2 text-muted-foreground">This article may have been removed or is no longer published.</p>
+          <Link to={`/dr/${slug}`} className="mt-6 inline-flex items-center gap-2 font-bold text-primary hover:underline">
             <ArrowLeft className="h-4 w-4" /> Back to doctor's website
           </Link>
         </div>
@@ -191,7 +277,46 @@ const BlogPostPage = () => {
   }
 
   const doctorName = displayDoctorName(doctor);
+  const credentials =
+    [doctor.specialization, (doctor as { qualifications?: string | null }).qualifications].filter(Boolean).join(" · ") ||
+    "Medical professional";
   const publishedDate = post.published_at || post.created_at;
+  const articleUrl = window.location.href;
+  const bookingHref = `/dr/${slug}#booking`;
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(articleUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable: nothing to do */
+    }
+  };
+
+  const shareBtn =
+    "inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-navy transition-colors hover:border-primary hover:text-primary";
+
+  const bookingCard = (
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <Avatar doctor={doctor} name={doctorName} size={48} />
+        <div className="min-w-0">
+          <p className="truncate font-heading text-base font-bold text-navy">{doctorName}</p>
+          <p className="truncate text-xs text-muted-foreground">{doctor.specialization || "Medical professional"}</p>
+        </div>
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+        Questions about this article? Book an appointment to talk it through with your doctor.
+      </p>
+      <Link
+        to={bookingHref}
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+      >
+        <CalendarCheck className="h-4 w-4" aria-hidden="true" /> Book appointment
+      </Link>
+    </div>
+  );
 
   return (
     <>
@@ -201,101 +326,184 @@ const BlogPostPage = () => {
           dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData) }}
         />
       )}
-      <main className="min-h-screen bg-slate-50 dark:bg-gray-950">
-      <header className="relative overflow-hidden border-b border-blue-100 bg-white dark:border-blue-950 dark:bg-gray-950">
-        <div className="absolute left-1/2 top-0 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-blue-100/60 blur-3xl dark:bg-blue-950/30" />
-        <div className="relative mx-auto max-w-5xl px-5 pb-10 pt-7 sm:px-8 sm:pb-14 lg:px-10">
-          <Link
-            to={`/dr/${slug}/blog`}
-            className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-sm font-bold text-[#0b3765] shadow-sm transition hover:border-blue-300 hover:text-[#3C83FC] dark:border-gray-700 dark:bg-gray-900 dark:text-blue-100"
-          >
-            <ArrowLeft className="h-4 w-4" /> All health articles
-          </Link>
+      <div
+        className="fixed inset-x-0 top-0 z-[60] h-1 bg-transparent"
+        role="progressbar"
+        aria-label="Reading progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress * 100)}
+      >
+        <div className="h-full bg-primary transition-[width] duration-150" style={{ width: `${progress * 100}%` }} />
+      </div>
 
-          <div className="mx-auto mt-10 max-w-4xl text-center sm:mt-14">
-            <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400 sm:text-sm">
+      <main className="min-h-screen bg-background">
+        {/* Slim doctor bar */}
+        <div className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur">
+          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8">
+            <Link to={`/dr/${slug}`} className="flex min-w-0 items-center gap-2.5">
+              <Avatar doctor={doctor} name={doctorName} size={32} />
+              <span className="truncate font-heading text-sm font-bold text-navy">{doctorName}</span>
+            </Link>
+            <Link
+              to={bookingHref}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90 sm:text-sm"
+            >
+              <CalendarCheck className="h-4 w-4" aria-hidden="true" /> Book appointment
+            </Link>
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-6xl px-5 sm:px-8">
+          {/* Header */}
+          <header className="max-w-3xl pb-8 pt-6 sm:pb-10 sm:pt-8">
+            <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground sm:text-sm">
+              <Link to={`/dr/${slug}`} className="hover:text-primary">Home</Link>
+              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+              <Link to={`/dr/${slug}/blog`} className="hover:text-primary">Health articles</Link>
               {post.category && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 font-bold text-[#3C83FC] dark:bg-blue-950/50 dark:text-blue-300">
-                  <Tag className="h-3.5 w-3.5" /> {post.category}
-                </span>
+                <>
+                  <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="font-medium text-primary">{post.category}</span>
+                </>
               )}
-              <span className="inline-flex items-center gap-1.5"><Calendar className="h-4 w-4" />{format(new Date(publishedDate), "MMMM d, yyyy")}</span>
-              <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4" />{readingTime(post.content)} min read</span>
-            </div>
+            </nav>
 
-            <h1 className="mt-6 font-heading text-3xl font-black leading-tight tracking-tight text-[#092b50] dark:text-white sm:text-5xl lg:text-6xl">
+            <h1 className="mt-5 font-heading text-3xl font-extrabold leading-tight tracking-tight text-navy sm:text-4xl lg:text-5xl">
               {post.title}
             </h1>
-            {post.excerpt && <p className="mx-auto mt-6 max-w-3xl text-base leading-7 text-slate-600 dark:text-slate-300 sm:text-xl sm:leading-8">{post.excerpt}</p>}
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-5xl px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
-        <div className="overflow-hidden rounded-3xl border border-blue-100 bg-blue-50 shadow-[0_18px_55px_rgba(15,43,80,0.12)] dark:border-blue-900/60 dark:bg-gray-900">
-          {post.featured_image_url ? (
-            <img src={post.featured_image_url} alt={post.title} className="aspect-[16/9] max-h-[560px] w-full object-cover" decoding="async" />
-          ) : (
-            <BlogImagePlaceholder className="aspect-[16/9] max-h-[560px] w-full" />
-          )}
-        </div>
-
-        <div className="mx-auto max-w-3xl">
-          <div className="relative z-10 -mt-5 mb-10 flex items-center gap-3 rounded-2xl border border-blue-100 bg-white p-4 shadow-lg dark:border-blue-900/60 dark:bg-gray-900 sm:-mt-7 sm:p-5">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 ring-2 ring-blue-100 dark:bg-blue-950 dark:ring-blue-900">
-              {doctor.profile_photo_url ? (
-                <img src={doctor.profile_photo_url} alt={doctorName} width={48} height={48} decoding="async" className="h-full w-full object-cover" />
-              ) : (
-                <User className="h-5 w-5 text-[#3C83FC]" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <Link to={`/dr/${slug}`} className="block hover:underline">
-                <p className="truncate text-sm font-extrabold text-[#092b50] dark:text-white">Written by {doctorName}</p>
-              </Link>
-              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                {[doctor.specialization, (doctor as { qualifications?: string | null }).qualifications].filter(Boolean).join(" · ") || "Medical professional"}
-              </p>
-              {(post as { ai_assisted?: boolean | null }).ai_assisted && (
-                <p className="text-xs text-slate-500 dark:text-slate-400">Drafted with AI assistance, reviewed and published by {doctorName}.</p>
-              )}
-            </div>
-          </div>
-
-          <section className="overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-[0_12px_40px_rgba(15,43,80,0.07)] dark:border-blue-900/60 dark:bg-gray-900" aria-labelledby="article-content-heading">
-            <div className="border-b border-blue-50 px-6 py-4 dark:border-blue-950 sm:px-10">
-              <p id="article-content-heading" className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.16em] text-[#3C83FC]">
-                <BookOpen className="h-4 w-4" /> Article content
-              </p>
-            </div>
-            {sanitizedContent ? (
-              <article
-                className="prose prose-lg prose-slate max-w-none break-words px-6 py-8 leading-8 prose-headings:scroll-mt-24 prose-headings:font-heading prose-headings:font-extrabold prose-headings:leading-tight prose-headings:!text-[#092b50] prose-h1:text-4xl prose-h2:mt-12 prose-h2:text-3xl prose-h3:mt-9 prose-h3:text-2xl prose-p:my-5 prose-p:!text-slate-700 prose-a:font-semibold prose-a:!text-[#3C83FC] prose-a:no-underline hover:prose-a:underline prose-strong:!text-[#092b50] prose-blockquote:rounded-r-2xl prose-blockquote:border-[#3C83FC] prose-blockquote:bg-blue-50 prose-blockquote:px-6 prose-blockquote:py-3 prose-blockquote:not-italic prose-li:!text-slate-700 prose-img:h-auto prose-img:max-w-full prose-img:rounded-2xl [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_iframe]:rounded-2xl [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_td]:border [&_td]:border-slate-200 [&_td]:p-3 [&_th]:border [&_th]:border-slate-200 [&_th]:bg-blue-50 [&_th]:p-3 [&_th]:text-left [&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:pl-0 dark:prose-invert dark:prose-headings:!text-white dark:prose-p:!text-slate-200 dark:prose-strong:!text-white dark:prose-blockquote:bg-blue-950/40 dark:prose-li:!text-slate-200 dark:[&_td]:border-gray-700 dark:[&_th]:border-gray-700 dark:[&_th]:bg-blue-950/40 sm:px-10 sm:py-10"
-                dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-              />
-            ) : (
-              <div className="px-6 py-12 text-center text-slate-500 dark:text-slate-400 sm:px-10">
-                Article content is being prepared.
-              </div>
+            {post.excerpt && (
+              <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">{post.excerpt}</p>
             )}
-          </section>
-          <p className="mt-4 text-center text-xs leading-5 text-slate-500 dark:text-slate-400">
-            This article is for general education and is not a substitute for personal medical advice.
-          </p>
-          <footer className="mt-14 rounded-3xl bg-gradient-to-br from-[#092b50] to-[#155ba5] p-6 text-white shadow-xl sm:p-8">
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-200">Keep learning</p>
-            <h2 className="mt-2 font-heading text-2xl font-black">Explore more health guidance</h2>
-            <p className="mt-2 text-sm leading-6 text-blue-100">Read more practical articles or book a consultation with {doctorName}.</p>
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link to={`/dr/${slug}/blog`} className="inline-flex items-center gap-2 rounded-full bg-[#3C83FC] px-5 py-3 text-sm font-extrabold text-white transition hover:bg-blue-500">
-                View all articles <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link to={`/dr/${slug}#booking`} className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-white/20">
-                Book appointment
-              </Link>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar doctor={doctor} name={doctorName} size={44} />
+                <div className="min-w-0">
+                  <Link to={`/dr/${slug}`} className="block hover:underline">
+                    <p className="truncate text-sm font-bold text-navy">Written by {doctorName}</p>
+                  </Link>
+                  <p className="truncate text-xs text-muted-foreground">{credentials}</p>
+                  <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{format(new Date(publishedDate), "d MMMM yyyy")}</span>
+                    <span aria-hidden="true">•</span>
+                    <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{readingTime(post.content)} min read</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`${post.title} ${articleUrl}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={shareBtn}
+                >
+                  <MessageCircle className="h-4 w-4" aria-hidden="true" /> WhatsApp
+                </a>
+                <button type="button" onClick={copyLink} className={shareBtn}>
+                  {copied ? <Check className="h-4 w-4 text-success" aria-hidden="true" /> : <Link2 className="h-4 w-4" aria-hidden="true" />}
+                  {copied ? "Copied" : "Copy link"}
+                </button>
+              </div>
             </div>
-          </footer>
-        </div>
+          </header>
+
+          {/* The image is shown only when the doctor uploaded one: no empty placeholder block. */}
+          {post.featured_image_url && (
+            <img
+              src={post.featured_image_url}
+              alt={post.title}
+              className="mb-10 aspect-[16/9] max-h-[420px] w-full rounded-2xl object-cover"
+              decoding="async"
+            />
+          )}
+
+          <div className="grid gap-10 pb-14 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-14">
+            <div className="min-w-0 max-w-[720px]">
+              <ArticleToc headings={headings} activeId={activeId} variant="inline" />
+
+              {contentHtml ? (
+                <article
+                  ref={articleRef}
+                  className="prose prose-lg max-w-none break-words prose-headings:scroll-mt-24 prose-headings:font-heading prose-headings:font-extrabold prose-headings:leading-tight prose-headings:text-navy prose-h2:mt-12 prose-h2:border-l-4 prose-h2:border-primary prose-h2:pl-4 prose-h2:text-2xl sm:prose-h2:text-3xl prose-h3:mt-8 prose-h3:text-xl prose-p:my-5 prose-p:leading-8 prose-p:text-foreground/85 prose-a:font-semibold prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-strong:text-navy prose-li:text-foreground/85 prose-li:marker:text-primary prose-blockquote:rounded-r-xl prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/5 prose-blockquote:px-5 prose-blockquote:py-1 prose-blockquote:not-italic prose-blockquote:text-navy prose-img:h-auto prose-img:max-w-full prose-img:rounded-2xl [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_iframe]:rounded-2xl [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-3 [&_th]:border [&_th]:border-border [&_th]:bg-secondary [&_th]:p-3 [&_th]:text-left [&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:pl-0 dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: contentHtml }}
+                />
+              ) : (
+                <div className="rounded-2xl border border-border bg-card px-6 py-12 text-center text-muted-foreground">
+                  Article content is being prepared.
+                </div>
+              )}
+
+              {/* Notes sit directly under the text so they are read with it. */}
+              <div className="mt-10 space-y-3">
+                {(post as { ai_assisted?: boolean | null }).ai_assisted && (
+                  <p className="flex items-start gap-2 rounded-xl bg-secondary px-4 py-3 text-xs leading-5 text-muted-foreground">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                    <span>Drafted with AI assistance, reviewed and published by {doctorName}.</span>
+                  </p>
+                )}
+                <p className="flex items-start gap-2 rounded-xl border border-border px-4 py-3 text-xs leading-5 text-muted-foreground">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span>This article is for general education and is not a substitute for personal medical advice.</span>
+                </p>
+              </div>
+
+              {/* On phones the booking card follows the article; on desktop it lives in the sidebar. */}
+              <div className="mt-8 lg:hidden">{bookingCard}</div>
+
+              <section aria-label="About the author" className="mt-8 flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center">
+                <Avatar doctor={doctor} name={doctorName} size={56} />
+                <div className="min-w-0 flex-1">
+                  <Link to={`/dr/${slug}`} className="font-heading text-base font-bold text-navy hover:underline">
+                    About {doctorName}
+                  </Link>
+                  <p className="mt-0.5 text-sm text-muted-foreground">Read more health guidance from this doctor.</p>
+                </div>
+                <Link
+                  to={`/dr/${slug}/blog`}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:border-primary hover:text-primary"
+                >
+                  All articles <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </section>
+            </div>
+
+            <aside className="hidden lg:block">
+              <div className="sticky top-20 space-y-5">
+                <ArticleToc headings={headings} activeId={activeId} variant="sidebar" />
+                {bookingCard}
+              </div>
+            </aside>
+          </div>
+
+          {related.length > 0 && (
+            <section aria-labelledby="more-articles" className="border-t border-border pb-16 pt-10">
+              <h2 id="more-articles" className="font-heading text-xl font-bold text-navy sm:text-2xl">
+                More from {doctorName}
+              </h2>
+              <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {related.map((r) => (
+                  <li key={r.id}>
+                    <Link
+                      to={blogPostPath(slug!, { id: r.id, slug: r.slug })}
+                      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      {r.featured_image_url && (
+                        <img src={r.featured_image_url} alt="" loading="lazy" decoding="async" className="aspect-[16/9] w-full object-cover" />
+                      )}
+                      <div className="flex flex-1 flex-col p-4">
+                        {r.category && <span className="text-xs font-semibold uppercase tracking-wider text-primary">{r.category}</span>}
+                        <h3 className="mt-1 line-clamp-3 font-heading text-base font-bold leading-snug text-navy group-hover:text-primary">{r.title}</h3>
+                        <span className="mt-auto pt-3 text-xs text-muted-foreground">
+                          {format(new Date(r.published_at || r.created_at), "d MMMM yyyy")}
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       </main>
       <Footer profileOverride={doctor} />
