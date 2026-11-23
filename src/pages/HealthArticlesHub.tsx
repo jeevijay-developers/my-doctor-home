@@ -52,7 +52,7 @@ const FeaturedArticle = ({ article }: { article: HubArticle }) => {
   return (
     <article className="group relative overflow-hidden rounded-2xl border bg-card shadow-xl">
       <div className="grid grid-cols-1 items-stretch lg:grid-cols-12">
-        <div className="z-10 order-2 flex flex-col justify-between p-5 sm:p-10 lg:order-none lg:col-span-7 lg:p-12">
+        <div className="z-10 order-2 flex flex-col justify-between p-5 sm:p-8 lg:order-none lg:col-span-7 lg:p-10">
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-muted-foreground sm:mb-4">
               {article.category && (
@@ -78,22 +78,26 @@ const FeaturedArticle = ({ article }: { article: HubArticle }) => {
                 {where && <span className="block truncate text-sm text-muted-foreground">{where}</span>}
               </span>
             </Link>
-            <span className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-royal transition-transform group-hover:translate-x-1">
+            <Link
+              to={articlePath(article)}
+              tabIndex={-1}
+              aria-hidden="true"
+              className="relative z-10 inline-flex shrink-0 items-center gap-2 rounded-full py-2 pl-3 text-sm font-semibold text-royal transition-transform hover:underline group-hover:translate-x-1"
+            >
               <span className="hidden sm:inline">Read Full Article</span><span className="sm:hidden">Read</span><ArrowRight className="h-[18px] w-[18px]" />
-            </span>
+            </Link>
           </div>
         </div>
-        <div className="relative order-1 flex items-center justify-center overflow-hidden bg-gradient-to-tr from-secondary via-accent to-card p-4 sm:p-10 lg:order-none lg:col-span-5">
-          <div className="absolute -right-4 -top-4 h-72 w-72 rounded-full bg-royal/10 blur-2xl" />
-          <div className="relative flex aspect-[16/10] w-full max-w-md items-center justify-center sm:aspect-square">
-            {article.featured_image_url ? (
-              <img src={article.featured_image_url} alt={article.title} width={640} height={640} loading="eager" fetchPriority="high" decoding="async"
-                className="max-h-[220px] w-full rounded-xl object-contain drop-shadow-2xl sm:max-h-[380px] transition-transform duration-500 group-hover:scale-105" />
-            ) : (
+        <div className="relative order-1 aspect-[16/10] overflow-hidden bg-gradient-to-tr from-secondary via-accent to-card lg:order-none lg:col-span-5 lg:aspect-auto lg:min-h-[320px]">
+          {article.featured_image_url ? (
+            <img src={article.featured_image_url} alt={article.title} width={640} height={400} loading="eager" fetchPriority="high" decoding="async"
+              className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105" />
+          ) : (
+            <div className="flex h-full items-center justify-center p-6">
               <img src="/stitch/landing-06.png" alt="" width={640} height={640} loading="eager" decoding="async"
-                className="max-h-[220px] w-full object-contain drop-shadow-2xl sm:max-h-[380px] transition-transform duration-500 group-hover:scale-105" />
-            )}
-          </div>
+                className="max-h-full w-full max-w-sm object-contain drop-shadow-2xl transition-transform duration-500 group-hover:scale-105" />
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -138,7 +142,14 @@ const GridArticle = ({ article, priority }: { article: HubArticle; priority: boo
           </span>
           <span className="truncate">{where || "View clinic"}</span>
         </Link>
-        <ArrowRight className="h-5 w-5 shrink-0 text-royal transition-transform group-hover:translate-x-1" />
+        <Link
+          to={articlePath(article)}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="relative z-10 -mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-royal transition-colors hover:bg-primary/10"
+        >
+          <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+        </Link>
       </div>
     </article>
   );
