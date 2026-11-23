@@ -1,0 +1,23 @@
+{
+  "entries": [
+    {
+      "identifier": "urn:air:doctylia.com:site:doctylia",
+      "displayName": "Doctylia",
+      "type": "application/vnd.doctylia.site+json",
+      "description": "Doctylia gives doctors a branded online booking website and a practice-management panel for appointments, live queue, patients, prescriptions and billing.",
+      "representativeQueries": [
+        "Software for a doctor to take online appointments",
+        "Practice management and clinic billing software in India",
+        "Find a doctor by city and specialty to book an appointment"
+      ],
+      "tags": ["healthcare", "appointments", "practice-management", "doctor-directory"],
+      "data": {
+        "website": "https://doctylia.com/",
+        "llmsTxt": "https://doctylia.com/llms.txt",
+        "doctorDirectory": "https://doctylia.com/doctors",
+        "healthArticles": "https://doctylia.com/health-articles",
+        "sitemap": "https://doctylia.com/sitemap.xml"
+      }
+    }
+  ]
+}

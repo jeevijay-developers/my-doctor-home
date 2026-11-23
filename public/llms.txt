@@ -1,0 +1,24 @@
+# Doctylia
+
+> Doctylia is a multi-tenant SaaS platform for doctors in India. Each doctor gets a branded online booking website plus a practice-management panel covering appointments, a live patient queue, patient records, digital prescriptions, GST invoicing, billing and staff.
+
+Doctors' public pages are at https://doctylia.com/dr/<doctor-slug>. Admin, superadmin and account pages require login and are not meant for crawling.
+
+## Product
+
+- [Home](https://doctylia.com/): Overview of Doctylia and the 7-day free trial
+- [Features](https://doctylia.com/features): Online booking, live queue, patient records, prescriptions, billing and WhatsApp workflows
+- [Pricing](https://doctylia.com/pricing): Free, Pro and Premium plans
+- [About](https://doctylia.com/about): Who builds Doctylia and why
+- [Contact](https://doctylia.com/contact): Reach the Doctylia team
+
+## Find doctors and health information
+
+- [Doctor directory](https://doctylia.com/doctors): Search doctors by city and specialty
+- [Health articles](https://doctylia.com/health-articles): Articles published by doctors on Doctylia, each linked to the author's page
+
+## Policies
+
+- [Terms of service](https://doctylia.com/terms): Terms for using Doctylia
+- [Privacy policy](https://doctylia.com/privacy): How personal and health data is handled
+- [Refund policy](https://doctylia.com/refund-policy): Refunds for subscriptions and online payments

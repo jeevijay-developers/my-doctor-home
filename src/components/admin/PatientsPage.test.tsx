@@ -62,7 +62,9 @@ describe("PatientsPage", () => {
     const q = patientQueries()[0];
     expect(mock.current.hasOp(q, "eq", "doctor_id", "doc-1")).toBe(true);
     expect(mock.current.hasOp(q, "order", "last_visit")).toBe(true);
-    expect(screen.getByText("2 patients")).toBeInTheDocument();
+    // Today's date filter is on by default, same as Appointments and Prescriptions.
+    expect(screen.getByText("2 patients match your filters")).toBeInTheDocument();
+    expect(mock.current.hasOp(q, "gte", "created_at")).toBe(true);
   });
 
   it("search is debounced and sanitised before it reaches the or() filter", async () => {
@@ -239,6 +241,15 @@ describe("PatientsPage", () => {
     fillRequired();
     submitAdd();
     await waitFor(() => expect(h.error).toHaveBeenCalledWith("A patient with this name and phone number already exists."));
+  });
+
+  it("explains the hourly limit on direct adds and points to Import", async () => {
+    mock.current.tables.patients = (ops: any[]) =>
+      ops.some((o) => o[0] === "insert") ? { data: null, error: { code: "P0001", message: "PATIENT_RATE_LIMIT" } } : { data: patients, count: 2 };
+    await openAdd();
+    fillRequired();
+    submitAdd();
+    await waitFor(() => expect(h.error).toHaveBeenCalledWith(expect.stringMatching(/use Import for a long list/i)));
   });
 
   it("rejects a whitespace-only patient name", async () => {

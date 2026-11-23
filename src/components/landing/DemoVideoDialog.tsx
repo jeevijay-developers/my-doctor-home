@@ -10,7 +10,9 @@ type Props = {
 };
 
 /**
- * Opens the Doctylia product explainer (4 min, 1080p) in a modal player.
+ * Opens the Doctylia product explainer (4 min, 1080p) in a modal player. The video is an animated
+ * overview (the doctor's workload, a professional online presence, then appointments, records,
+ * prescriptions, billing and reports in one place), not a live or interactive product demo.
  * Radix unmounts the dialog content on close, so the video stops and releases
  * its buffer; nothing is downloaded until the dialog is opened (preload="metadata").
  */
@@ -21,11 +23,14 @@ const DemoVideoDialog = ({ className, children }: Props) => (
         {children}
       </button>
     </DialogTrigger>
-    <DialogContent className="w-[calc(100vw-1.5rem)] max-w-5xl gap-0 overflow-hidden border-0 bg-black p-0 sm:rounded-2xl">
-      <DialogTitle className="sr-only">Doctylia product explainer video</DialogTitle>
-      <DialogDescription className="sr-only">
-        A 4-minute walkthrough of the Doctylia practice management platform.
-      </DialogDescription>
+    <DialogContent className="w-[calc(100vw-1.5rem)] max-w-5xl gap-0 overflow-hidden border-0 bg-black p-0 sm:rounded-2xl sm:p-0 [&>button]:text-white [&>button]:opacity-90 [&>button:hover]:opacity-100">
+      <div className="bg-navy px-5 py-4 pr-14 text-white">
+        <DialogTitle className="font-heading text-lg font-bold leading-tight sm:text-xl">Doctylia in 4 minutes</DialogTitle>
+        <DialogDescription className="mt-1 text-sm leading-snug text-white/75">
+          An animated overview of how Doctylia gives a doctor a professional online presence, easier appointments for
+          patients, and one organised place for records, prescriptions and billing.
+        </DialogDescription>
+      </div>
       <video
         src={EXPLAINER_VIDEO_SRC}
         controls

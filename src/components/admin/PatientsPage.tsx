@@ -50,7 +50,7 @@ const PatientsPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [dateFilterActive, setDateFilterActive] = useState(false);
+  const [dateFilterActive, setDateFilterActive] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
   const [datesWithVisits, setDatesWithVisits] = useState<Set<string>>(new Set());
@@ -184,7 +184,12 @@ const PatientsPage = () => {
       gender: newPatient.gender, weight: parseWeight(newPatient.weight),
     });
     if (error) {
-      toast.error(error.code === "23505" ? "A patient with this name and phone number already exists." : "Could not add patient");
+      // The database throttles direct adds (100 per clinic per hour); a long list belongs in Import.
+      toast.error(
+        error.code === "23505" ? "A patient with this name and phone number already exists."
+        : error.message?.includes("PATIENT_RATE_LIMIT") ? "You have added many patients in the last hour. Please wait a while, or use Import for a long list."
+        : "Could not add patient",
+      );
       return;
     }
     setShowNew(false);
@@ -236,7 +241,7 @@ const PatientsPage = () => {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{search || dateFilterActive ? `${totalCount} patient${totalCount === 1 ? "" : "s"} match your filters` : `${totalCount} patient${totalCount === 1 ? "" : "s"}`}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:flex-wrap">
           <Button variant="outline" onClick={() => exportPatients()} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
           {can("patients.add") && (
             <Button
@@ -261,7 +266,7 @@ const PatientsPage = () => {
           <Dialog open={showNew} onOpenChange={(open) => { setShowNew(open); if (open) { setNewPatient(blankNewPatient()); setSubmitAttempted(false); } }}>
             <DialogTrigger asChild>
               <Button
-                className="bg-royal hover:bg-royal/90"
+                className="bg-royal hover:bg-royal/90 h-10 col-span-2 sm:col-span-1"
                 disabled={writeDisabled}
                 title={writeDisabled ? "Upgrade to continue editing" : undefined}
               >

@@ -22,6 +22,7 @@ import {
 import { controlFromLimit, describeAppointmentsLimit, limitFromControl, type CustomPlan, type LimitMode, type PlanRequest } from "@/lib/customPlan";
 import AppointmentsLimitControl from "@/components/admin/AppointmentsLimitControl";
 import { formatIstDate } from "@/lib/istDate";
+import SAImportRequests from "./SAImportRequests";
 
 type DoctorInfo = { full_name: string | null; clinic_name: string | null; plan_tier: string | null; plan_status: string | null; plan_end: string | null };
 type RequestRow = PlanRequest & { profiles: DoctorInfo | null };
@@ -64,6 +65,16 @@ const SAPlanRequests = () => {
   const [editingPlan, setEditingPlan] = useState<PlanRow | null>(null);
   const [cancelling, setCancelling] = useState<PlanRow | null>(null);
   const [rebasing, setRebasing] = useState<PlanRow | null>(null);
+  // The Import limits tab mounts only when opened, so its pending count is read here for the tab label.
+  const [importPending, setImportPending] = useState(0);
+
+  const loadImportPending = useCallback(async () => {
+    const { count, error } = await supabase
+      .from("patient_import_requests" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+    if (!error) setImportPending(count ?? 0);
+  }, []);
 
   const labelFor = useCallback((key: string) => features.find((f) => f.key === key)?.label ?? key, [features]);
 
@@ -81,6 +92,7 @@ const SAPlanRequests = () => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { void loadImportPending(); }, [loadImportPending]);
 
   useEffect(() => {
     const channel = supabase
@@ -151,11 +163,12 @@ const SAPlanRequests = () => {
         <p className="text-sm text-muted-foreground">Doctors ask for features; you decide the final features, price and how long it applies. Approvals take effect immediately.</p>
       </div>
 
-      <Tabs defaultValue="pending" className="space-y-4">
+      <Tabs defaultValue="pending" className="space-y-4" onValueChange={() => void loadImportPending()}>
         <TabsList>
           <TabsTrigger value="pending">Pending{pending.length ? ` (${pending.length})` : ""}</TabsTrigger>
           <TabsTrigger value="active">Active plans{activePlans.length ? ` (${activePlans.length})` : ""}</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="import">Import limits{importPending ? ` (${importPending})` : ""}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending">
@@ -255,6 +268,10 @@ const SAPlanRequests = () => {
               </div>
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="import">
+          <SAImportRequests onChange={() => void loadImportPending()} />
         </TabsContent>
       </Tabs>
 

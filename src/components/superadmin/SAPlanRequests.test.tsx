@@ -257,4 +257,18 @@ describe("SAPlanRequests", () => {
       expect(screen.queryByRole("button", { name: "Apply to pro" })).not.toBeInTheDocument();
     });
   });
+
+  describe("Import limits tab", () => {
+    it("shows the pending import-limit count on the tab and opens the list", async () => {
+      mock.current.tables.patient_import_requests = (ops: any[]) =>
+        ops.some((o) => o[0] === "select" && o[2]?.head)
+          ? { data: null, count: 3 }
+          : { data: [{ id: "i1", doctor_id: "d1", requested_cap: 5000, doctor_note: null, patient_count: 10, cap_at_request: 2000, status: "pending",
+              approved_cap: null, reviewer_note: null, decided_at: null, created_at: "2026-11-20T10:00:00Z", profiles: { full_name: "Dr Imp", clinic_name: null, plan_tier: "pro" } }] };
+      renderPage(true);
+      expect(await screen.findByRole("tab", { name: "Import limits (3)" })).toBeInTheDocument();
+      openTab(/Import limits/);
+      expect((await screen.findAllByText("Dr Imp")).length).toBeGreaterThan(0);
+    });
+  });
 });

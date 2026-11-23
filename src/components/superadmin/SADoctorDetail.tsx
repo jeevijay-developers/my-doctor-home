@@ -15,11 +15,14 @@ import { toast } from "@/hooks/use-toast";
 import { logAdminAction } from "@/lib/adminAudit";
 import { ArrowLeft, Ban, RotateCcw, CalendarPlus, Percent } from "lucide-react";
 import SAFeatureAccess from "./SAFeatureAccess";
+import SAImportAccessCard from "./SAImportAccessCard";
+import { useSuperAdminAccess } from "@/contexts/SuperAdminAccessContext";
 
 const TIER_LABELS: Record<string, string> = { free: "Free", pro: "Pro", premium: "Premium" };
 
 const SADoctorDetail = () => {
   const { id } = useParams();
+  const { can } = useSuperAdminAccess();
   const [p, setP] = useState<any>(null);
   const [stats, setStats] = useState({ appts: 0, patients: 0, revenue: 0, last: null as string | null });
   const [newTrialEnd, setNewTrialEnd] = useState("");
@@ -258,6 +261,7 @@ const SADoctorDetail = () => {
       </Card>
 
       <SAFeatureAccess doctorId={id!} />
+      <SAImportAccessCard doctorId={id!} canManage={can("plan_requests.manage")} />
 
       <AlertDialog open={pendingTier !== null} onOpenChange={(open) => !open && setPendingTier(null)}>
         <AlertDialogContent>

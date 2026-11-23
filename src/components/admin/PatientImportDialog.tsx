@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Download, FileUp, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,10 @@ import {
   type ImportRow,
   type RowError,
 } from "@/lib/patientCsv";
-import { importPatients, type ImportResult, type InsertFn } from "@/lib/patientImport";
+import { importPatients, type ImportOutcome, type SendImportFn } from "@/lib/patientImport";
+import { importErrorMessage } from "@/lib/patientImportApi";
+import ImportLimitRequestForm from "./ImportLimitRequestForm";
+import { usePatientImportAccess } from "@/hooks/usePatientImportAccess";
 
 type Props = {
   open: boolean;
@@ -50,22 +54,25 @@ async function loadExistingKeys(doctorId: string): Promise<Set<string> | null> {
   }
 }
 
-const insertPatients: InsertFn = async (rows) => {
-  const { error } = await supabase.from("patients").insert(rows);
-  return { error };
+const sendImport: SendImportFn = async (rows, fileName) => {
+  const { data, error } = await supabase.rpc("import_patients" as any, { _rows: rows, _file_name: fileName });
+  return { data, error };
 };
 
 const PatientImportDialog = ({ open, onOpenChange, doctorId, onImported }: Props) => {
   const [busy, setBusy] = useState<"reading" | "importing" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [result, setResult] = useState<Extract<ImportOutcome, { ok: true }> | null>(null);
+  const { access, failed: accessFailed, refresh: refreshAccess } = usePatientImportAccess(open);
   const runId = useRef(0);
+  // Set synchronously, so a second click before the next render cannot start a second import.
+  const importing = useRef(false);
 
   const reset = () => {
     runId.current += 1;
-    setBusy(null); setMessage(null); setPreview(null); setResult(null); setProgress({ done: 0, total: 0 });
+    importing.current = false;
+    setBusy(null); setMessage(null); setPreview(null); setResult(null);
   };
   useEffect(() => { if (open) reset(); }, [open]);
 
@@ -91,7 +98,9 @@ const PatientImportDialog = ({ open, onOpenChange, doctorId, onImported }: Props
     const id = ++runId.current;
     setBusy("reading");
     try {
-      const parsed = parsePatientCsv(await readFile(file));
+      const text = await readFile(file);
+      if (id !== runId.current) return;
+      const parsed = parsePatientCsv(text);
       if (parsed.fileError) { setMessage(parsed.fileError); return; }
       const existing = await loadExistingKeys(doctorId);
       if (id !== runId.current) return;
@@ -99,26 +108,37 @@ const PatientImportDialog = ({ open, onOpenChange, doctorId, onImported }: Props
       const { fresh, duplicates } = splitDuplicates(parsed.rows, existing);
       setPreview({ fileName: file.name, fresh, duplicates, errors: parsed.errors });
     } catch {
-      setMessage("Could not read that file. Please choose a CSV file.");
+      if (id === runId.current) setMessage("Could not read that file. Please choose a CSV file.");
     } finally {
       if (id === runId.current) setBusy(null);
     }
   };
 
   const startImport = async () => {
-    if (!preview || preview.fresh.length === 0) return;
+    if (importing.current || !preview || preview.fresh.length === 0 || overLimit) return;
+    importing.current = true;
+    const id = runId.current;
     setBusy("importing");
-    setProgress({ done: 0, total: preview.fresh.length });
+    setMessage(null);
     try {
-      const res = await importPatients(doctorId, preview.fresh, insertPatients, (done, total) => setProgress({ done, total }));
-      setResult(res);
-      onImported();
+      const res = await importPatients(preview.fresh, sendImport, preview.fileName);
+      // The patient list and the allowance changed even if the dialog was closed and reopened meanwhile.
+      if (res.ok) onImported();
+      void refreshAccess();
+      if (id !== runId.current) return;
+      if (res.ok) setResult(res);
+      else setMessage((res as Extract<ImportOutcome, { ok: false }>).message); // no strictNullChecks, so `else` does not narrow
     } finally {
-      setBusy(null);
+      if (id === runId.current) { importing.current = false; setBusy(null); }
     }
   };
 
   const skippedExisting = (preview?.duplicates.length ?? 0) + (result?.duplicates ?? 0);
+  // A missing, unreadable or negative number means no room left.
+  const remaining = Math.max(0, Number(access?.remaining) || 0);
+  const overLimit = !!preview && preview.fresh.length > remaining;
+  const locked = !!access && !access.eligible;
+  const shownRejected = result?.rejected.slice(0, MAX_ERRORS_SHOWN) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -130,29 +150,54 @@ const PatientImportDialog = ({ open, onOpenChange, doctorId, onImported }: Props
           </DialogDescription>
         </DialogHeader>
 
-        {result ? (
+        {!access && !accessFailed ? (
+          <p className="py-6 text-center text-sm text-muted-foreground" role="status">Checking your plan…</p>
+        ) : result ? (
           <div className="space-y-3 text-sm">
-            <p className="font-medium text-foreground">Imported {plural(result.imported, "patient")}</p>
+            <p className="font-medium text-foreground" role="status">Imported {plural(result.imported, "patient")}</p>
             {skippedExisting > 0 && <p className="text-muted-foreground">{skippedExisting} skipped because they already exist</p>}
             {(preview?.errors.length ?? 0) > 0 && (
               <p className="text-muted-foreground">{plural(preview!.errors.length, "row")} with problems were not imported.</p>
             )}
-            {result.failed.length > 0 && (
+            {result.rejectedCount > 0 && (
               <div className="space-y-1">
-                <p className="text-destructive">{plural(result.failed.length, "patient")} could not be saved:</p>
+                <p className="text-destructive">{plural(result.rejectedCount, "row")} could not be saved{shownRejected.length > 0 ? ":" : "."}</p>
                 <ul className="text-xs text-muted-foreground list-disc pl-5">
-                  {result.failed.slice(0, MAX_ERRORS_SHOWN).map((f) => <li key={f.line}>Line {f.line} · {f.name}</li>)}
+                  {shownRejected.map((f) => <li key={f.line}>Line {f.line} · {f.name}: {f.message}</li>)}
                 </ul>
+                {shownRejected.length > 0 && result.rejectedCount > shownRejected.length && (
+                  <p className="text-xs text-muted-foreground">Showing the first {shownRejected.length}.</p>
+                )}
               </div>
             )}
             <DialogFooter>
               <Button className="bg-royal hover:bg-royal/90" onClick={() => onOpenChange(false)}>Done</Button>
             </DialogFooter>
           </div>
+        ) : accessFailed ? (
+          <div className="space-y-3 text-sm">
+            <p className="text-destructive" role="alert">Could not check your import access. Please try again.</p>
+            <Button variant="outline" onClick={() => void refreshAccess()}>Try again</Button>
+          </div>
+        ) : locked ? (
+          <div className="space-y-3 text-sm">
+            {access?.reason === "blocked" ? (
+              <p className="text-foreground">Import is turned off for your clinic. Please contact support.</p>
+            ) : access?.reason === "no_permission" ? (
+              <p className="text-foreground">{importErrorMessage("NOT_ALLOWED")}</p>
+            ) : (
+              <>
+                <p className="text-foreground">{importErrorMessage("NOT_ELIGIBLE")}</p>
+                <Button asChild className="bg-royal hover:bg-royal/90">
+                  <Link to="/admin/settings?tab=subscription">View plans</Link>
+                </Button>
+              </>
+            )}
+          </div>
         ) : busy === "importing" ? (
           <div className="py-6 text-center text-sm text-muted-foreground" role="status">
             <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-            Importing {progress.done} of {progress.total}…
+            Importing {plural(preview?.fresh.length ?? 0, "patient")}…
           </div>
         ) : preview ? (
           <div className="space-y-4 text-sm">
@@ -162,6 +207,15 @@ const PatientImportDialog = ({ open, onOpenChange, doctorId, onImported }: Props
               <p className="text-muted-foreground">{preview.duplicates.length} already exist (skipped)</p>
               <p className={preview.errors.length > 0 ? "text-destructive" : "text-muted-foreground"}>{preview.errors.length} with problems (skipped)</p>
             </div>
+            {overLimit && (
+              <p className="text-sm text-destructive" role="alert">
+                This file adds {plural(preview.fresh.length, "patient")} but your limit allows {remaining} more.
+              </p>
+            )}
+            {overLimit && access && (
+              <ImportLimitRequestForm access={access} needed={preview.fresh.length} onRequested={() => void refreshAccess()} />
+            )}
+            {message && <p className="text-sm text-destructive" role="alert">{message}</p>}
             {preview.errors.length > 0 && (
               <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border">
                 {preview.errors.slice(0, MAX_ERRORS_SHOWN).map((e) => (
@@ -177,7 +231,7 @@ const PatientImportDialog = ({ open, onOpenChange, doctorId, onImported }: Props
             )}
             <DialogFooter className="gap-2 sm:gap-2">
               <Button variant="outline" onClick={() => { reset(); }}>Choose another file</Button>
-              <Button className="bg-royal hover:bg-royal/90" disabled={preview.fresh.length === 0} onClick={startImport}>
+              <Button className="bg-royal hover:bg-royal/90" disabled={preview.fresh.length === 0 || overLimit} onClick={startImport}>
                 Import {plural(preview.fresh.length, "patient")}
               </Button>
             </DialogFooter>
@@ -194,6 +248,12 @@ const PatientImportDialog = ({ open, onOpenChange, doctorId, onImported }: Props
                 onChange={(e) => { void onFileChosen(e.target.files?.[0]); e.target.value = ""; }}
                 className="h-10"
               />
+              <p className="text-xs text-muted-foreground">
+                {remaining > 0
+                  ? `You can import up to ${remaining.toLocaleString("en-IN")} more ${remaining === 1 ? "patient" : "patients"}`
+                  : "You have reached your patient limit, so no more patients can be imported"}
+                {access?.cap ? ` (limit ${Number(access.cap).toLocaleString("en-IN")}).` : "."}
+              </p>
             </div>
             {busy === "reading" && <p className="text-sm text-muted-foreground" role="status">Reading file…</p>}
             {message && <p className="text-sm text-destructive" role="alert">{message}</p>}

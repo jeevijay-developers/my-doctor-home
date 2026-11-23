@@ -49,7 +49,7 @@ const LandingHero = () => (
             <Sparkles className="h-5 w-5" /> Start 7-Day Free Trial
           </Link>
           <DemoVideoDialog className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-card px-7 py-3.5 font-heading text-base font-semibold text-navy shadow-sm transition-all hover:bg-secondary sm:w-auto">
-            <PlayCircle className="h-5 w-5 text-royal" /> Watch 4-Min Interactive Demo
+            <PlayCircle className="h-5 w-5 text-royal" /> Watch the 4-Min Overview
           </DemoVideoDialog>
         </div>
 
