@@ -1,6 +1,8 @@
 import { Calendar, ChevronRight, Clock, HeartHandshake, HeartPulse, MapPin, Phone, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import OptimizedImage from "@/components/shared/OptimizedImage";
+import { HERO_IMAGE_WIDTH } from "@/lib/seo/imageUrl";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { type CardColor } from "@/lib/cardColor";
 import { getStatIconComponent, resolveStatValue, type QuickStatItem } from "@/lib/quickStats";
@@ -8,6 +10,7 @@ import { scrollToSection } from "@/lib/scrollToSection";
 import { formatClinicLocation } from "@/lib/formatClinicLocation";
 
 const PRIMARY = "#3C83FC";
+const PRIMARY_ACCESSIBLE = "#2563EB";
 const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const formatTime12h = (time: string) => {
@@ -175,8 +178,9 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
               {profile?.phone && (
                 <a
                   href={`tel:${profile.phone}`}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold text-white shadow-[0_10px_25px_rgba(60,131,252,0.28)] transition-transform active:scale-[0.98]"
-                  style={{ backgroundColor: PRIMARY }}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold text-white shadow-[0_10px_25px_rgba(37,99,235,0.28)] transition-transform active:scale-[0.98]"
+                  // #2563EB (not the #3C83FC brand blue): white text on it is 5.2:1, on #3C83FC only 3.6:1 (WCAG AA needs 4.5:1).
+                  style={{ backgroundColor: PRIMARY_ACCESSIBLE }}
                 >
                   <Phone className="h-5 w-5" />
                   {secondaryButtonLabel}
@@ -198,7 +202,15 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
               <div className="pointer-events-none absolute left-5 top-5 text-4xl font-light text-blue-100">+</div>
               <div className="relative aspect-[4/4.25] overflow-hidden">
                 {heroPhotoSrc ? (
-                  <img src={heroPhotoSrc} alt={`Dr. ${profile?.full_name || "Doctor"}`} className="h-full w-full object-cover object-top" />
+                  <OptimizedImage
+                    src={heroPhotoSrc}
+                    alt={`Dr. ${profile?.full_name || "Doctor"}`}
+                    width={HERO_IMAGE_WIDTH}
+                    height={Math.round(HERO_IMAGE_WIDTH * 1.0625)}
+                    fetchPriority="high"
+                    decoding="async"
+                    className="h-full w-full object-cover object-top"
+                  />
                 ) : (
                   <div className="flex h-full items-center justify-center font-heading text-7xl font-bold text-blue-200">
                     {profile?.full_name?.charAt(0) || "D"}
@@ -270,7 +282,7 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                 )}
 
                 <motion.div {...fadeUp(0.28)} className="mt-7 flex flex-wrap gap-3">
-                  <Button onClick={() => scrollToSection("booking")} className="h-12 rounded-xl px-7 font-semibold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)]" style={{ backgroundColor: PRIMARY }}>
+                  <Button onClick={() => scrollToSection("booking")} className="h-12 rounded-xl px-7 font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.24)] hover:opacity-90" style={{ backgroundColor: PRIMARY_ACCESSIBLE }}>
                     <Calendar className="mr-2 h-4 w-4" />{primaryButtonLabel}
                   </Button>
                   {profile?.phone && (
@@ -285,7 +297,15 @@ const HeroBanner = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
                 <div className="absolute -inset-8 -z-10 rounded-full bg-blue-100/60 blur-3xl dark:bg-blue-900/20" />
                 <div className="relative aspect-[4/5] overflow-hidden rounded-[2rem] border border-blue-100 bg-gradient-to-br from-blue-50 to-slate-100 shadow-[0_28px_55px_-24px_rgba(60,131,252,0.38)] dark:border-blue-900 dark:from-gray-800 dark:to-gray-900">
                   {heroPhotoSrc ? (
-                    <img src={heroPhotoSrc} alt={`Dr. ${profile?.full_name || "Doctor"}`} className="h-full w-full object-cover object-top" />
+                    <OptimizedImage
+                      src={heroPhotoSrc}
+                      alt={`Dr. ${profile?.full_name || "Doctor"}`}
+                      width={HERO_IMAGE_WIDTH}
+                      height={Math.round(HERO_IMAGE_WIDTH * 1.25)}
+                      fetchPriority="high"
+                      decoding="async"
+                      className="h-full w-full object-cover object-top"
+                    />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center font-heading text-7xl font-bold text-blue-200">{profile?.full_name?.charAt(0) || "D"}</div>
                   )}

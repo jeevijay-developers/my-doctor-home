@@ -29,6 +29,10 @@ export interface PageHead {
   jsonLd?: unknown[];
   /** Trusted HTML (callers must escape their own interpolations). */
   bodyHtml?: string;
+  /** Origins to open a connection to early (e.g. the Supabase API/storage host). */
+  preconnect?: string[];
+  /** LCP image to fetch immediately, before any JavaScript runs. Must equal the <img src>. */
+  preloadImage?: string;
 }
 
 export const INDEXABLE = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
@@ -45,6 +49,11 @@ export function renderPage(template: string, page: PageHead): string {
   const d = escapeHtml(page.description);
   const c = escapeHtml(page.canonical);
   const tags = [
+    // Resource hints first so the browser can act on them before parsing the rest.
+    ...(page.preconnect ?? []).map((origin) => `<link rel="preconnect" href="${escapeHtml(origin)}" crossorigin />`),
+    ...(page.preloadImage
+      ? [`<link rel="preload" as="image" href="${escapeHtml(page.preloadImage)}" fetchpriority="high" />`]
+      : []),
     `<title>${t}</title>`,
     `<meta name="description" content="${d}" />`,
     `<meta name="robots" content="${escapeHtml(page.robots)}" />`,

@@ -1,6 +1,7 @@
 import { Building2, CalendarClock, Clock3, Globe, MapPin, Navigation, Phone, type LucideIcon } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useDoctorData } from "@/contexts/DoctorContext";
+import { useNearViewport } from "@/hooks/useNearViewport";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { getClinicMapsQuery, getClinicMapsUrl } from "@/lib/clinicLocation";
 import { groupWorkingHours, formatDayRangeLabel } from "@/lib/workingHoursGrouping";
@@ -37,6 +38,7 @@ const ContactCard = ({ icon: Icon, label, children }: { icon: LucideIcon; label:
 
 const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const { profile, workingHours, settings } = useDoctorData();
+  const [mapRef, mapNear] = useNearViewport<HTMLDivElement>("200px");
   const clinicName = profile?.clinic_name || (profile?.full_name ? `Dr. ${profile.full_name}'s Clinic` : "Clinic");
   const location = [profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ");
   const phone = profile?.clinic_phone || profile?.phone || "";
@@ -66,8 +68,14 @@ const ClinicDetails = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
         </div>
 
         <div className="mx-auto grid max-w-6xl overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-[0_18px_55px_rgba(15,43,80,0.1)] dark:border-blue-900/60 dark:bg-gray-900 lg:grid-cols-[1.08fr_0.92fr]">
-          <div className="relative min-h-[300px] overflow-hidden bg-blue-50 sm:min-h-[390px] lg:min-h-full dark:bg-gray-800">
-            {mapsQuery ? (
+          <div ref={mapRef} className="relative min-h-[300px] overflow-hidden bg-blue-50 sm:min-h-[390px] lg:min-h-full dark:bg-gray-800">
+            {mapsQuery && !mapNear ? (
+              // Placeholder until the visitor scrolls near: the Google Maps embed pulls ~1 MB of
+              // scripts and sets a third-party cookie, so it must not load with the page.
+              <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center" aria-hidden="true">
+                <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-[#3C83FC] shadow-lg dark:bg-gray-900"><MapPin className="h-8 w-8" /></span>
+              </div>
+            ) : mapsQuery ? (
               <iframe
                 title={`${clinicName} location`}
                 className="absolute inset-0 h-full w-full border-0"

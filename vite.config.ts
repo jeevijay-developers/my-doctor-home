@@ -24,7 +24,9 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (id.includes("react-dom") || id.includes("react-router") || id.includes("/react/")) {
+          // Exact package match: a loose "/react/" test also caught @tiptap/react and pulled the
+          // whole rich-text editor into this (always-loaded) chunk.
+          if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler|@remix-run\/router)\//.test(id)) {
             return "vendor-react";
           }
           if (id.includes("@supabase")) {
@@ -33,12 +35,11 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("@radix-ui")) {
             return "vendor-radix";
           }
-          if (id.includes("@tiptap") || id.includes("prosemirror")) {
-            return "vendor-editor";
-          }
-          if (id.includes("jspdf") || id.includes("html2canvas")) {
-            return "vendor-pdf";
-          }
+          // Do NOT force tiptap/prosemirror or jspdf/html2canvas into named vendor
+          // chunks: doing so put Vite's shared preload helper inside them, so the
+          // entry chunk statically imported ~1 MB of editor + PDF code on every
+          // page, including the public doctor site. Left to Rollup they stay in
+          // the lazy chunks that actually use them.
           if (id.includes("framer-motion")) {
             return "vendor-motion";
           }

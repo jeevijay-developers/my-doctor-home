@@ -1019,12 +1019,12 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           </p>
 
           {wantsOnlinePayment ? (
-            <Button variant="cta" className="w-full rounded-xl bg-primary-500 py-6 font-heading text-lg font-bold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] hover:bg-primary-600"
+            <Button variant="cta" className="w-full rounded-xl bg-primary-600 py-6 font-heading text-lg font-bold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] hover:bg-blue-700"
               disabled={!name || !phone || !age || !gender} onClick={proceedToReview}>
               Continue
             </Button>
           ) : (
-            <Button variant="cta" className="w-full rounded-xl bg-primary-500 py-6 font-heading text-lg font-bold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] hover:bg-primary-600"
+            <Button variant="cta" className="w-full rounded-xl bg-primary-600 py-6 font-heading text-lg font-bold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] hover:bg-blue-700"
               disabled={!name || !phone || !age || !gender || submitting} onClick={submitBooking}>
               {submitting ? "Booking..." : `Book Appointment - ₹${selectedService?.price}`}
             </Button>

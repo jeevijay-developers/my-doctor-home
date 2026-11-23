@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useNearViewport } from "@/hooks/useNearViewport";
 
 const SCRIPT_ID = "cf-turnstile-script";
 const SCRIPT_SRC =
@@ -87,8 +88,17 @@ const TurnstileWidget = ({
   const onTokenRef = useRef(onToken);
   onTokenRef.current = onToken;
 
+  // Don't download/run the Cloudflare challenge during the initial page load: wait until
+  // the widget is near the viewport. A visitor has to scroll here to submit the form, and
+  // the token is requested well before they reach the submit button.
+  const [observedRef, near] = useNearViewport<HTMLDivElement>("400px");
+  const setContainer = (node: HTMLDivElement | null) => {
+    containerRef.current = node;
+    (observedRef as { current: HTMLDivElement | null }).current = node;
+  };
+
   useEffect(() => {
-    if (!siteKey || !containerRef.current) return;
+    if (!siteKey || !containerRef.current || !near) return;
     let cancelled = false;
 
     loadTurnstileScript()
@@ -129,7 +139,7 @@ const TurnstileWidget = ({
         widgetIdRef.current = null;
       }
     };
-  }, [siteKey, action]);
+  }, [siteKey, action, near]);
 
   useEffect(() => {
     if (!resetSignal || !widgetIdRef.current || !window.turnstile) return;
@@ -139,7 +149,7 @@ const TurnstileWidget = ({
 
   if (!siteKey) return null;
 
-  return <div ref={containerRef} className="flex min-h-[65px] w-full" />;
+  return <div ref={setContainer} className="flex min-h-[65px] w-full" />;
 };
 
 export default TurnstileWidget;

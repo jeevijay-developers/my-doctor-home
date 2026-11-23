@@ -1,5 +1,5 @@
-import jsPDF from "jspdf";
-
+// jsPDF (~600 kB) is only needed once someone actually downloads a slip, so it
+// is imported on demand rather than shipped with every page that links here.
 const SCALE = 2;
 
 async function rasterize(selector: string): Promise<HTMLCanvasElement | null> {
@@ -38,6 +38,7 @@ export async function downloadPdfFromNode(
   const canvas = await rasterize(selector);
   if (!canvas) return;
 
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();

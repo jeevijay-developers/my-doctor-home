@@ -25,7 +25,7 @@ const formatReviewDate = (date: string) => new Date(date).toLocaleDateString("en
 });
 
 const ReviewStars = ({ rating, size = 15 }: { rating: number; size?: number }) => (
-  <span className="inline-flex items-center gap-0.5" aria-label={`${rating} out of 5 stars`}>
+  <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${rating} out of 5 stars`}>
     {[1, 2, 3, 4, 5].map((star) => (
       <Star
         key={star}
@@ -309,7 +309,7 @@ const ReviewForm = ({
         <Button
           onClick={onSubmit}
           disabled={!name.trim() || submitting}
-          className="h-11 rounded-xl bg-primary-500 px-6 font-bold text-white shadow-[0_8px_20px_rgba(60,131,252,0.22)] hover:bg-primary-600"
+          className="h-11 rounded-xl bg-primary-600 px-6 font-bold text-white shadow-[0_8px_20px_rgba(60,131,252,0.22)] hover:bg-blue-700"
         >
           {submitting ? "Submitting..." : "Submit Review"}
         </Button>

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Menu, X, Moon, Sun } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import OptimizedImage from "@/components/shared/OptimizedImage";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
 import { scrollToSection } from "@/lib/scrollToSection";
@@ -75,9 +76,12 @@ const Navbar = () => {
         <div className="container mx-auto flex h-full items-center justify-between px-0">
           <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={scrollToTop}>
             {avatarSrc ? (
-              <img
+              <OptimizedImage
                 src={avatarSrc}
                 alt={docName}
+                width={96}
+                height={96}
+                decoding="async"
                 className="h-10 w-10 shrink-0 rounded-full object-cover"
               />
             ) : (
@@ -92,7 +96,7 @@ const Navbar = () => {
           </button>
 
           <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary navigation">
-            <button onClick={scrollToTop} className="text-sm font-semibold text-primary-600 transition-colors hover:text-primary-500">
+            <button onClick={scrollToTop} className="text-sm font-semibold text-primary-600 transition-colors hover:text-primary-500 dark:text-blue-300 dark:hover:text-blue-200">
               Home
             </button>
             {navLinks.map((link) => (
@@ -115,7 +119,7 @@ const Navbar = () => {
             >
               {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <Button size="sm" variant="cta" className="hidden rounded-lg bg-primary-500 px-4 py-2 font-heading text-xs font-semibold text-white hover:bg-primary-600 sm:flex" onClick={() => scrollTo("booking")}>
+            <Button size="sm" variant="cta" className="hidden rounded-lg bg-primary-600 px-4 py-2 font-heading text-xs font-semibold text-white hover:bg-blue-700 sm:flex" onClick={() => scrollTo("booking")}>
               Book Appointment
             </Button>
             <button
@@ -159,7 +163,7 @@ const Navbar = () => {
               aria-label="Mobile navigation"
             >
               <nav className="flex-1 overflow-y-auto px-6 pb-6 pt-4" aria-label="Mobile navigation links">
-                <button onClick={scrollToTop} className={`${mobileLinkClass} font-semibold text-primary-600`}>
+                <button onClick={scrollToTop} className={`${mobileLinkClass} font-semibold text-primary-600 dark:text-blue-300`}>
                   Home
                 </button>
                 {navLinks.map((link) => (
@@ -177,7 +181,7 @@ const Navbar = () => {
               <div className="space-y-3 border-t border-border bg-slate-50 p-6 dark:bg-gray-900/60">
                 <button
                   onClick={() => scrollTo("booking")}
-                  className="w-full rounded-xl bg-primary-500 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-600"
+                  className="w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
                 >
                   Book Appointment
                 </button>

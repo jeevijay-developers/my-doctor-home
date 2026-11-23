@@ -1,5 +1,6 @@
 import { Check, User } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
+import OptimizedImage from "@/components/shared/OptimizedImage";
 import AnimatedItem from "@/components/landing/AnimatedItem";
 import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { scrollToSection } from "@/lib/scrollToSection";
@@ -38,9 +39,11 @@ const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) =>
             <div className="relative rounded-[1.75rem] border border-blue-100 bg-white p-3 shadow-[0_24px_50px_-24px_rgba(15,43,80,0.35)] dark:border-blue-900/60 dark:bg-gray-900 sm:p-4">
               <div className="relative aspect-[4/5] overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-blue-50 to-slate-100 dark:from-gray-800 dark:to-blue-950/30 sm:rounded-2xl">
                 {photoSrc ? (
-                  <img
+                  <OptimizedImage
                     src={photoSrc}
                     alt={`Dr. ${doctorName}`}
+                    width={860}
+                    height={1075}
                     loading="lazy"
                     decoding="async"
                     className="h-full w-full object-cover object-top"

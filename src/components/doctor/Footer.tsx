@@ -2,6 +2,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowRight, CalendarDays, ChevronRight, Facebook, HeartPulse, Instagram, Linkedin, Mail, MapPin, Phone, Youtube } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useDoctorData } from "@/contexts/DoctorContext";
+import OptimizedImage from "@/components/shared/OptimizedImage";
 import { scrollToSection } from "@/lib/scrollToSection";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -97,7 +98,7 @@ const Footer = ({ profileOverride }: FooterProps) => {
               <Link to={doctorBasePath} className="inline-flex items-center gap-3">
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-lg">
                   {profile?.profile_photo_url ? (
-                    <img src={profile.profile_photo_url} alt={doctorName} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                    <OptimizedImage src={profile.profile_photo_url} alt={doctorName} width={112} height={112} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <HeartPulse className="h-7 w-7 text-[#3C83FC]" />
                   )}

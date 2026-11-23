@@ -11,6 +11,7 @@ import { buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName, doctorHubPaths }
 import { buildBlogListHead, buildBlogPostHead, blogPostPath, doctorPath, encodePathSegment, UUID_RE } from "./blogSeo";
 import { ARTICLES_BASE, ARTICLES_PAGE_SIZE, articlesPath, buildArticlesHead, isArticlesIndexable, type ArticleFacet, type HubArticle } from "./healthArticlesSeo";
 import { INDEXABLE, NOINDEX, renderPage } from "./injectHead";
+import { HERO_IMAGE_WIDTH, optimizedImageUrl } from "./imageUrl";
 import { buildStaticPageHead } from "./staticPages";
 
 export interface SeoEnv {
@@ -91,6 +92,15 @@ function notFound(template: string, origin: string, path: string): Response {
 class Upstream {
   constructor(private base: string, private key: string, private f: typeof fetch) {}
 
+  /** Scheme + host of the Supabase project (API and public storage share it). */
+  get origin(): string {
+    try {
+      return new URL(this.base).origin;
+    } catch {
+      return "";
+    }
+  }
+
   private async req(path: string, init?: RequestInit): Promise<any> {
     const res = await timedFetch(this.f, `${this.base}${path}`, {
       ...init,
@@ -145,6 +155,14 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
   const name = doctorDisplayName(profile);
   const jsonLd = buildDoctorJsonLd(input);
 
+  // The hero portrait is the page's largest paint. Without a hint the browser only discovers it
+  // after the app JS loads and the profile/settings queries return (~4 s on a slow phone), so
+  // name it in the HTML. It must be the exact URL HeroBanner renders, hence the shared helper.
+  const heroSrc: string | null = typeof settings.hero_photo_url === "string" && /^https:\/\//.test(settings.hero_photo_url)
+    ? settings.hero_photo_url
+    : null;
+  const supabaseOrigin = up.origin;
+
   return htmlResponse(
     renderPage(template, {
       title: meta.title,
@@ -153,6 +171,8 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
       robots: INDEXABLE,
       ogType: "profile",
       image: meta.image,
+      preconnect: supabaseOrigin ? [supabaseOrigin] : [],
+      preloadImage: heroSrc ? optimizedImageUrl(heroSrc, HERO_IMAGE_WIDTH) : undefined,
       jsonLd: jsonLd ? [jsonLd] : [],
       bodyHtml: buildDoctorBody({
         name,

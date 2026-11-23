@@ -6,6 +6,7 @@ import { blogPostPath } from "@/lib/seo/blogSeo";
 import { supabase } from "@/integrations/supabase/client";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import BlogImagePlaceholder from "./BlogImagePlaceholder";
+import OptimizedImage from "@/components/shared/OptimizedImage";
 import {
   Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi,
 } from "@/components/ui/carousel";
@@ -30,7 +31,7 @@ const ArticleCard = ({ post, slug }: { post: BlogPost; slug: string }) => {
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-blue-50 dark:bg-gray-800">
         {post.featured_image_url ? (
-          <img src={post.featured_image_url} alt={post.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
+          <OptimizedImage src={post.featured_image_url} alt={post.title} width={640} height={400} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
         ) : (
           <BlogImagePlaceholder className="h-full w-full" />
         )}

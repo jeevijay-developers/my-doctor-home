@@ -14,12 +14,29 @@
     <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
 
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-9H9CEZ6C6K"></script>
+    <!-- Google Analytics is loaded after the page is interactive (first user input, or 4 s after load)
+         instead of at startup, so its ~250 ms of main-thread work no longer competes with first paint.
+         gtag() calls made before it loads are queued in dataLayer and replayed, so no events are lost. -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-9H9CEZ6C6K', { send_page_view: false });
+      (function () {
+        var started = false;
+        function loadGA() {
+          if (started) return;
+          started = true;
+          var s = document.createElement('script');
+          s.async = true;
+          s.src = 'https://www.googletagmanager.com/gtag/js?id=G-9H9CEZ6C6K';
+          document.head.appendChild(s);
+        }
+        ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach(function (evt) {
+          window.addEventListener(evt, loadGA, { once: true, passive: true });
+        });
+        window.addEventListener('load', function () { setTimeout(loadGA, 4000); });
+      })();
     </script>
 
     <!-- Open Graph / Social Sharing -->
