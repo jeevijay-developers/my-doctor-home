@@ -51,6 +51,8 @@ type Props = {
   onDownload: () => void;
   /** Optional extra action (e.g. the Share button) shown beside Print / Download. */
   shareSlot?: ReactNode;
+  /** Hides `shareSlot` for callers where sharing already lives elsewhere (e.g. the Prescriptions page's own side panel). */
+  hideShare?: boolean;
 };
 
 const ROYAL = "#1d4ed8";
@@ -305,7 +307,7 @@ export const PrescriptionSlipCard = ({ profile, prescription }: { profile: any; 
   );
 };
 
-const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload, shareSlot }: Props) => {
+const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload, shareSlot, hideShare }: Props) => {
   if (!prescription) return null;
 
   const handlePrint = () => {
@@ -357,7 +359,7 @@ const PrescriptionSlip = ({ open, onClose, profile, prescription, onDownload, sh
 
 
           <div data-prescription-slip-print-hide className="flex flex-wrap gap-2 justify-end p-4 border-t bg-secondary/40">
-            {shareSlot}
+            {!hideShare && shareSlot}
             <Button variant="outline" onClick={handlePrint} className="gap-1.5">
               <Printer className="h-4 w-4" /> Print
             </Button>

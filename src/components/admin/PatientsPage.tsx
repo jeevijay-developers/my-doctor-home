@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Users, Plus, Search, Mail, Calendar as CalendarIcon, Activity, Download, Upload, Trash2, X, FileHeart } from "lucide-react";
+import { Users, Plus, Search, Mail, Calendar as CalendarIcon, Activity, Download, Upload, Trash2, FileHeart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -15,8 +15,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
@@ -25,6 +23,8 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import DateFilter from "@/components/shared/DateFilter";
 import PatientVitalsFields from "./PatientVitalsFields";
+import BulkSelectionBar from "./BulkSelectionBar";
+import NameButton from "./NameButton";
 import { emailError, nameError, parseWeight, vitalsErrors } from "@/lib/patientIntake";
 
 const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
@@ -44,6 +44,7 @@ const PatientsPage = () => {
   const { accessLevel: trialAccessLevel } = useTrialStatus();
   const writeDisabled = trialAccessLevel === "grace";
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 350);
   const [page, setPage] = useState(1);
@@ -59,8 +60,7 @@ const PatientsPage = () => {
   const [showImport, setShowImport] = useState(false);
   const [deleting, setDeleting] = useState<Patient | null>(null);
 
-  // Bulk selection state (mirrors AppointmentsPage pattern)
-  const [selectMode, setSelectMode] = useState(false);
+  // Bulk selection state — checkboxes are always visible on rows.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
@@ -73,7 +73,6 @@ const PatientsPage = () => {
     });
   };
   const clearSelection = () => setSelectedIds(new Set());
-  const exitSelectMode = () => { setSelectMode(false); clearSelection(); };
 
   const bulkDelete = async () => {
     if (!profile) return;
@@ -87,7 +86,7 @@ const PatientsPage = () => {
     toast.success(`${ids.length} patient${ids.length === 1 ? "" : "s"} deleted`);
     setBulkDeleteOpen(false);
     setBulkConfirmText("");
-    exitSelectMode();
+    clearSelection();
     load();
   };
 
@@ -105,6 +104,7 @@ const PatientsPage = () => {
   const load = async () => {
     if (!profile) return;
     const seq = ++loadSeq.current;
+    setLoading(true);
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
     let q = supabase.from("patients").select("*", { count: "exact" }).eq("doctor_id", profile.id);
@@ -120,9 +120,10 @@ const PatientsPage = () => {
     q = q.order("last_visit", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).order("id").range(from, to);
     const { data, count, error } = await q;
     if (seq !== loadSeq.current) return;
-    if (error) { console.error("Patients load failed:", error.message); return; }
+    if (error) { console.error("Patients load failed:", error.message); setLoading(false); return; }
     setPatients((data || []) as Patient[]);
     setTotalCount(count ?? 0);
+    setLoading(false);
   };
   // The realtime listener is created once, so it has to reach the CURRENT load
   // (current search, date filter and page) rather than the first render's.
@@ -151,6 +152,7 @@ const PatientsPage = () => {
   useEffect(() => { setPage(1); }, [selectedDate, dateFilterActive, debouncedSearch]);
 
   useEffect(() => { load(); }, [profile, selectedDate, dateFilterActive, debouncedSearch, page]);
+  useEffect(() => { clearSelection(); }, [debouncedSearch, dateFilterActive, selectedDate, page]);
   useEffect(() => { loadDatesWithVisits(); }, [profile]);
 
   useEffect(() => {
@@ -231,9 +233,18 @@ const PatientsPage = () => {
   // Search and the date filter now happen server-side in load(), so the
   // current page's rows are already the filtered/paginated result set.
   const filtered = patients;
+  const allOnPageSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+  const selectAllOnPage = () => {
+    if (allOnPageSelected) clearSelection();
+    else setSelectedIds(new Set(filtered.map((p) => p.id)));
+  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
+    <div
+      className={`max-w-6xl mx-auto space-y-5 transition-[padding] duration-150 ${
+        selectedIds.size > 0 ? "pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-0" : ""
+      }`}
+    >
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
@@ -331,62 +342,33 @@ const PatientsPage = () => {
         clearClassName="text-teal"
       />
 
-      <div className={`flex flex-col sm:flex-row gap-3 transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9 h-10" placeholder="Search by name or phone..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
 
-      {/* Select mode toggle */}
       {filtered.length > 0 && (
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground">
-            {selectMode ? (
+            {selectedIds.size > 0 ? (
               <span>{selectedIds.size} of {filtered.length} selected on this page</span>
             ) : (
               <span>{filtered.length} patient{filtered.length === 1 ? "" : "s"} on this page</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {selectMode && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={() => {
-                  if (selectedIds.size === filtered.length) clearSelection();
-                  else setSelectedIds(new Set(filtered.map((p) => p.id)));
-                }}
-              >
-                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length} on this page`}
-              </Button>
-            )}
-            {!isStaff && (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant={selectMode ? "default" : "outline"}
-                    className={`h-8 w-8 p-0 ${selectMode ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}`}
-                    onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                    aria-pressed={selectMode}
-                    aria-label={selectMode ? "Exit selection mode" : "Select items to delete"}
-                  >
-                    {selectMode ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             )}
           </div>
         </div>
       )}
 
       {/* Patient Table */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <Card className="border-border/60 shadow-none">
+          <CardContent className="py-16 text-center">
+            <Loader2 className="h-7 w-7 animate-spin text-teal mx-auto" />
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
         <Card className="border-border/60 shadow-none">
           <CardContent className="py-16 text-center">
             <Users className="h-12 w-12 text-teal/20 mx-auto mb-3" />
@@ -406,13 +388,21 @@ const PatientsPage = () => {
               <table className="w-full text-sm">
                 <thead className="bg-secondary/60 border-b border-border">
                   <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    {selectMode && <th className="pl-4 pr-2 py-3 w-10"></th>}
+                    {!isStaff && (
+                      <th className="pl-4 pr-2 py-3 w-10">
+                        <Checkbox
+                          checked={selectedIds.size === 0 ? false : allOnPageSelected ? true : "indeterminate"}
+                          onCheckedChange={selectAllOnPage}
+                          aria-label="Select all patients on this page"
+                          className="h-5 w-5 rounded"
+                        />
+                      </th>
+                    )}
                     <th className="px-4 py-3">Patient</th>
                     <th className="px-4 py-3">Phone</th>
                     <th className="px-4 py-3 hidden md:table-cell">Age / Gender</th>
                     <th className="px-4 py-3 hidden lg:table-cell">Last Visit</th>
                     <th className="px-4 py-3">Visits</th>
-                    <th className="px-4 py-3">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -421,13 +411,12 @@ const PatientsPage = () => {
                     return (
                       <tr
                         key={p.id}
-                        className={`border-b border-border/60 last:border-0 cursor-pointer transition-colors ${
-                          isSelected ? "bg-royal/5" : "hover:bg-secondary/40"
+                        className={`border-b border-border/60 last:border-0 transition-colors ${
+                          isSelected ? "bg-royal/5" : ""
                         }`}
-                        onClick={selectMode ? () => toggleSelected(p.id) : () => viewPatient(p)}
                       >
-                        {selectMode && (
-                          <td className="pl-4 pr-2 py-3 w-10" onClick={(e) => e.stopPropagation()}>
+                        {!isStaff && (
+                          <td className="pl-4 pr-2 py-3 w-10">
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleSelected(p.id)}
@@ -442,7 +431,9 @@ const PatientsPage = () => {
                               {p.name?.charAt(0)?.toUpperCase() || "P"}
                             </div>
                             <div className="min-w-0">
-                              <div className="font-semibold text-foreground truncate">{p.name}</div>
+                              <NameButton onClick={() => viewPatient(p)} className="font-semibold text-foreground truncate block">
+                                {p.name}
+                              </NameButton>
                               {p.email && <div className="text-xs text-muted-foreground truncate">{p.email}</div>}
                             </div>
                           </div>
@@ -455,16 +446,6 @@ const PatientsPage = () => {
                           {p.last_visit || "—"}
                         </td>
                         <td className="px-4 py-3 font-medium text-foreground">{p.total_visits}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant="secondary" className={`text-[10px] ${
-                            p.total_visits >= 10 ? "bg-success/10 text-success" :
-                            p.total_visits >= 3 ? "bg-royal/10 text-royal" :
-                            p.total_visits === 0 ? "bg-muted text-muted-foreground" :
-                            "bg-warning/10 text-warning"
-                          }`}>
-                            {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : p.total_visits === 0 ? "Not visited yet" : "New"}
-                          </Badge>
-                        </td>
                       </tr>
                     );
                   })}
@@ -480,12 +461,11 @@ const PatientsPage = () => {
               return (
                 <Card
                   key={p.id}
-                  className={`border-border/60 shadow-none cursor-pointer transition-colors ${isSelected ? "bg-royal/5 border-royal/30" : "hover:bg-secondary/40"}`}
-                  onClick={selectMode ? () => toggleSelected(p.id) : () => viewPatient(p)}
+                  className={`border-border/60 shadow-none transition-colors ${isSelected ? "bg-royal/5 border-royal/30" : ""}`}
                 >
                   <CardContent className="p-4 flex items-start gap-3">
-                    {selectMode && (
-                      <div onClick={(e) => e.stopPropagation()} className="pt-1">
+                    {!isStaff && (
+                      <div className="pt-1">
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelected(p.id)}
@@ -498,17 +478,9 @@ const PatientsPage = () => {
                       {p.name?.charAt(0)?.toUpperCase() || "P"}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="font-semibold text-foreground truncate">{p.name}</div>
-                        <Badge variant="secondary" className={`text-[10px] flex-shrink-0 ${
-                          p.total_visits >= 10 ? "bg-success/10 text-success" :
-                          p.total_visits >= 3 ? "bg-royal/10 text-royal" :
-                          p.total_visits === 0 ? "bg-muted text-muted-foreground" :
-                          "bg-warning/10 text-warning"
-                        }`}>
-                          {p.total_visits >= 10 ? "Loyal" : p.total_visits >= 3 ? "Regular" : p.total_visits === 0 ? "Not visited yet" : "New"}
-                        </Badge>
-                      </div>
+                      <NameButton onClick={() => viewPatient(p)} className="font-semibold text-foreground truncate block">
+                        {p.name}
+                      </NameButton>
                       <div className="text-xs text-muted-foreground mt-0.5 truncate">
                         {p.phone}{p.email ? ` · ${p.email}` : ""}
                       </div>
@@ -621,29 +593,14 @@ const PatientsPage = () => {
       </AlertDialog>
 
       {/* Floating bulk action bar */}
-      {selectMode && selectedIds.size > 0 && (
-        <div
-          role="toolbar"
-          aria-label="Bulk actions"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-md"
-        >
-          <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-full px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
-            <span className="text-sm font-medium text-foreground whitespace-nowrap">
-              {selectedIds.size} patient{selectedIds.size === 1 ? "" : "s"} selected
-            </span>
-            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelection}>
-              Clear
-            </Button>
-            <Button
-              size="sm"
-              className="h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-4"
-              onClick={() => { setBulkConfirmText(""); setBulkDeleteOpen(true); }}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Selected
-            </Button>
-          </div>
-        </div>
-      )}
+      <BulkSelectionBar
+        itemLabel="patient"
+        selectedCount={selectedIds.size}
+        allOnPageSelected={allOnPageSelected}
+        onSelectAll={selectAllOnPage}
+        onClear={clearSelection}
+        onDeleteClick={() => { setBulkConfirmText(""); setBulkDeleteOpen(true); }}
+      />
 
       {/* Bulk delete confirmation */}
       <AlertDialog

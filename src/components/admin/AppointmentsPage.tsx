@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
-import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Trash2, X, Calendar as CalendarIcon, MoreVertical, ListChecks, Users } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Calendar as CalendarIcon, MoreVertical, ListChecks, Users } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -33,6 +32,8 @@ import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import DateFilter from "@/components/shared/DateFilter";
+import NameButton from "./NameButton";
+import BulkSelectionBar from "./BulkSelectionBar";
 import { defaultAppointmentAmount } from "@/lib/appointmentAmount";
 import { appointmentSerialNumber } from "@/lib/appointmentList";
 
@@ -103,6 +104,7 @@ const AppointmentsPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [statusCounts, setStatusCounts] = useState({ total: 0, pending: 0, completed: 0, cancelled: 0 });
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dateFilterActive, setDateFilterActive] = useState(true);
@@ -131,7 +133,6 @@ const AppointmentsPage = () => {
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [rescheduleForm, setRescheduleForm] = useState({ date: "", time_slot: "" });
-  const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
@@ -157,7 +158,6 @@ const AppointmentsPage = () => {
     });
   };
   const clearSelection = () => setSelectedIds(new Set());
-  const exitSelectMode = () => { setSelectMode(false); clearSelection(); };
   const bulkDelete = async () => {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
@@ -166,7 +166,7 @@ const AppointmentsPage = () => {
     toast.success(`${ids.length} appointment${ids.length === 1 ? "" : "s"} deleted`);
     setBulkDeleteOpen(false);
     setBulkConfirmText("");
-    exitSelectMode();
+    clearSelection();
     load();
   };
 
@@ -184,6 +184,7 @@ const AppointmentsPage = () => {
     // "Pending" means pending OR confirmed, matching the Pending summary tile.
     if (statusFilter === "pending") q = q.in("status", ["pending", "confirmed"] as any);
     else if (statusFilter !== "all") q = q.eq("status", statusFilter as any);
+    if (typeFilter !== "all") q = q.eq("appointment_type", typeFilter as any);
     if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`patient_name.ilike.%${term}%,service_name.ilike.%${term}%`);
@@ -230,9 +231,10 @@ const AppointmentsPage = () => {
   };
 
   // Reset to page 1 whenever the result set changes shape underneath the pager.
-  useEffect(() => { setPage(1); }, [statusFilter, selectedDate, dateFilterActive, debouncedSearch]);
+  useEffect(() => { setPage(1); }, [statusFilter, typeFilter, selectedDate, dateFilterActive, debouncedSearch]);
 
-  useEffect(() => { load(); }, [profile, statusFilter, selectedDate, dateFilterActive, debouncedSearch, page]);
+  useEffect(() => { load(); }, [profile, statusFilter, typeFilter, selectedDate, dateFilterActive, debouncedSearch, page]);
+  useEffect(() => { clearSelection(); }, [debouncedSearch, statusFilter, typeFilter, dateFilterActive, selectedDate, page, view]);
   loadStatusCountsRef.current = loadStatusCounts;
   useEffect(() => { loadStatusCounts(); }, [profile, selectedDate, dateFilterActive]);
 
@@ -507,6 +509,11 @@ const AppointmentsPage = () => {
   // Search, status and date filtering now happen server-side in load(), so
   // the current page's rows are already the filtered/paginated result set.
   const filtered = appointments;
+  const allOnPageSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+  const selectAllOnPage = () => {
+    if (allOnPageSelected) clearSelection();
+    else setSelectedIds(new Set(filtered.map((a) => a.id)));
+  };
 
   const allTimeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
@@ -529,7 +536,11 @@ const AppointmentsPage = () => {
   }, [showNew, newAppt.date, timeSlots.join(",")]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
+    <div
+      className={`max-w-6xl mx-auto space-y-5 transition-[padding] duration-150 ${
+        selectedIds.size > 0 ? "pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-0" : ""
+      }`}
+    >
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
           <CalendarCheck className="h-6 w-6 text-royal" /> Appointments
@@ -692,7 +703,7 @@ const AppointmentsPage = () => {
       </div>
 
       {/* Filters */}
-      <div className={`flex flex-col sm:flex-row gap-3 transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9 h-10" placeholder="Search patient or service..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -702,56 +713,40 @@ const AppointmentsPage = () => {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
-            
+
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
             <SelectItem value="no_show">No Show</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-44 h-10" aria-label="Appointment type"><Filter className="h-4 w-4 mr-1" /><SelectValue placeholder="Type" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="clinic">Clinic Visit</SelectItem>
+            <SelectItem value="online">Online</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Select mode toggle */}
       {filtered.length > 0 && (
         <div className="flex items-center justify-between gap-3">
-          <div className="text-xs text-muted-foreground">
-            {selectMode ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {!isStaff && (
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <Checkbox
+                  checked={selectedIds.size === 0 ? false : allOnPageSelected ? true : "indeterminate"}
+                  onCheckedChange={selectAllOnPage}
+                  aria-label="Select all appointments on this page"
+                  className="h-4 w-4 rounded"
+                />
+                Select all
+              </label>
+            )}
+            {selectedIds.size > 0 ? (
               <span>{selectedIds.size} of {filtered.length} selected on this page</span>
             ) : (
               <span>{totalCount} appointment{totalCount === 1 ? "" : "s"}{totalCount > filtered.length ? ` · page ${page}` : ""}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {selectMode && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={() => {
-                  if (selectedIds.size === filtered.length) clearSelection();
-                  else setSelectedIds(new Set(filtered.map((a) => a.id)));
-                }}
-              >
-                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length} on this page`}
-              </Button>
-            )}
-            {!isStaff && (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant={selectMode ? "default" : "outline"}
-                    className={`h-8 w-8 p-0 ${selectMode ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}`}
-                    onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                    aria-pressed={selectMode}
-                    aria-label={selectMode ? "Exit selection mode" : "Select items to delete"}
-                  >
-                    {selectMode ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             )}
           </div>
         </div>
@@ -777,20 +772,8 @@ const AppointmentsPage = () => {
               <Card
                 key={a.id}
                 className={`relative border-border/60 shadow-none border-l-4 ${borderColor} transition-all ${
-                  selectMode ? "cursor-pointer" : "cursor-pointer hover:shadow-md"
-                } ${isSelected ? "bg-royal/5 ring-2 ring-royal ring-offset-2" : ""}`}
-                role="button"
-                tabIndex={0}
-                aria-label={`${selectMode ? "Select" : "Open"} appointment for ${a.patient_name}`}
-                onClick={selectMode ? () => toggleSelected(a.id) : () => setViewing(a)}
-                onKeyDown={(e) => {
-                  // Only when the card itself has focus: the menu and checkbox inside keep their own keys.
-                  if (e.target !== e.currentTarget) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    if (selectMode) toggleSelected(a.id); else setViewing(a);
-                  }
-                }}
+                  isSelected ? "bg-royal/5 ring-2 ring-royal ring-offset-2" : ""
+                }`}
               >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -798,13 +781,12 @@ const AppointmentsPage = () => {
                       <span className="w-6 text-center text-xs font-semibold text-muted-foreground" aria-label={`Appointment ${serialNumber}`}>
                         #{serialNumber}
                       </span>
-                      {selectMode && (
+                      {!isStaff && (
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelected(a.id)}
-                          onClick={(e) => e.stopPropagation()}
                           aria-label={`Select appointment for ${a.patient_name}`}
-                          className="h-5 w-5 rounded-full"
+                          className="h-5 w-5 rounded"
                         />
                       )}
                       <div className="w-10 h-10 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
@@ -812,7 +794,9 @@ const AppointmentsPage = () => {
                       </div>
                       <div>
                         <div className="font-medium text-foreground flex items-center gap-2">
-                          {a.patient_name}
+                          <NameButton onClick={() => setViewing(a)}>
+                            {a.patient_name}
+                          </NameButton>
                           {a.queue_number != null && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold" title="Queue number">Q{a.queue_number}</span>
                           )}
@@ -836,13 +820,13 @@ const AppointmentsPage = () => {
                           Rescheduled ({a.reschedule_count})
                         </Badge>
                       )}
-                      {!selectMode && a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
+                      {a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
                         <Badge variant="outline" className="text-[10px] bg-teal/10 text-teal border-teal/20">
                           <Video className="h-3 w-3 mr-1" /> Video call
                         </Badge>
                       )}
                       <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
-                      {!selectMode && getStatusOptions(a.status).length > 0 && (
+                      {getStatusOptions(a.status).length > 0 && (
                         <div onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -1119,29 +1103,14 @@ const AppointmentsPage = () => {
       </AlertDialog>
 
       {/* Floating bulk action bar */}
-      {selectMode && selectedIds.size > 0 && (
-        <div
-          role="toolbar"
-          aria-label="Bulk actions"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-md"
-        >
-          <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-full px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
-            <span className="text-sm font-medium text-foreground whitespace-nowrap">
-              {selectedIds.size} appointment{selectedIds.size === 1 ? "" : "s"} selected
-            </span>
-            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelection}>
-              Clear
-            </Button>
-            <Button
-              size="sm"
-              className="h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-4"
-              onClick={() => { setBulkConfirmText(""); setBulkDeleteOpen(true); }}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Selected
-            </Button>
-          </div>
-        </div>
-      )}
+      <BulkSelectionBar
+        itemLabel="appointment"
+        selectedCount={selectedIds.size}
+        allOnPageSelected={allOnPageSelected}
+        onSelectAll={selectAllOnPage}
+        onClear={clearSelection}
+        onDeleteClick={() => { setBulkConfirmText(""); setBulkDeleteOpen(true); }}
+      />
 
       {/* Bulk delete confirmation */}
       <AlertDialog

@@ -15,12 +15,14 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import StatCard, { type StatTone } from "./StatCard";
 import StatusBadge from "./StatusBadge";
 import PlanCard from "./PlanCard";
+import GettingStartedCard from "./GettingStartedCard";
 import { clinicToday } from "@/lib/queue";
 import { summarizePlan } from "@/lib/planSummary";
 
@@ -167,18 +169,23 @@ const DashboardHome = () => {
   ];
 
   const liveUrl = profile?.slug ? `${window.location.origin}/dr/${profile.slug}` : null;
+  const defaultShareMessage = liveUrl
+    ? `🏥 Book your appointment online with ${profile?.full_name || "Dr."}\n\n${liveUrl}`
+    : "";
+  const [shareMessage, setShareMessage] = useState(defaultShareMessage);
+  const [lastDefaultShareMessage, setLastDefaultShareMessage] = useState(defaultShareMessage);
+  if (defaultShareMessage !== lastDefaultShareMessage) {
+    setShareMessage(defaultShareMessage);
+    setLastDefaultShareMessage(defaultShareMessage);
+  }
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const barHeights = [35, 55, 40, 70, 85, 60, 45];
   const currentTip = growthTips[tipIndex];
 
   return (
-    <div className="max-w-7xl mx-auto w-full flex flex-col gap-2 lg:gap-2.5 xl:gap-3 lg:h-[calc(100dvh-3.5rem-2rem)] xl:h-[calc(100dvh-3.5rem-3rem)] lg:overflow-hidden">
+    <div className="max-w-7xl mx-auto w-full flex flex-col gap-2 lg:gap-2.5 xl:gap-3">
       {/* Welcome Banner */}  
-      <div className="relative overflow-hidden rounded-2xl gradient-brand p-4 md:p-5">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-4 right-10 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
-          <div className="absolute bottom-2 right-40 w-24 h-24 rounded-full bg-white/10 blur-xl" />
-        </div>
+      <div className="relative overflow-hidden rounded-2xl p-4 md:p-5" style={{ backgroundColor: "#1E40AF" }}>
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -191,7 +198,7 @@ const DashboardHome = () => {
             <p className="text-white/80 mt-0.5 text-sm">Here's what's happening with your practice today.</p>
           </div>
           {profile?.plan_status === "trial" && !isStaff && summarizePlan(profile).kind === "trial" && (
-            <div className="bg-navy/45 backdrop-blur-sm border border-white/20 rounded-xl p-4 min-w-[220px]">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 min-w-[220px]">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="h-4 w-4 text-spark-bright" aria-hidden="true" />
                 <span className="text-sm font-semibold text-white">Free Trial</span>
@@ -265,9 +272,9 @@ const DashboardHome = () => {
       {/* Main two-column layout:
           LEFT  = Today's Schedule (spans full height of right column)
           RIGHT = Monthly Revenue (top) + Share Your Website (bottom), equally split */}
-      <div className="grid gap-3 lg:grid-cols-2 lg:flex-1 lg:min-h-0">
+      <div className="grid gap-3 lg:grid-cols-2">
         {/* LEFT — Today's Schedule */}
-        <Card className="rounded-2xl flex flex-col lg:min-h-0 lg:overflow-hidden">
+        <Card className="rounded-2xl flex flex-col">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -281,7 +288,7 @@ const DashboardHome = () => {
               </Link>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <CardContent className="flex-1">
             {todayAppointments.length === 0 ? (
               <div className="text-center py-10">
                 <div className="w-16 h-16 rounded-2xl bg-royal/5 flex items-center justify-center mx-auto mb-3">
@@ -328,10 +335,10 @@ const DashboardHome = () => {
 
         {/* RIGHT — Monthly Revenue + Share Your Website, stacked and equally sized
             so their combined height matches Today's Schedule on the left */}
-        <div className="flex flex-col gap-3 lg:min-h-0">
+        <div className="flex flex-col gap-3">
           {/* Monthly Revenue */}
           {canSeeRevenue && (
-          <Card className="rounded-2xl flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">
+          <Card className="rounded-2xl flex flex-col">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -343,8 +350,8 @@ const DashboardHome = () => {
               </div>
               <p className="text-xs text-muted-foreground">Last 30 days</p>
             </CardHeader>
-            <CardContent className="flex-1 lg:min-h-0 pt-0 pb-3">
-              <div className="w-full h-full min-h-[120px]" role="img" aria-label={`Daily revenue for the last 30 days, total ₹${monthlyRevenue.toLocaleString("en-IN")}`}>
+            <CardContent className="pt-0 pb-3">
+              <div className="w-full h-[220px]" role="img" aria-label={`Daily revenue for the last 30 days, total ₹${monthlyRevenue.toLocaleString("en-IN")}`}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={revenueSeries} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                     <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
@@ -379,22 +386,30 @@ const DashboardHome = () => {
           )}
 
           {/* Share Your Website */}
-          <Card className="rounded-2xl border-l-4 border-l-success flex flex-col flex-1 lg:min-h-0 lg:overflow-hidden">
+          <Card className="rounded-2xl border-l-4 border-l-success flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Share2 className="h-4 w-4 text-success" aria-hidden="true" /> Share Your Website
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 lg:min-h-0 lg:overflow-y-auto">
+            <CardContent>
               {liveUrl ? (
                 <div className="space-y-3">
                   <p className="text-sm text-muted-foreground">Share your website with patients via WhatsApp to get more bookings!</p>
-                  <div className="bg-secondary rounded-lg p-3 text-sm text-foreground break-all">
-                    🏥 Book your appointment online with {profile?.full_name || "Dr."} — {liveUrl}
-                  </div>
+                  <Textarea
+                    value={shareMessage}
+                    onChange={(e) => setShareMessage(e.target.value)}
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      el.style.height = "auto";
+                      el.style.height = `${el.scrollHeight}px`;
+                    }}
+                    className="bg-secondary rounded-lg p-3 text-sm text-foreground resize-none overflow-hidden"
+                    rows={3}
+                  />
                   <div className="flex gap-2">
                     <a
-                      href={`https://wa.me/?text=${encodeURIComponent(`🏥 Book your appointment online with ${profile?.full_name || "Dr."}\n\n${liveUrl}`)}`}
+                      href={`https://wa.me/?text=${encodeURIComponent(shareMessage)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1"
@@ -403,13 +418,13 @@ const DashboardHome = () => {
                         <Send className="h-3 w-3 mr-1" /> Share on WhatsApp
                       </Button>
                     </a>
-                    <Button variant="outline" size="sm" className="text-xs h-9" onClick={() => { navigator.clipboard.writeText(liveUrl); toast.success("Link copied!"); }}>
+                    <Button variant="outline" size="sm" className="text-xs h-9" onClick={() => { navigator.clipboard.writeText(shareMessage); toast.success("Message copied!"); }}>
                       <Copy className="h-3 w-3 mr-1" /> Copy
                     </Button>
                   </div>
                 </div>
               ) : (
-                <div className="h-full min-h-[96px] flex items-center justify-center">
+                <div className="min-h-[96px] flex items-center justify-center">
                   <p className="text-sm text-muted-foreground text-center">Complete onboarding to share your website</p>
                 </div>
               )}
@@ -417,6 +432,8 @@ const DashboardHome = () => {
           </Card>
         </div>
       </div>
+
+      <GettingStartedCard />
     </div>
   );
 };
