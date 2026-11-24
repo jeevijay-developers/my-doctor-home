@@ -614,7 +614,7 @@ const FeaturesPage = () => {
                     Start 7-Day Free Trial <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
-                <Link to="/contact?topic=demo">
+                <Link to="/demo">
                   <Button
                     size="lg"
                     variant="outline"

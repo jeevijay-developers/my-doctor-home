@@ -3,7 +3,7 @@ import { ArrowRight, Facebook, Instagram, Linkedin, Mail, MapPin, Phone, Youtube
 import "@/styles/doctor-site.css";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import OptimizedImage from "@/components/shared/OptimizedImage";
-import { clinicPhone, doctorName as formatName, telHref } from "@/lib/doctorSite/doctorFacts";
+import { clinicPhone, doctorName as formatName, telHref, siteLabels } from "@/lib/doctorSite/doctorFacts";
 import { getClinicMapsUrl } from "@/lib/clinicLocation";
 import type { Tables } from "@/integrations/supabase/types";
 import DsButton from "./ui/DsButton";
@@ -33,6 +33,7 @@ const Footer = ({ profileOverride }: FooterProps) => {
   const navigate = useNavigate();
   const profile = profileOverride ?? doctorData.profile;
   const settings = profileOverride ? null : doctorData.settings;
+  const labels = siteLabels(settings);
   const services = profileOverride ? [] : doctorData.services;
   const gallery = profileOverride ? [] : doctorData.gallery;
 
@@ -91,11 +92,11 @@ const Footer = ({ profileOverride }: FooterProps) => {
                 }}
                 className="!bg-[rgb(var(--ds-footer-ink))] !text-[rgb(var(--ds-footer-bg))] hover:!bg-white"
               >
-                Book appointment <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={2} />
+                {labels.book} <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={2} />
               </DsButton>
               {phone && (
                 <DsButton href={telHref(phone)} size="lg" variant="secondary" className="!border-white/25 !bg-transparent !text-[rgb(var(--ds-footer-ink))] hover:!bg-white/10">
-                  <Phone aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} /> Call {phone}
+                  <Phone aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} /> {labels.call || `Call ${phone}`}
                 </DsButton>
               )}
             </div>

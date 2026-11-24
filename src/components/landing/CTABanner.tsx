@@ -23,7 +23,7 @@ const CTABanner = () => (
             </Button>
           </Link>
           <Link
-            to="/contact?topic=demo"
+            to="/demo"
             className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-white/10 px-8 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/20 sm:w-auto"
           >
             <CalendarDays className="h-5 w-5" aria-hidden="true" /> Schedule Clinic Walkthrough

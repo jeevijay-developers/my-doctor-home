@@ -238,3 +238,180 @@ html:has(.doctor-site) {
     scroll-behavior: auto !important;
   }
 }
+
+/* ------------------------------------------------------------------------------------------
+ * Effects layer: glass, aurora, dot grid, glow, spotlight, float (components in ./effects).
+ * Patterns ported from Magic UI / Aceternity onto these tokens. Everything that moves
+ * animates transform/opacity only (compositor, no repaint) and stops for reduced motion.
+ * No WebGL: a WebGL accent behind the hero measurably dropped scroll frames (CLAUDE.md).
+ * ---------------------------------------------------------------------------------------- */
+.doctor-site {
+  --ds-glass-bg: 255 255 255;
+  --ds-glass-alpha: 0.62;
+  --ds-glass-shine: 0.75;
+  --ds-glass-edge: 0.7;
+  --ds-aurora-1: 29 78 216;
+  --ds-aurora-2: 245 158 11;
+  --ds-aurora-3: 34 211 238;
+  --ds-aurora-alpha: 0.2;
+}
+.dark .doctor-site {
+  --ds-glass-bg: 23 33 51;
+  --ds-glass-alpha: 0.55;
+  --ds-glass-shine: 0.07;
+  --ds-glass-edge: 0.5;
+  --ds-aurora-1: 96 140 255;
+  --ds-aurora-alpha: 0.16;
+}
+
+/* Glass: frosted, translucent surface with a bright top edge. */
+.doctor-site .ds-glass,
+.doctor-site.ds-glass {
+  background-color: rgb(var(--ds-glass-bg) / var(--ds-glass-alpha));
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  backdrop-filter: blur(18px) saturate(170%);
+  border: 1px solid rgb(var(--ds-line) / var(--ds-glass-edge));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / var(--ds-glass-shine)), var(--ds-shadow-1);
+}
+/* Denser glass for bars that sit over busy content (navbar, phone bar). */
+.doctor-site .ds-glass-strong {
+  --ds-glass-alpha: 0.78;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .doctor-site .ds-glass,
+  .doctor-site.ds-glass {
+    background-color: rgb(var(--ds-surface) / 0.97);
+  }
+}
+
+/* Aurora: three soft colour fields drifting behind the hero (AuroraBackdrop.tsx). */
+.doctor-site .ds-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.doctor-site .ds-aurora > span {
+  position: absolute;
+  width: 52vmax;
+  height: 52vmax;
+  border-radius: 9999px;
+  will-change: transform;
+  animation: ds-drift 24s ease-in-out infinite alternate;
+}
+.doctor-site .ds-aurora > span:nth-child(1) {
+  top: -22vmax;
+  right: -14vmax;
+  background: radial-gradient(closest-side, rgb(var(--ds-aurora-1) / calc(var(--ds-aurora-alpha) * 1.2)), transparent);
+}
+.doctor-site .ds-aurora > span:nth-child(2) {
+  top: 8%;
+  left: -24vmax;
+  background: radial-gradient(closest-side, rgb(var(--ds-aurora-2) / var(--ds-aurora-alpha)), transparent);
+  animation-duration: 30s;
+  animation-delay: -8s;
+}
+.doctor-site .ds-aurora > span:nth-child(3) {
+  bottom: -30vmax;
+  left: 30%;
+  background: radial-gradient(closest-side, rgb(var(--ds-aurora-3) / var(--ds-aurora-alpha)), transparent);
+  animation-duration: 36s;
+  animation-delay: -14s;
+}
+.doctor-site .ds-aurora[data-paused] > span {
+  animation-play-state: paused;
+}
+@keyframes ds-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(5vmax, 3vmax, 0) scale(1.12); }
+  100% { transform: translate3d(-4vmax, 6vmax, 0) scale(0.92); }
+}
+@media (max-width: 767.98px) {
+  .doctor-site .ds-aurora > span { width: 80vmax; height: 80vmax; }
+  .doctor-site .ds-aurora > span:nth-child(3) { display: none; }
+}
+
+/* Dot grid, faded towards the edges (Magic UI "Dot Pattern"). Uses ::after, so it can
+   share an element with .ds-grain (::before). */
+.doctor-site .ds-dots {
+  position: relative;
+  isolation: isolate;
+}
+.doctor-site .ds-dots::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgb(var(--ds-ink) / 0.13) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 25%, transparent 80%);
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 25%, transparent 80%);
+}
+
+/* A still colour glow behind a focal card (no animation). */
+.doctor-site .ds-glow {
+  position: relative;
+  isolation: isolate;
+}
+.doctor-site .ds-glow::before {
+  content: "";
+  position: absolute;
+  inset: 8% 0 auto;
+  height: 75%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(45% 55% at 25% 40%, rgb(var(--ds-aurora-1) / 0.12), transparent 70%),
+    radial-gradient(40% 50% at 80% 60%, rgb(var(--ds-aurora-3) / 0.10), transparent 70%);
+}
+
+/* Cursor spotlight + glowing edge (Magic UI "Magic Card"), driven by useSpotlight(). */
+.doctor-site .ds-spotlight {
+  position: relative;
+  isolation: isolate;
+}
+.doctor-site .ds-spotlight::after,
+.doctor-site .ds-spotlight::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.doctor-site .ds-spotlight::after {
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(280px circle at var(--ds-mx, 50%) var(--ds-my, 50%), rgb(var(--ds-accent) / 0.07), transparent 70%);
+}
+.doctor-site .ds-spotlight::before {
+  inset: -1px;
+  z-index: 1;
+  padding: 1px;
+  background: radial-gradient(220px circle at var(--ds-mx, 50%) var(--ds-my, 50%), rgb(var(--ds-accent) / 0.6), rgb(var(--ds-aurora-3) / 0.3) 45%, transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.doctor-site .ds-spotlight[data-spot]::after,
+.doctor-site .ds-spotlight[data-spot]::before {
+  opacity: 1;
+}
+
+/* Gentle float for the glass chip on the hero portrait. */
+@keyframes ds-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -6px, 0); }
+}
+.doctor-site .ds-float {
+  animation: ds-float 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doctor-site .ds-aurora > span,
+  .doctor-site .ds-float {
+    animation: none !important;
+  }
+}

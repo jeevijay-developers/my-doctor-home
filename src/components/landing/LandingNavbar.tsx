@@ -68,7 +68,7 @@ const LandingNavbar = () => {
     );
 
   const renderDemo = (className: string, onClick?: () => void) => (
-    <Link to="/contact?topic=demo" className={className} onClick={onClick}>Book Demo</Link>
+    <Link to="/demo" className={className} onClick={onClick}>Book Demo</Link>
   );
 
   return (

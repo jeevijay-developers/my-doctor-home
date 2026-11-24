@@ -176,9 +176,10 @@ describe("BookingWidget (pay at clinic)", () => {
     setDoctor({ services: [{ id: "s1", name: "ECG", price: 300, duration: 20, type: "clinic", active: true }] });
     render(<BookingWidget />);
     fireEvent.click(screen.getByRole("button", { name: "Change service" }));
-    expect(screen.getByText("₹750")).toBeInTheDocument();
-    expect(screen.getByText("ECG")).toBeInTheDocument();
-    expect(screen.getByText("₹300")).toBeInTheDocument();
+    const list = within(screen.getByRole("radiogroup", { name: "Service" }));
+    expect(list.getByText("₹750")).toBeInTheDocument();
+    expect(list.getByText("ECG")).toBeInTheDocument();
+    expect(list.getByText("₹300")).toBeInTheDocument();
   });
 
   it("hides inactive services and services of another consultation type", () => {
@@ -200,7 +201,8 @@ describe("BookingWidget (pay at clinic)", () => {
     setDoctor({ services: [{ id: "s1", name: "Unpriced", price: null, type: "clinic", active: true }] });
     render(<BookingWidget />);
     fireEvent.click(screen.getByRole("button", { name: "Change service" }));
-    expect(screen.getAllByText("₹750").length).toBe(2);
+    // Both the default consultation and the unpriced service show the default fee in the list.
+    expect(within(screen.getByRole("radiogroup", { name: "Service" })).getAllByText("₹750").length).toBe(2);
   });
 
   it("shows a free (₹0) consultation as ₹0, not ₹500", () => {

@@ -202,6 +202,28 @@ describe("BookingWidget online payment edge states", () => {
     expect(screen.getByRole("button", { name: "Pay Now" })).not.toBeDisabled();
   });
 
+  it("a clinic without active online payments shows no warning up front, and says why only when the booking fails", async () => {
+    h.doctor.profile = { ...h.doctor.profile, razorpay_payment_enabled: false, razorpay_account_status: "pending" };
+    invokeBy({
+      "create-razorpay-order": () => ({
+        data: null,
+        error: { context: { status: 400, json: async () => ({ error: "Online payment is not active for this doctor yet. Please contact the clinic to book." }) } },
+      }),
+    });
+    render(<BookingWidget />);
+    await screen.findByRole("heading", { name: "Select Date" });
+    expect(screen.queryByText(/not yet active/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await gotoReview();
+    payNow();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Booking not completed");
+    expect(alert).toHaveTextContent(/Online payment isn't active for this clinic yet/);
+    expect(h.toastError).toHaveBeenCalledWith("Booking not completed", expect.anything());
+    expect(rz.opened).toBe(0);
+  });
+
   it("SLOT_FULL from order creation sends the patient back to pick another time", async () => {
     invokeBy({ "create-razorpay-order": () => ({ data: null, error: { context: { status: 409, json: async () => ({ error: "SLOT_FULL" }) } } }) });
     render(<BookingWidget />);

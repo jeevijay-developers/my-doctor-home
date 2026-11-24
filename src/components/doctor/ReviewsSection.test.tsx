@@ -51,6 +51,16 @@ describe("ReviewsSection", () => {
     expect(screen.getByText("Verified")).toBeInTheDocument();
   });
 
+  it("lets the page keep scrolling vertically over the review cards", () => {
+    mockData([review()]);
+    render(<ReviewsSection />);
+    const rail = screen.getByRole("region", { name: /Patient reviews/ });
+    // Opting the whole wheel out of Lenis froze the page while the pointer was over the cards.
+    expect(rail).not.toHaveAttribute("data-lenis-prevent-wheel");
+    expect(rail).not.toHaveAttribute("data-lenis-prevent");
+    expect(rail).toHaveAttribute("data-lenis-prevent-horizontal");
+  });
+
   it("submits a review for this doctor and thanks the patient", async () => {
     mockData([]);
     render(<ReviewsSection />);

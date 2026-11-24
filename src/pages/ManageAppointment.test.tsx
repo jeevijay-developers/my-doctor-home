@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { format, addHours } from "date-fns";
 import ManageAppointment from "./ManageAppointment";
 import { createTableMock } from "@/test/tableMock";
+import { clinicToday } from "@/lib/queue";
 
 const mock = vi.hoisted(() => ({ current: null as any }));
 vi.mock("@/integrations/supabase/client", () => ({
@@ -14,6 +15,10 @@ vi.mock("@/integrations/supabase/client", () => ({
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 vi.mock("@/components/VideoConsultationCard", () => ({ default: () => <div>VIDEO-CARD</div> }));
+vi.mock("@/components/doctor/AppointmentSlip", () => ({ default: ({ open, time }: { open: boolean; time: string }) => (open ? <div>BOOKING-SLIP {time}</div> : null) }));
+vi.mock("@/components/doctor/PaymentSlip", () => ({ default: ({ open, razorpayPaymentId }: { open: boolean; razorpayPaymentId: string }) => (open ? <div>PAYMENT-RECEIPT {razorpayPaymentId}</div> : null) }));
+const pdf = vi.hoisted(() => ({ download: vi.fn() }));
+vi.mock("@/lib/downloadPdfFromNode", () => ({ downloadPdfFromNode: pdf.download }));
 
 const appt = (over: Record<string, unknown> = {}) => ({
   id: "a1",
@@ -224,5 +229,80 @@ describe("ManageAppointment", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Reschedule/ }));
     expect(await screen.findByRole("button", { name: /Confirm New Time/ })).toBeDisabled();
     expect(screen.getByText(/You have 2 reschedules remaining/)).toBeInTheDocument();
+  });
+
+  describe("My appointment page", () => {
+    it("is titled for finding the appointment, then for the appointment itself", async () => {
+      renderPage();
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Find Your Appointment");
+      await fillAndFind();
+      await screen.findByText("Ravi Kumar");
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Your Appointment");
+      expect(document.title).toBe("My Appointment · Dr. Asha Rao | Doctylia");
+    });
+
+    it("lets the patient view and download the booking slip", async () => {
+      renderPage();
+      await fillAndFind();
+      fireEvent.click(await screen.findByRole("button", { name: "View booking slip" }));
+      expect(screen.getByText("BOOKING-SLIP 10:00 AM")).toBeInTheDocument();
+    });
+
+    it("downloads the booking slip as a PDF in one tap", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderPage();
+      await fillAndFind();
+      await screen.findByText("Ravi Kumar");
+      fireEvent.click(screen.getAllByRole("button", { name: /PDF/ })[0]);
+      vi.advanceTimersByTime(400);
+      expect(pdf.download).toHaveBeenCalledWith("[data-slip-print-root] .slip-card", expect.stringContaining("Appointment"));
+      vi.useRealTimers();
+    });
+
+    it("offers the payment receipt only for an online payment", async () => {
+      renderPage();
+      await fillAndFind();
+      await screen.findByText("Ravi Kumar");
+      expect(screen.queryByText("Payment receipt")).not.toBeInTheDocument();
+    });
+
+    it("shows how the visit was paid and the online receipt", async () => {
+      mock.current.rpcs.get_appointment_by_token = () => [
+        appt({ payment_status: "paid", payment_gateway: "razorpay", gateway_payment_id: "pay_123", gateway_order_id: "order_9", paid_at: "2026-11-20T10:00:00Z" }),
+      ];
+      renderPage();
+      await fillAndFind();
+      expect(await screen.findByText("Paid online · ₹500")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "View payment receipt" }));
+      expect(screen.getByText("PAYMENT-RECEIPT pay_123")).toBeInTheDocument();
+    });
+
+    it("a cancelled booking has no slip to download", async () => {
+      mock.current.rpcs.get_appointment_by_token = () => [appt({ status: "cancelled" })];
+      renderPage();
+      await fillAndFind();
+      await screen.findByText("Ravi Kumar");
+      expect(screen.queryByText("Booking slip")).not.toBeInTheDocument();
+    });
+
+    it("on the day, shows the live queue numbers and links to the clinic's queue screen", async () => {
+      mock.current.rpcs.get_appointment_by_token = () => [appt({ appointment_type: "clinic", date: clinicToday(), time_slot: "23:59" })];
+      mock.current.rpcs.get_my_queue_status = () => ({ found: true, queue_number: 7, state: "waiting", ahead: 2, now_serving: 5, avg_minutes: 10 });
+      renderPage();
+      await fillAndFind();
+      expect(await screen.findByText("2 patients ahead of you")).toBeInTheDocument();
+      expect(screen.getByText("#7")).toBeInTheDocument();
+      expect(screen.getByText("#5")).toBeInTheDocument();
+      expect(screen.getByText("~25 min")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /queue screen/ })).toHaveAttribute("href", "/dr/asha/queue");
+    });
+
+    it("before the day, explains when the live queue opens", async () => {
+      mock.current.rpcs.get_appointment_by_token = () => [appt({ appointment_type: "clinic" })];
+      renderPage();
+      await fillAndFind();
+      expect(await screen.findByText(/The queue opens on the day of your visit/)).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /queue screen/ })).not.toBeInTheDocument();
+    });
   });
 });

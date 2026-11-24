@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useSpotlight } from "./effects/useSpotlight";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, PenLine, ShieldCheck, Star } from "lucide-react";
 import { toast } from "sonner";
@@ -33,13 +34,16 @@ const Stars = ({ rating, size = 16 }: { rating: number; size?: number }) => (
   </span>
 );
 
-const ReviewCard = ({ review, index }: { review: Review; index: number }) => (
+const ReviewCard = ({ review, index }: { review: Review; index: number }) => {
+  const spotlight = useSpotlight<HTMLElement>();
+  return (
   <motion.article
+    {...spotlight}
     initial={{ opacity: 0, y: 16 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true, margin: "-40px" }}
     transition={{ duration: DUR.medium, ease: EASE.out, delay: staggerDelay(index) }}
-    className="flex h-full w-[85vw] max-w-[22rem] shrink-0 snap-start flex-col rounded-ds-md border border-ds-line bg-ds-surface p-6 shadow-ds-1 sm:w-[22rem]"
+    className="ds-spotlight flex h-full w-[85vw] max-w-[22rem] shrink-0 snap-start flex-col rounded-ds-md border border-ds-line bg-ds-surface p-6 shadow-ds-1 transition-[transform,box-shadow] duration-ds-2 ease-ds-out hover:-translate-y-1 hover:shadow-ds-2 sm:w-[22rem]"
   >
     <Stars rating={review.rating} />
     <blockquote className="mt-4 flex-1 font-ds-display text-[1.1875rem] leading-snug text-ds-ink">
@@ -58,7 +62,8 @@ const ReviewCard = ({ review, index }: { review: Review; index: number }) => (
       )}
     </footer>
   </motion.article>
-);
+  );
+};
 
 const Distribution = ({ rows, total }: { rows: { stars: number; count: number }[]; total: number }) => (
   <ul className="w-full max-w-[18rem] space-y-1.5" aria-label="Ratings breakdown">
@@ -141,11 +146,13 @@ const ReviewsSection = () => {
           <div className="relative mt-10 md:mt-14">
             <div
               ref={railRef}
-              data-lenis-prevent-wheel
+              // Only sideways gestures belong to the rail. Opting the whole wheel out of Lenis (with the
+              // overscroll containment its CSS adds) made the page stop scrolling over the cards.
+              data-lenis-prevent-horizontal
               tabIndex={0}
               role="region"
               aria-label="Patient reviews, scroll sideways for more"
-              className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden"
+              className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain px-5 pb-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden"
             >
               {list.map((review, index) => (
                 <ReviewCard key={review.id} review={review} index={index} />

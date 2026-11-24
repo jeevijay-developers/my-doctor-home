@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useSpotlight } from "../effects/useSpotlight";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, CalendarClock } from "lucide-react";
 import { relativeDayLabel, SELECT_SLOT_EVENT, slotLabel, type NextAvailable, type SelectSlotDetail } from "@/lib/doctorSite/nextAvailable";
@@ -28,6 +29,7 @@ const stillAhead = (slot: NextAvailable, now = new Date()) => {
  * works in every state, so a patient never waits on the lookup.
  */
 const QuickBookCard = ({ state, fee }: Props) => {
+  const spotlight = useSpotlight<HTMLDivElement>();
   const slot = state.status === "found" ? state.slot : null;
   const slotTextId = useId();
 
@@ -42,7 +44,7 @@ const QuickBookCard = ({ state, fee }: Props) => {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-ds-md border border-ds-line bg-ds-surface p-5 shadow-ds-2 sm:p-6">
+    <div {...spotlight} className="ds-glass ds-spotlight relative overflow-hidden rounded-ds-md p-5 !shadow-ds-2 sm:p-6">
       <ShineBorder borderWidth={1.5} />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">

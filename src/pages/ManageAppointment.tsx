@@ -9,17 +9,25 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format, addDays, differenceInHours, parseISO, isSameDay } from "date-fns";
-import { CalendarCheck, Clock, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight, BellRing } from "lucide-react";
+import { CalendarCheck, Users, ChevronLeft, XCircle, RefreshCw, Loader2, ArrowRight, BellRing, FileText, Receipt, Download, Eye, MonitorPlay } from "lucide-react";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
 import { generateTimeSlots, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
 import { clinicToday } from "@/lib/queue";
 import VideoConsultationCard from "@/components/VideoConsultationCard";
+import AppointmentSlip from "@/components/doctor/AppointmentSlip";
+import PaymentSlip from "@/components/doctor/PaymentSlip";
+import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
+import { pdfFileName } from "@/lib/pdfFileName";
+import { PUBLIC_PROFILE_COLUMNS } from "@/lib/publicProfileColumns";
+import { paymentSummary, queueWaitMinutes, slotTimeLabel } from "@/lib/manageAppointment";
 
 type Appt = {
   id: string; doctor_id: string; patient_name: string; patient_phone: string;
   service_name: string; appointment_type: string; date: string; time_slot: string | null;
   status: string; token_number: string; amount: number; reschedule_count: number;
   chief_complaint: string | null; meeting_link: string | null; created_at: string;
+  payment_status?: string | null; payment_method?: string | null; payment_gateway?: string | null;
+  gateway_payment_id?: string | null; gateway_order_id?: string | null; paid_at?: string | null;
 };
 
 const ManageAppointment = () => {
@@ -54,18 +62,20 @@ const ManageAppointment = () => {
   const [newDate, setNewDate] = useState<Date | null>(null);
   const [newTime, setNewTime] = useState("");
   const [busy, setBusy] = useState(false);
+  const [slipOpen, setSlipOpen] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   useEffect(() => {
     const prevTitle = document.title;
     document.title = doctor?.full_name
-      ? `Manage Appointment · Dr. ${doctor.full_name} | Doctylia`
-      : "Manage Your Appointment | Doctylia";
+      ? `My Appointment · Dr. ${doctor.full_name} | Doctylia`
+      : "My Appointment | Doctylia";
     const metaDesc = document.querySelector('meta[name="description"]');
     const prevDesc = metaDesc?.getAttribute("content") ?? null;
     if (metaDesc) {
       metaDesc.setAttribute(
         "content",
-        "Look up, reschedule, or cancel your booked clinic or online consultation appointment using your token number and registered mobile number."
+        "See your appointment, follow the live queue on the day, download your booking slip or payment receipt, and reschedule or cancel using your token number and mobile number."
       );
     }
     return () => {
@@ -78,7 +88,9 @@ const ManageAppointment = () => {
     if (!slug) return;
     setClinicError(null);
     (async () => {
-      const { data: prof, error: profErr } = await supabase.from("profiles").select("id, full_name, clinic_name, slug").eq("slug", slug).eq("onboarding_completed", true).single();
+      // Explicit public columns (anon cannot read the sensitive ones); the slips use these.
+      const { data: profRow, error: profErr } = await supabase.from("profiles").select(PUBLIC_PROFILE_COLUMNS).eq("slug", slug).eq("onboarding_completed", true).single();
+      const prof = profRow as unknown as { id: string; full_name: string; clinic_name: string | null; slug: string } | null;
       if (profErr || !prof) {
         // PGRST116 = no row: the clinic does not exist. Anything else is a failed request.
         setClinicError(profErr && profErr.code !== "PGRST116" ? "network" : "missing");
@@ -239,6 +251,31 @@ const ManageAppointment = () => {
     }
   };
 
+  const apptDate = appt ? parseISO(appt.date) : null;
+  const timeLabel = slotTimeLabel(appt?.time_slot);
+  const payment = appt ? paymentSummary(appt) : null;
+  const hasReceipt = Boolean(appt?.payment_status === "paid" && appt.gateway_payment_id);
+  const canShowSlip = Boolean(appt && appt.status !== "cancelled");
+  const isClinicVisit = appt?.appointment_type === "clinic";
+  const isToday = appt?.date === clinicToday();
+  const isOpen = appt ? ["pending", "confirmed"].includes(appt.status) : false;
+  const queueHref = slug ? `/dr/${slug}/queue` : null;
+
+  const downloadSlip = () =>
+    downloadPdfFromNode("[data-slip-print-root] .slip-card", pdfFileName("Appointment", appt?.patient_name, appt?.date, appt?.token_number));
+  const downloadReceipt = () =>
+    downloadPdfFromNode("[data-payment-slip-print-root] .slip-card", pdfFileName("Payment-Receipt", appt?.patient_name, appt?.date, appt?.token_number));
+  // One tap: open the slip (it renders the document) and save it as a PDF once it has mounted.
+  const quickDownload = (which: "slip" | "receipt") => {
+    if (which === "slip") {
+      setSlipOpen(true);
+      setTimeout(downloadSlip, 350);
+    } else {
+      setReceiptOpen(true);
+      setTimeout(downloadReceipt, 350);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-cloud-blue py-10 px-4 overflow-x-hidden">
       <div className="container mx-auto max-w-lg">
@@ -251,10 +288,12 @@ const ManageAppointment = () => {
         <Card className="border-border/60 shadow-xl">
           <CardContent className="p-6 md:p-8">
             <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2 mb-2">
-              <CalendarCheck className="h-6 w-6 text-royal" /> Manage Your Appointment
+              <CalendarCheck className="h-6 w-6 text-royal" /> {appt ? "Your Appointment" : "Find Your Appointment"}
             </h1>
             <p className="text-sm text-muted-foreground mb-6">
-              Enter your token number and phone to view, reschedule or cancel your booking.
+              {appt
+                ? <>With Dr. {doctor?.full_name}{doctor?.clinic_name ? ` · ${doctor.clinic_name}` : ""}</>
+                : "Enter the token number from your booking and your mobile number to see your appointment, follow the live queue and download your slips."}
             </p>
 
             {!appt && (
@@ -295,7 +334,13 @@ const ManageAppointment = () => {
                   <div className="flex justify-between"><span className="text-text-gray">Patient</span><span className="font-medium">{appt.patient_name}</span></div>
                   <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="font-medium">{appt.service_name}</span></div>
                   <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="font-medium">{format(parseISO(appt.date), "EEE, d MMM yyyy")}</span></div>
-                  <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="font-medium">{appt.time_slot ? format(parseISO(`2000-01-01T${appt.time_slot.slice(0, 5)}`), "h:mm a") : "Walk-in"}</span></div>
+                  <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="font-medium">{timeLabel || "Walk-in"}</span></div>
+                  {payment && (
+                    <div className="flex justify-between gap-3">
+                      <span className="text-text-gray">Payment</span>
+                      <span className={`font-medium text-right ${payment.tone === "good" ? "text-success" : payment.tone === "warn" ? "text-warning" : ""}`}>{payment.label}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center pt-1">
                     <span className="text-text-gray">Status</span>
                     <Badge variant="outline" className={`capitalize ${statusStyle(appt.status)}`}>{appt.status}</Badge>
@@ -330,29 +375,102 @@ const ManageAppointment = () => {
                   </div>
                 )}
 
-                {queueInfo?.found && appt.appointment_type === "clinic" && (
-                  <div role="status" aria-live="polite" className="p-3 rounded-xl bg-royal/5 border border-royal/20 text-sm text-royal space-y-1">
+                {isClinicVisit && isOpen && (
+                  <section aria-labelledby="queue-heading" className="rounded-xl border border-royal/20 bg-royal/5 p-4 space-y-3">
                     <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span className="font-semibold">
-                        {queueInfo.state === "serving" && "It's your turn — please go in."}
-                        {queueInfo.state === "waiting" && (queueInfo.ahead === 0 ? "You're next in line!" : `${queueInfo.ahead} patient${queueInfo.ahead === 1 ? "" : "s"} ahead of you`)}
-                        {queueInfo.state === "skipped" && "You were skipped — please check with the reception."}
-                        {queueInfo.state === "done" && "Your visit is complete."}
-                        {(queueInfo.state === "cancelled" || queueInfo.state === "no_show") && "This visit is closed."}
-                      </span>
-                      <span className="ml-auto text-[10px] flex items-center gap-1 opacity-70"><RefreshCw className="h-3 w-3" /> {queueLive ? "live" : "reconnecting…"}</span>
+                      <Users className="h-4 w-4 text-royal" aria-hidden="true" />
+                      <h2 id="queue-heading" className="font-heading font-semibold text-sm text-royal">Live queue</h2>
+                      {isToday && queueInfo?.found && (
+                        <span className="ml-auto text-[11px] flex items-center gap-1 text-royal/80">
+                          <span className={`h-1.5 w-1.5 rounded-full ${queueLive ? "bg-success animate-pulse" : "bg-warning"}`} aria-hidden="true" />
+                          {queueLive ? "Live" : "Reconnecting…"}
+                        </span>
+                      )}
                     </div>
-                    {(queueInfo.state === "waiting" || queueInfo.state === "serving") && (
-                      <div className="text-xs text-royal/80">
-                        Your number: <strong>#{queueInfo.queue_number}</strong>
-                        {queueInfo.now_serving != null && <> · Now serving: <strong>#{queueInfo.now_serving}</strong></>}
-                        {queueInfo.state === "waiting" && queueInfo.avg_minutes != null && queueInfo.ahead != null && (
-                          <> · about {Math.max(1, Math.round((queueInfo.ahead + (queueInfo.now_serving != null ? 0.5 : 0)) * queueInfo.avg_minutes))} min</>
+
+                    {!isToday ? (
+                      <p className="text-sm text-foreground/80">
+                        The queue opens on the day of your visit{apptDate ? ` (${format(apptDate, "EEE, d MMM")})` : ""}. Come back to this page then to see how many patients are ahead of you.
+                      </p>
+                    ) : queueInfo?.found ? (
+                      <div role="status" aria-live="polite" className="space-y-3">
+                        <p className="font-semibold text-sm text-royal">
+                          {queueInfo.state === "serving" && "It's your turn — please go in."}
+                          {queueInfo.state === "waiting" && (queueInfo.ahead === 0 ? "You're next in line!" : `${queueInfo.ahead} patient${queueInfo.ahead === 1 ? "" : "s"} ahead of you`)}
+                          {queueInfo.state === "skipped" && "You were skipped — please check with the reception."}
+                          {queueInfo.state === "done" && "Your visit is complete."}
+                          {(queueInfo.state === "cancelled" || queueInfo.state === "no_show") && "This visit is closed."}
+                        </p>
+                        {(queueInfo.state === "waiting" || queueInfo.state === "serving") && (
+                          <dl className="grid grid-cols-3 gap-2 text-center">
+                            <div className="rounded-lg bg-background p-2">
+                              <dt className="text-[11px] text-muted-foreground">Your number</dt>
+                              <dd className="font-heading font-bold text-xl text-primary">#{queueInfo.queue_number}</dd>
+                            </div>
+                            <div className="rounded-lg bg-background p-2">
+                              <dt className="text-[11px] text-muted-foreground">Now serving</dt>
+                              <dd className="font-heading font-bold text-xl text-primary">{queueInfo.now_serving != null ? `#${queueInfo.now_serving}` : "—"}</dd>
+                            </div>
+                            <div className="rounded-lg bg-background p-2">
+                              <dt className="text-[11px] text-muted-foreground">Est. wait</dt>
+                              <dd className="font-heading font-bold text-xl text-primary">
+                                {queueInfo.state === "serving" ? "Now" : (() => {
+                                  const mins = queueWaitMinutes(queueInfo);
+                                  return mins != null ? `~${mins} min` : "—";
+                                })()}
+                              </dd>
+                            </div>
+                          </dl>
                         )}
                       </div>
+                    ) : (
+                      <p className="text-sm text-foreground/80">
+                        Your queue number appears here once you check in at the reception. This page updates by itself.
+                      </p>
                     )}
-                  </div>
+
+                    {isToday && queueHref && (
+                      <Link to={queueHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-royal hover:underline">
+                        <MonitorPlay className="h-4 w-4" aria-hidden="true" /> Open the clinic's queue screen
+                      </Link>
+                    )}
+                  </section>
+                )}
+
+                {canShowSlip && (
+                  <section aria-labelledby="docs-heading" className="space-y-2">
+                    <h2 id="docs-heading" className="font-heading font-semibold text-sm text-foreground">Your documents</h2>
+                    <div className="rounded-xl border border-border divide-y divide-border">
+                      <div className="flex items-center gap-3 p-3">
+                        <FileText className="h-5 w-5 text-royal shrink-0" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">Booking slip</p>
+                          <p className="text-xs text-muted-foreground">Token, date, time and clinic details</p>
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-9" onClick={() => setSlipOpen(true)} aria-label="View booking slip">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-9" onClick={() => quickDownload("slip")}>
+                          <Download className="h-4 w-4 mr-1.5" /> PDF
+                        </Button>
+                      </div>
+                      {hasReceipt && (
+                        <div className="flex items-center gap-3 p-3">
+                          <Receipt className="h-5 w-5 text-success shrink-0" aria-hidden="true" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium">Payment receipt</p>
+                            <p className="text-xs text-muted-foreground">Online payment of ₹{appt.amount}</p>
+                          </div>
+                          <Button size="sm" variant="ghost" className="h-9" onClick={() => setReceiptOpen(true)} aria-label="View payment receipt">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-9" onClick={() => quickDownload("receipt")}>
+                            <Download className="h-4 w-4 mr-1.5" /> PDF
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </section>
                 )}
 
                 {appt.appointment_type === "online" && (appt.status === "pending" || appt.status === "confirmed") && (
@@ -391,7 +509,7 @@ const ManageAppointment = () => {
                   </div>
                 )}
 
-                <button className="text-xs text-muted-foreground hover:underline" onClick={() => { setAppt(null); setQueueInfo(null); setToken(""); setPhone(""); }}>
+                <button className="text-xs text-muted-foreground hover:underline" onClick={() => { setAppt(null); setQueueInfo(null); setSlipOpen(false); setReceiptOpen(false); setToken(""); setPhone(""); }}>
                   Look up a different appointment
                 </button>
               </div>
@@ -461,6 +579,44 @@ const ManageAppointment = () => {
           </CardContent>
         </Card>
       </div>
+
+      {appt && doctor && (
+        <AppointmentSlip
+          open={slipOpen}
+          onClose={() => setSlipOpen(false)}
+          profile={doctor}
+          settings={settings}
+          token={appt.token_number}
+          service={{ name: appt.service_name, price: Number(appt.amount) || 0 }}
+          type={appt.appointment_type === "online" ? "online" : "clinic"}
+          date={apptDate}
+          time={timeLabel}
+          patientName={appt.patient_name}
+          patientPhone={appt.patient_phone}
+          paymentStatus={appt.payment_status ?? undefined}
+          forceConfirmed={appt.status === "confirmed" || appt.status === "completed"}
+          onDownload={downloadSlip}
+        />
+      )}
+      {appt && doctor && hasReceipt && (
+        <PaymentSlip
+          open={receiptOpen}
+          onClose={() => setReceiptOpen(false)}
+          profile={doctor}
+          token={appt.token_number}
+          service={{ name: appt.service_name, price: Number(appt.amount) || 0 }}
+          type={appt.appointment_type === "online" ? "online" : "clinic"}
+          date={apptDate}
+          time={timeLabel}
+          patientName={appt.patient_name}
+          patientPhone={appt.patient_phone}
+          amount={Number(appt.amount) || 0}
+          razorpayPaymentId={appt.gateway_payment_id ?? ""}
+          razorpayOrderId={appt.gateway_order_id ?? ""}
+          paidAt={appt.paid_at ?? appt.created_at}
+          onDownload={downloadReceipt}
+        />
+      )}
     </div>
   );
 };

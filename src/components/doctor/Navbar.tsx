@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
+import { AnimatePresence, motion, useMotionValueEvent, useScroll, useSpring } from "framer-motion";
 import { CalendarCheck2, Menu, Moon, Sun, X } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { dsCn as cn } from "./ui/dsCn";
-import { doctorName } from "@/lib/doctorSite/doctorFacts";
+import { doctorName, siteLabels } from "@/lib/doctorSite/doctorFacts";
 import DsButton from "./ui/DsButton";
 import { useActiveSection } from "./ui/useActiveSection";
 import { dsScrollTo, dsScrollToTop } from "./motion/scroll";
@@ -24,11 +24,13 @@ const Monogram = ({ name }: { name: string }) => {
 
 const Navbar = () => {
   const { profile, settings } = useDoctorData();
+  const labels = siteLabels(settings);
   const { slug } = useParams<{ slug: string }>();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { isDark, toggle } = useDoctorTheme();
-  const { scrollY } = useScroll();
+  const { scrollY, scrollYProgress } = useScroll();
+  const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 30, mass: 0.4 });
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
 
   const name = doctorName(profile);
@@ -60,13 +62,23 @@ const Navbar = () => {
     <>
       <header
         className={cn(
-          // Always solid: the hero is the same paper colour, so nothing is lost at the top, and a
-          // transparent header let content show through for ~0.4 s after a fast jump down the page.
-          "fixed inset-x-0 top-0 z-50 bg-ds-paper/95 transition-shadow duration-ds-2 ease-ds-out md:bg-ds-paper/85 md:backdrop-blur-xl md:backdrop-saturate-150",
-          scrolled && "shadow-[0_1px_0_rgb(var(--ds-line))]",
+          // Frosted glass: a full-width bar on phones, a floating pill from md. The glass is dense
+          // (ds-glass-strong) so text under it never competes with the links after a fast jump.
+          "pointer-events-none fixed inset-x-0 top-0 z-50 md:px-4 md:pt-3",
         )}
       >
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-4 lg:grid lg:grid-cols-[1fr_auto_1fr] px-4 sm:px-6 lg:px-8">
+        <div
+          className={cn(
+            "ds-glass ds-glass-strong pointer-events-auto relative mx-auto flex h-16 max-w-[1200px] items-center gap-4 px-4 transition-shadow duration-ds-2 ease-ds-out sm:px-6 md:rounded-full md:pl-3 md:pr-2 lg:grid lg:grid-cols-[1fr_auto_1fr]",
+            scrolled && "shadow-ds-2",
+          )}
+        >
+          {/* Reading progress: a thin beam along the bottom edge. */}
+          <motion.span
+            aria-hidden="true"
+            style={{ scaleX: progress }}
+            className="pointer-events-none absolute inset-x-6 -bottom-px h-[2px] origin-left rounded-full bg-gradient-to-r from-ds-accent to-[rgb(var(--ds-aurora-3))]"
+          />
           <button
             type="button"
             onClick={dsScrollToTop}
@@ -148,7 +160,7 @@ const Navbar = () => {
 
             <DsButton onClick={bookNow} magnetic className="ml-1 hidden md:inline-flex">
               <CalendarCheck2 className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
-              Book appointment
+              {labels.book}
             </DsButton>
 
             <button
@@ -165,7 +177,7 @@ const Navbar = () => {
       </header>
 
       {/* Reserves the header's height so the hero starts below it. */}
-      <div className="h-16" aria-hidden="true" />
+      <div className="h-16 md:h-[4.75rem]" aria-hidden="true" />
 
       <Drawer open={menuOpen} onOpenChange={setMenuOpen} shouldScaleBackground={false}>
         <DrawerContent className="doctor-site rounded-t-ds-lg border-ds-line bg-ds-paper pb-[max(1.25rem,env(safe-area-inset-bottom))] text-ds-ink lg:hidden">
@@ -203,7 +215,7 @@ const Navbar = () => {
           </nav>
           <div className="mt-3 px-5">
             <DsButton size="lg" className="w-full" onClick={() => { setMenuOpen(false); window.setTimeout(bookNow, 220); }}>
-              Book appointment
+              {labels.book}
             </DsButton>
           </div>
         </DrawerContent>

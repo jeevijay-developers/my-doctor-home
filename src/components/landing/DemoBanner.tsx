@@ -48,7 +48,7 @@ const DemoBanner = () => (
                 <span className="text-[13px] font-semibold">450+ doctors booked this month</span>
               </div>
               <Link
-                to="/contact?topic=demo"
+                to="/demo"
                 className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-white text-navy font-heading text-base font-bold shadow-xl hover:bg-white/90 transition-all active:scale-[0.98]"
               >
                 <CalendarDays className="h-5 w-5" />

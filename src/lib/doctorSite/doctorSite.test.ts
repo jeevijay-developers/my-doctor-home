@@ -118,3 +118,23 @@ describe("customClaims", () => {
     expect(customClaims({ hero_stat_text: "Gold medallist", show_hero_stat_badge: false, seo_keywords: "skin, acne" })).toEqual([]);
   });
 });
+
+describe("siteLabels (My Website -> Hero Banner wording)", () => {
+  it("falls back to the site's wording while the admin defaults are untouched", async () => {
+    const { siteLabels } = await import("./doctorFacts");
+    expect(siteLabels({ hero_primary_button_label: "Book Appointment", hero_secondary_button_label: "Call Now", hero_directions_label: "Get Directions" })).toMatchObject({
+      book: "Book appointment",
+      call: "",
+      directions: "Get directions",
+    });
+  });
+  it("uses what the doctor typed", async () => {
+    const { siteLabels } = await import("./doctorFacts");
+    expect(siteLabels({ hero_primary_button_label: "Reserve a visit", hero_secondary_button_label: "Ring us", hero_location_label: "Our clinic", hero_hours_label: "OPD hours" })).toMatchObject({
+      book: "Reserve a visit",
+      call: "Ring us",
+      location: "Our clinic",
+      hours: "OPD hours",
+    });
+  });
+});

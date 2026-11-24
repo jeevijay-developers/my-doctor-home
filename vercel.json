@@ -52,6 +52,7 @@
     { "source": "/features", "destination": "/api/seo?kind=page&path=/features" },
     { "source": "/pricing", "destination": "/api/seo?kind=page&path=/pricing" },
     { "source": "/contact", "destination": "/api/seo?kind=page&path=/contact" },
+    { "source": "/demo", "destination": "/api/seo?kind=page&path=/demo" },
     { "source": "/terms", "destination": "/api/seo?kind=page&path=/terms" },
     { "source": "/privacy", "destination": "/api/seo?kind=page&path=/privacy" },
     { "source": "/refund-policy", "destination": "/api/seo?kind=page&path=/refund-policy" },

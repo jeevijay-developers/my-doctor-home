@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CalendarCheck2, Phone } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import { clinicPhone, telHref, whatsappHref } from "@/lib/doctorSite/doctorFacts";
+import { clinicPhone, telHref, whatsappHref, siteLabels } from "@/lib/doctorSite/doctorFacts";
 import DsButton from "./ui/DsButton";
 import { useSectionInView } from "./ui/useActiveSection";
 import { bookNow } from "./siteActions";
@@ -42,6 +42,7 @@ const iconAction =
  */
 const BottomActionBar = () => {
   const { profile, settings } = useDoctorData();
+  const labels = siteLabels(settings);
   const phone = clinicPhone(profile);
   const whatsapp = whatsappHref(settings);
   const bookingVisible = useSectionInView("booking-zone", "-30% 0px -30% 0px");
@@ -63,13 +64,13 @@ const BottomActionBar = () => {
             animate={{ y: 0 }}
             exit={{ y: "110%" }}
             transition={SPRING_SOFT}
-            className="fixed inset-x-0 bottom-0 z-40 border-t border-ds-line bg-ds-paper/95 px-2.5 pt-2 shadow-ds-3 md:hidden"
+            className="ds-glass ds-glass-strong fixed inset-x-0 bottom-0 z-40 rounded-t-ds-md px-2.5 pt-2 !shadow-ds-3 md:hidden"
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
           >
             <div className="mx-auto flex max-w-md items-center gap-1.5">
               <DsButton size="lg" onClick={bookNow} className="min-w-0 flex-1 px-4">
                 <CalendarCheck2 className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
-                Book appointment
+                {labels.book}
               </DsButton>
               {phone && (
                 <a href={telHref(phone)} className={iconAction}>
@@ -98,7 +99,7 @@ const BottomActionBar = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.98 }}
             transition={SPRING_SOFT}
-            className="fixed bottom-6 right-6 z-40 hidden items-center gap-2 rounded-full border border-ds-line bg-ds-paper/85 p-1.5 shadow-ds-2 backdrop-blur-xl md:flex"
+            className="ds-glass fixed bottom-6 right-6 z-40 hidden items-center gap-2 rounded-full p-1.5 !shadow-ds-2 md:flex"
           >
             {whatsapp && (
               <a
@@ -122,7 +123,7 @@ const BottomActionBar = () => {
             )}
             <DsButton onClick={bookNow} magnetic>
               <CalendarCheck2 className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
-              Book appointment
+              {labels.book}
             </DsButton>
           </motion.div>
         )}

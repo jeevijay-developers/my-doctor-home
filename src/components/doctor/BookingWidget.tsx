@@ -28,6 +28,8 @@ import { dsScrollTo } from "./motion/scroll";
 import DsButton from "./ui/DsButton";
 import DatePicker from "./booking/DatePicker";
 import TimePicker from "./booking/TimePicker";
+import BookingStepper from "./booking/BookingStepper";
+import BookingAside from "./booking/BookingAside";
 import { radioKeyDown } from "./ui/radioKeyDown";
 import SectionHeader from "./ui/SectionHeader";
 import { DUR, EASE } from "./motion/tokens";
@@ -92,6 +94,8 @@ const BookingWidget = () => {
   const [paymentMeta, setPaymentMeta] = useState<PaymentMeta | null>(null);
   const [cachedOrder, setCachedOrder] = useState<CachedOrder | null>(null);
   const [paymentFailed, setPaymentFailed] = useState(false);
+  // Why the last "Pay Now" could not start (e.g. the clinic's online payments are not active).
+  const [payError, setPayError] = useState("");
   const [paymentFailureMessage, setPaymentFailureMessage] = useState("");
   // Razorpay took the payment but confirming it with our server failed: the patient may
   // already have been charged, so they must not pay again.
@@ -553,7 +557,12 @@ const BookingWidget = () => {
         toast.error("That time has already passed - please pick a later slot.");
         setStep(3); setSelectedTime(""); refresh();
       } else {
-        toast.error("Online payment isn't active yet for this clinic.", { description: "Please contact the clinic to book, or try again shortly." });
+        const notActive = /not (set up|active|configured)/i.test(message);
+        const text = notActive
+          ? "Online payment isn't active for this clinic yet, so this booking could not be completed. Please call the clinic to book, or try again later."
+          : "We couldn't start the payment, so this booking was not completed. Please try again in a moment.";
+        setPayError(text);
+        toast.error("Booking not completed", { description: text });
       }
       return null;
     }
@@ -683,6 +692,7 @@ const BookingWidget = () => {
   // both call this - retry reuses the cached order (same payments row) so a
   // second attempt never creates a second appointment record.
   const payNow = async () => {
+    setPayError("");
     if (submitting) return;
     if (!validatePatientDetails()) return;
     setSubmitting(true);
@@ -731,7 +741,7 @@ const BookingWidget = () => {
   };
 
   const sectionShell = (children: React.ReactNode, narrow = true) => (
-    <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="bg-ds-paper py-[4.5rem] md:py-32">
+    <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="ds-glow bg-ds-paper py-[4.5rem] md:py-32">
       <div className={`mx-auto px-5 sm:px-6 lg:px-8 ${narrow ? "max-w-[44rem]" : "max-w-[1200px]"}`}>{children}</div>
     </section>
   );
@@ -963,27 +973,18 @@ const BookingWidget = () => {
   // ------------------------------------------------------------------ steps
 
   const stepHeader = () => (
-    <div className="mb-7">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {step >= 4 && (
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => setStep(step === 5 ? 4 : 3)}
-              className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-ds-small font-medium text-ds-ink-2 transition-colors hover:bg-ds-ink/[0.06] hover:text-ds-ink"
-            >
-              <ChevronLeft aria-hidden="true" className="h-4 w-4" /> Back
-            </button>
-          )}
-        </div>
-        <p aria-live="polite" className="text-ds-small text-ds-ink-2">
-          <span className="font-semibold text-ds-ink">Step {visibleStep} of {totalSteps}</span> · {STEP_LABELS[visibleStep - 1]}
-        </p>
-      </div>
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-ds-line" role="progressbar" aria-valuemin={1} aria-valuemax={totalSteps} aria-valuenow={visibleStep} aria-label="Booking progress">
-        <motion.div className="h-full rounded-full bg-ds-accent" initial={false} animate={{ width: `${(visibleStep / totalSteps) * 100}%` }} transition={{ duration: DUR.medium, ease: EASE.out }} />
-      </div>
+    <div className="mb-8">
+      <BookingStepper labels={STEP_LABELS.slice(0, totalSteps)} current={visibleStep} />
+      {step >= 4 && (
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() => { setPayError(""); setStep(step === 5 ? 4 : 3); }}
+          className="-ml-3 mt-5 inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-ds-small font-medium text-ds-ink-2 transition-colors hover:bg-ds-ink/[0.06] hover:text-ds-ink"
+        >
+          <ChevronLeft aria-hidden="true" className="h-4 w-4" /> Back
+        </button>
+      )}
     </div>
   );
 
@@ -995,7 +996,7 @@ const BookingWidget = () => {
   const renderWhen = () => (
     <div className="space-y-9">
       {consultationTypes.length > 1 && (
-        <div role="radiogroup" aria-label="Consultation type" onKeyDown={radioKeyDown} className="grid grid-cols-2 gap-1 rounded-full bg-ds-paper-2 p-1">
+        <div role="radiogroup" aria-label="Consultation type" onKeyDown={radioKeyDown} className="grid grid-cols-2 gap-3">
           {consultationTypes.map((t) => (
             <button
               key={t.k}
@@ -1004,10 +1005,15 @@ const BookingWidget = () => {
               tabIndex={type === t.k ? 0 : -1}
               aria-checked={type === t.k}
               onClick={() => { setType(t.k); setSelectedServiceId(null); setSelectedTime(""); setCachedOrder(null); }}
-              className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-full text-ds-small font-semibold transition-colors duration-ds-1 ${type === t.k ? "bg-ds-surface text-ds-ink shadow-ds-1" : "text-ds-ink-2 hover:text-ds-ink"}`}
+              className={`flex min-h-[4.5rem] items-center gap-3 rounded-ds-md border p-3 text-left transition-[border-color,box-shadow,background-color] duration-ds-1 sm:p-4 ${type === t.k ? "border-ds-accent bg-ds-accent-soft/60 shadow-[0_0_0_3px_rgb(var(--ds-accent)/0.12)]" : "border-ds-line bg-ds-surface hover:border-ds-ink/30"}`}
             >
-              <t.Icon aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              {t.label}
+              <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${type === t.k ? "bg-ds-accent text-white" : "bg-ds-paper-2 text-ds-ink-2"}`}>
+                <t.Icon className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-ds-small font-semibold text-ds-ink">{t.label}</span>
+                <span className="block text-ds-label text-ds-ink-2">{t.k === "clinic" ? "At the clinic" : "Video call"}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -1063,7 +1069,7 @@ const BookingWidget = () => {
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div>
-          <h3 className="mb-3 font-ds-display text-ds-h3 font-medium">Select Date</h3>
+          <h3 className="mb-2 text-ds-label font-semibold uppercase tracking-[0.08em] text-ds-ink-2">Select Date</h3>
           <DatePicker
             id="bk-date"
             value={selectedDate}
@@ -1075,10 +1081,13 @@ const BookingWidget = () => {
           />
         </div>
         <div>
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <h3 className="font-ds-display text-ds-h3 font-medium">Select Time Slot</h3>
+          <div className="mb-2 flex items-baseline justify-between gap-3">
+            <h3 className="text-ds-label font-semibold uppercase tracking-[0.08em] text-ds-ink-2">Select Time Slot</h3>
             {selectedDate && availableTimeSlots.length > 0 && (
-              <span className="text-ds-small text-ds-ink-2 ds-tabular">{availableTimeSlots.length} available</span>
+              <span className="inline-flex items-center gap-1.5 text-ds-label font-medium text-ds-live ds-tabular">
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-ds-live-dot" />
+                {availableTimeSlots.length} available
+              </span>
             )}
           </div>
           <TimePicker
@@ -1101,11 +1110,19 @@ const BookingWidget = () => {
           No time slots are available for this date. Please select another date.
         </p>
       ) : (
-        <div>
-          <DsButton size="lg" className="w-full" disabled={!pickedTime || checkingSlot} onClick={() => selectTimeSlot(pickedTime)}>
-            {checkingSlot ? "Checking…" : <>Continue · {slotLabel(pickedTime)}</>}
-          </DsButton>
-          <p className="mt-3 text-center text-ds-label text-ds-ink-3">Only free times are listed, and the list updates live.</p>
+        <div className="-mx-5 -mb-5 rounded-b-ds-lg border-t border-ds-line bg-ds-paper-2/70 px-5 py-4 sm:-mx-9 sm:-mb-9 sm:px-9 sm:py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-ds-small text-ds-ink-2">
+              <span className="block font-semibold text-ds-ink ds-tabular">
+                {format(selectedDate, "EEE, d MMM")}{pickedTime ? ` · ${slotLabel(pickedTime)}` : ""}
+              </span>
+              {selectedService.name} · <span className="ds-tabular">₹{selectedService.price}</span>
+            </p>
+            <DsButton size="lg" className="w-full sm:w-auto sm:min-w-[13rem]" disabled={!pickedTime || checkingSlot} onClick={() => selectTimeSlot(pickedTime)}>
+              {checkingSlot ? "Checking…" : <>Continue · {slotLabel(pickedTime)}</>}
+            </DsButton>
+          </div>
+          <p className="mt-3 text-ds-label text-ds-ink-3">Only free times are listed, and the list updates live.</p>
         </div>
       )}
     </div>
@@ -1303,6 +1320,16 @@ const BookingWidget = () => {
 
       <TurnstileWidget action="booking" onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
+      {payError && (
+        <div role="alert" className="flex items-start gap-2.5 rounded-ds-md border border-ds-danger/30 bg-ds-danger/[0.06] p-4 text-ds-small text-ds-ink">
+          <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-ds-danger" />
+          <div>
+            <p className="font-semibold">Booking not completed</p>
+            <p className="mt-0.5 text-ds-ink-2">{payError}</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-2.5">
         <DsButton variant="secondary" size="lg" className="flex-1" onClick={() => setStep(4)}>Back</DsButton>
         <DsButton size="lg" className="flex-[2]" disabled={submitting} onClick={payNow}>
@@ -1312,38 +1339,37 @@ const BookingWidget = () => {
     </div>
   );
 
-  const razorpayNotReady =
-    wantsOnlinePayment && !paymentModeIsMock && (!profile?.razorpay_payment_enabled || profile?.razorpay_account_status !== "active");
-
   return (
     <>
-      <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="bg-ds-paper py-[4.5rem] md:py-32">
-        <div className="mx-auto max-w-[44rem] px-5 sm:px-6 lg:px-8">
-          <SectionHeader
-            id="booking-heading"
-            eyebrow="Book online"
-            title="Book an appointment"
-            intro="Pick a time, tell us who is coming, and you're booked. It takes about a minute."
-            headingAttrs={{ "data-booking-start": "" }}
-          />
-          {profile?.slug && (
-            <a href={`/dr/${profile.slug}/manage`} className="mt-5 inline-flex min-h-11 items-center text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline">
-              Already booked? Manage your appointment →
-            </a>
-          )}
+      <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="ds-glow ds-dots bg-ds-paper py-[4.5rem] md:py-32">
+        <div className="mx-auto grid max-w-[1200px] gap-8 px-5 sm:px-6 lg:grid-cols-12 lg:gap-x-14 lg:gap-y-10 lg:px-8">
+          <div className="lg:col-span-5 lg:row-start-1">
+            <SectionHeader
+              id="booking-heading"
+              eyebrow="Book online"
+              title="Book an appointment"
+              intro="Pick a time, tell us who is coming, and you're booked. It takes about a minute."
+              headingAttrs={{ "data-booking-start": "" }}
+            />
+          </div>
 
-          <div id="booking-card" className="mt-8 rounded-ds-lg border border-ds-line bg-ds-surface p-5 shadow-ds-2 sm:mt-10 sm:p-9">
+          <div className="lg:col-span-5 lg:row-start-2">
+            <BookingAside
+              profile={profile}
+              service={selectedService}
+              type={type}
+              autoConfirm={Boolean(settings?.auto_confirm)}
+              payOnline={wantsOnlinePayment}
+              cutoffHours={settings?.cancellation_cutoff_hours ?? 2}
+            />
+          </div>
+
+          <div
+            id="booking-card"
+            className="ds-glass relative overflow-hidden rounded-ds-lg p-5 !shadow-ds-2 sm:p-9 lg:col-span-7 lg:col-start-6 lg:row-span-2 lg:row-start-1 lg:self-start"
+          >
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ds-accent via-[rgb(var(--ds-aurora-3))] to-ds-star opacity-80" />
             {stepHeader()}
-
-            {razorpayNotReady && (
-              <div role="note" className="mb-6 flex items-start gap-2.5 rounded-ds-sm border border-ds-warm/30 bg-ds-warm/[0.08] p-4 text-ds-small text-ds-ink">
-                <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-ds-warm" />
-                <div>
-                  <p className="font-semibold">Online payments are not yet active for this clinic</p>
-                  <p className="mt-0.5 text-ds-ink-2">This clinic is completing payment gateway setup. Please contact the clinic directly if you are unable to complete checkout.</p>
-                </div>
-              </div>
-            )}
 
             <div ref={stepRegionRef} tabIndex={-1} className="outline-none">
             <AnimatePresence mode="wait" initial={false}>

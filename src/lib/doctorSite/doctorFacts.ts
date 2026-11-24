@@ -101,11 +101,12 @@ export const locality = (profile: DoctorProfileLike): string => (profile?.city ?
 export const PLATFORM_DEFAULT_CLAIMS = new Set(["5,000+ patient consultations", "5,000+", "24/7"]);
 const isPlatformDefault = (value: string) => PLATFORM_DEFAULT_CLAIMS.has(value.trim().toLowerCase());
 
-export type CustomClaim = { value: string; label: string };
-type QuickStatLike = { id?: string; label?: string; value?: string; active?: boolean };
+export type CustomClaim = { value: string; label: string; icon?: string };
+type QuickStatLike = { id?: string; label?: string; value?: string; active?: boolean; icon?: string };
 
 export type ClaimSettingsLike = {
   hero_stat_text?: string | null;
+  hero_stat_icon?: string | null;
   show_hero_stat_badge?: boolean | null;
   show_quick_stats?: boolean | null;
   quick_stats?: unknown;
@@ -132,17 +133,51 @@ export function customClaims(settings: ClaimSettingsLike): CustomClaim[] {
   const claims: CustomClaim[] = [];
   const heroStat = (settings?.hero_stat_text ?? "").trim();
   if (heroStat && settings?.show_hero_stat_badge !== false && !isPlatformDefault(heroStat)) {
-    claims.push({ value: heroStat, label: "" });
+    claims.push({ value: heroStat, label: "", icon: settings?.hero_stat_icon || undefined });
   }
   if (settings?.show_quick_stats !== false) {
     for (const stat of readQuickStats(settings)) {
       const value = (stat.value ?? "").trim();
       if (stat.active === false || !value || stat.id === "experience" || isPlatformDefault(value)) continue;
-      claims.push({ value, label: (stat.label ?? "").trim() });
+      claims.push({ value, label: (stat.label ?? "").trim(), icon: stat.icon || undefined });
     }
   }
   const seen = new Set<string>();
   return claims.filter((c) => !seen.has(c.value.toLowerCase()) && seen.add(c.value.toLowerCase()));
+}
+
+/** The button / link wording a doctor can edit under My Website -> Hero Banner. */
+export type SiteLabelSettings = {
+  hero_primary_button_label?: string | null;
+  hero_secondary_button_label?: string | null;
+  hero_directions_label?: string | null;
+  hero_location_label?: string | null;
+  hero_hours_label?: string | null;
+} | null | undefined;
+
+// What the admin form pre-fills (column defaults). Untouched, these fall back to the site's own wording.
+const ADMIN_LABEL_DEFAULTS = {
+  book: "book appointment",
+  call: "call now",
+  directions: "get directions",
+  location: "clinic location",
+  hours: "consultation",
+} as const;
+
+const own = (value: string | null | undefined, adminDefault: string) => {
+  const v = (value ?? "").trim();
+  return v && v.toLowerCase() !== adminDefault ? v : "";
+};
+
+export function siteLabels(settings: SiteLabelSettings) {
+  return {
+    book: own(settings?.hero_primary_button_label, ADMIN_LABEL_DEFAULTS.book) || "Book appointment",
+    /** Empty when the doctor kept the default: callers then show "Call <number>". */
+    call: own(settings?.hero_secondary_button_label, ADMIN_LABEL_DEFAULTS.call),
+    directions: own(settings?.hero_directions_label, ADMIN_LABEL_DEFAULTS.directions) || "Get directions",
+    location: own(settings?.hero_location_label, ADMIN_LABEL_DEFAULTS.location) || "The clinic",
+    hours: own(settings?.hero_hours_label, ADMIN_LABEL_DEFAULTS.hours) || "Today",
+  };
 }
 
 // Hero copy the platform pre-fills for every doctor (website_settings column

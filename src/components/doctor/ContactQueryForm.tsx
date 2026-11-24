@@ -128,7 +128,7 @@ const ContactQueryForm = () => {
   });
 
   return (
-    <section id="ask" aria-labelledby="ask-heading" className="bg-ds-paper-2 py-[4.5rem] md:py-32">
+    <section id="ask" aria-labelledby="ask-heading" className="ds-dots bg-ds-paper-2 py-[4.5rem] md:py-32">
       <div className="mx-auto grid max-w-[1200px] gap-10 px-5 sm:px-6 lg:grid-cols-12 lg:gap-16 lg:px-8">
         <div className="lg:col-span-5">
           <SectionHeader

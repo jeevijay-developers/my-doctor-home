@@ -67,8 +67,10 @@ describe("HeroBanner", () => {
       reviews: [{ rating: 5 }, { rating: 4 }],
     });
     renderHero();
-    expect(screen.getByText("12 yrs")).toBeInTheDocument(); // exactly what the doctor entered, no "+" added
-    expect(screen.getByText("4.5")).toBeInTheDocument();
+    // Facts are <dd>s; their digits count up in their own span, so compare the whole value.
+    const facts = screen.getAllByRole("definition").map((dd) => dd.textContent?.replace("Rated ", ""));
+    expect(facts).toContain("12 yrs"); // exactly what the doctor entered, no "+" added
+    expect(facts).toContain("4.5");
     expect(screen.getByText("2 reviews")).toBeInTheDocument();
     expect(screen.getByText("MBBS, MD")).toBeInTheDocument();
   });

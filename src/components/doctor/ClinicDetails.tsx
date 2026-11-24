@@ -4,7 +4,7 @@ import { useDoctorData } from "@/contexts/DoctorContext";
 import { getClinicMapsQuery, getClinicMapsUrl } from "@/lib/clinicLocation";
 import { groupWorkingHours, formatDayRangeLabel } from "@/lib/workingHoursGrouping";
 import { dayIntervals, getClinicStatus, istNow, type WorkingHoursRow } from "@/lib/doctorSite/clinicStatus";
-import { clinicPhone, telHref, whatsappHref } from "@/lib/doctorSite/doctorFacts";
+import { clinicPhone, telHref, whatsappHref, siteLabels } from "@/lib/doctorSite/doctorFacts";
 import type { Tables } from "@/integrations/supabase/types";
 import { dsCn as cn } from "./ui/dsCn";
 import DsButton from "./ui/DsButton";
@@ -29,6 +29,7 @@ const scheduleLines = (row: WorkingHour): string[] => {
  */
 const ClinicDetails = () => {
   const { profile, workingHours, settings } = useDoctorData();
+  const labels = siteLabels(settings);
   const [mapRef, mapNear] = useDwellInView<HTMLDivElement>();
 
   const clinicName = (profile?.clinic_name ?? "").trim();
@@ -80,7 +81,7 @@ const ClinicDetails = () => {
               <div className="absolute inset-x-4 bottom-4">
                 <DsButton href={directionsUrl} target="_blank" rel="noreferrer" size="lg" className="w-full shadow-ds-2 sm:w-auto">
                   <Navigation aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                  Get directions<span className="sr-only"> (opens Google Maps)</span>
+                  {labels.directions}<span className="sr-only"> (opens Google Maps)</span>
                 </DsButton>
               </div>
             )}
@@ -124,7 +125,7 @@ const ClinicDetails = () => {
                 {phone && (
                   <DsButton href={telHref(phone)} variant="secondary" size="lg" className="justify-start">
                     <Phone aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                    Call {phone}
+                    {labels.call || `Call ${phone}`}
                   </DsButton>
                 )}
                 {whatsapp && (

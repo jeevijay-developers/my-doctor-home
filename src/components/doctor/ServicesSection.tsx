@@ -112,7 +112,7 @@ const ServicesSection = () => {
   const defaultDuration = Number(settings?.slot_duration_minutes) || null;
 
   return (
-    <section id="services" aria-labelledby="services-heading" className="ds-grain bg-ds-paper-2 py-[4.5rem] md:py-32">
+    <section id="services" aria-labelledby="services-heading" className="ds-grain ds-dots bg-ds-paper-2 py-[4.5rem] md:py-32">
       <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8">
         <SectionHeader
           id="services-heading"

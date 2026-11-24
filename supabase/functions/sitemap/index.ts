@@ -107,6 +107,7 @@ Deno.serve(async (req) => {
       urlEntry("/about", "monthly", "0.6"),
       urlEntry("/features", "monthly", "0.7"),
       urlEntry("/pricing", "monthly", "0.7"),
+      urlEntry("/demo", "monthly", "0.6"),
       urlEntry("/terms", "yearly", "0.3"),
       urlEntry("/privacy", "yearly", "0.3"),
       urlEntry("/refund-policy", "yearly", "0.3"),
