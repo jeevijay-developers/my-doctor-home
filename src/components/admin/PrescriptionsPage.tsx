@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
-  FileText, Plus, Search, Pill, Stethoscope, Trash2, X, Pencil, Download, ClipboardList,
+  FileText, Plus, Search, Pill, Stethoscope, Trash2, Pencil, Download, ClipboardList, Eye, MessageCircle,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -22,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import PrescriptionShare from "./PrescriptionShare";
-import PrescriptionSlip, { PrescriptionSlipData, VisitSummary, VitalsSummary } from "./PrescriptionSlip";
+import PrescriptionSlip, { PrescriptionSlipCard, PrescriptionSlipData, VisitSummary, VitalsSummary } from "./PrescriptionSlip";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { pdfFileName } from "@/lib/pdfFileName";
 import { parseMedicineItems, type MedicineItem } from "@/lib/prescriptionMedicines";
@@ -31,8 +29,11 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import DateFilter from "@/components/shared/DateFilter";
 import PrescriptionPatientFields from "./PrescriptionPatientFields";
+import BulkSelectionBar from "./BulkSelectionBar";
+import NameButton from "./NameButton";
 import { prescriptionVitalsError, type PatientOption } from "@/lib/prescriptionPatient";
 import { parseWeight } from "@/lib/patientIntake";
+import { buildShareMessage, buildWhatsAppUrl, prescriptionShareUrl } from "@/lib/prescriptionShare";
 
 const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
@@ -306,7 +307,6 @@ const PrescriptionsPage = () => {
   const [editForm, setEditForm] = useState(emptyForm);
   const [editFormMedicines, setEditFormMedicines] = useState<MedicineFormItem[]>([]);
 
-  const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
@@ -314,6 +314,8 @@ const PrescriptionsPage = () => {
   const [slipOpen, setSlipOpen] = useState(false);
   const [slipPrescription, setSlipPrescription] = useState<PrescriptionSlipData | null>(null);
   const [slipPatientPhone, setSlipPatientPhone] = useState<string | null>(null);
+  // Mounted off-screen (not in a dialog) just long enough to rasterize for a direct download.
+  const [downloadingPrescription, setDownloadingPrescription] = useState<PrescriptionSlipData | null>(null);
 
   const load = async () => {
     if (!profile) return;
@@ -347,13 +349,16 @@ const PrescriptionsPage = () => {
 
   useEffect(() => { load(); }, [profile, debouncedSearch, selectedDate, dateFilterActive, page]);
   useEffect(() => { loadPatients(); }, [profile]);
+  useEffect(() => { clearSelection(); }, [debouncedSearch, dateFilterActive, selectedDate, page]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
     if (page > totalPages) setPage(totalPages);
   }, [totalCount, page]);
 
-  const openSlip = async (rx: Prescription) => {
+  // Shared by the full preview (View) and the direct PDF download (Download):
+  // both need the same patient gender/phone + latest visit/vitals lookup.
+  const buildSlipData = async (rx: Prescription): Promise<{ data: PrescriptionSlipData; phone: string | null }> => {
     let gender: string | null = null;
     let phone: string | null = null;
     if (rx.patient_id) {
@@ -361,7 +366,6 @@ const PrescriptionsPage = () => {
       gender = data?.gender ?? null;
       phone = data?.phone ?? null;
     }
-    setSlipPatientPhone(phone);
     let visit: VisitSummary = null;
     let vitals: VitalsSummary = null;
     if (rx.visit_id) {
@@ -373,40 +377,87 @@ const PrescriptionsPage = () => {
       visit = (v as VisitSummary) || null;
       vitals = (vt as VitalsSummary) || null;
     }
-    setSlipPrescription({
-      id: rx.id,
-      patient_id: rx.patient_id,
-      patient_name: rx.patient_name,
-      diagnosis: rx.diagnosis,
-      medications: rx.medications,
-      medicines: parseMedicineItems(rx.medicines),
-      advice: rx.advice,
-      diet_advice: rx.diet_advice,
-      lifestyle_advice: rx.lifestyle_advice,
-      follow_up_date: rx.follow_up_date,
-      follow_up_instructions: rx.follow_up_instructions,
-      date: rx.date,
-      patient_age: rx.patient_age,
-      patient_weight: rx.patient_weight,
-      patient_gender: gender,
-      visit,
-      vitals,
-    });
+    return {
+      phone,
+      data: {
+        id: rx.id,
+        patient_id: rx.patient_id,
+        patient_name: rx.patient_name,
+        diagnosis: rx.diagnosis,
+        medications: rx.medications,
+        medicines: parseMedicineItems(rx.medicines),
+        advice: rx.advice,
+        diet_advice: rx.diet_advice,
+        lifestyle_advice: rx.lifestyle_advice,
+        follow_up_date: rx.follow_up_date,
+        follow_up_instructions: rx.follow_up_instructions,
+        date: rx.date,
+        patient_age: rx.patient_age,
+        patient_weight: rx.patient_weight,
+        patient_gender: gender,
+        visit,
+        vitals,
+      },
+    };
+  };
+
+  // "View" — the full printable/downloadable preview dialog (Print, Download, Share, Close).
+  const openSlip = async (rx: Prescription) => {
+    const { data, phone } = await buildSlipData(rx);
+    setSlipPatientPhone(phone);
+    setSlipPrescription(data);
     setSlipOpen(true);
   };
 
+  const downloadPdf = (prescription: PrescriptionSlipData) => downloadPdfFromNode(
+    '[data-prescription-slip-print-root] [data-prescription-slip-body]',
+    pdfFileName("Prescription", prescription.patient_name, prescription.date),
+    {
+      multiPage: true,
+      headerSelector: '[data-prescription-slip-print-root] [data-prescription-slip-header]',
+      footerSelector: '[data-prescription-slip-print-root] [data-prescription-slip-footer]',
+      rowSelector: '[data-prescription-slip-print-root] [data-prescription-slip-row]',
+    }
+  );
+
   const downloadSlip = () => {
     if (!slipPrescription) return;
-    downloadPdfFromNode(
-      '[data-prescription-slip-print-root] [data-prescription-slip-body]',
-      pdfFileName("Prescription", slipPrescription.patient_name, slipPrescription.date),
-      {
-        multiPage: true,
-        headerSelector: '[data-prescription-slip-print-root] [data-prescription-slip-header]',
-        footerSelector: '[data-prescription-slip-print-root] [data-prescription-slip-footer]',
-        rowSelector: '[data-prescription-slip-print-root] [data-prescription-slip-row]',
-      }
-    );
+    downloadPdf(slipPrescription);
+  };
+
+  // "Download" — builds the same slip data but renders it off-screen (no dialog) purely
+  // to rasterize it for the PDF, exactly like the preview's own Download button does.
+  const downloadPrescriptionDirect = async (rx: Prescription) => {
+    const { data } = await buildSlipData(rx);
+    setDownloadingPrescription(data);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    try {
+      await downloadPdf(data);
+    } finally {
+      setDownloadingPrescription(null);
+    }
+  };
+
+  // "WhatsApp Share" — same create_prescription_share RPC + wa.me convention as
+  // PrescriptionShare.tsx (used inside the full preview), reused here as a single action.
+  const shareOnWhatsApp = async (rx: Prescription) => {
+    let phone: string | null = null;
+    if (rx.patient_id) {
+      const { data } = await supabase.from("patients").select("phone").eq("id", rx.patient_id).maybeSingle();
+      phone = data?.phone ?? null;
+    }
+    const tab = window.open("", "_blank");
+    const { data, error } = await supabase.rpc("create_prescription_share" as any, { _prescription_id: rx.id });
+    const token = (data as { token?: string } | null)?.token;
+    if (error || !token) {
+      tab?.close();
+      toast.error("Could not create the share link");
+      return;
+    }
+    const link = prescriptionShareUrl(window.location.origin, token);
+    const message = buildShareMessage({ patientName: rx.patient_name, doctorName: profile?.full_name || "", link });
+    const url = buildWhatsAppUrl(phone, message);
+    if (tab) tab.location.href = url; else window.location.href = url;
   };
 
   // Keep patients list in sync with Patients section (add/delete/update)
@@ -499,7 +550,6 @@ const PrescriptionsPage = () => {
     });
   };
   const clearSelection = () => setSelectedIds(new Set());
-  const exitSelectMode = () => { setSelectMode(false); clearSelection(); };
   const bulkDelete = async () => {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
@@ -508,16 +558,25 @@ const PrescriptionsPage = () => {
     toast.success(`${ids.length} prescription${ids.length === 1 ? "" : "s"} deleted`);
     setBulkDeleteOpen(false);
     setBulkConfirmText("");
-    exitSelectMode();
+    clearSelection();
     load();
   };
 
   // Search now happens server-side in load(), so the current page's rows
   // are already the filtered/paginated result set.
   const filtered = prescriptions;
+  const allOnPageSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+  const selectAllOnPage = () => {
+    if (allOnPageSelected) clearSelection();
+    else setSelectedIds(new Set(filtered.map((p) => p.id)));
+  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
+    <div
+      className={`max-w-6xl mx-auto space-y-5 transition-[padding] duration-150 ${
+        selectedIds.size > 0 ? "pb-[calc(10rem+env(safe-area-inset-bottom))] sm:pb-0" : ""
+      }`}
+    >
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
@@ -570,55 +629,18 @@ const PrescriptionsPage = () => {
         inactiveLabel="Showing all prescriptions"
       />
 
-      <div className={`transition-opacity ${selectMode ? "opacity-60 pointer-events-none" : ""}`}>
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9 h-10" placeholder="Search by patient or diagnosis..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input className="pl-9 h-10" placeholder="Search by patient or diagnosis..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      {/* Select mode toggle */}
       {filtered.length > 0 && (
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground">
-            {selectMode ? (
+            {selectedIds.size > 0 ? (
               <span>{selectedIds.size} of {filtered.length} selected on this page</span>
             ) : (
               <span>{filtered.length} prescription{filtered.length === 1 ? "" : "s"} on this page</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {selectMode && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={() => {
-                  if (selectedIds.size === filtered.length) clearSelection();
-                  else setSelectedIds(new Set(filtered.map((p) => p.id)));
-                }}
-              >
-                {selectedIds.size === filtered.length ? "Deselect all" : `Select all ${filtered.length} on this page`}
-              </Button>
-            )}
-            {!isStaff && (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant={selectMode ? "default" : "outline"}
-                    className={`h-8 w-8 p-0 ${selectMode ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}`}
-                    onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                    aria-pressed={selectMode}
-                    aria-label={selectMode ? "Exit selection mode" : "Select items to delete"}
-                  >
-                    {selectMode ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{selectMode ? "Done" : "Select to delete"}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             )}
           </div>
         </div>
@@ -640,7 +662,16 @@ const PrescriptionsPage = () => {
               <table className="w-full text-sm">
                 <thead className="bg-secondary/60 border-b border-border">
                   <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    {selectMode && <th className="pl-4 pr-2 py-3 w-10"></th>}
+                    {!isStaff && (
+                      <th className="pl-4 pr-2 py-3 w-10">
+                        <Checkbox
+                          checked={selectedIds.size === 0 ? false : allOnPageSelected ? true : "indeterminate"}
+                          onCheckedChange={selectAllOnPage}
+                          aria-label="Select all prescriptions on this page"
+                          className="h-5 w-5 rounded"
+                        />
+                      </th>
+                    )}
                     <th className="px-4 py-3">Patient</th>
                     <th className="px-4 py-3 hidden md:table-cell">Diagnosis</th>
                     <th className="px-4 py-3 hidden lg:table-cell">Medicines</th>
@@ -653,13 +684,12 @@ const PrescriptionsPage = () => {
                     return (
                       <tr
                         key={rx.id}
-                        className={`border-b border-border/60 last:border-0 cursor-pointer transition-colors ${
-                          isSelected ? "bg-royal/5" : "hover:bg-secondary/40"
+                        className={`border-b border-border/60 last:border-0 transition-colors ${
+                          isSelected ? "bg-royal/5" : ""
                         }`}
-                        onClick={selectMode ? () => toggleSelected(rx.id) : () => setViewing(rx)}
                       >
-                        {selectMode && (
-                          <td className="pl-4 pr-2 py-3 w-10" onClick={(e) => e.stopPropagation()}>
+                        {!isStaff && (
+                          <td className="pl-4 pr-2 py-3 w-10">
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleSelected(rx.id)}
@@ -674,7 +704,9 @@ const PrescriptionsPage = () => {
                               {rx.patient_name?.charAt(0)?.toUpperCase() || "P"}
                             </div>
                             <div className="min-w-0">
-                              <div className="font-semibold text-foreground truncate">{rx.patient_name}</div>
+                              <NameButton onClick={() => setViewing(rx)} className="font-semibold text-foreground truncate block">
+                                {rx.patient_name}
+                              </NameButton>
                               <div className="text-xs text-muted-foreground md:hidden truncate">
                                 {rx.diagnosis || "—"}
                               </div>
@@ -693,9 +725,7 @@ const PrescriptionsPage = () => {
                             <MedicineSummaryLine rx={rx} />
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <Badge variant="secondary" className="text-[10px] bg-secondary">{rx.date}</Badge>
-                        </td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{rx.date}</td>
                       </tr>
                     );
                   })}
@@ -711,12 +741,11 @@ const PrescriptionsPage = () => {
               return (
                 <Card
                   key={rx.id}
-                  className={`border-border/60 shadow-none cursor-pointer transition-colors ${isSelected ? "bg-royal/5 border-royal/30" : "hover:bg-secondary/40"}`}
-                  onClick={selectMode ? () => toggleSelected(rx.id) : () => setViewing(rx)}
+                  className={`border-border/60 shadow-none transition-colors ${isSelected ? "bg-royal/5 border-royal/30" : ""}`}
                 >
                   <CardContent className="p-4 flex items-start gap-3">
-                    {selectMode && (
-                      <div onClick={(e) => e.stopPropagation()} className="pt-1">
+                    {!isStaff && (
+                      <div className="pt-1">
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelected(rx.id)}
@@ -730,8 +759,10 @@ const PrescriptionsPage = () => {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="font-semibold text-foreground truncate">{rx.patient_name}</div>
-                        <Badge variant="secondary" className="text-[10px] bg-secondary flex-shrink-0">{rx.date}</Badge>
+                        <NameButton onClick={() => setViewing(rx)} className="font-semibold text-foreground truncate block">
+                          {rx.patient_name}
+                        </NameButton>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">{rx.date}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
                         <Stethoscope className="h-3.5 w-3.5 text-royal flex-shrink-0" />
@@ -753,7 +784,7 @@ const PrescriptionsPage = () => {
 
       {/* Prescription detail sheet */}
       <Sheet open={!!viewing} onOpenChange={(o) => { if (!o) { setViewing(null); setEditing(false); } }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-lg md:max-w-[35rem] overflow-y-auto">
           {viewing && (
             <>
               <SheetHeader>
@@ -821,15 +852,21 @@ const PrescriptionsPage = () => {
                       <p className="text-sm text-foreground mt-1 whitespace-pre-line">{viewing.notes}</p>
                     </div>
                   )}
-                  <div className="pt-2 flex gap-2">
-                    <Button variant="outline" className="flex-1 h-10" onClick={() => openSlip(viewing)}>
-                      <Download className="h-4 w-4 mr-2" /> Download
+                  <div className="pt-2 grid grid-cols-2 md:flex md:flex-wrap gap-2 md:gap-1.5">
+                    <Button variant="outline" className="h-10 w-full md:w-auto px-2 md:px-3 whitespace-nowrap" onClick={() => openSlip(viewing)}>
+                      <Eye className="h-4 w-4 mr-1.5 flex-shrink-0" /> View
                     </Button>
                     {can("prescriptions.edit") && (
-                      <Button onClick={startEdit} className="flex-1 h-10 bg-royal hover:bg-royal/90">
-                        <Pencil className="h-4 w-4 mr-2" /> Edit
+                      <Button variant="outline" className="h-10 w-full md:w-auto px-2 md:px-3 whitespace-nowrap" onClick={startEdit}>
+                        <Pencil className="h-4 w-4 mr-1.5 flex-shrink-0" /> Edit
                       </Button>
                     )}
+                    <Button variant="outline" className="h-10 w-full md:w-auto px-2 md:px-3 whitespace-nowrap" onClick={() => downloadPrescriptionDirect(viewing)}>
+                      <Download className="h-4 w-4 mr-1.5 flex-shrink-0" /> Download
+                    </Button>
+                    <Button variant="outline" className="h-10 w-full md:w-auto px-2 md:px-3 whitespace-nowrap text-[#1ebe5b] border-[#25D366]/40 hover:bg-[#25D366]/10 hover:text-[#1ebe5b]" onClick={() => shareOnWhatsApp(viewing)}>
+                      <MessageCircle className="h-4 w-4 mr-1.5 flex-shrink-0" /> WhatsApp
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -859,27 +896,14 @@ const PrescriptionsPage = () => {
       </Sheet>
 
       {/* Floating bulk action bar */}
-      {selectMode && selectedIds.size > 0 && (
-        <div
-          role="toolbar"
-          aria-label="Bulk actions"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] sm:w-auto max-w-md"
-        >
-          <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-full px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
-            <span className="text-sm font-medium text-foreground whitespace-nowrap">
-              {selectedIds.size} prescription{selectedIds.size === 1 ? "" : "s"} selected
-            </span>
-            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelection}>Clear</Button>
-            <Button
-              size="sm"
-              className="h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full px-4"
-              onClick={() => { setBulkConfirmText(""); setBulkDeleteOpen(true); }}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Selected
-            </Button>
-          </div>
-        </div>
-      )}
+      <BulkSelectionBar
+        itemLabel="prescription"
+        selectedCount={selectedIds.size}
+        allOnPageSelected={allOnPageSelected}
+        onSelectAll={selectAllOnPage}
+        onClear={clearSelection}
+        onDeleteClick={() => { setBulkConfirmText(""); setBulkDeleteOpen(true); }}
+      />
 
       {/* Bulk delete confirmation */}
       <AlertDialog
@@ -926,6 +950,7 @@ const PrescriptionsPage = () => {
         profile={profile}
         prescription={slipPrescription}
         onDownload={downloadSlip}
+        hideShare
         shareSlot={
           slipPrescription?.id && can("prescriptions.view") ? (
             <PrescriptionShare
@@ -938,6 +963,15 @@ const PrescriptionsPage = () => {
           ) : undefined
         }
       />
+
+      {/* Off-screen, used only to rasterize a direct "Download" (no visible dialog). */}
+      {downloadingPrescription && (
+        <div style={{ position: "fixed", left: "-9999px", top: 0, pointerEvents: "none" }} aria-hidden="true">
+          <div data-prescription-slip-print-root>
+            <PrescriptionSlipCard profile={profile} prescription={downloadingPrescription} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { MessageCircle, Link2, Ban } from "lucide-react";
+import { MessageCircle, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -80,22 +80,6 @@ const PrescriptionShare = ({ prescriptionId, patientName, patientPhone, doctorNa
     }
   };
 
-  const copyLink = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const link = await createLink();
-      if (!link) return;
-      await navigator.clipboard.writeText(link);
-      toast.success("Link copied. The patient needs the last 4 digits of their phone to open it.");
-      await loadStatus();
-    } catch {
-      toast.error("Could not copy the link");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const revoke = async () => {
     const { error } = await supabase.rpc("revoke_prescription_share" as any, { _prescription_id: prescriptionId });
     if (error) { toast.error("Could not revoke the link"); return; }
@@ -112,9 +96,6 @@ const PrescriptionShare = ({ prescriptionId, patientName, patientPhone, doctorNa
       <div className="flex flex-wrap gap-2">
         <Button onClick={shareOnWhatsApp} disabled={busy} className="gap-1.5 bg-[#25D366] hover:bg-[#1ebe5b] text-white">
           <MessageCircle className="h-4 w-4" /> Share on WhatsApp
-        </Button>
-        <Button variant="outline" onClick={copyLink} disabled={busy} className="gap-1.5">
-          <Link2 className="h-4 w-4" /> Copy link
         </Button>
         {active && (
           <Button variant="ghost" onClick={revoke} className="gap-1.5 text-destructive hover:text-destructive">

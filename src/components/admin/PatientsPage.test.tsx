@@ -81,11 +81,11 @@ describe("PatientsPage", () => {
     expect(clause).not.toMatch(/[()]/);
   });
 
-  it("doctor sees Add Patient and the delete (select) control", async () => {
+  it("doctor sees Add Patient and the per-row select checkboxes", async () => {
     renderPage();
     await screen.findAllByText("Ravi Kumar");
     expect(screen.getByRole("button", { name: /Add Patient/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Select items to delete" })).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Select Ravi Kumar")[0]).toBeInTheDocument();
   });
 
   it("staff cannot add patients without patients.add", async () => {
@@ -102,7 +102,7 @@ describe("PatientsPage", () => {
     renderPage();
     await screen.findAllByText("Ravi Kumar");
     expect(screen.getByRole("button", { name: /Add Patient/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Select items to delete" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Select Ravi Kumar")).not.toBeInTheDocument();
   });
 
   it("Add Patient is disabled during the grace period", async () => {
@@ -264,7 +264,6 @@ describe("PatientsPage", () => {
   it("bulk delete is scoped to the selected ids AND this doctor", async () => {
     renderPage();
     await screen.findAllByText("Ravi Kumar");
-    fireEvent.click(screen.getByRole("button", { name: "Select items to delete" }));
     fireEvent.click(screen.getAllByLabelText("Select Ravi Kumar")[0]);
     const toolbar = await screen.findByRole("toolbar", { name: "Bulk actions" });
     fireEvent.click(Array.from(toolbar.querySelectorAll("button")).find((b) => /Delete/.test(b.textContent || ""))!);
