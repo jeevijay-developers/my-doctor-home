@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, ArrowRight, BookOpen, CalendarCheck, Check, ChevronRight, Clock3, Info, Link2, MessageCircle, Sparkles, User,
+  ArrowLeft, ArrowRight, BookOpen, CalendarCheck, ChevronRight, Clock3, Info, Sparkles, User,
 } from "lucide-react";
 import { PUBLIC_PROFILE_COLUMNS } from "@/lib/publicProfileColumns";
 import { format } from "date-fns";
@@ -81,8 +81,6 @@ const BlogPostPage = () => {
   const [loading, setLoading] = useState(true);
   const [related, setRelated] = useState<RelatedPost[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [copied, setCopied] = useState(false);
   const articleRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -210,24 +208,6 @@ const BlogPostPage = () => {
     return () => { active = false; };
   }, [doctor, post]);
 
-  // Reading progress: how far through the article body the reader has scrolled.
-  useEffect(() => {
-    const el = articleRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const { top, height } = el.getBoundingClientRect();
-      const span = Math.max(height - window.innerHeight * 0.5, 1);
-      setProgress(Math.min(1, Math.max(0, (window.innerHeight * 0.3 - top) / span)));
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [contentHtml, post]);
-
   // Highlights the section being read in the contents list.
   useEffect(() => {
     if (headings.length < MIN_TOC_HEADINGS || typeof IntersectionObserver === "undefined") return;
@@ -281,21 +261,7 @@ const BlogPostPage = () => {
     [doctor.specialization, (doctor as { qualifications?: string | null }).qualifications].filter(Boolean).join(" · ") ||
     "Medical professional";
   const publishedDate = post.published_at || post.created_at;
-  const articleUrl = window.location.href;
   const bookingHref = `/dr/${slug}#booking`;
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(articleUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard unavailable: nothing to do */
-    }
-  };
-
-  const shareBtn =
-    "inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-navy transition-colors hover:border-primary hover:text-primary";
 
   const bookingCard = (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
@@ -326,17 +292,6 @@ const BlogPostPage = () => {
           dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData) }}
         />
       )}
-      <div
-        className="fixed inset-x-0 top-0 z-[60] h-1 bg-transparent"
-        role="progressbar"
-        aria-label="Reading progress"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(progress * 100)}
-      >
-        <div className="h-full bg-primary transition-[width] duration-150" style={{ width: `${progress * 100}%` }} />
-      </div>
-
       <main className="min-h-screen bg-background">
         {/* Slim doctor bar */}
         <div className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur">
@@ -376,34 +331,18 @@ const BlogPostPage = () => {
               <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">{post.excerpt}</p>
             )}
 
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex min-w-0 items-center gap-3">
-                <Avatar doctor={doctor} name={doctorName} size={44} />
-                <div className="min-w-0">
-                  <Link to={`/dr/${slug}`} className="block hover:underline">
-                    <p className="truncate text-sm font-bold text-navy">Written by {doctorName}</p>
-                  </Link>
-                  <p className="truncate text-xs text-muted-foreground">{credentials}</p>
-                  <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{format(new Date(publishedDate), "d MMMM yyyy")}</span>
-                    <span aria-hidden="true">•</span>
-                    <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{readingTime(post.content)} min read</span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`${post.title} ${articleUrl}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={shareBtn}
-                >
-                  <MessageCircle className="h-4 w-4" aria-hidden="true" /> WhatsApp
-                </a>
-                <button type="button" onClick={copyLink} className={shareBtn}>
-                  {copied ? <Check className="h-4 w-4 text-success" aria-hidden="true" /> : <Link2 className="h-4 w-4" aria-hidden="true" />}
-                  {copied ? "Copied" : "Copy link"}
-                </button>
+            <div className="mt-6 flex min-w-0 items-center gap-3">
+              <Avatar doctor={doctor} name={doctorName} size={44} />
+              <div className="min-w-0">
+                <Link to={`/dr/${slug}`} className="block hover:underline">
+                  <p className="truncate text-sm font-bold text-navy">Written by {doctorName}</p>
+                </Link>
+                <p className="truncate text-xs text-muted-foreground">{credentials}</p>
+                <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{format(new Date(publishedDate), "d MMMM yyyy")}</span>
+                  <span aria-hidden="true">•</span>
+                  <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{readingTime(post.content)} min read</span>
+                </p>
               </div>
             </div>
           </header>

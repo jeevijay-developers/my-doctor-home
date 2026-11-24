@@ -103,9 +103,9 @@ const ContactPage = () => {
 
             <aside
               aria-label="Contact details"
-              className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-navy to-royal p-6 text-white shadow-xl sm:p-8 lg:order-1 lg:col-span-5"
+              className="relative overflow-hidden rounded-3xl p-6 text-white shadow-xl sm:p-8 lg:order-1 lg:col-span-5"
+              style={{ backgroundColor: "#1E40AF" }}
             >
-              <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-teal/20 blur-3xl" aria-hidden="true" />
               <div className="relative">
                 <h2 className="font-heading text-2xl font-bold text-white">Get in touch</h2>
                 <p className="mt-1 text-sm text-white/75">Reach the Doctylia team directly.</p>
