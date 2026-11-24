@@ -52,7 +52,9 @@ vi.mock("@/integrations/supabase/client", () => {
 
 async function openCompleteMenu() {
   render(<MemoryRouter><AppointmentsPage /></MemoryRouter>);
-  const trigger = await screen.findByRole("button", { name: /change status for ravi kumar/i });
+  // Desktop table and mobile card both render in jsdom (CSS breakpoints don't apply), so
+  // the same aria-label matches twice — the first match is enough to drive the menu.
+  const [trigger] = await screen.findAllByRole("button", { name: /change status for ravi kumar/i });
   trigger.focus();
   fireEvent.keyDown(trigger, { key: "Enter" });
   fireEvent.click(await screen.findByRole("menuitem", { name: /^complete$/i }));
