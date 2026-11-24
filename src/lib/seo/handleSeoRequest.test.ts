@@ -45,6 +45,8 @@ describe("handleSeoRequest - doctor", () => {
     expect(html).toContain("Ear wash");
     expect(html).toContain('"@type":["Physician","MedicalBusiness"]');
     expect(res.headers.get("Cache-Control")).toContain("s-maxage=3600");
+    // the headline font is fetched early on doctor pages (and only there)
+    expect(html).toContain('as="font" type="font/woff2" href="/fonts/newsreader-latin.woff2" crossorigin');
   });
 
   it("404s unknown slugs with noindex", async () => {

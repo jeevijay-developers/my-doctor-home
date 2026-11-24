@@ -1,0 +1,240 @@
+/*
+ * Doctor public site design layer ("Editorial Warmth").
+ * Spec: docs/superpowers/specs/2026-11-24-doctor-site-redesign-design.md
+ *
+ * Everything here is scoped to `.doctor-site` (the root wrapper of /dr/:slug), so the
+ * landing page, admin and superadmin keep using the global tokens in src/index.css.
+ * Colors are stored as "R G B" channels so Tailwind's `ds-*` utilities support
+ * opacity modifiers (`bg-ds-paper/85`). Contrast of every text/background pair is
+ * checked by src/lib/doctorSite/tokens.test.ts - keep that test in step with edits here.
+ *
+ * Plain CSS on purpose: this file is imported by the page, not processed with the
+ * global `@tailwind` directives, so `@layer`/`@apply` are not available here.
+ */
+
+/* Newsreader (OFL-1.1, see public/fonts/newsreader-LICENSE.txt), subset to Latin headings
+   and instanced to weights 400-600 upright / 500 italic to keep it near 56 KB in total. */
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/newsreader-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Newsreader";
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/newsreader-latin-italic.woff2") format("woff2");
+}
+
+.doctor-site {
+  --ds-paper: 250 247 242;       /* #FAF7F2 */
+  --ds-paper-2: 243 238 230;     /* #F3EEE6 */
+  --ds-surface: 255 255 255;     /* #FFFFFF */
+  --ds-ink: 20 33 61;            /* #14213D */
+  --ds-ink-2: 71 82 102;         /* #475266 */
+  --ds-ink-3: 98 107 124;        /* #626B7C */
+  --ds-line: 228 220 207;        /* #E4DCCF */
+  --ds-accent: 29 78 216;        /* #1D4ED8 */
+  --ds-accent-hover: 30 64 175;  /* #1E40AF */
+  --ds-accent-ink: 29 78 216;    /* #1D4ED8 */
+  --ds-accent-soft: 231 237 252; /* #E7EDFC */
+  --ds-live: 22 101 52;          /* #166534 */
+  --ds-live-dot: 34 197 94;      /* #22C55E */
+  --ds-warm: 146 64 14;          /* #92400E */
+  --ds-star: 245 158 11;         /* #F59E0B */
+  --ds-danger: 185 28 28;        /* #B91C1C */
+
+  --ds-shadow-1: 0 1px 2px rgb(60 40 20 / 0.05), 0 4px 16px rgb(60 40 20 / 0.05);
+  --ds-shadow-2: 0 2px 6px rgb(60 40 20 / 0.06), 0 16px 40px rgb(60 40 20 / 0.10);
+  --ds-shadow-3: 0 -1px 0 rgb(var(--ds-line)), 0 -12px 32px rgb(20 33 61 / 0.08);
+
+  /* Footer palette: dark in both themes, so the page always ends on a solid anchor. */
+  --ds-footer-bg: 20 33 61;       /* #14213D */
+  --ds-footer-ink: 250 247 242;   /* #FAF7F2 */
+  --ds-footer-ink-2: 196 201 212; /* #C4C9D4 */
+  --ds-footer-line: 255 255 255;  /* used at 12% */
+
+  /* Height of the fixed mobile action bar, so content and toasts can clear it. */
+  --ds-bottom-bar: 0px;
+
+  background-color: rgb(var(--ds-paper));
+  color: rgb(var(--ds-ink));
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv11", "ss01";
+  color-scheme: light;
+}
+
+.dark .doctor-site {
+  --ds-paper: 14 20 32;          /* #0E1420 */
+  --ds-paper-2: 18 26 40;        /* #121A28 */
+  --ds-surface: 23 33 51;        /* #172133 */
+  --ds-ink: 243 239 232;         /* #F3EFE8 */
+  --ds-ink-2: 196 201 212;       /* #C4C9D4 */
+  --ds-ink-3: 154 163 178;       /* #9AA3B2 */
+  --ds-line: 38 49 74;           /* #26314A */
+  --ds-accent: 47 91 234;        /* #2F5BEA */
+  --ds-accent-hover: 36 73 201;  /* #2449C9 */
+  --ds-accent-ink: 143 176 255;  /* #8FB0FF */
+  --ds-accent-soft: 36 56 106;   /* #24386A */
+  --ds-live: 74 222 128;         /* #4ADE80 */
+  --ds-live-dot: 34 197 94;      /* #22C55E */
+  --ds-warm: 245 180 84;         /* #F5B454 */
+  --ds-star: 245 158 11;         /* #F59E0B */
+  --ds-danger: 248 113 113;      /* #F87171 */
+
+  --ds-shadow-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+  --ds-shadow-2: 0 2px 6px rgb(0 0 0 / 0.35), 0 16px 40px rgb(0 0 0 / 0.4);
+  --ds-shadow-3: 0 -1px 0 rgb(var(--ds-line)), 0 -12px 32px rgb(0 0 0 / 0.4);
+
+  --ds-footer-bg: 8 12 20;        /* #080C14 */
+
+  color-scheme: dark;
+}
+
+@media (max-width: 767.98px) {
+  .doctor-site {
+    --ds-bottom-bar: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.doctor-site ::selection {
+  background: rgb(var(--ds-accent) / 0.18);
+}
+
+/* One visible, consistent keyboard focus ring everywhere on the site. */
+.doctor-site :focus-visible {
+  outline: 3px solid rgb(var(--ds-accent));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Containers and headings we move focus to after a jump (tabindex="-1") are not controls:
+   no ring on them. Real controls keep the ring above. */
+.doctor-site [tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
+.doctor-site .ds-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Eyebrow label above section titles. */
+.doctor-site .ds-eyebrow {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--ds-ink-2));
+}
+
+/* Hairline rule used between editorial list rows. */
+.doctor-site .ds-rule {
+  border-color: rgb(var(--ds-line));
+}
+
+/* Grain: a very faint paper texture on section bands (inline SVG, no request). */
+.doctor-site .ds-grain {
+  position: relative;
+  isolation: isolate;
+}
+.doctor-site .ds-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .27 0 0 0 0 .18 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.dark .doctor-site .ds-grain::before {
+  opacity: 0.18;
+}
+/* Phones skip the texture: a large composited layer per section for no visible gain. */
+@media (max-width: 767.98px) {
+  .doctor-site .ds-grain::before {
+    display: none;
+  }
+}
+
+/* Lenis (smooth scroll) - recommended base styles from the library docs. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch] {
+  overscroll-behavior: contain;
+}
+/* Lenis's stock CSS also sets `iframe { pointer-events: none }`. Deliberately left out:
+   it would make the clinic's Google Map impossible to pan or zoom. */
+
+/* Shine border sweep (ShineBorder.tsx). Paused for reduced motion below. */
+@keyframes ds-shine {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  to { background-position: 0% 0%; }
+}
+.doctor-site .ds-shine,
+.ds-shine {
+  animation: ds-shine var(--ds-shine-duration, 12s) infinite linear;
+  will-change: background-position;
+}
+
+/* Skeleton shimmer for loading placeholders. */
+@keyframes ds-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.doctor-site .ds-skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgb(var(--ds-ink) / 0.06) 25%, rgb(var(--ds-ink) / 0.12) 50%, rgb(var(--ds-ink) / 0.06) 75%);
+  background-size: 200% 100%;
+  animation: ds-shimmer 1.6s ease-in-out infinite;
+}
+
+/* SplitText line masks must not clip descenders of the serif. */
+.doctor-site .ds-split-line-mask {
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+/* Native scrolling and keyboard focus must clear the fixed navbar and the phone
+   action bar (WCAG 2.4.11), not just our scripted jumps. */
+html:has(.doctor-site) {
+  scroll-padding-top: 76px;
+  scroll-padding-bottom: calc(var(--ds-bottom-bar-root, 0px) + 12px);
+}
+@media (max-width: 767.98px) {
+  html:has(.doctor-site) {
+    --ds-bottom-bar-root: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-shine,
+  .doctor-site .ds-shine {
+    animation: none !important;
+  }
+  .doctor-site *,
+  .doctor-site *::before,
+  .doctor-site *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

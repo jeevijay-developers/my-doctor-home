@@ -1,195 +1,213 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Menu, X, Moon, Sun } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
+import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
+import { CalendarCheck2, Menu, Moon, Sun, X } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import { usePanelTheme } from "@/hooks/usePanelTheme";
-import { scrollToSection } from "@/lib/scrollToSection";
+import { dsCn as cn } from "./ui/dsCn";
+import { doctorName } from "@/lib/doctorSite/doctorFacts";
+import DsButton from "./ui/DsButton";
+import { useActiveSection } from "./ui/useActiveSection";
+import { dsScrollTo, dsScrollToTop } from "./motion/scroll";
+import { bookNow, useDoctorTheme } from "./siteActions";
+import { DUR, EASE } from "./motion/tokens";
 
+const Monogram = ({ name }: { name: string }) => {
+  const initials = name.replace(/^Dr\.?\s*/i, "").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+  return (
+    <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ds-accent-soft font-ds-display text-lg font-medium text-ds-accent-ink">
+      {initials || "Dr"}
+    </span>
+  );
+};
 
 const Navbar = () => {
-  const { profile, settings, services } = useDoctorData();
+  const { profile, settings } = useDoctorData();
   const { slug } = useParams<{ slug: string }>();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const { mode, setTheme } = usePanelTheme("doctylia-patient-theme");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const { isDark, toggle } = useDoctorTheme();
+  const { scrollY } = useScroll();
+  useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
 
-  useEffect(() => {
-    if (!mobileOpen) return;
+  const name = doctorName(profile);
+  const specialty = (profile?.specialization ?? "").trim();
+  const avatar = profile?.profile_photo_url || "";
 
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileOpen(false);
-    };
+  // Four links only, in page order: About, Articles, Contact (plus My appointment below).
+  // "Contact" goes to Clinic details & contact, or to the question form if the doctor hides that section.
+  const links = useMemo(
+    () =>
+      [
+        { label: "About", target: "about", show: settings?.show_about !== false },
+        { label: "Articles", target: "blog", show: settings?.show_blog !== false },
+        { label: "Contact", target: settings?.show_clinic_details !== false ? "contact" : "ask", show: true },
+      ].filter((l) => l.show),
+    [settings],
+  );
+  const active = useActiveSection(links.map((l) => l.target));
 
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [mobileOpen]);
-
-  const scrollTo = (id: string) => {
-    setMobileOpen(false);
-    requestAnimationFrame(() => requestAnimationFrame(() => scrollToSection(id.toLowerCase())));
+  const go = (target: string) => {
+    setMenuOpen(false);
+    // Let the drawer start closing (and release its scroll lock) before scrolling.
+    window.setTimeout(() => dsScrollTo(target, { focusSelector: "h2" }), menuOpen ? 220 : 0);
   };
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setMobileOpen(false);
-  };
-
-
-
-  const isBlogActive = settings?.show_blog !== false;
-  const isServicesActive = settings?.show_services !== false && (services?.length || 0) > 0;
-  const isAboutActive = settings?.show_about !== false;
-  const isGalleryActive = settings?.show_gallery === true;
-  const isReviewsActive = settings?.show_reviews !== false;
-  const isContactActive = settings?.show_clinic_details !== false;
-
-  const navLinks = [
-    { label: "Services", target: "services", show: isServicesActive },
-    { label: "About", target: "about", show: isAboutActive },
-    { label: "Gallery", target: "gallery", show: isGalleryActive },
-    { label: "Reviews", target: "reviews", show: isReviewsActive },
-    { label: "Blog", target: "blog", show: isBlogActive },
-    { label: "Contact", target: "contact", show: isContactActive },
-  ].filter((link) => link.show);
-
-  const docName = profile?.full_name ? `Dr. ${profile.full_name}` : "Dr. Rajkumar Prajapati";
-  const docSpec = profile?.specialization || "General Physician";
-  const avatarSrc = profile?.profile_photo_url || "";
-
-  const toggleTheme = () => {
-    setTheme(mode === "dark" ? "light" : "dark");
-  };
-
-  const mobileLinkClass = "block w-full border-b border-border/50 px-1 py-3.5 text-left text-base font-medium text-text-dark transition-colors hover:text-primary-600 dark:text-foreground";
+  const manageHref = slug ? `/dr/${slug}/manage` : null;
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-[60] h-16 border-b border-border/40 bg-white/95 px-4 shadow-sm backdrop-blur-md dark:bg-card/95">
-        <div className="container mx-auto flex h-full items-center justify-between px-0">
-          <button type="button" className="flex min-w-0 items-center gap-3 text-left" onClick={scrollToTop}>
-            {avatarSrc ? (
-              <OptimizedImage
-                src={avatarSrc}
-                alt={docName}
-                width={96}
-                height={96}
-                decoding="async"
-                className="h-10 w-10 shrink-0 rounded-full object-cover"
-              />
+      <header
+        className={cn(
+          // Always solid: the hero is the same paper colour, so nothing is lost at the top, and a
+          // transparent header let content show through for ~0.4 s after a fast jump down the page.
+          "fixed inset-x-0 top-0 z-50 bg-ds-paper/95 transition-shadow duration-ds-2 ease-ds-out md:bg-ds-paper/85 md:backdrop-blur-xl md:backdrop-saturate-150",
+          scrolled && "shadow-[0_1px_0_rgb(var(--ds-line))]",
+        )}
+      >
+        <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-4 lg:grid lg:grid-cols-[1fr_auto_1fr] px-4 sm:px-6 lg:px-8">
+          <button
+            type="button"
+            onClick={dsScrollToTop}
+            className="flex min-h-11 min-w-0 shrink items-center gap-3 rounded-full pr-2 text-left lg:max-w-[16rem]"
+          >
+            {avatar ? (
+              <OptimizedImage src={avatar} alt="" width={96} height={96} decoding="async" className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-ds-line" />
             ) : (
-              <span className="h-10 w-10 shrink-0 rounded-full bg-muted" aria-hidden="true" />
+              <Monogram name={name} />
             )}
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold leading-tight text-text-dark dark:text-foreground">
-                {docName}
-              </span>
-              <span className="block truncate text-xs text-text-muted dark:text-muted-foreground">{docSpec}</span>
+              {name && <span className="block truncate font-ds-display text-[1.1875rem] font-medium leading-tight">{name}</span>}
+              {specialty && <span className="block truncate text-ds-label text-ds-ink-2">{specialty}</span>}
+              <span className="sr-only"> (back to top)</span>
             </span>
           </button>
 
-          <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary navigation">
-            <button onClick={scrollToTop} className="text-sm font-semibold text-primary-600 transition-colors hover:text-primary-500 dark:text-blue-300 dark:hover:text-blue-200">
-              Home
-            </button>
-            {navLinks.map((link) => (
-              <button key={link.label} onClick={() => scrollTo(link.target)} className="text-sm font-medium text-text-dark transition-colors hover:text-primary-600 dark:text-foreground">
-                {link.label}
-              </button>
-            ))}
-            {slug && (
-              <Link to={`/dr/${slug}/manage`} className="text-sm font-medium text-text-dark transition-colors hover:text-primary-600 dark:text-foreground">
-                My Appointment
+          <nav aria-label="Sections" className="hidden justify-self-center items-center gap-0.5 whitespace-nowrap lg:flex">
+            {links.map((link) => {
+              const isActive = active === link.target;
+              return (
+                <button
+                  key={link.target}
+                  type="button"
+                  onClick={() => go(link.target)}
+                  aria-current={isActive ? "location" : undefined}
+                  className={cn(
+                    "relative rounded-full px-3 py-2 text-ds-small font-medium transition-colors duration-ds-1",
+                    isActive ? "text-ds-ink" : "text-ds-ink-2 hover:text-ds-ink",
+                  )}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="ds-nav-active"
+                      className="absolute inset-0 -z-10 rounded-full bg-ds-ink/[0.06]"
+                      transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                    />
+                  )}
+                  {link.label}
+                </button>
+              );
+            })}
+            {manageHref && (
+              <Link to={manageHref} className="rounded-full px-3 py-2 text-ds-small font-medium text-ds-ink-2 transition-colors hover:text-ds-ink">
+                My appointment
               </Link>
             )}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2 text-text-muted sm:gap-3">
-            <button
-              aria-label="Toggle dark mode"
-              onClick={toggleTheme}
-              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-light dark:text-foreground dark:hover:bg-muted"
-            >
-              {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            <Button size="sm" variant="cta" className="hidden rounded-lg bg-primary-600 px-4 py-2 font-heading text-xs font-semibold text-white hover:bg-blue-700 sm:flex" onClick={() => scrollTo("booking")}>
-              Book Appointment
-            </Button>
+          <div className="ml-auto flex shrink-0 items-center gap-1 lg:justify-self-end">
             <button
               type="button"
-              aria-label={mobileOpen ? "Close menu" : "Open menu"}
-              aria-expanded={mobileOpen}
-              aria-controls="mobile-navigation"
-              className="rounded-lg border border-amber-400 p-1.5 text-text-muted transition-colors hover:bg-surface-light dark:text-foreground dark:hover:bg-muted lg:hidden"
-              onClick={() => setMobileOpen((open) => !open)}
+              onClick={toggle}
+              aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+              className="flex h-11 w-11 items-center justify-center rounded-full text-ds-ink-2 transition-colors hover:bg-ds-ink/[0.06] hover:text-ds-ink"
             >
-              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={isDark ? "sun" : "moon"}
+                  initial={{ rotate: -90, opacity: 0, scale: 0.6 }}
+                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                  exit={{ rotate: 90, opacity: 0, scale: 0.6 }}
+                  transition={{ duration: DUR.small, ease: EASE.out }}
+                  className="flex"
+                >
+                  {isDark ? <Sun className="h-5 w-5" strokeWidth={1.75} /> : <Moon className="h-5 w-5" strokeWidth={1.75} />}
+                </motion.span>
+              </AnimatePresence>
+            </button>
+
+            {manageHref && (
+              <Link
+                to={manageHref}
+                className="hidden h-11 items-center whitespace-nowrap rounded-full px-3 text-ds-small font-medium text-ds-ink-2 hover:text-ds-ink md:flex lg:hidden"
+              >
+                My appointment
+              </Link>
+            )}
+
+            <DsButton onClick={bookNow} magnetic className="ml-1 hidden md:inline-flex">
+              <CalendarCheck2 className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
+              Book appointment
+            </DsButton>
+
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              className="flex h-11 w-11 items-center justify-center rounded-full text-ds-ink transition-colors hover:bg-ds-ink/[0.06] lg:hidden"
+            >
+              <Menu className="h-6 w-6" strokeWidth={1.75} />
             </button>
           </div>
         </div>
       </header>
 
+      {/* Reserves the header's height so the hero starts below it. */}
       <div className="h-16" aria-hidden="true" />
 
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.button
-              type="button"
-              aria-label="Close menu"
-              className="fixed inset-x-0 bottom-0 top-16 z-40 cursor-default bg-slate-950/35 backdrop-blur-[2px] lg:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              onClick={() => setMobileOpen(false)}
-            />
-            <motion.aside
-              id="mobile-navigation"
-              className="fixed bottom-0 right-0 top-16 z-50 flex w-[min(88vw,360px)] flex-col border-l border-border bg-white shadow-[-18px_0_45px_rgba(15,23,42,0.18)] dark:bg-card lg:hidden"
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 32, mass: 0.85 }}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Mobile navigation"
-            >
-              <nav className="flex-1 overflow-y-auto px-6 pb-6 pt-4" aria-label="Mobile navigation links">
-                <button onClick={scrollToTop} className={`${mobileLinkClass} font-semibold text-primary-600 dark:text-blue-300`}>
-                  Home
-                </button>
-                {navLinks.map((link) => (
-                  <button key={link.label} onClick={() => scrollTo(link.target)} className={mobileLinkClass}>
-                    {link.label}
-                  </button>
-                ))}
-                {slug && (
-                  <Link to={`/dr/${slug}/manage`} onClick={() => setMobileOpen(false)} className={mobileLinkClass}>
-                    My Appointment
-                  </Link>
-                )}
-              </nav>
-
-              <div className="space-y-3 border-t border-border bg-slate-50 p-6 dark:bg-gray-900/60">
-                <button
-                  onClick={() => scrollTo("booking")}
-                  className="w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
-                >
-                  Book Appointment
-                </button>
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+      <Drawer open={menuOpen} onOpenChange={setMenuOpen} shouldScaleBackground={false}>
+        <DrawerContent className="doctor-site rounded-t-ds-lg border-ds-line bg-ds-paper pb-[max(1.25rem,env(safe-area-inset-bottom))] text-ds-ink lg:hidden">
+          <div className="flex items-center justify-between px-5 pb-2 pt-3">
+            <DrawerTitle className="font-ds-display text-ds-h3 font-medium">{name || "Menu"}</DrawerTitle>
+            <DrawerDescription className="sr-only">Jump to a section of the page</DrawerDescription>
+            <DrawerClose className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-ds-ink/[0.06]" aria-label="Close menu">
+              <X className="h-5 w-5" strokeWidth={1.75} />
+            </DrawerClose>
+          </div>
+          <nav aria-label="Sections" className="px-3">
+            {links.map((link, index) => (
+              <motion.button
+                key={link.target}
+                type="button"
+                onClick={() => go(link.target)}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.03 * index, duration: DUR.small, ease: EASE.out }}
+                className="flex min-h-14 w-full items-center justify-between rounded-ds-md px-3 text-left font-ds-display text-[1.375rem] font-medium hover:bg-ds-ink/[0.04]"
+              >
+                {link.label}
+                <span aria-hidden="true" className="text-ds-ink-3">→</span>
+              </motion.button>
+            ))}
+            {manageHref && (
+              <Link
+                to={manageHref}
+                onClick={() => setMenuOpen(false)}
+                className="flex min-h-14 w-full items-center justify-between rounded-ds-md px-3 font-ds-display text-[1.375rem] font-medium hover:bg-ds-ink/[0.04]"
+              >
+                My appointment <span aria-hidden="true" className="text-ds-ink-3">→</span>
+              </Link>
+            )}
+          </nav>
+          <div className="mt-3 px-5">
+            <DsButton size="lg" className="w-full" onClick={() => { setMenuOpen(false); window.setTimeout(bookNow, 220); }}>
+              Book appointment
+            </DsButton>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };

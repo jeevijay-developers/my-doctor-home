@@ -1,13 +1,13 @@
-import { useState, useMemo, useEffect } from "react";
-import { CheckCircle2, XCircle, ChevronLeft, Video, Users, Clock, FileText, Building2, Receipt, AlertCircle } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { CheckCircle2, XCircle, ChevronLeft, Video, Users, Clock, FileText, Building2, Receipt, AlertCircle, CalendarPlus, Plus } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { DigitsInput } from "@/components/ui/digits-input";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { useSlotAvailability } from "@/hooks/useSlotAvailability";
+import { useNearViewport } from "@/hooks/useNearViewport";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { generateBookingToken } from "@/lib/bookingToken";
@@ -21,9 +21,16 @@ import { loadRazorpayCheckout } from "@/lib/razorpayCheckout";
 import AppointmentSlip from "./AppointmentSlip";
 import PaymentSlip from "./PaymentSlip";
 import MockCheckoutModal from "./MockCheckoutModal";
-import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { generateTimeSlots, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { SELECT_SLOT_EVENT, slotLabel, type SelectSlotDetail } from "@/lib/doctorSite/nextAvailable";
+import { buildAppointmentIcs, downloadIcs } from "@/lib/doctorSite/ics";
+import { dsScrollTo } from "./motion/scroll";
+import DsButton from "./ui/DsButton";
+import DatePicker from "./booking/DatePicker";
+import TimePicker from "./booking/TimePicker";
+import { radioKeyDown } from "./ui/radioKeyDown";
+import SectionHeader from "./ui/SectionHeader";
+import { DUR, EASE } from "./motion/tokens";
 
 const getNextDays = (count: number) => {
   const days = [];
@@ -33,9 +40,9 @@ const getNextDays = (count: number) => {
 };
 
 const SummaryRow = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex justify-between gap-3">
-    <span className="text-text-gray">{label}</span>
-    <span className="text-foreground font-medium text-right break-words">{value || "-"}</span>
+  <div className="flex justify-between gap-4 text-ds-small">
+    <span className="text-ds-ink-3">{label}</span>
+    <span className="break-words text-right font-medium text-ds-ink">{value || "-"}</span>
   </div>
 );
 
@@ -57,19 +64,15 @@ type CachedOrder = {
   amount: number;
   currency: string;
   mode: "mock" | "live";
+  /** Fingerprint of the booking details this order was created for (see bookingKey). */
+  key: string;
 };
 
 type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 
-const STEP_LABELS = ["Consultation Type", "Select Date", "Select Time", "Patient Details", "Review & Pay"];
+const STEP_LABELS = ["When", "Your details", "Review & pay"];
 
-const SLOT_PERIODS = [
-  { label: "Morning", startHour: 0, endHour: 12 },
-  { label: "Afternoon", startHour: 12, endHour: 17 },
-  { label: "Evening", startHour: 17, endHour: 24 },
-] as const;
-
-const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
+const BookingWidget = () => {
   const { profile, services, settings, workingHours, isPremium, hasFeature } = useDoctorData();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [step, setStep] = useState(1);
@@ -104,7 +107,6 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   const [captchaToken, setCaptchaToken] = useState("");
   const [turnstileReset, setTurnstileReset] = useState(0);
 
-  useEffect(() => { if (confirmed) setSlipOpen(true); }, [confirmed]);
 
   // Any time the patient steps back before Review (to change date,
   // time, or their own details), the previously cached Razorpay order no
@@ -142,6 +144,10 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
       const customEvent = event as CustomEvent<any>;
       const svc = customEvent.detail;
       if (!svc) return;
+      // Never rewrite a booking that is being paid for or whose payment failed (the retry must
+      // match what the patient saw); after a confirmation, start a fresh booking instead.
+      if (live.current.submitting || live.current.paymentFailed) return;
+      if (live.current.confirmed) live.current.reset();
       if (svc.type === "online" && hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION)) {
         setType("online");
       } else if (svc.type === "clinic") {
@@ -154,6 +160,42 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     window.addEventListener("doctylia:select-service", handleSelectService as EventListener);
     return () => window.removeEventListener("doctylia:select-service", handleSelectService as EventListener);
   }, [hasFeature]);
+
+  const [showMore, setShowMore] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [attempted, setAttempted] = useState(false);
+  const [serviceOpen, setServiceOpen] = useState(false);
+  const stepRegionRef = useRef<HTMLDivElement>(null);
+  // Latest values for code that runs outside React's render (window events, async results).
+  const live = useRef({ confirmed: false, paymentFailed: false, submitting: false, bookingKey: "", dateStr: null as string | null, reset: () => {} });
+  // The time currently shown in the time field. It only becomes the booking's time (selectedTime)
+  // when the patient taps Continue and the slot passes the live availability re-check.
+  const [pickedTime, setPickedTime] = useState("");
+  const [zoneRef, zoneNear] = useNearViewport<HTMLElement>("400px");
+
+  // Open on the first day that still has a bookable time, so the patient sees
+  // slots straight away instead of choosing a date first. Held back until the
+  // booking area is near the screen (this starts live availability polling).
+  useEffect(() => {
+    if (selectedDate || step > 3 || !zoneNear) return;
+    const firstBookable = days.find((d) => {
+      const row = workingHours.find((h) => h.day_of_week === d.getDay());
+      if (!row?.is_open) return false;
+      const all = [
+        ...generateTimeSlots(row.start_time, row.end_time, slotDuration),
+        ...generateTimeSlots(row.start_time_2, row.end_time_2, slotDuration),
+      ];
+      return isSameDay(d, new Date())
+        ? all.some((t) => {
+            const [h, m] = t.split(":").map(Number);
+            const slot = new Date();
+            slot.setHours(h, m, 0, 0);
+            return slot.getTime() > Date.now();
+          })
+        : all.length > 0;
+    });
+    if (firstBookable) setSelectedDate(firstBookable);
+  }, [selectedDate, step, zoneNear, days, workingHours, slotDuration]);
 
   const defaultFee = type === "online"
     ? (settings?.online_fee || (profile?.consultation_fee ?? 500))
@@ -193,17 +235,34 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
 
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
   const { counts, isFull, refresh } = useSlotAvailability(profile?.id, dateStr, type);
-  const availableTimeSlots = timeSlots.filter((time) => (counts[time] || 0) < 1);
-  const availableSlotGroups = SLOT_PERIODS.map((period) => ({
-    ...period,
-    slots: availableTimeSlots.filter((time) => {
-      const hour = Number(time.split(":")[0]);
-      return hour >= period.startHour && hour < period.endHour;
-    }),
-  })).filter((period) => period.slots.length > 0);
+  // Free slots only: already-booked times (live counts) and past times are not offered at all.
+  const availableTimeSlots = timeSlots.filter((time) => (counts[time] || 0) < 1).sort();
+  const availableKey = availableTimeSlots.join(",");
+
+  // Keep the time field on a real free slot: the committed time when coming back, else what the
+  // patient had, else the earliest free one (so if the shown time gets booked, it moves on, and the
+  // Continue button always names the time that will be booked).
+  const shownBefore = useRef("");
+  useEffect(() => {
+    if (!selectedDate) {
+      shownBefore.current = "";
+      setPickedTime("");
+      return;
+    }
+    const slots = availableKey ? availableKey.split(",") : [];
+    let next = "";
+    if (selectedTime && slots.includes(selectedTime)) next = selectedTime;
+    else if (shownBefore.current && slots.includes(shownBefore.current)) next = shownBefore.current;
+    else next = slots[0] ?? "";
+    shownBefore.current = next;
+    setPickedTime(next);
+  }, [availableKey, selectedDate, selectedTime]);
 
   const wantsOnlinePayment = Boolean(settings?.require_payment);
-  const totalSteps = wantsOnlinePayment ? 5 : 4;
+  // The widget keeps its internal steps (1-3 pick a date and time, 4 details, 5 review),
+  // but the patient sees one "When" screen, then details, then (online payment) review.
+  const visibleStep = step <= 3 ? 1 : step === 4 ? 2 : 3;
+  const totalSteps = wantsOnlinePayment ? 3 : 2;
 
   const validatePatientDetails = () => {
     if (!name || !phone || !age || !gender) return false;
@@ -314,8 +373,12 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setConfirmedPaymentStatus("pay_at_clinic"); setPaymentMeta(null);
     setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setUnconfirmed(null); setMockCheckoutOpen(false);
-    setToken(""); setPatientsAhead(null); setConfirmedApptId(null);
+    setToken(""); setPatientsAhead(null); setConfirmedApptId(null); setShowMore(false); setServiceOpen(false);
   };
+
+  // Everything that makes up the booking. A cached payment order is only reusable while this is unchanged.
+  const bookingKey = JSON.stringify([type, selectedService?.id ?? null, dateStr, selectedTime, name.trim(), phone, age, gender, email, complaint]);
+  live.current = { confirmed, paymentFailed, submitting, bookingKey, dateStr, reset };
 
   const downloadSlip = () => downloadPdfFromNode('[data-slip-print-root] .slip-card', pdfFileName("Appointment", name, selectedDate ? format(selectedDate, "yyyy-MM-dd") : null, token));
   const downloadPaymentSlip = () => downloadPdfFromNode('[data-payment-slip-print-root] .slip-card', pdfFileName("Payment-Receipt", name, selectedDate ? format(selectedDate, "yyyy-MM-dd") : null, token));
@@ -367,6 +430,57 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     setStep(4);
   };
 
+  // Quick-book from the hero ("Book this slot"): select that date, then validate
+  // the slot against a fresh availability read for THAT date (never the counts
+  // still cached for the date the patient was browsing). A nonce makes repeat taps
+  // on the same date work. If the slot was taken meanwhile the patient lands on
+  // the time picker with the usual explanation.
+  const [quickPick, setQuickPick] = useState<{ dateKey: string; time: string; nonce: number } | null>(null);
+  useEffect(() => {
+    const handleSelectSlot = (event: Event) => {
+      const detail = (event as CustomEvent<SelectSlotDetail>).detail;
+      if (!detail?.dateKey || !detail.time) return;
+      if (live.current.submitting || live.current.paymentFailed) return;
+      if (live.current.confirmed) live.current.reset();
+      const [y, m, d] = detail.dateKey.split("-").map(Number);
+      setType(detail.type === "online" && hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION) ? "online" : "clinic");
+      setSelectedServiceId(null);
+      setCachedOrder(null);
+      setSelectedDate(new Date(y, m - 1, d));
+      setSelectedTime("");
+      setStep(3);
+      setQuickPick({ dateKey: detail.dateKey, time: detail.time, nonce: Date.now() });
+    };
+    window.addEventListener(SELECT_SLOT_EVENT, handleSelectSlot as EventListener);
+    return () => window.removeEventListener(SELECT_SLOT_EVENT, handleSelectSlot as EventListener);
+  }, [hasFeature]);
+
+  const handledQuickPick = useRef(0);
+  useEffect(() => {
+    if (!quickPick || quickPick.dateKey !== dateStr || handledQuickPick.current === quickPick.nonce) return;
+    const { time, nonce } = quickPick;
+    handledQuickPick.current = nonce;
+    setSelectedTime(time);
+    setCheckingSlot(true);
+    refresh()
+      .then((freshCounts) => {
+        if (handledQuickPick.current !== nonce) return; // a newer tap took over
+        if (live.current.dateStr !== quickPick.dateKey) return; // the patient moved to another date meanwhile
+        if ((freshCounts[time] || 0) >= 1) {
+          setSelectedTime("");
+          toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
+          return;
+        }
+        setStep(4);
+      })
+      .catch(() => {
+        if (handledQuickPick.current === nonce) setSelectedTime("");
+      })
+      .finally(() => {
+        if (handledQuickPick.current === nonce) setCheckingSlot(false);
+      });
+  }, [quickPick, dateStr, refresh]);
+
   // Step 4 "Continue" for online-payment doctors - just moves to the Review
   // Booking Summary step. Nothing is written to the database here.
   // Also re-validates the slot so a race between step 3 selection and step 4
@@ -389,7 +503,8 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   // the appointment itself is created here, only a `payments` row holding
   // the pending booking payload.
   const ensureOrder = async (): Promise<CachedOrder | null> => {
-    if (cachedOrder) return cachedOrder;
+    if (cachedOrder && cachedOrder.key === bookingKey) return cachedOrder;
+    const keyAtStart = bookingKey;
     if (getTurnstileSiteKey() && !captchaToken) {
       toast.error("Please complete the verification check.");
       return null;
@@ -443,7 +558,14 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
       return null;
     }
 
+    if (live.current.bookingKey !== keyAtStart) {
+      // The patient changed something while the order was being prepared: that order is for the old details.
+      toast.error("Your details changed while we were preparing the payment. Please review and try again.");
+      return null;
+    }
+
     const order: CachedOrder = {
+      key: keyAtStart,
       payment_id: orderData.payment_id,
       order_id: orderData.order_id,
       key_id: orderData.key_id,
@@ -569,82 +691,150 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     await openCheckout(order);
   };
 
+  // Bring the patient to the result (and announce it) when a booking is confirmed or payment fails.
+  useEffect(() => {
+    if (confirmed || paymentFailed) dsScrollTo("booking", { focusSelector: "#booking-heading" });
+  }, [confirmed, paymentFailed]);
+
+  // Moving between steps unmounts the focused control; park focus on the step region instead of <body>.
+  // (The details step focuses its first field itself.)
+  const lastVisibleStep = useRef(visibleStep);
+  useEffect(() => {
+    if (lastVisibleStep.current === visibleStep) return;
+    lastVisibleStep.current = visibleStep;
+    // Bring the new step's top into view (the previous step may have left the page scrolled to its bottom).
+    // The details step focuses its first field itself, which scroll's focus handling leaves alone.
+    dsScrollTo("booking-card");
+  }, [visibleStep]);
+
   const estWaitMinutes = (patientsAhead ?? 0) * (selectedService?.duration || 15);
 
+  const dayLabel = selectedDate ? format(selectedDate, "EEE, d MMM") : "";
+  const serviceDuration = Number(selectedService?.duration) || slotDuration;
+
+  // "Add to calendar": a .ics generated in the browser from the confirmed booking.
+  const addToCalendar = () => {
+    if (!selectedDate || !selectedTime) return;
+    const clinic = profile?.clinic_name || (profile?.full_name ? `Dr. ${profile.full_name}` : "Clinic");
+    const where = [profile?.clinic_name, profile?.address, profile?.city].filter(Boolean).join(", ");
+    const ics = buildAppointmentIcs({
+      uid: token || crypto.randomUUID(),
+      title: `${selectedService?.name || "Appointment"} · ${clinic}`,
+      date: selectedDate,
+      time: selectedTime,
+      durationMinutes: serviceDuration,
+      status: confirmedPaymentStatus === "paid" || settings?.auto_confirm ? "CONFIRMED" : "TENTATIVE",
+      location: type === "online" ? "Online consultation" : where,
+      description: [`Booking ID: ${token}`, `Patient: ${name}`, profile?.full_name ? `Doctor: Dr. ${profile.full_name}` : ""].filter(Boolean).join("\n"),
+    });
+    downloadIcs(`Appointment-${token || "visit"}`, ics);
+  };
+
+  const sectionShell = (children: React.ReactNode, narrow = true) => (
+    <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="bg-ds-paper py-[4.5rem] md:py-32">
+      <div className={`mx-auto px-5 sm:px-6 lg:px-8 ${narrow ? "max-w-[44rem]" : "max-w-[1200px]"}`}>{children}</div>
+    </section>
+  );
+
+  const resultCard = "rounded-ds-lg border border-ds-line bg-ds-surface p-6 shadow-ds-2 sm:p-9";
+
   if (confirmed) {
-    return (
-      <section id="booking" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-        <div className="container mx-auto px-[5px] md:px-4 max-w-lg">
-          <div className="bg-card rounded-2xl shadow-xl py-8 px-[5px] md:px-8 text-center">
-            <CheckCircle2 size={64} className="text-success mx-auto mb-4" />
-            <h3 className="font-heading font-bold text-2xl text-foreground mb-2">
-              {confirmedPaymentStatus === "paid" ? "Booking Successful!" : `Appointment ${settings?.auto_confirm ? "Confirmed" : "Requested"}!`}
-            </h3>
-            <p className="text-text-gray mb-4">Token #{token}</p>
-            <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 text-left space-y-2 text-sm mb-4">
-              <p><strong>Appointment ID:</strong> {token}</p>
-              <p><strong>Doctor:</strong> Dr. {profile?.full_name}</p>
-              <p><strong>Consultation Type:</strong> {type === "clinic" ? "Clinic Visit" : "Online"}</p>
-              <p><strong>Service:</strong> {selectedService?.name}</p>
-              <p><strong>Date:</strong> {selectedDate && format(selectedDate, "EEEE, d MMMM")}</p>
-              <p><strong>Time:</strong> {selectedTime}</p>
-              <p><strong>Patient:</strong> {name}</p>
-              <p>
-                <strong>{confirmedPaymentStatus === "paid" ? "Amount Paid" : "Amount"}:</strong>{" "}
-                ₹{confirmedPaymentStatus === "paid" ? (paymentMeta?.amount ?? selectedService?.price ?? 0) : (selectedService?.price ?? 0)}
-              </p>
-            </div>
+    const paid = confirmedPaymentStatus === "paid";
+    const details: [string, string][] = [
+      ["Doctor", `Dr. ${profile?.full_name ?? ""}`],
+      ["When", `${selectedDate ? format(selectedDate, "EEEE, d MMMM") : ""} · ${selectedTime ? slotLabel(selectedTime) : ""}`],
+      ["Visit", `${type === "clinic" ? "Clinic visit" : "Online consultation"} · ${selectedService?.name ?? ""}`],
+      ["Patient", name],
+      [paid ? "Amount paid" : "Amount", `₹${paid ? (paymentMeta?.amount ?? selectedService?.price ?? 0) : (selectedService?.price ?? 0)}`],
+    ];
+    return sectionShell(
+      <>
+        <div className={resultCard} role="status" aria-live="polite">
+          <motion.svg
+            viewBox="0 0 52 52"
+            className="h-14 w-14 text-ds-live"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <motion.circle cx="26" cy="26" r="23" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.6, ease: EASE.out }} />
+            <motion.path d="M15 27l8 8 14-16" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.4, delay: 0.35, ease: EASE.out }} />
+          </motion.svg>
+          <h2 id="booking-heading" tabIndex={-1} className="mt-5 font-ds-display text-ds-h2 font-medium outline-none">
+            {paid ? "Booking Successful!" : `Appointment ${settings?.auto_confirm ? "Confirmed" : "Requested"}!`}
+          </h2>
+          <p className="mt-2 text-ds-body text-ds-ink-2">
+            Your booking ID is <strong className="font-semibold text-ds-ink ds-tabular">{token}</strong>. Keep it to manage your appointment.
+          </p>
 
-            {confirmedPaymentStatus === "paid" && (
-              <div className="mb-4 p-3 rounded-xl bg-success/10 border border-success/20 text-left text-sm text-success flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>Payment received - you're all paid up for this appointment.</span>
+          <dl className="mt-7 border-t border-ds-line">
+            {details.map(([term, detail]) => (
+              <div key={term} className="grid gap-1 border-b border-ds-line py-3.5 sm:grid-cols-[8rem_1fr] sm:gap-4">
+                <dt className="text-ds-label font-medium uppercase tracking-[0.08em] text-ds-ink-3">{term}</dt>
+                <dd className="text-ds-body text-ds-ink">{detail}</dd>
               </div>
-            )}
+            ))}
+          </dl>
 
-            {type === "clinic" && patientsAhead !== null && (
-              <div className="mb-4 p-3 rounded-xl bg-royal/5 border border-royal/20 text-left text-sm text-royal">
-                <div className="flex items-center gap-2 font-semibold">
-                  <Users className="h-4 w-4" />
-                  {patientsAhead === 0
-                    ? "You're first in line - no wait!"
-                    : `${patientsAhead} patient${patientsAhead > 1 ? "s" : ""} ahead of you`}
-                </div>
-                {patientsAhead > 0 && (
-                  <div className="mt-1 text-xs text-royal/80 flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> Estimated wait ~{estWaitMinutes} min
-                  </div>
-                )}
-              </div>
-            )}
+          {paid && (
+            <p className="mt-5 flex items-center gap-2 rounded-ds-sm bg-ds-live/[0.08] px-4 py-3 text-ds-small font-medium text-ds-live">
+              <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0" />
+              Payment received. You're all paid up for this appointment.
+            </p>
+          )}
 
-            {type === "online" && (
-              <div className="mb-4 p-3 rounded-xl bg-teal/10 border border-teal/20 text-left text-sm text-teal flex items-start gap-2">
-                <Video className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>Your video consultation link will be shared with you 1 hour before your appointment.</span>
-              </div>
-            )}
+          {type === "clinic" && patientsAhead !== null && (
+            <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-ds-sm bg-ds-accent-soft px-4 py-3 text-ds-small font-medium text-ds-accent-ink">
+              <Users aria-hidden="true" className="h-4 w-4 shrink-0" />
+              {patientsAhead === 0 ? "You're first in line. No wait!" : `${patientsAhead} patient${patientsAhead > 1 ? "s" : ""} ahead of you`}
+              {patientsAhead > 0 && (
+                <span className="inline-flex items-center gap-1 font-normal">
+                  <Clock aria-hidden="true" className="h-3.5 w-3.5" /> about {estWaitMinutes} min
+                </span>
+              )}
+            </p>
+          )}
 
+          {type === "online" && (
+            <p className="mt-4 flex items-start gap-2 rounded-ds-sm bg-ds-accent-soft px-4 py-3 text-ds-small text-ds-accent-ink">
+              <Video aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+              Your video consultation link will be shared with you 1 hour before your appointment.
+            </p>
+          )}
+
+          <div className="mt-8 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
+            <DsButton size="lg" onClick={addToCalendar} className="w-full sm:w-auto">
+              <CalendarPlus aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              Add to calendar
+            </DsButton>
+            <DsButton size="lg" variant="secondary" onClick={handleDownloadAppointmentSlip} className="w-full sm:w-auto">
+              <FileText aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              Download Appointment Slip
+            </DsButton>
+            {paid && (
+              <DsButton size="lg" variant="secondary" onClick={handleDownloadPaymentSlip} className="w-full sm:w-auto">
+                <Receipt aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                Download Payment Slip
+              </DsButton>
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-ds-line pt-5 text-ds-small">
             {profile?.slug && (
               <a
                 // The fragment (after #) is never sent to servers or in Referer headers, unlike a query string.
                 href={`/dr/${profile.slug}/manage#token=${encodeURIComponent(token)}&phone=${encodeURIComponent(phone)}`}
-                className="block text-xs text-royal hover:underline mb-4"
+                className="inline-flex min-h-11 items-center font-medium text-ds-accent-ink underline-offset-4 hover:underline"
               >
                 Manage this appointment (cancel or reschedule) →
               </a>
             )}
-            <div className="flex flex-wrap gap-2 justify-center">
-              <Button onClick={handleDownloadAppointmentSlip} className="gap-1.5 bg-royal hover:bg-royal/90 text-white">
-                <FileText className="h-4 w-4" /> Download Appointment Slip
-              </Button>
-              {confirmedPaymentStatus === "paid" && (
-                <Button onClick={handleDownloadPaymentSlip} variant="outline" className="gap-1.5">
-                  <Receipt className="h-4 w-4" /> Download Payment Slip
-                </Button>
-              )}
-              <Button variant="outline" onClick={reset}>Book Another</Button>
-            </div>
+            <button type="button" onClick={reset} className="inline-flex min-h-11 items-center font-medium text-ds-ink-2 underline-offset-4 hover:text-ds-ink hover:underline">
+              Book Another
+            </button>
           </div>
         </div>
 
@@ -661,11 +851,11 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
           patientName={name}
           patientPhone={phone}
           paymentStatus={confirmedPaymentStatus}
-          forceConfirmed={confirmedPaymentStatus === "paid" ? true : undefined}
+          forceConfirmed={paid ? true : undefined}
           onDownload={downloadSlip}
         />
 
-        {confirmedPaymentStatus === "paid" && paymentMeta && (
+        {paid && paymentMeta && (
           <PaymentSlip
             open={paymentSlipOpen}
             onClose={() => setPaymentSlipOpen(false)}
@@ -684,7 +874,7 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
             onDownload={downloadPaymentSlip}
           />
         )}
-      </section>
+      </>,
     );
   }
 
@@ -694,69 +884,62 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
   // No appointment exists yet either way; Retry Payment reuses the same
   // cached order so retrying never creates a duplicate.
   if (paymentFailed) {
-    return (
-      <section id="booking" className={`py-16 md:py-24 ${cardColorClass(cardColor)}`}>
-        <div className="container mx-auto px-[5px] md:px-4 max-w-lg">
-          <div className="bg-card rounded-2xl shadow-xl py-8 px-[5px] md:px-8 text-center">
-            <XCircle size={64} className="text-destructive mx-auto mb-4" />
-            <h3 className="font-heading font-bold text-2xl text-foreground mb-2 flex items-center justify-center gap-2 flex-wrap">
-              Payment Failed {paymentModeIsMock && <TestModeBadge />}
-            </h3>
-            <p className="text-text-gray mb-4">{paymentFailureMessage || "Your payment could not be completed."}</p>
-            <div className="bg-secondary rounded-xl py-4 px-[5px] md:px-4 mx-[5px] md:mx-0 text-left space-y-2 text-sm mb-4">
-              <p><strong>Doctor:</strong> Dr. {profile?.full_name}</p>
-              <p><strong>Consultation Type:</strong> {type === "clinic" ? "Clinic Visit" : "Online"}</p>
-              <p><strong>Service:</strong> {selectedService?.name}</p>
-              <p><strong>Date:</strong> {selectedDate && format(selectedDate, "EEEE, d MMMM")}</p>
-              <p><strong>Time:</strong> {selectedTime}</p>
-              <p><strong>Amount:</strong> ₹{selectedService?.price ?? 0}</p>
-            </div>
-            {unconfirmed ? (
-              <>
-                <p className="text-xs text-foreground mb-2 font-semibold">
-                  Your payment may have gone through. Please do NOT pay again.
-                </p>
-                <p className="text-xs text-muted-foreground mb-5">
-                  Payment ID: {unconfirmed.response.razorpay_payment_id}. Tap "Check payment status" to confirm it,
-                  or contact the clinic with this ID.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <Button
-                    variant="cta"
-                    className="gap-1.5 font-heading font-semibold"
-                    disabled={submitting}
-                    onClick={() => {
-                      setPaymentFailed(false);
-                      setSubmitting(true);
-                      handleCheckoutResult(unconfirmed.order, unconfirmed.response);
-                    }}
-                  >
-                    {submitting ? "Checking..." : "Check payment status"}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-muted-foreground mb-5">No appointment was created and you were not charged. You can safely retry.</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <Button
-                    variant="cta"
-                    className="gap-1.5 font-heading font-semibold"
-                    disabled={submitting}
-                    onClick={() => { setPaymentFailed(false); payNow(); }}
-                  >
-                    {submitting ? "Retrying..." : "Retry Payment"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => { setPaymentFailed(false); setCachedOrder(null); setStep(4); }}
-                  >
-                    Edit Booking Details
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
+    return sectionShell(
+      <>
+        <div className={resultCard} role="alert">
+          <XCircle aria-hidden="true" className="h-12 w-12 text-ds-danger" strokeWidth={1.5} />
+          <h2 id="booking-heading" tabIndex={-1} className="mt-5 flex flex-wrap items-center gap-3 font-ds-display text-ds-h2 font-medium outline-none">
+            Payment Failed {paymentModeIsMock && <TestModeBadge />}
+          </h2>
+          <p className="mt-2 text-ds-body text-ds-ink-2">{paymentFailureMessage || "Your payment could not be completed."}</p>
+
+          <dl className="mt-6 border-t border-ds-line text-ds-small">
+            {[
+              ["Doctor", `Dr. ${profile?.full_name ?? ""}`],
+              ["Visit", `${type === "clinic" ? "Clinic visit" : "Online consultation"} · ${selectedService?.name ?? ""}`],
+              ["When", `${selectedDate ? format(selectedDate, "EEEE, d MMMM") : ""} · ${selectedTime ? slotLabel(selectedTime) : ""}`],
+              ["Amount", `₹${selectedService?.price ?? 0}`],
+            ].map(([term, detail]) => (
+              <div key={term} className="flex justify-between gap-4 border-b border-ds-line py-3">
+                <dt className="text-ds-ink-3">{term}</dt>
+                <dd className="text-right text-ds-ink">{detail}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {unconfirmed ? (
+            <>
+              <p className="mt-6 text-ds-body font-semibold">Your payment may have gone through. Please do NOT pay again.</p>
+              <p className="mt-1 text-ds-small text-ds-ink-2">
+                Payment ID: {unconfirmed.response.razorpay_payment_id}. Tap "Check payment status" to confirm it, or contact the clinic with this ID.
+              </p>
+              <div className="mt-6">
+                <DsButton
+                  size="lg"
+                  disabled={submitting}
+                  onClick={() => {
+                    setPaymentFailed(false);
+                    setSubmitting(true);
+                    handleCheckoutResult(unconfirmed.order, unconfirmed.response);
+                  }}
+                >
+                  {submitting ? "Checking..." : "Check payment status"}
+                </DsButton>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mt-6 text-ds-small text-ds-ink-2">No appointment was created and you were not charged. You can safely retry.</p>
+              <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+                <DsButton size="lg" disabled={submitting} onClick={() => { setPaymentFailed(false); payNow(); }}>
+                  {submitting ? "Retrying..." : "Retry Payment"}
+                </DsButton>
+                <DsButton size="lg" variant="secondary" onClick={() => { setPaymentFailed(false); setCachedOrder(null); setStep(4); }}>
+                  Edit Booking Details
+                </DsButton>
+              </div>
+            </>
+          )}
         </div>
 
         {cachedOrder?.mode === "mock" && (
@@ -773,356 +956,410 @@ const BookingWidget = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
             onDismiss={handleCheckoutDismiss}
           />
         )}
-      </section>
+      </>,
     );
   }
 
-  const renderStepForm = () => (
-    <>
-      <div className="mb-8 text-left">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-primary-500">
-              Step {step} of {totalSteps}
-            </p>
-            <p className="mt-1 text-sm font-bold text-[#092b50] dark:text-white">
-              {STEP_LABELS[step - 1]}
-            </p>
-          </div>
-          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-primary-500 dark:bg-blue-950/40">
-            {Math.round((step / totalSteps) * 100)}%
-          </span>
+  // ------------------------------------------------------------------ steps
+
+  const stepHeader = () => (
+    <div className="mb-7">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {step >= 4 && (
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => setStep(step === 5 ? 4 : 3)}
+              className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-ds-small font-medium text-ds-ink-2 transition-colors hover:bg-ds-ink/[0.06] hover:text-ds-ink"
+            >
+              <ChevronLeft aria-hidden="true" className="h-4 w-4" /> Back
+            </button>
+          )}
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-gray-800">
-          <div
-            className="h-full rounded-full bg-primary-500 shadow-[0_0_12px_rgba(60,131,252,0.35)] transition-[width] duration-500 ease-out"
-            style={{ width: `${(step / totalSteps) * 100}%` }}
-          />
-        </div>
+        <p aria-live="polite" className="text-ds-small text-ds-ink-2">
+          <span className="font-semibold text-ds-ink">Step {visibleStep} of {totalSteps}</span> · {STEP_LABELS[visibleStep - 1]}
+        </p>
       </div>
-      {step > 1 && (
-        <button onClick={() => setStep(step - 1)} className="mb-5 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-primary-500 transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/30">
-          <ChevronLeft size={16} /> Back
-        </button>
+      <div className="mt-3 h-1 overflow-hidden rounded-full bg-ds-line" role="progressbar" aria-valuemin={1} aria-valuemax={totalSteps} aria-valuenow={visibleStep} aria-label="Booking progress">
+        <motion.div className="h-full rounded-full bg-ds-accent" initial={false} animate={{ width: `${(visibleStep / totalSteps) * 100}%` }} transition={{ duration: DUR.medium, ease: EASE.out }} />
+      </div>
+    </div>
+  );
+
+  const chipBase =
+    "flex min-h-12 items-center justify-between gap-3 rounded-ds-sm border px-4 py-2.5 text-left transition-colors duration-ds-1 ";
+  const chipOn = "border-ds-accent bg-ds-accent-soft text-ds-ink ring-1 ring-ds-accent";
+  const chipOff = "border-ds-line bg-ds-surface text-ds-ink hover:border-ds-ink/30";
+
+  const renderWhen = () => (
+    <div className="space-y-9">
+      {consultationTypes.length > 1 && (
+        <div role="radiogroup" aria-label="Consultation type" onKeyDown={radioKeyDown} className="grid grid-cols-2 gap-1 rounded-full bg-ds-paper-2 p-1">
+          {consultationTypes.map((t) => (
+            <button
+              key={t.k}
+              type="button"
+              role="radio"
+              tabIndex={type === t.k ? 0 : -1}
+              aria-checked={type === t.k}
+              onClick={() => { setType(t.k); setSelectedServiceId(null); setSelectedTime(""); setCachedOrder(null); }}
+              className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-full text-ds-small font-semibold transition-colors duration-ds-1 ${type === t.k ? "bg-ds-surface text-ds-ink shadow-ds-1" : "text-ds-ink-2 hover:text-ds-ink"}`}
+            >
+              <t.Icon aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              {t.label}
+            </button>
+          ))}
+        </div>
       )}
 
-      {wantsOnlinePayment && !paymentModeIsMock && (!profile?.razorpay_payment_enabled || profile?.razorpay_account_status !== "active") && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-left text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-semibold">Online payments are not yet active for this clinic</p>
-            <p className="mt-0.5 text-amber-700/90 dark:text-amber-300/80">
-              This clinic is completing payment gateway setup. Please contact the clinic directly if you are unable to complete checkout.
+      {compatibleServices.length > 1 && (
+        // Most patients want the default: show it as one line and tuck the alternatives away,
+        // so the dates and times (the actual decision) stay near the top of the card.
+        <div>
+          <div className="flex items-center justify-between gap-4 rounded-ds-md border border-ds-line bg-ds-paper-2 px-4 py-2">
+            <p className="min-w-0 text-ds-small">
+              <span className="text-ds-label uppercase tracking-[0.08em] text-ds-ink-3">Service</span>
+              <span className="block truncate font-semibold text-ds-ink">{selectedService.name} · ₹{selectedService.price}</span>
             </p>
+            <button
+              type="button"
+              aria-expanded={serviceOpen}
+              onClick={() => setServiceOpen((open) => !open)}
+              className="inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline"
+            >
+              {serviceOpen ? "Done" : "Change"}<span className="sr-only"> service</span>
+            </button>
           </div>
-        </div>
-      )}
-
-      {step === 1 && (
-        <div className="text-left space-y-5">
-          <div>
-            <h3 className="mb-4 font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Consultation Type</h3>
-            <div className={`grid gap-4 ${consultationTypes.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-              {consultationTypes.map((t) => {
-                const isSelected = type === t.k;
-                return (
-                  <button
-                    key={t.k}
-                    onClick={() => { setType(t.k); setSelectedServiceId(null); setStep(2); }}
-                    className={`group relative min-h-[132px] rounded-2xl p-5 flex flex-col items-center justify-center gap-3 transition-all duration-300 ${
-                      isSelected
-                        ? "border-2 border-primary-500 bg-blue-50/80 shadow-[0_12px_28px_rgba(60,131,252,0.14)] dark:bg-blue-950/25"
-                        : "border border-slate-200 bg-white hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-800"
-                    }`}
-                  >
-                    <span className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-colors ${isSelected ? "bg-primary-500 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-primary-500 dark:bg-gray-800"}`}>
-                      <t.Icon size={24} />
-                    </span>
-                    <span className={`text-sm ${isSelected ? "font-extrabold text-primary-600 dark:text-primary-400" : "font-semibold text-text-dark dark:text-gray-200"}`}>
-                      {t.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {compatibleServices.length > 1 && (
-            <div className="space-y-2.5">
-              <label className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Select Service / Procedure
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {compatibleServices.map((svc) => {
-                  const isSvcSelected = (selectedService.id ?? null) === (svc.id ?? null);
-                  return (
-                    <button
-                      key={svc.id ?? "default-consultation"}
-                      type="button"
-                      onClick={() => {
-                        setSelectedServiceId(svc.id ?? null);
-                        setCachedOrder(null);
-                      }}
-                      className={`flex items-center justify-between gap-2 rounded-xl border p-3 text-left transition-all ${
-                        isSvcSelected
-                          ? "border-2 border-primary-500 bg-blue-50/80 dark:bg-blue-950/30"
-                          : "border-slate-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-[#092b50] dark:text-white">{svc.name}</p>
-                        <p className="text-xs text-muted-foreground">{svc.duration} min</p>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-blue-100/80 px-2.5 py-1 text-xs font-extrabold text-primary-600 dark:bg-blue-900/50 dark:text-blue-200">
-                        ₹{svc.price}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="space-y-4 text-left">
-          {compatibleServices.length > 1 && (
-            <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Service
-              </label>
-              <select
-                aria-label="Select Service"
-                value={selectedService.id ?? ""}
-                onChange={(e) => {
-                  setSelectedServiceId(e.target.value || null);
-                  setCachedOrder(null);
-                }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900"
-              >
-                {compatibleServices.map((svc) => (
-                  <option key={svc.id ?? "default-consultation"} value={svc.id ?? ""}>
-                    {svc.name} - ₹{svc.price} ({svc.duration} min)
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Date</h3>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {days.map((d, i) => {
-              const dow = d.getDay();
-              const dwh = workingHours.find((h) => h.day_of_week === dow);
-              const closed = !dwh?.is_open;
+          {serviceOpen && (
+        <fieldset className="mt-3">
+          <legend className="mb-3 text-ds-label font-medium uppercase tracking-[0.08em] text-ds-ink-3">Service</legend>
+          <div role="radiogroup" aria-label="Service" onKeyDown={radioKeyDown} className="grid gap-2 sm:grid-cols-2">
+            {compatibleServices.map((svc) => {
+              const on = (selectedService.id ?? null) === (svc.id ?? null);
               return (
-                <button key={i} disabled={closed} onClick={() => { setSelectedDate(d); setStep(3); }}
-                  className={`flex-shrink-0 w-20 rounded-2xl border-2 py-3 text-center transition-all ${closed ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-45 dark:border-gray-800 dark:bg-gray-900" : selectedDate?.getTime() === d.getTime() ? "border-primary-500 bg-blue-50 shadow-sm dark:bg-blue-950/25" : "border-slate-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-900"}`}>
-                  <p className="text-xs text-text-gray">{format(d, "EEE")}</p>
-                  <p className="font-heading font-bold text-lg text-foreground">{d.getDate()}</p>
-                  <p className="text-xs text-text-gray">{format(d, "MMM")}</p>
-                  {closed && <p className="text-[10px] text-destructive mt-1">Closed</p>}
+                <button
+                  key={svc.id ?? "default-consultation"}
+                  type="button"
+                  role="radio"
+                  tabIndex={on ? 0 : -1}
+                  aria-checked={on}
+                  onClick={() => { setSelectedServiceId(svc.id ?? null); setCachedOrder(null); }}
+                  className={chipBase + (on ? chipOn : chipOff)}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-ds-small font-semibold">{svc.name}</span>
+                    <span className="block text-ds-label text-ds-ink-2">{svc.duration} min</span>
+                  </span>
+                  <span className="shrink-0 font-semibold ds-tabular">₹{svc.price}</span>
                 </button>
               );
             })}
           </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="space-y-4 text-left">
-          <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Select Time Slot</h3>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Live availability updates automatically.</span>
-            <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">{availableTimeSlots.length} available</span>
-          </div>
-          {availableTimeSlots.length > 0 ? (
-            <ScrollArea className="h-80 rounded-xl border border-slate-200 bg-slate-50/60 pr-3 dark:border-gray-700 dark:bg-gray-900/40">
-              <div className="space-y-5 p-3">
-                {availableSlotGroups.map((period) => (
-                  <section key={period.label} aria-label={`${period.label} available slots`}>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">{period.label}</p>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                      {period.slots.map((time) => {
-                        const isChecking = checkingSlot && selectedTime === time;
-                        return (
-                          <button
-                            key={time}
-                            disabled={checkingSlot}
-                            onClick={() => selectTimeSlot(time)}
-                            className={`rounded-lg border-2 py-2.5 text-sm font-medium transition-all ${
-                              isChecking
-                                ? "cursor-wait border-royal bg-royal/20 text-foreground"
-                                : selectedTime === time
-                                ? "border-primary-500 bg-primary-500 text-white shadow-sm"
-                                : "border-slate-200 bg-white text-foreground hover:border-blue-200 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-800"
-                            }`}
-                          >
-                            {isChecking ? <span className="animate-pulse">Checking…</span> : time}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            </ScrollArea>
-          ) : (
-            <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-              No time slots are available for this date. Please select another date.
-            </div>
+        </fieldset>
           )}
         </div>
       )}
 
-      {step === 4 && (
-        <div className="space-y-4 text-left">
-          <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Patient Details</h3>
-          <div className="space-y-3">
-            <input type="text" aria-label="Full name" autoComplete="name" placeholder="Full Name *" value={name} onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-3 rounded-lg border border-border bg-secondary text-sm text-foreground">+91</span>
-              <input type="tel" aria-label="Mobile number" autoComplete="tel" inputMode="numeric" maxLength={13} placeholder="10-digit Mobile Number *" value={phone} onChange={(e) => setPhone(e.target.value)}
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
-            </div>
-            {phone && !isValidIndianPhone(phone) && (
-              <p className="text-[11px] text-destructive -mt-1">{phoneErrorMessage}</p>
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div>
+          <h3 className="mb-3 font-ds-display text-ds-h3 font-medium">Select Date</h3>
+          <DatePicker
+            id="bk-date"
+            value={selectedDate}
+            fromDate={days[0]}
+            toDate={days[days.length - 1]}
+            disabled={checkingSlot}
+            isAvailable={(d) => days.some((day) => isSameDay(day, d)) && Boolean(workingHours.find((h) => h.day_of_week === d.getDay())?.is_open)}
+            onChange={(d) => { setSelectedDate(d); setSelectedTime(""); setStep(3); }}
+          />
+        </div>
+        <div>
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h3 className="font-ds-display text-ds-h3 font-medium">Select Time Slot</h3>
+            {selectedDate && availableTimeSlots.length > 0 && (
+              <span className="text-ds-small text-ds-ink-2 ds-tabular">{availableTimeSlots.length} available</span>
             )}
-            <input type="email" aria-label="Email (optional)" autoComplete="email" placeholder="Email (optional - for booking confirmation)" value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
-            <div className="grid grid-cols-2 gap-3">
-              <input type="number" aria-label="Age" min="0" max="120" placeholder="Age *" value={age} onChange={(e) => setAge(e.target.value)}
-                className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950" />
-              <select value={gender} onChange={(e) => setGender(e.target.value)}
-                className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950">
-                <option value="" disabled hidden>Gender *</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
-              </select>
-            </div>
-            <textarea aria-label="Reason for visit (optional)" placeholder="Reason for visit (optional)" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-foreground shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-950 resize-none" />
           </div>
+          <TimePicker
+            id="bk-time"
+            slots={availableTimeSlots}
+            value={pickedTime}
+            disabled={checkingSlot || !selectedDate}
+            emptyLabel={selectedDate ? "No times available" : "Choose a date first"}
+            onChange={setPickedTime}
+          />
+        </div>
+      </div>
 
-          <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 space-y-2 text-sm dark:border-blue-900 dark:bg-blue-950/20">
-            <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="text-foreground font-medium">{selectedService?.name}</span></div>
-            <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="text-foreground font-medium">{selectedDate && format(selectedDate, "d MMM")}</span></div>
-            <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="text-foreground font-medium">{selectedTime}</span></div>
-            <hr className="border-border" />
-            <div className="flex justify-between font-heading font-bold text-lg"><span>Total</span><span className="text-royal">₹{selectedService?.price}</span></div>
-          </div>
-
-          <p className="text-[11px] text-text-gray text-center">
-            By booking, you agree to Doctylia's{" "}
-            <a href="/terms" target="_blank" rel="noreferrer" className="text-royal hover:underline">Terms of Service</a>{" "}
-            and{" "}
-            <a href="/privacy" target="_blank" rel="noreferrer" className="text-royal hover:underline">Privacy Policy</a>.
-          </p>
-
-          {wantsOnlinePayment ? (
-            <Button variant="cta" className="w-full rounded-xl bg-primary-600 py-6 font-heading text-lg font-bold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] hover:bg-blue-700"
-              disabled={!name || !phone || !age || !gender} onClick={proceedToReview}>
-              Continue
-            </Button>
-          ) : (
-            <Button variant="cta" className="w-full rounded-xl bg-primary-600 py-6 font-heading text-lg font-bold text-white shadow-[0_10px_24px_rgba(60,131,252,0.24)] hover:bg-blue-700"
-              disabled={!name || !phone || !age || !gender || submitting} onClick={submitBooking}>
-              {submitting ? "Booking..." : `Book Appointment - ₹${selectedService?.price}`}
-            </Button>
-          )}
+      {!selectedDate ? (
+        <p className="rounded-ds-md border border-dashed border-ds-line px-4 py-6 text-center text-ds-small text-ds-ink-2">
+          No dates are open for booking right now. Please contact the clinic.
+        </p>
+      ) : availableTimeSlots.length === 0 ? (
+        <p className="rounded-ds-md border border-dashed border-ds-line px-4 py-6 text-center text-ds-small text-ds-ink-2">
+          No time slots are available for this date. Please select another date.
+        </p>
+      ) : (
+        <div>
+          <DsButton size="lg" className="w-full" disabled={!pickedTime || checkingSlot} onClick={() => selectTimeSlot(pickedTime)}>
+            {checkingSlot ? "Checking…" : <>Continue · {slotLabel(pickedTime)}</>}
+          </DsButton>
+          <p className="mt-3 text-center text-ds-label text-ds-ink-3">Only free times are listed, and the list updates live.</p>
         </div>
       )}
-
-      {step === 5 && wantsOnlinePayment && (
-        <div className="space-y-4 text-left">
-          <h3 className="font-heading font-semibold text-lg text-foreground flex items-center gap-2 flex-wrap">
-            Review Booking Summary {paymentModeIsMock && <TestModeBadge />}
-          </h3>
-          <p className="text-xs text-muted-foreground">Please review your details before payment.</p>
-
-          <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 space-y-4 text-sm dark:border-blue-900 dark:bg-blue-950/20">
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Appointment Details</p>
-              <div className="space-y-1.5">
-                <SummaryRow label="Doctor Name" value={`Dr. ${profile?.full_name || ""}`} />
-                <SummaryRow label="Consultation Type" value={type === "clinic" ? "Clinic Visit" : "Online Consultation"} />
-                <SummaryRow label="Service" value={selectedService?.name || ""} />
-                <SummaryRow label="Appointment Date" value={selectedDate ? format(selectedDate, "EEEE, d MMMM yyyy") : ""} />
-                <SummaryRow label="Appointment Time" value={selectedTime} />
-              </div>
-            </div>
-
-            <hr className="border-border" />
-
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Patient Details</p>
-              <div className="space-y-1.5">
-                <SummaryRow label="Patient Name" value={name} />
-                <SummaryRow label="Mobile Number" value={phone ? `+91 ${phone}` : ""} />
-                <SummaryRow label="Email" value={email} />
-                <SummaryRow label="Age" value={age} />
-                <SummaryRow label="Gender" value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : ""} />
-              </div>
-            </div>
-
-            <hr className="border-border" />
-
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-royal">Payment Details</p>
-              <div className="space-y-1.5">
-                <SummaryRow label="Consultation Fee" value={`₹${selectedService?.price ?? 0}`} />
-                <div className="flex justify-between font-heading font-bold text-lg pt-1">
-                  <span className="text-foreground">Total Amount</span>
-                  <span className="text-royal">₹{selectedService?.price ?? 0}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <TurnstileWidget action="booking" onToken={setCaptchaToken} resetSignal={turnstileReset} />
-
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(4)}>
-              Back
-            </Button>
-            <Button variant="cta" className="flex-[2] h-12 font-heading font-semibold text-lg"
-              disabled={submitting} onClick={payNow}>
-              {submitting ? "Processing..." : "Pay Now"}
-            </Button>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
+
+  const ageInvalid = age !== "" && (Number(age) < 0 || Number(age) > 120);
+  const fieldClass =
+    "h-12 w-full rounded-ds-sm border bg-ds-surface px-4 text-ds-body text-ds-ink outline-none transition-colors placeholder:text-ds-ink-3 focus:border-ds-accent ";
+
+  const phoneShowError = Boolean(phone) && !isValidIndianPhone(phone) && (phoneTouched || phone.replace(/\D/g, "").length >= 10);
+  const missingDetails = !name.trim() || !phone || !age || !gender || !selectedTime;
+
+  const renderWho = () => (
+    <form
+      noValidate
+      className="space-y-6"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (submitting) return;
+        if (missingDetails) {
+          // Guide instead of staying dead: say what is missing and move to the first empty field.
+          setAttempted(true);
+          if (!name.trim()) document.getElementById("bk-name")?.focus();
+          else if (!phone) document.getElementById("bk-phone")?.focus();
+          else if (!age) document.getElementById("bk-age")?.focus();
+          else if (!gender) document.querySelector<HTMLElement>('[aria-label="Gender"] [role="radio"]')?.focus();
+          return;
+        }
+        if (wantsOnlinePayment) proceedToReview();
+        else void submitBooking();
+      }}
+    >
+      <div className="flex items-center justify-between gap-4 rounded-ds-md border border-ds-line bg-ds-paper-2 px-4 py-3.5">
+        <div className="min-w-0">
+          <p className="font-semibold ds-tabular"><span className="whitespace-nowrap">{dayLabel}</span> · <span className="whitespace-nowrap">{selectedTime ? slotLabel(selectedTime) : ""}</span></p>
+          <p className="truncate text-ds-small text-ds-ink-2">{selectedService?.name} · ₹{selectedService?.price}</p>
+        </div>
+        <button type="button" disabled={submitting} onClick={() => setStep(3)} className="inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline">
+          Change
+        </button>
+      </div>
+
+      <h3 className="font-ds-display text-ds-h3 font-medium">Patient Details</h3>
+      <p className="-mt-3 text-ds-small text-ds-ink-2">Name, mobile number, age and gender are needed to book.</p>
+
+      <div>
+        <label htmlFor="bk-name" className="mb-1.5 block text-ds-small font-medium">Full name</label>
+        <input id="bk-name" name="name" type="text" autoFocus autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} className={fieldClass + "border-ds-line"} />
+      </div>
+
+      <div>
+        <label htmlFor="bk-phone" className="mb-1.5 block text-ds-small font-medium">Mobile number</label>
+        <div className="flex items-stretch gap-2">
+          <span aria-hidden="true" className="flex w-14 shrink-0 items-center justify-center rounded-ds-sm border border-ds-line bg-ds-paper-2 text-ds-small text-ds-ink-2">+91</span>
+          <input
+            id="bk-phone"
+            name="phone"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            maxLength={13}
+            required
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            onBlur={() => setPhoneTouched(true)}
+            aria-invalid={phoneShowError ? true : undefined}
+            aria-describedby={phoneShowError ? "bk-phone-error" : undefined}
+            className={fieldClass + (phoneShowError ? "border-ds-danger" : "border-ds-line")}
+          />
+        </div>
+        {phoneShowError && (
+          <p id="bk-phone-error" role="alert" className="mt-1.5 text-ds-small text-ds-danger">{phoneErrorMessage}</p>
+        )}
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div>
+          <label htmlFor="bk-age" className="mb-1.5 block text-ds-small font-medium">Age</label>
+          <input
+            id="bk-age"
+            name="age"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={3}
+            required
+            value={age}
+            onChange={(e) => setAge(e.target.value.replace(/\D/g, ""))}
+            aria-invalid={ageInvalid ? true : undefined}
+            aria-describedby={ageInvalid ? "bk-age-error" : undefined}
+            className={fieldClass + (ageInvalid ? "border-ds-danger" : "border-ds-line")}
+          />
+          {ageInvalid && <p id="bk-age-error" role="alert" className="mt-1.5 text-ds-small text-ds-danger">Please enter an age between 0 and 120.</p>}
+        </div>
+        <fieldset>
+          <legend className="mb-1.5 text-ds-small font-medium">Gender</legend>
+          <div role="radiogroup" aria-label="Gender" onKeyDown={radioKeyDown} className="grid grid-cols-3 gap-2">
+            {(["male", "female", "other"] as const).map((g) => (
+              <button
+                key={g}
+                type="button"
+                role="radio"
+                tabIndex={gender === g || (!gender && g === "male") ? 0 : -1}
+                aria-checked={gender === g}
+                onClick={() => setGender(g)}
+                className={`min-h-12 rounded-ds-sm border text-ds-small font-medium capitalize transition-colors duration-ds-1 ${gender === g ? "border-ds-accent bg-ds-accent-soft font-semibold ring-1 ring-ds-accent" : "border-ds-line bg-ds-surface hover:border-ds-ink/30"}`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+
+      {showMore ? (
+        <div className="space-y-6 border-t border-ds-line pt-6">
+          <div>
+            <label htmlFor="bk-email" className="mb-1.5 block text-ds-small font-medium">Email (optional)</label>
+            <input id="bk-email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="For your booking confirmation" className={fieldClass + "border-ds-line"} />
+          </div>
+          <div>
+            <label htmlFor="bk-reason" className="mb-1.5 block text-ds-small font-medium">Reason for visit (optional)</label>
+            <textarea id="bk-reason" rows={3} value={complaint} onChange={(e) => setComplaint(e.target.value)} className="w-full resize-none rounded-ds-sm border border-ds-line bg-ds-surface px-4 py-3 text-ds-body outline-none transition-colors focus:border-ds-accent" />
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setShowMore(true)} className="inline-flex min-h-11 items-center gap-1.5 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline">
+          <Plus aria-hidden="true" className="h-4 w-4" /> Add email or reason for visit (optional)
+        </button>
+      )}
+
+      <p className="text-ds-label text-ds-ink-3">
+        By booking, you agree to Doctylia's{" "}
+        <a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ds-ink">Terms of Service</a> and{" "}
+        <a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ds-ink">Privacy Policy</a>.
+      </p>
+
+      {missingDetails && !submitting && (
+        <p
+          id="bk-hint"
+          role={attempted ? "alert" : undefined}
+          className={`text-center text-ds-small ${attempted ? "font-medium text-ds-danger" : "text-ds-ink-2"}`}
+        >
+          {selectedTime ? "Enter your name, mobile number, age and gender to continue." : "Choose a time first."}
+        </p>
+      )}
+      {wantsOnlinePayment ? (
+        <DsButton type="submit" size="lg" className="w-full">
+          Continue
+        </DsButton>
+      ) : (
+        <DsButton type="submit" size="lg" className="w-full" disabled={submitting}>
+          {submitting ? "Booking..." : `Confirm booking · ₹${selectedService?.price}`}
+        </DsButton>
+      )}
+    </form>
+  );
+
+  const renderReview = () => (
+    <div className="space-y-6">
+      <h3 className="flex flex-wrap items-center gap-3 font-ds-display text-ds-h3 font-medium">
+        Review Booking Summary {paymentModeIsMock && <TestModeBadge />}
+      </h3>
+      <p className="-mt-3 text-ds-small text-ds-ink-2">Please review your details before payment.</p>
+
+      <div className="rounded-ds-md border border-ds-line bg-ds-paper-2 p-5">
+        {[
+          ["Appointment", [
+            ["Doctor Name", `Dr. ${profile?.full_name || ""}`],
+            ["Consultation Type", type === "clinic" ? "Clinic Visit" : "Online Consultation"],
+            ["Service", selectedService?.name || ""],
+            ["Appointment Date", selectedDate ? format(selectedDate, "EEEE, d MMMM yyyy") : ""],
+            ["Appointment Time", selectedTime ? slotLabel(selectedTime) : ""],
+          ]],
+          ["Patient", [
+            ["Patient Name", name],
+            ["Mobile Number", phone ? `+91 ${phone}` : ""],
+            ["Email", email],
+            ["Age", age],
+            ["Gender", gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : ""],
+          ]],
+        ].map(([heading, rows], index) => (
+          <div key={heading as string} className={index > 0 ? "mt-5 border-t border-ds-line pt-5" : ""}>
+            <p className="mb-2 text-ds-label font-medium uppercase tracking-[0.08em] text-ds-ink-3">{heading as string}</p>
+            <div className="space-y-1.5">
+              {(rows as [string, string][]).map(([label, value]) => <SummaryRow key={label} label={label} value={value} />)}
+            </div>
+          </div>
+        ))}
+        <div className="mt-5 flex items-baseline justify-between border-t border-ds-line pt-5">
+          <span className="text-ds-body text-ds-ink-2">Total Amount</span>
+          <span className="font-ds-display text-[1.75rem] font-medium ds-tabular">₹{selectedService?.price ?? 0}</span>
+        </div>
+      </div>
+
+      <TurnstileWidget action="booking" onToken={setCaptchaToken} resetSignal={turnstileReset} />
+
+      <div className="flex gap-2.5">
+        <DsButton variant="secondary" size="lg" className="flex-1" onClick={() => setStep(4)}>Back</DsButton>
+        <DsButton size="lg" className="flex-[2]" disabled={submitting} onClick={payNow}>
+          {submitting ? "Processing..." : "Pay Now"}
+        </DsButton>
+      </div>
+    </div>
+  );
+
+  const razorpayNotReady =
+    wantsOnlinePayment && !paymentModeIsMock && (!profile?.razorpay_payment_enabled || profile?.razorpay_account_status !== "active");
 
   return (
     <>
-      <section id="booking" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 " />
-        <div className="pointer-events-none absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/15" />
+      <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="bg-ds-paper py-[4.5rem] md:py-32">
+        <div className="mx-auto max-w-[44rem] px-5 sm:px-6 lg:px-8">
+          <SectionHeader
+            id="booking-heading"
+            eyebrow="Book online"
+            title="Book an appointment"
+            intro="Pick a time, tell us who is coming, and you're booked. It takes about a minute."
+            headingAttrs={{ "data-booking-start": "" }}
+          />
+          {profile?.slug && (
+            <a href={`/dr/${profile.slug}/manage`} className="mt-5 inline-flex min-h-11 items-center text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline">
+              Already booked? Manage your appointment →
+            </a>
+          )}
 
-        <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em] text-primary-500">
-              Easy Online Booking
-            </p>
-            <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
-              Book an <span className="text-primary-500">Appointment</span>
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
-              Select your preference and reserve your consultation in under two minutes.
-            </p>
-            {profile?.slug && (
-              <a
-                href={`/dr/${profile.slug}/manage`}
-                className="mt-4 inline-flex rounded-full border border-blue-100 bg-white px-4 py-2 text-xs font-bold text-primary-500 shadow-sm transition-colors hover:bg-blue-50 dark:border-blue-900 dark:bg-gray-900 dark:hover:bg-blue-950/30"
-              >
-                Already booked? Manage your appointment →
-              </a>
+          <div id="booking-card" className="mt-8 rounded-ds-lg border border-ds-line bg-ds-surface p-5 shadow-ds-2 sm:mt-10 sm:p-9">
+            {stepHeader()}
+
+            {razorpayNotReady && (
+              <div role="note" className="mb-6 flex items-start gap-2.5 rounded-ds-sm border border-ds-warm/30 bg-ds-warm/[0.08] p-4 text-ds-small text-ds-ink">
+                <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-ds-warm" />
+                <div>
+                  <p className="font-semibold">Online payments are not yet active for this clinic</p>
+                  <p className="mt-0.5 text-ds-ink-2">This clinic is completing payment gateway setup. Please contact the clinic directly if you are unable to complete checkout.</p>
+                </div>
+              </div>
             )}
-          </div>
 
-          <div className="mx-auto mt-8 max-w-2xl rounded-[1.75rem] border border-blue-100 bg-white p-5 shadow-[0_20px_50px_-22px_rgba(15,43,80,0.30)] dark:border-blue-900/60 dark:bg-gray-900 sm:mt-10 sm:p-8">
-            {renderStepForm()}
+            <div ref={stepRegionRef} tabIndex={-1} className="outline-none">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={visibleStep}
+                initial={{ opacity: 0, x: 14 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: DUR.small, ease: EASE.out }}
+              >
+                {step <= 3 && renderWhen()}
+                {step === 4 && renderWho()}
+                {step === 5 && wantsOnlinePayment && renderReview()}
+              </motion.div>
+            </AnimatePresence>
+            </div>
           </div>
         </div>
       </section>

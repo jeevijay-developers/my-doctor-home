@@ -18,11 +18,11 @@ const applyClass = (effective: "light" | "dark") => {
  * and removes it on unmount so the public site is unaffected.
  * Persists per-panel preference in localStorage.
  */
-export function usePanelTheme(storageKey: string) {
+export function usePanelTheme(storageKey: string, defaultMode: ThemeMode = "dark") {
   const [mode, setMode] = useState<ThemeMode>(() => {
-    if (typeof window === "undefined") return "dark";
+    if (typeof window === "undefined") return defaultMode;
     const saved = window.localStorage.getItem(storageKey) as ThemeMode | null;
-    return saved || "dark";
+    return saved || defaultMode;
   });
 
   useEffect(() => {

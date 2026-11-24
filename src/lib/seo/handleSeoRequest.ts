@@ -173,6 +173,9 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
       image: meta.image,
       preconnect: supabaseOrigin ? [supabaseOrigin] : [],
       preloadImage: heroSrc ? optimizedImageUrl(heroSrc, HERO_IMAGE_WIDTH) : undefined,
+      // Newsreader styles the hero headline (the LCP element on photo-less profiles); without
+      // this it is only discovered after the stylesheet, then swapped in.
+      preloadFonts: ["/fonts/newsreader-latin.woff2"],
       jsonLd: jsonLd ? [jsonLd] : [],
       bodyHtml: buildDoctorBody({
         name,

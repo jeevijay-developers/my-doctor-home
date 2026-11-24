@@ -1,108 +1,120 @@
-import { Check, User } from "lucide-react";
-import { useDoctorData } from "@/contexts/DoctorContext";
+import { useId, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
-import AnimatedItem from "@/components/landing/AnimatedItem";
-import { cardColorClass, type CardColor } from "@/lib/cardColor";
-import { scrollToSection } from "@/lib/scrollToSection";
+import { useDoctorData } from "@/contexts/DoctorContext";
+import { doctorName, formatQualifications } from "@/lib/doctorSite/doctorFacts";
+import DsButton from "./ui/DsButton";
+import SectionHeader from "./ui/SectionHeader";
+import { bookNow } from "./siteActions";
+import { DUR, EASE, staggerDelay } from "./motion/tokens";
 
-const PRIMARY = "#3C83FC";
+const BIO_PREVIEW = 420;
 
-const AboutSection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
+/**
+ * About the doctor (spec §5.5): their own photo and bio, credentials as a
+ * definition list, one action. Every line comes from what the doctor entered;
+ * nothing is written on their behalf, and missing items are simply left out.
+ */
+const AboutSection = () => {
   const { profile, settings } = useDoctorData();
+  const reduce = useReducedMotion();
+  const [expanded, setExpanded] = useState(false);
+  const bioId = useId();
 
-  const doctorName = profile?.full_name || "Doctor";
-  const specialization = profile?.specialization || "General Physician";
-  const qualifications = profile?.qualifications || "MBBS, MD";
-  const experience = profile?.experience_years
-    ? `${profile.experience_years}+ Years of Clinical Experience`
-    : "Experienced Medical Professional";
+  const name = doctorName(profile);
+  const bio = (profile?.bio ?? "").trim();
+  const isLongBio = bio.length > BIO_PREVIEW;
+  const photo = settings?.about_photo_url || profile?.profile_photo_url || "";
+  const years = Number(profile?.experience_years);
+  const place = [profile?.locality, profile?.city].map((v) => (v ?? "").trim()).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(", ");
 
-  const highlights = [
-    [qualifications, specialization].filter(Boolean).join(" - "),
-    experience,
-    `Expert care in ${specialization}`,
-    "Evidence-Based Treatment",
-    "Patient-Centered Approach",
-    profile?.registration_number ? `Reg. No.: ${profile.registration_number}` : null,
-  ].filter((item): item is string => Boolean(item));
-
-  const photoSrc = settings?.about_photo_url || null;
+  const credentials = [
+    { term: "Specialty", detail: (profile?.specialization ?? "").trim() },
+    { term: "Qualifications", detail: formatQualifications(profile?.qualifications) },
+    { term: "Experience", detail: Number.isFinite(years) && years > 0 ? `${years} year${years === 1 ? "" : "s"} in practice` : "" },
+    { term: "Registration no.", detail: (profile?.registration_number ?? "").trim() },
+    { term: "Clinic", detail: [(profile?.clinic_name ?? "").trim(), place].filter(Boolean).join(", ") },
+  ].filter((c) => c.detail);
 
   return (
-    <section id="about" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
-      <div className="pointer-events-none absolute -left-24 top-12 h-64 w-64 rounded-full bg-blue-100/50 blur-3xl dark:bg-blue-900/15" />
-      <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/15" />
-
-      <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
-        <div className="grid items-center gap-10 md:grid-cols-[minmax(280px,0.88fr)_minmax(0,1.12fr)] md:gap-14 lg:gap-20">
-          <AnimatedItem className="mx-auto w-full max-w-[430px]">
-            <div className="relative rounded-[1.75rem] border border-blue-100 bg-white p-3 shadow-[0_24px_50px_-24px_rgba(15,43,80,0.35)] dark:border-blue-900/60 dark:bg-gray-900 sm:p-4">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-blue-50 to-slate-100 dark:from-gray-800 dark:to-blue-950/30 sm:rounded-2xl">
-                {photoSrc ? (
-                  <OptimizedImage
-                    src={photoSrc}
-                    alt={`Dr. ${doctorName}`}
-                    width={860}
-                    height={1075}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover object-top"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <User className="h-24 w-24 text-blue-200 dark:text-blue-800" strokeWidth={1.4} />
-                  </div>
-                )}
-
-                <div className="absolute bottom-3 left-3 right-3 rounded-2xl border border-white/80 bg-white/95 px-4 py-3 text-center shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-gray-900/95 sm:bottom-4 sm:left-4 sm:right-4 sm:py-4">
-                  <p className="truncate font-heading text-base font-extrabold text-[#092b50] dark:text-white sm:text-lg">
-                    {specialization}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs font-medium text-slate-500 dark:text-slate-400">
-                    {qualifications}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </AnimatedItem>
-
-          <AnimatedItem index={1} className="min-w-0">
-            <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em]" style={{ color: PRIMARY }}>
-              About the Doctor
-            </p>
-
-            <h2 className="mt-3 font-heading text-3xl font-extrabold leading-tight tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
-              Meet <span style={{ color: PRIMARY }}>Dr. {doctorName}</span>
-            </h2>
-
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300 sm:text-base sm:leading-8">
-              I believe in treating every patient with compassion, respect, and personalized care. My goal is to help you achieve better health, confidence, and quality of life through thoughtful, evidence-based treatment.
-            </p>
-
-            <div className="mt-7 grid gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
-              {highlights.map((highlight, index) => (
-                <AnimatedItem key={highlight} index={index + 2} staggerMs={55}>
-                  <div className="flex items-center gap-3 rounded-xl border border-transparent py-1.5 transition-colors hover:border-blue-100 hover:bg-blue-50/50 dark:hover:border-blue-900/60 dark:hover:bg-blue-950/20">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40" style={{ color: PRIMARY }}>
-                      <Check className="h-4 w-4" strokeWidth={2.5} />
-                    </span>
-                    <span className="text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100 sm:text-[15px]">
-                      {highlight}
-                    </span>
-                  </div>
-                </AnimatedItem>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => scrollToSection("services")}
-              className="mt-8 inline-flex h-11 items-center justify-center rounded-xl border-2 bg-transparent px-7 text-sm font-bold transition-all hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md dark:hover:bg-blue-950/30"
-              style={{ borderColor: PRIMARY, color: PRIMARY }}
+    <section id="about" aria-labelledby="about-heading" className="relative py-[4.5rem] md:py-32">
+      <div className="mx-auto grid max-w-[1200px] gap-10 px-5 sm:px-6 lg:grid-cols-12 lg:gap-16 lg:px-8">
+        {photo && (
+          <figure className="order-2 mx-auto w-full max-w-[420px] lg:order-1 lg:col-span-5 lg:mx-0 lg:max-w-none">
+            <motion.div
+              initial={reduce ? false : { clipPath: "inset(12% 8% 12% 8% round 28px)" }}
+              whileInView={{ clipPath: "inset(0% 0% 0% 0% round 28px)" }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 1.1, ease: EASE.out }}
+              className="aspect-[4/5] overflow-hidden rounded-ds-lg bg-ds-paper-2 ring-1 ring-ds-line"
             >
-              Know More About Me
-            </button>
-          </AnimatedItem>
+              <OptimizedImage
+                src={photo}
+                alt={name || "The doctor"}
+                width={860}
+                height={1075}
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover object-top"
+              />
+            </motion.div>
+            {name && (
+              <figcaption className="mt-3 px-1 font-ds-display text-[1.0625rem] italic text-ds-ink-2">
+                {name}
+                {profile?.specialization ? `, ${String(profile.specialization).trim()}` : ""}
+              </figcaption>
+            )}
+          </figure>
+        )}
+
+        <div className={photo ? "order-1 lg:order-2 lg:col-span-7 lg:pt-6" : "lg:col-span-8 lg:col-start-3"}>
+          <SectionHeader id="about-heading" eyebrow="About the doctor" title={name ? `Meet ${name}` : "About the doctor"} />
+
+          {bio && (
+            <div className="mt-6 max-w-[62ch]">
+              <p id={bioId} className={`whitespace-pre-line text-ds-lead text-ds-ink-2 ${expanded || !isLongBio ? "" : "line-clamp-6"}`}>
+                {bio}
+              </p>
+              {isLongBio && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((v) => !v)}
+                  aria-expanded={expanded}
+                  aria-controls={bioId}
+                  className="mt-2 inline-flex min-h-11 items-center gap-1 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline"
+                >
+                  {expanded ? "Show less" : "Read the full story"}
+                  <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform duration-ds-2 ${expanded ? "rotate-180" : ""}`} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {credentials.length > 0 && (
+            <dl className="mt-8 max-w-[40rem] border-t border-ds-line">
+              {credentials.map((item, index) => (
+                <motion.div
+                  key={item.term}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-40px" }}
+                  transition={{ duration: DUR.medium, ease: EASE.out, delay: staggerDelay(index) }}
+                  className="grid gap-1 border-b border-ds-line py-4 sm:grid-cols-[11rem_1fr] sm:gap-6"
+                >
+                  <dt className="text-ds-label font-medium uppercase tracking-[0.08em] text-ds-ink-3">{item.term}</dt>
+                  <dd className="text-ds-body text-ds-ink">{item.detail}</dd>
+                </motion.div>
+              ))}
+            </dl>
+          )}
+
+          <div className="mt-9">
+            <DsButton size="lg" magnetic onClick={bookNow}>
+              {name ? `Book with ${name}` : "Book an appointment"}
+              <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={2} />
+            </DsButton>
+          </div>
         </div>
       </div>
     </section>

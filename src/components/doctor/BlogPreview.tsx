@@ -1,158 +1,147 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowRight, Calendar, Clock3, Tag } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { blogPostPath } from "@/lib/seo/blogSeo";
 import { supabase } from "@/integrations/supabase/client";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import BlogImagePlaceholder from "./BlogImagePlaceholder";
 import OptimizedImage from "@/components/shared/OptimizedImage";
-import {
-  Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi,
-} from "@/components/ui/carousel";
-import { cardColorClass, type CardColor } from "@/lib/cardColor";
-import { useIsDesktop } from "@/hooks/useIsDesktop";
 import type { Tables } from "@/integrations/supabase/types";
+import SectionHeader from "./ui/SectionHeader";
+import { DUR, EASE, staggerDelay } from "./motion/tokens";
 
-const PRIMARY = "#3C83FC";
-const PREVIEW_LIMIT = 12;
-const CAROUSEL_THRESHOLD = 3;
 type BlogPost = Tables<"blog_posts">;
 
-const readingTime = (content: string | null) => Math.max(1, Math.ceil((content || "").replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length / 200));
+const PREVIEW_LIMIT = 4;
 
-const ArticleCard = ({ post, slug }: { post: BlogPost; slug: string }) => {
-  const date = post.published_at || post.created_at;
+const readingTime = (content: string | null) =>
+  Math.max(1, Math.ceil((content || "").replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length / 200));
 
-  return (
-    <Link
-      to={blogPostPath(slug, post as { id: string; slug?: string | null })}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-[0_10px_30px_rgba(15,43,80,0.07)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_18px_38px_rgba(60,131,252,0.15)] dark:border-blue-900/60 dark:bg-gray-900 dark:hover:border-blue-700"
-    >
-      <div className="relative aspect-[16/10] overflow-hidden bg-blue-50 dark:bg-gray-800">
-        {post.featured_image_url ? (
-          <OptimizedImage src={post.featured_image_url} alt={post.title} width={640} height={400} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
-        ) : (
-          <BlogImagePlaceholder className="h-full w-full" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#092b50]/35 via-transparent to-transparent" />
-        {post.category && (
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/90 px-2.5 py-1 text-[11px] font-bold text-blue-700 shadow-sm backdrop-blur dark:border-white/10 dark:bg-gray-900/90 dark:text-blue-300">
-            <Tag className="h-3 w-3" /> {post.category}
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-1 flex-col p-5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-slate-400">
-          <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{format(new Date(date), "MMM d, yyyy")}</span>
-          <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{readingTime(post.content)} min read</span>
-        </div>
-        <h3 className="mt-3 line-clamp-2 font-heading text-lg font-extrabold leading-snug text-[#092b50] transition-colors group-hover:text-primary-500 dark:text-white sm:text-xl">
-          {post.title}
-        </h3>
-        {post.excerpt && <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{post.excerpt}</p>}
-        <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-primary-500">
-          Read Article <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </span>
-      </div>
-    </Link>
+const Cover = ({ post, className }: { post: BlogPost; className: string }) =>
+  post.featured_image_url ? (
+    <OptimizedImage
+      src={post.featured_image_url}
+      alt=""
+      width={720}
+      height={450}
+      loading="lazy"
+      decoding="async"
+      className={`${className} object-cover transition-transform duration-ds-4 ease-ds-out group-hover:scale-[1.03]`}
+    />
+  ) : (
+    <div aria-hidden="true" className={`${className} flex items-center justify-center bg-ds-paper-2 font-ds-display text-[4rem] italic text-ds-ink/20`}>
+      {post.title.charAt(0)}
+    </div>
   );
+
+const meta = (post: BlogPost) => {
+  const date = post.published_at || post.created_at;
+  return [post.category, format(new Date(date), "d MMM yyyy"), `${readingTime(post.content)} min read`].filter(Boolean).join(" · ");
 };
 
-const BlogPreview = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
+/** Doctor-written articles (spec §5.9): one feature plus a short list. Hidden until there is something to read. */
+const BlogPreview = () => {
   const { profile, settings } = useDoctorData();
   const { slug } = useParams<{ slug: string }>();
   const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
-  const [selectedArticle, setSelectedArticle] = useState(0);
-  const [snapCount, setSnapCount] = useState(0);
-  const isDesktop = useIsDesktop();
-  const showCarousel = posts.length === 0 || !isDesktop || posts.length > CAROUSEL_THRESHOLD;
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
-    setLoading(true);
-    supabase.from("blog_posts").select("*").eq("doctor_id", profile.id).eq("is_published", true)
-      .order("published_at", { ascending: false }).limit(PREVIEW_LIMIT)
+    let cancelled = false;
+    supabase
+      .from("blog_posts")
+      .select("*")
+      .eq("doctor_id", profile.id)
+      .eq("is_published", true)
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .limit(PREVIEW_LIMIT)
       .then(({ data }) => {
+        if (cancelled) return;
         setPosts((data || []) as BlogPost[]);
-        setLoading(false);
+        setLoaded(true);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [profile]);
 
-  useEffect(() => {
-    if (!carouselApi) return;
-    const updateCarousel = () => {
-      setSelectedArticle(carouselApi.selectedScrollSnap());
-      setSnapCount(carouselApi.scrollSnapList().length);
-    };
-    updateCarousel();
-    carouselApi.on("select", updateCarousel);
-    carouselApi.on("reInit", updateCarousel);
-    return () => {
-      carouselApi.off("select", updateCarousel);
-      carouselApi.off("reInit", updateCarousel);
-    };
-  }, [carouselApi]);
+  if (settings?.show_blog === false || !loaded || !slug) return null;
 
-  if (settings?.show_blog === false || loading || !slug) return null;
-
-  return (
-    <section id="blog" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 " />
-      <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em]" style={{ color: PRIMARY }}>Doctor-Written Insights</p>
-          <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
-            Health <span style={{ color: PRIMARY }}>Articles</span>
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
-            Practical, trusted guidance to help you understand your health and make informed decisions.
+  if (posts.length === 0) {
+    return (
+      <section id="blog" aria-labelledby="blog-heading" className="bg-ds-paper-2 py-[4.5rem] md:py-32">
+        <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8">
+          <SectionHeader id="blog-heading" eyebrow="Health articles" title="Written by the doctor" />
+          <p className="mt-10 rounded-ds-lg border border-dashed border-ds-line px-6 py-14 text-center text-ds-body text-ds-ink-2 md:mt-14">
+            No articles yet. New ones will appear here.
           </p>
         </div>
+      </section>
+    );
+  }
 
-        {posts.length === 0 ? (
-          <p className="mx-auto mt-9 max-w-md rounded-2xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400 sm:mt-12">
-            No blogs available yet. Check back soon for new articles.
-          </p>
-        ) : showCarousel ? (
-          <Carousel setApi={setCarouselApi} opts={{ align: "start", loop: posts.length > 3 }} className="mx-auto mt-9 max-w-6xl sm:mt-12">
-            <CarouselContent className="-ml-4 pb-2">
-              {posts.map((post) => (
-                <CarouselItem key={post.id} className="basis-[90%] pl-4 sm:basis-1/2 lg:basis-1/3">
-                  <ArticleCard post={post} slug={slug} />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
+  const [feature, ...rest] = posts;
+  const href = (post: BlogPost) => blogPostPath(slug, post as { id: string; slug?: string | null });
 
-            <div className="mt-7 flex items-center justify-center gap-4">
-              <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-              <div className="flex items-center gap-1.5">
-                {Array.from({ length: snapCount }, (_, index) => (
-                  <button key={index} type="button" aria-label={`Go to article ${index + 1}`} onClick={() => carouselApi?.scrollTo(index)}
-                    className={`h-2 rounded-full transition-all duration-300 ${selectedArticle === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
-                    style={selectedArticle === index ? { backgroundColor: PRIMARY } : undefined}
-                  />
-                ))}
+  return (
+    <section id="blog" aria-labelledby="blog-heading" className="bg-ds-paper-2 py-[4.5rem] md:py-32">
+      <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8">
+        <SectionHeader
+          id="blog-heading"
+          eyebrow="Health articles"
+          title="Written by the doctor"
+          aside={
+            <Link to={`/dr/${slug}/blog`} className="inline-flex min-h-12 items-center gap-2 rounded-full border border-ds-line bg-ds-surface/70 px-6 text-ds-small font-semibold transition-colors hover:border-ds-ink/30">
+              All articles <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            </Link>
+          }
+        />
+
+        <div className="mt-10 grid gap-8 md:mt-14 lg:grid-cols-12 lg:gap-12">
+          <motion.article
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ duration: DUR.medium, ease: EASE.out }}
+            className="group lg:col-span-7"
+          >
+            <Link to={href(feature)} className="block">
+              <div className="overflow-hidden rounded-ds-lg ring-1 ring-ds-line">
+                <Cover post={feature} className="aspect-[16/10] w-full" />
               </div>
-              <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-            </div>
-          </Carousel>
-        ) : (
-          <div className="mx-auto mt-9 grid max-w-6xl gap-6 sm:mt-12 lg:grid-cols-3">
-            {posts.map((post) => (
-              <ArticleCard key={post.id} post={post} slug={slug} />
-            ))}
-          </div>
-        )}
+              <p className="mt-5 text-ds-label text-ds-ink-3">{meta(feature)}</p>
+              <h3 className="mt-2 font-ds-display text-ds-h2 font-medium leading-tight underline-offset-[6px] decoration-ds-line group-hover:underline">{feature.title}</h3>
+              {feature.excerpt && <p className="mt-3 line-clamp-3 max-w-[56ch] text-ds-lead text-ds-ink-2">{feature.excerpt}</p>}
+              <span className="mt-4 inline-flex items-center gap-2 text-ds-small font-semibold text-ds-accent-ink">
+                Read article <ArrowRight aria-hidden="true" className="h-4 w-4 transition-transform duration-ds-2 group-hover:translate-x-1" />
+              </span>
+            </Link>
+          </motion.article>
 
-        {posts.length > 0 && <div className="mt-8 text-center">
-          <Link to={`/dr/${slug}/blog`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-primary-500 bg-white px-6 text-sm font-bold text-primary-500 transition-all hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md dark:bg-gray-900 dark:hover:bg-blue-950/30">
-            View All Articles <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>}
+          {rest.length > 0 && (
+            <ul className="divide-y divide-ds-line border-y border-ds-line self-start lg:col-span-5">
+              {rest.map((post, index) => (
+                <motion.li
+                  key={post.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-40px" }}
+                  transition={{ duration: DUR.medium, ease: EASE.out, delay: staggerDelay(index + 1) }}
+                >
+                  <Link to={href(post)} className="group grid grid-cols-[1fr_auto] items-center gap-4 py-5">
+                    <span className="min-w-0">
+                      <span className="block text-ds-label text-ds-ink-3">{meta(post)}</span>
+                      <span className="mt-1 block font-ds-display text-ds-h3 font-medium leading-snug underline-offset-4 decoration-ds-line group-hover:underline">{post.title}</span>
+                    </span>
+                    <ArrowRight aria-hidden="true" className="h-5 w-5 shrink-0 text-ds-ink-3 transition-transform duration-ds-2 group-hover:translate-x-1" />
+                  </Link>
+                </motion.li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </section>
   );

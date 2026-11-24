@@ -1,3 +1,5 @@
+import "./__test__/intersectionObserverVisibleStub";
+import { continueWithTime, dateField, pickTomorrow, timeField } from "./__test__/bookingFlow";
 // Online-payment edge states of the booking wizard: gateway failure, dismissing the checkout,
 // an abandoned order being reused, order-creation errors, and "paid but not confirmed".
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -21,6 +23,8 @@ vi.mock("@/hooks/useSlotAvailability", () => ({
   useSlotAvailability: () => ({ counts: {}, isFull: () => false, bookedIn: () => 0, refresh: h.refresh }),
 }));
 vi.mock("sonner", () => ({ toast: { error: h.toastError, success: h.toastSuccess, info: h.toastInfo } }));
+vi.mock("./motion/useSplitReveal", () => ({ useSplitReveal: () => {} }));
+vi.mock("./motion/scroll", () => ({ dsScrollTo: vi.fn(), dsScrollToTop: vi.fn() }));
 vi.mock("./AppointmentSlip", () => ({ default: () => null }));
 vi.mock("./PaymentSlip", () => ({ default: () => null }));
 vi.mock("./MockCheckoutModal", () => ({ default: () => null }));
@@ -46,20 +50,16 @@ const VERIFIED = {
 const invokeBy = (handlers: Record<string, () => unknown>) =>
   mock.current.invoke.mockImplementation(async (fn: string) => (handlers[fn] ? handlers[fn]() : { data: null, error: null }));
 
-const dayButtons = () =>
-  screen.getAllByRole("button").filter((b) => /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(b.textContent || ""));
-
 async function gotoReview() {
-  fireEvent.click(screen.getByRole("button", { name: /Clinic Visit/ }));
-  await screen.findByRole("heading", { name: "Select Date" });
-  fireEvent.click(dayButtons()[1]);
+  await pickTomorrow();
   await screen.findByRole("heading", { name: "Select Time Slot" });
-  fireEvent.click(await screen.findByRole("button", { name: "09:00" }));
+  await waitFor(() => expect(timeField()).toHaveTextContent("09:00 AM"));
+  continueWithTime();
   await screen.findByLabelText("Full name");
   fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Ravi Kumar" } });
   fireEvent.change(screen.getByLabelText("Mobile number"), { target: { value: "9876500001" } });
   fireEvent.change(screen.getByLabelText("Age"), { target: { value: "40" } });
-  fireEvent.change(document.querySelector("select")!, { target: { value: "male" } });
+  fireEvent.click(screen.getByRole("radio", { name: /^male$/i }));
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("heading", { name: /Review Booking Summary/ });
 }

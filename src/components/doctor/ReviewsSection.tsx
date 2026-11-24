@@ -1,117 +1,95 @@
-import { useEffect, useState } from "react";
-import { MessageSquareHeart, PenLine, Quote, ShieldCheck, Star } from "lucide-react";
+import { useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight, PenLine, ShieldCheck, Star } from "lucide-react";
+import { toast } from "sonner";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
-import {
-  Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi,
-} from "@/components/ui/carousel";
-import { cardColorClass, type CardColor } from "@/lib/cardColor";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useIsDesktop } from "@/hooks/useIsDesktop";
+import { ratingSummary } from "@/lib/doctorSite/doctorFacts";
+import { dsCn as cn } from "./ui/dsCn";
+import { radioKeyDown } from "./ui/radioKeyDown";
+import DsButton from "./ui/DsButton";
+import SectionHeader from "./ui/SectionHeader";
+import { DUR, EASE, staggerDelay } from "./motion/tokens";
 import type { Tables } from "@/integrations/supabase/types";
 
-const PRIMARY = "#3C83FC";
-const CAROUSEL_THRESHOLD = 2;
 type Review = Tables<"reviews">;
 
-const formatReviewDate = (date: string) => new Date(date).toLocaleDateString("en-IN", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
+const formatReviewDate = (date: string) =>
+  new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
-const ReviewStars = ({ rating, size = 15 }: { rating: number; size?: number }) => (
+const Stars = ({ rating, size = 16 }: { rating: number; size?: number }) => (
   <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${rating} out of 5 stars`}>
     {[1, 2, 3, 4, 5].map((star) => (
       <Star
         key={star}
-        size={size}
-        className={star <= rating ? "fill-amber-400 text-amber-400" : "fill-slate-100 text-slate-200 dark:fill-gray-800 dark:text-gray-700"}
+        width={size}
+        height={size}
+        aria-hidden="true"
+        className={star <= rating ? "fill-ds-star text-ds-star" : "fill-transparent text-ds-line"}
+        strokeWidth={1.5}
       />
     ))}
   </span>
 );
 
-const ReviewCard = ({ review }: { review: Review }) => {
-  const initials = review.patient_name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("") || "P";
-
-  return (
-    <article className="group relative flex h-full min-h-[230px] flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white p-5 shadow-[0_10px_30px_rgba(15,43,80,0.07)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_18px_38px_rgba(60,131,252,0.14)] dark:border-blue-900/60 dark:bg-gray-900 dark:hover:border-blue-700 sm:p-6">
-      <Quote className="pointer-events-none absolute -right-2 -top-3 h-24 w-24 rotate-6 text-blue-50 transition-transform duration-500 group-hover:scale-110 dark:text-blue-950/35" fill="currentColor" />
-
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-500 text-sm font-extrabold text-white shadow-[0_6px_16px_rgba(60,131,252,0.24)]">
-            {initials}
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate font-heading text-sm font-extrabold text-[#092b50] dark:text-white sm:text-base">
-              {review.patient_name}
-            </span>
-            <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
-              {formatReviewDate(review.created_at)}
-            </span>
-          </span>
-        </div>
-        <ReviewStars rating={review.rating} size={14} />
-      </div>
-
-      <p className="relative mt-5 flex-1 text-sm leading-7 text-slate-600 dark:text-slate-300">
-        “{review.review_text || "A wonderful consultation experience."}”
-      </p>
-
+const ReviewCard = ({ review, index }: { review: Review; index: number }) => (
+  <motion.article
+    initial={{ opacity: 0, y: 16 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: "-40px" }}
+    transition={{ duration: DUR.medium, ease: EASE.out, delay: staggerDelay(index) }}
+    className="flex h-full w-[85vw] max-w-[22rem] shrink-0 snap-start flex-col rounded-ds-md border border-ds-line bg-ds-surface p-6 shadow-ds-1 sm:w-[22rem]"
+  >
+    <Stars rating={review.rating} />
+    <blockquote className="mt-4 flex-1 font-ds-display text-[1.1875rem] leading-snug text-ds-ink">
+      {review.review_text ? `“${review.review_text}”` : <span className="text-ds-ink-2">Rated {review.rating} out of 5.</span>}
+    </blockquote>
+    <footer className="mt-5 flex items-center justify-between gap-3 border-t border-ds-line pt-4 text-ds-small">
+      <span className="min-w-0">
+        <span className="block truncate font-medium text-ds-ink">{review.patient_name}</span>
+        <span className="block text-ds-ink-3">{formatReviewDate(review.created_at)}</span>
+      </span>
       {review.is_verified && (
-        <span className="relative mt-4 inline-flex w-fit items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
-          <ShieldCheck className="h-3.5 w-3.5" />
-          Verified Patient
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ds-accent-soft px-2.5 py-1 text-ds-label font-medium text-ds-accent-ink">
+          <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
+          Verified
         </span>
       )}
-    </article>
-  );
-};
+    </footer>
+  </motion.article>
+);
 
-const ReviewsSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
+const Distribution = ({ rows, total }: { rows: { stars: number; count: number }[]; total: number }) => (
+  <ul className="w-full max-w-[18rem] space-y-1.5" aria-label="Ratings breakdown">
+    {rows.map((row) => (
+      <li key={row.stars} className="flex items-center gap-3 text-ds-label text-ds-ink-2">
+        <span className="w-9 shrink-0 ds-tabular">{row.stars} ★</span>
+        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-ds-line" aria-hidden="true">
+          <span className="block h-full rounded-full bg-ds-star" style={{ width: `${total ? (row.count / total) * 100 : 0}%` }} />
+        </span>
+        <span className="w-6 shrink-0 text-right ds-tabular">{row.count}</span>
+      </li>
+    ))}
+  </ul>
+);
+
+const ReviewsSection = () => {
   const { reviews, profile } = useDoctorData();
-  const patientReviews = reviews as Review[];
+  const list = (reviews ?? []) as Review[];
+  const summary = ratingSummary(list);
+  const railRef = useRef<HTMLDivElement>(null);
+
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
-  const [selectedReview, setSelectedReview] = useState(0);
-  const [snapCount, setSnapCount] = useState(0);
-  const isDesktop = useIsDesktop();
-  const showCarousel = patientReviews.length === 0 || !isDesktop || patientReviews.length > CAROUSEL_THRESHOLD;
 
-  useEffect(() => {
-    if (!carouselApi) return;
-    const updateCarousel = () => {
-      setSelectedReview(carouselApi.selectedScrollSnap());
-      setSnapCount(carouselApi.scrollSnapList().length);
-    };
-    updateCarousel();
-    carouselApi.on("select", updateCarousel);
-    carouselApi.on("reInit", updateCarousel);
-    return () => {
-      carouselApi.off("select", updateCarousel);
-      carouselApi.off("reInit", updateCarousel);
-    };
-  }, [carouselApi]);
+  const scrollRail = (direction: 1 | -1) =>
+    railRef.current?.scrollBy({ left: direction * 360, behavior: "smooth" });
 
-  const averageRating = patientReviews.length > 0
-    ? (patientReviews.reduce((sum, review) => sum + review.rating, 0) / patientReviews.length).toFixed(1)
-    : null;
-
+  // Unchanged behaviour: a public insert, moderated by the doctor from the dashboard.
   const submitReview = async () => {
     if (!name.trim() || !profile) return;
     setSubmitting(true);
@@ -121,7 +99,6 @@ const ReviewsSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
       rating,
       review_text: text.trim() || null,
     });
-
     if (error) {
       toast.error("Failed to submit review");
     } else {
@@ -134,188 +111,138 @@ const ReviewsSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
     setSubmitting(false);
   };
 
-  const doctorName = profile?.full_name || "Doctor";
-
   return (
-    <section id="reviews" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(60,131,252,0.12),transparent_72%)]" />
-      <div className="pointer-events-none absolute -right-24 bottom-0 h-64 w-64 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/15" />
-
-      <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em]" style={{ color: PRIMARY }}>
-            Trusted Patient Stories
-          </p>
-          <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
-            Patient <span style={{ color: PRIMARY }}>Reviews</span>
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
-            See what patients say about their experience with Dr. {doctorName}.
-          </p>
-
-          {averageRating && (
-            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 shadow-sm dark:border-blue-900 dark:bg-gray-900">
-              <ReviewStars rating={Math.round(Number(averageRating))} />
-              <span className="font-heading text-sm font-extrabold text-[#092b50] dark:text-white">{averageRating}</span>
-              <span className="h-4 w-px bg-slate-200 dark:bg-gray-700" />
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                {patientReviews.length} review{patientReviews.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {patientReviews.length > 0 ? (
-          showCarousel ? (
-            <Carousel
-              setApi={setCarouselApi}
-              opts={{ align: "start", loop: patientReviews.length > 2 }}
-              className="mx-auto mt-9 max-w-5xl sm:mt-12"
-            >
-              <CarouselContent className="-ml-4 pb-2">
-                {patientReviews.map((review) => (
-                  <CarouselItem key={review.id} className="basis-[94%] pl-4 md:basis-1/2">
-                    <ReviewCard review={review} />
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-
-              <div className="mt-7 flex items-center justify-center gap-4">
-                <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-                <div className="flex items-center gap-1.5">
-                  {Array.from({ length: snapCount }, (_, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      aria-label={`Go to review ${index + 1}`}
-                      onClick={() => carouselApi?.scrollTo(index)}
-                      className={`h-2 rounded-full transition-all duration-300 ${selectedReview === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
-                      style={selectedReview === index ? { backgroundColor: PRIMARY } : undefined}
-                    />
-                  ))}
+    <section id="reviews" aria-labelledby="reviews-heading" className="bg-ds-paper-2 py-[4.5rem] md:py-32">
+      <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8">
+        <SectionHeader
+          id="reviews-heading"
+          eyebrow="Patient reviews"
+          title={summary ? "What patients say" : "Be the first to share your experience"}
+          intro={summary ? undefined : "Your feedback helps other patients make a confident choice."}
+          aside={
+            summary ? (
+              <div className="flex flex-col gap-4 md:items-end">
+                <div className="flex items-end gap-4">
+                  <p className="font-ds-display text-[3.5rem] font-medium leading-none ds-tabular">{summary.average.toFixed(1)}</p>
+                  <div className="pb-1">
+                    <Stars rating={Math.round(summary.average)} size={18} />
+                    <p className="mt-1 text-ds-small text-ds-ink-2">
+                      {summary.count} review{summary.count === 1 ? "" : "s"}
+                    </p>
+                  </div>
                 </div>
-                <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
+                {summary.count >= 3 && <Distribution rows={summary.distribution} total={summary.count} />}
               </div>
-            </Carousel>
-          ) : (
-            <div className="mx-auto mt-9 grid max-w-5xl gap-6 sm:mt-12 md:grid-cols-2">
-              {patientReviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+            ) : undefined
+          }
+        />
+
+        {list.length > 0 && (
+          <div className="relative mt-10 md:mt-14">
+            <div
+              ref={railRef}
+              data-lenis-prevent-wheel
+              tabIndex={0}
+              role="region"
+              aria-label="Patient reviews, scroll sideways for more"
+              className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden"
+            >
+              {list.map((review, index) => (
+                <ReviewCard key={review.id} review={review} index={index} />
               ))}
             </div>
-          )
-        ) : (
-          <div className="mx-auto mt-9 max-w-xl rounded-2xl border border-dashed border-blue-200 bg-white/70 px-6 py-10 text-center dark:border-blue-800 dark:bg-gray-900/70">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-primary-500 dark:bg-blue-950/40">
-              <MessageSquareHeart className="h-7 w-7" />
-            </span>
-            <h3 className="mt-4 font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Be the first to share your experience</h3>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Your feedback helps other patients make confident healthcare decisions.</p>
+            {list.length > 3 && (
+              <div className="mt-4 hidden justify-end gap-2 lg:flex">
+                <button type="button" onClick={() => scrollRail(-1)} aria-label="Previous reviews" className="flex h-12 w-12 items-center justify-center rounded-full border border-ds-line bg-ds-surface transition-colors hover:border-ds-ink/30">
+                  <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+                </button>
+                <button type="button" onClick={() => scrollRail(1)} aria-label="More reviews" className="flex h-12 w-12 items-center justify-center rounded-full border border-ds-line bg-ds-surface transition-colors hover:border-ds-ink/30">
+                  <ChevronRight aria-hidden="true" className="h-5 w-5" />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="mt-8 text-center">
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-primary-500 bg-white px-6 text-sm font-bold text-primary-500 transition-all hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md dark:bg-gray-900 dark:hover:bg-blue-950/30"
-          >
-            <PenLine className="h-4 w-4" />
-            Write a Review
-          </button>
+        <div className={cn("flex", list.length > 0 ? "mt-8 justify-start" : "mt-8")}>
+          <DsButton variant="secondary" onClick={() => setShowForm(true)}>
+            <PenLine aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            Write a review
+          </DsButton>
         </div>
-
-        <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogContent className="max-w-xl overflow-hidden rounded-[1.75rem] border border-blue-100 bg-white p-0 shadow-[0_28px_70px_rgba(15,43,80,0.25)] duration-300 dark:border-blue-900/70 dark:bg-gray-900">
-            <DialogHeader className="sr-only">
-              <DialogTitle>Write a Patient Review</DialogTitle>
-              <DialogDescription>Share your experience and rating for this doctor.</DialogDescription>
-            </DialogHeader>
-            <ReviewForm
-              name={name}
-              setName={setName}
-              rating={rating}
-              setRating={setRating}
-              text={text}
-              setText={setText}
-              submitting={submitting}
-              onSubmit={submitReview}
-              onCancel={() => setShowForm(false)}
-            />
-          </DialogContent>
-        </Dialog>
       </div>
+
+      {/* Portalled outside .doctor-site, so the dialog carries the scope itself. */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="doctor-site max-w-lg gap-0 overflow-hidden rounded-ds-lg border-ds-line bg-ds-paper p-0 text-ds-ink shadow-ds-3">
+          <DialogHeader className="space-y-1 p-6 pb-2 text-left sm:p-8 sm:pb-2">
+            <DialogTitle className="font-ds-display text-ds-h3 font-medium">Share your experience</DialogTitle>
+            <DialogDescription className="text-ds-small text-ds-ink-2">Your review helps future patients. It may appear after the clinic has seen it.</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-5 p-6 pt-4 sm:p-8 sm:pt-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitReview();
+            }}
+          >
+            <div>
+              <label htmlFor="review-name" className="mb-1.5 block text-ds-small font-medium">Your name</label>
+              <input
+                id="review-name"
+                autoFocus
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="h-12 w-full rounded-ds-sm border border-ds-line bg-ds-surface px-4 text-ds-body outline-none transition-colors focus:border-ds-accent"
+              />
+            </div>
+
+            <fieldset>
+              <legend className="mb-1.5 text-ds-small font-medium">Your rating</legend>
+              <div className="flex gap-1" role="radiogroup" aria-label="Rating" onKeyDown={radioKeyDown}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    role="radio"
+                    tabIndex={rating === star ? 0 : -1}
+                    aria-checked={rating === star}
+                    aria-label={`${star} star${star === 1 ? "" : "s"}`}
+                    onClick={() => setRating(star)}
+                    className="flex h-12 w-12 items-center justify-center rounded-full transition-transform hover:scale-110 active:scale-95"
+                  >
+                    <Star aria-hidden="true" className={cn("h-8 w-8", star <= rating ? "fill-ds-star text-ds-star" : "text-ds-ink-3")} strokeWidth={1.5} />
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <div>
+              <label htmlFor="review-text" className="mb-1.5 block text-ds-small font-medium">
+                Tell others about your visit <span className="font-normal text-ds-ink-3">(optional)</span>
+              </label>
+              <textarea
+                id="review-text"
+                rows={4}
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                className="w-full resize-none rounded-ds-sm border border-ds-line bg-ds-surface px-4 py-3 text-ds-body outline-none transition-colors focus:border-ds-accent"
+              />
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <DsButton variant="quiet" onClick={() => setShowForm(false)}>Cancel</DsButton>
+              <DsButton type="submit" disabled={!name.trim() || submitting}>
+                {submitting ? "Submitting…" : "Submit review"}
+              </DsButton>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };
-
-const ReviewForm = ({
-  name, setName, rating, setRating, text, setText, submitting, onSubmit, onCancel,
-}: {
-  name: string;
-  setName: (value: string) => void;
-  rating: number;
-  setRating: (value: number) => void;
-  text: string;
-  setText: (value: string) => void;
-  submitting: boolean;
-  onSubmit: () => void;
-  onCancel: () => void;
-}) => (
-  <div className="bg-white p-6 pt-8 text-left dark:bg-gray-900 sm:p-8">
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <h3 className="font-heading text-lg font-extrabold text-[#092b50] dark:text-white">Share Your Experience</h3>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Your review will help future patients.</p>
-      </div>
-      <MessageSquareHeart className="h-6 w-6 shrink-0 text-primary-500" />
-    </div>
-
-    <div className="mt-5 space-y-4">
-      <Input
-        placeholder="Your name *"
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        className="h-12 rounded-xl border-slate-200 focus-visible:ring-primary-500 dark:border-gray-700"
-      />
-
-      <div>
-        <p className="mb-2 text-xs font-bold text-slate-500 dark:text-slate-400">Your rating</p>
-        <div className="flex items-center gap-1">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              key={star}
-              type="button"
-              aria-label={`Rate ${star} star${star === 1 ? "" : "s"}`}
-              onClick={() => setRating(star)}
-              className="rounded-lg p-1 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-            >
-              <Star size={26} className={star <= rating ? "fill-amber-400 text-amber-400" : "text-slate-300 dark:text-gray-700"} />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <Textarea
-        placeholder="Tell others about your experience (optional)"
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        rows={4}
-        className="resize-none rounded-xl border-slate-200 focus-visible:ring-primary-500 dark:border-gray-700"
-      />
-
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Button variant="outline" onClick={onCancel} type="button" className="h-11 rounded-xl px-5">Cancel</Button>
-        <Button
-          onClick={onSubmit}
-          disabled={!name.trim() || submitting}
-          className="h-11 rounded-xl bg-primary-600 px-6 font-bold text-white shadow-[0_8px_20px_rgba(60,131,252,0.22)] hover:bg-blue-700"
-        >
-          {submitting ? "Submitting..." : "Submit Review"}
-        </Button>
-      </div>
-    </div>
-  </div>
-);
 
 export default ReviewsSection;

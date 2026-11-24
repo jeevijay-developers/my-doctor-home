@@ -1,46 +1,53 @@
-import { Link, useLocation, useParams } from "react-router-dom";
-import { ArrowRight, CalendarDays, ChevronRight, Facebook, HeartPulse, Instagram, Linkedin, Mail, MapPin, Phone, Youtube } from "lucide-react";
-import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { ArrowRight, Facebook, Instagram, Linkedin, Mail, MapPin, Phone, Youtube } from "lucide-react";
+import "@/styles/doctor-site.css";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import OptimizedImage from "@/components/shared/OptimizedImage";
-import { scrollToSection } from "@/lib/scrollToSection";
+import { clinicPhone, doctorName as formatName, telHref } from "@/lib/doctorSite/doctorFacts";
+import { getClinicMapsUrl } from "@/lib/clinicLocation";
 import type { Tables } from "@/integrations/supabase/types";
+import DsButton from "./ui/DsButton";
+import { dsScrollTo, dsScrollToTop } from "./motion/scroll";
 
 // `display_name` is an optional override that isn't a column in the generated
 // profiles type; the name falls back to `full_name` when it's absent.
 type Profile = Tables<"profiles"> & { display_name?: string | null };
 
 type FooterProps = {
+  /** The blog pages pass the doctor they already loaded; the home page reads the shared context. */
   profileOverride?: Profile | null;
 };
 
-const doctorDisplayName = (profile: Profile | null) => {
-  const name = (profile?.display_name || profile?.full_name || "Doctor").trim();
-  return /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
-};
+const linkClass =
+  "inline-flex min-h-11 items-center rounded-full text-ds-small text-[rgb(var(--ds-footer-ink-2))] transition-colors hover:text-[rgb(var(--ds-footer-ink))]";
 
+/**
+ * Closing footer (spec §5.11): who, how to reach them, where to go next. It is
+ * also used by the blog pages, which sit outside the doctor home's wrapper, so
+ * it carries the `doctor-site` token scope itself.
+ */
 const Footer = ({ profileOverride }: FooterProps) => {
   const doctorData = useDoctorData();
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const profile = profileOverride ?? doctorData.profile;
   const settings = profileOverride ? null : doctorData.settings;
   const services = profileOverride ? [] : doctorData.services;
   const gallery = profileOverride ? [] : doctorData.gallery;
-  const doctorName = doctorDisplayName(profile);
-  const doctorBasePath = `/dr/${slug || profile?.slug || ""}`;
-  const isDoctorHome = location.pathname === doctorBasePath;
+
+  const name = formatName(profile) || "Doctor";
+  const specialty = (profile?.specialization ?? "").trim();
+  const base = `/dr/${slug || profile?.slug || ""}`;
+  const isDoctorHome = location.pathname === base;
   const isArticleRoute = location.pathname.includes("/blog");
-  const phone = profile?.clinic_phone || profile?.phone || "";
-  const email = profile?.clinic_email || "";
+  const phone = clinicPhone(profile);
+  const email = (profile?.clinic_email ?? "").trim();
   const address = [profile?.address, profile?.city, profile?.state].filter(Boolean).join(", ");
   const clinicLine = [profile?.clinic_name, profile?.city].filter(Boolean).join(", ");
+  const directions = (profile?.google_maps_url ?? "").trim() || getClinicMapsUrl(profile);
 
-  const whatsappUrl = settings?.whatsapp_number
-    ? `https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(settings.whatsapp_message || "")}`
-    : null;
-
-  const socialLinks = [
+  const socials = [
     { label: "Facebook", icon: Facebook, url: settings?.social_facebook },
     { label: "Instagram", icon: Instagram, url: settings?.social_instagram },
     { label: "YouTube", icon: Youtube, url: settings?.social_youtube },
@@ -49,153 +56,130 @@ const Footer = ({ profileOverride }: FooterProps) => {
 
   const quickLinks = [
     { label: "About", target: "about", show: settings?.show_about !== false },
-    { label: "Medical Services", target: "services", show: settings?.show_services !== false && (services.length > 0 || isArticleRoute) },
-    { label: "Our Clinic", target: "gallery", show: settings?.show_gallery === true && gallery.length > 0 },
-    { label: "Patient Reviews", target: "reviews", show: settings?.show_reviews !== false },
-    { label: "Contact", target: "contact", show: settings?.show_clinic_details !== false },
+    { label: "Gallery", target: "gallery", show: settings?.show_gallery === true },
+    { label: "Services", target: "services", show: settings?.show_services !== false },
+    { label: "Reviews", target: "reviews", show: settings?.show_reviews !== false },
+    { label: "Clinic details", target: "contact", show: settings?.show_clinic_details !== false },
+    { label: "Contact", target: "ask", show: true },
   ].filter((item) => item.show);
 
-  const sectionLink = (target: string) => `${doctorBasePath}#${target}`;
-  const handleSectionClick = (event: React.MouseEvent<HTMLAnchorElement>, target: string) => {
-    if (!isDoctorHome) return;
+  const sectionHref = (target: string) => `${base}#${target}`;
+  const jump = (event: React.MouseEvent<HTMLAnchorElement>, target: string) => {
+    if (!isDoctorHome) return; // on other pages the link navigates to the home section
     event.preventDefault();
-    scrollToSection(target);
+    dsScrollTo(target, { focusSelector: "h2" });
   };
 
   return (
-    <>
-      <footer className="relative overflow-hidden bg-[#061b33] text-white">
-        <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#3C83FC]/15 blur-3xl" />
-        <div className="absolute -bottom-48 left-1/4 h-96 w-96 rounded-full bg-cyan-400/10 blur-3xl" />
-
-        <div className="relative mx-auto max-w-7xl px-5 pb-8 pt-10 sm:px-8 sm:pt-14 lg:px-10">
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-r from-[#155ba5] to-[#3C83FC] p-6 shadow-[0_20px_55px_rgba(0,0,0,0.2)] sm:p-8 lg:flex lg:items-center lg:justify-between lg:gap-10">
-            <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.18em] text-blue-100">
-                <HeartPulse className="h-4 w-4" /> Compassionate medical care
-              </span>
-              <h2 className="mt-3 font-heading text-2xl font-black leading-tight sm:text-3xl">Your health deserves expert attention.</h2>
-              <p className="mt-2 text-sm leading-6 text-blue-50 sm:text-base">Book a consultation with {doctorName} and take the next step toward better health.</p>
-            </div>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row lg:mt-0 lg:shrink-0">
-              <Link
-                to={sectionLink("booking")}
-                onClick={(event) => handleSectionClick(event, "booking")}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-extrabold text-[#0b3765] shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-50"
+    <footer className="doctor-site !bg-[rgb(var(--ds-footer-bg))] !text-[rgb(var(--ds-footer-ink))]">
+      <div className="mx-auto max-w-[1200px] px-5 pb-10 pt-16 sm:px-6 md:pt-24 lg:px-8">
+        <div className="grid gap-12 border-b border-white/[0.12] pb-14 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <p className="ds-eyebrow !text-[rgb(var(--ds-footer-ink-2))]">Your next step</p>
+            <p className="mt-4 max-w-[16ch] font-ds-display text-ds-h2 font-medium leading-[1.08]">
+              Book a visit with {name}.
+            </p>
+            <div className="mt-8 flex flex-col gap-2.5 sm:flex-row">
+              <DsButton
+                href={sectionHref("booking")}
+                size="lg"
+                magnetic
+                onClick={(event: React.MouseEvent<HTMLAnchorElement>) => {
+                  event.preventDefault(); // keep it a single-page navigation (no full reload on a phone)
+                  if (isDoctorHome) dsScrollTo("booking", { focusSelector: "[data-booking-start]" });
+                  else navigate(sectionHref("booking"));
+                }}
+                className="!bg-[rgb(var(--ds-footer-ink))] !text-[rgb(var(--ds-footer-bg))] hover:!bg-white"
               >
-                <CalendarDays className="h-4 w-4 text-[#3C83FC]" /> Book Appointment
-              </Link>
+                Book appointment <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={2} />
+              </DsButton>
               {phone && (
-                <a href={`tel:${phone}`} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/10 px-5 py-3 text-sm font-extrabold text-white backdrop-blur transition hover:bg-white/20">
-                  <Phone className="h-4 w-4" /> Call Clinic
-                </a>
+                <DsButton href={telHref(phone)} size="lg" variant="secondary" className="!border-white/25 !bg-transparent !text-[rgb(var(--ds-footer-ink))] hover:!bg-white/10">
+                  <Phone aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} /> Call {phone}
+                </DsButton>
               )}
             </div>
           </div>
 
-          <div className={`grid grid-cols-2 gap-x-6 gap-y-8 py-10 sm:gap-x-8 sm:py-12 lg:gap-10 ${services.length > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
-            <div className="col-span-2 lg:col-span-1">
-              <Link to={doctorBasePath} className="inline-flex items-center gap-3">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 shadow-lg">
-                  {profile?.profile_photo_url ? (
-                    <OptimizedImage src={profile.profile_photo_url} alt={doctorName} width={112} height={112} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-                  ) : (
-                    <HeartPulse className="h-7 w-7 text-[#3C83FC]" />
-                  )}
-                </span>
-                <span>
-                  <span className="block font-heading text-lg font-extrabold leading-tight">{doctorName}</span>
-                  <span className="mt-1 block text-xs font-medium text-blue-200">{profile?.specialization || "Medical Professional"}</span>
-                </span>
-              </Link>
-              {profile?.qualifications && <p className="mt-4 max-w-xs text-sm leading-6 text-slate-300">{profile.qualifications}</p>}
-              {clinicLine && <p className="mt-1 max-w-xs text-sm leading-6 text-slate-400">{clinicLine}</p>}
-              {socialLinks.length > 0 && (
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {socialLinks.map(({ label, icon: Icon, url }) => (
-                    <a key={label} href={url || undefined} target="_blank" rel="noreferrer" aria-label={`Visit ${label}`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-blue-100 transition hover:-translate-y-0.5 hover:border-[#3C83FC] hover:bg-[#3C83FC] hover:text-white">
-                      <Icon className="h-4 w-4" />
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h3 className="font-heading text-sm font-extrabold uppercase tracking-[0.12em] text-white">Explore</h3>
-              <nav className="mt-5 space-y-3" aria-label="Footer navigation">
-                <Link to={doctorBasePath} onClick={() => { if (isDoctorHome) window.scrollTo({ top: 0, behavior: "smooth" }); }} className="group flex items-center gap-2 text-sm text-slate-300 transition hover:text-white">
-                  <ChevronRight className="h-4 w-4 text-[#3C83FC] transition-transform group-hover:translate-x-0.5" /> Home
-                </Link>
+          <div className="grid grid-cols-2 gap-8 lg:col-span-5">
+            <nav aria-label="Explore" className="min-w-0">
+              <h2 className="text-ds-label font-medium uppercase tracking-[0.08em] text-[rgb(var(--ds-footer-ink-2))]">Explore</h2>
+              <ul className="mt-3 space-y-0.5">
+                <li>
+                  <Link to={base} onClick={() => { if (isDoctorHome) dsScrollToTop(); }} className={linkClass}>Home</Link>
+                </li>
                 {quickLinks.map((item) => (
-                  <Link key={item.target} to={sectionLink(item.target)} onClick={(event) => handleSectionClick(event, item.target)} className="group flex items-center gap-2 text-sm text-slate-300 transition hover:text-white">
-                    <ChevronRight className="h-4 w-4 text-[#3C83FC] transition-transform group-hover:translate-x-0.5" /> {item.label}
-                  </Link>
+                  <li key={item.target}>
+                    <Link to={sectionHref(item.target)} onClick={(event) => jump(event, item.target)} className={linkClass}>{item.label}</Link>
+                  </li>
                 ))}
                 {(settings?.show_blog !== false || isArticleRoute) && (
-                  <Link to={`${doctorBasePath}/blog`} className="group flex items-center gap-2 text-sm text-slate-300 transition hover:text-white">
-                    <ChevronRight className="h-4 w-4 text-[#3C83FC] transition-transform group-hover:translate-x-0.5" /> Health Articles
-                  </Link>
+                  <li><Link to={`${base}/blog`} className={linkClass}>Health articles</Link></li>
                 )}
-              </nav>
-            </div>
+                <li><Link to={`${base}/manage`} className={linkClass}>My appointment</Link></li>
+              </ul>
+            </nav>
 
-            {services.length > 0 && (
-              <div>
-                <h3 className="font-heading text-sm font-extrabold uppercase tracking-[0.12em] text-white">Medical Services</h3>
-                <div className="mt-5 space-y-3">
-                  {services.slice(0, 5).map((service) => (
-                    <Link key={service.id} to={sectionLink("services")} onClick={(event) => handleSectionClick(event, "services")} className="group flex items-start gap-2 text-sm leading-5 text-slate-300 transition hover:text-white">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#3C83FC]" />
-                      <span>{service.name?.trim() || "Consultation"}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="col-span-2 lg:col-span-1">
-              <h3 className="font-heading text-sm font-extrabold uppercase tracking-[0.12em] text-white">Clinic Contact</h3>
-              <div className="mt-5 flex flex-row flex-wrap gap-4 text-sm text-slate-300 lg:flex-col">
+            <div className="min-w-0">
+              <h2 className="text-ds-label font-medium uppercase tracking-[0.08em] text-[rgb(var(--ds-footer-ink-2))]">Contact</h2>
+              <ul className="mt-3 space-y-1 text-ds-small text-[rgb(var(--ds-footer-ink-2))]">
                 {phone && (
-                  <a href={`tel:${phone}`} className="group flex flex-1 min-w-[150px] items-start gap-3 transition hover:text-white lg:min-w-0 lg:flex-none">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3C83FC]/15 text-[#79aaff] transition group-hover:bg-[#3C83FC] group-hover:text-white"><Phone className="h-4 w-4" /></span>
-                    <span className="pt-2 break-all">{phone}</span>
-                  </a>
+                  <li><a href={telHref(phone)} className="inline-flex min-h-11 items-center gap-2 hover:text-[rgb(var(--ds-footer-ink))]"><Phone aria-hidden="true" className="h-4 w-4 shrink-0" />{phone}</a></li>
                 )}
                 {email && (
-                  <a href={`mailto:${email}`} className="group flex flex-1 min-w-[150px] items-start gap-3 transition hover:text-white lg:min-w-0 lg:flex-none">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3C83FC]/15 text-[#79aaff] transition group-hover:bg-[#3C83FC] group-hover:text-white"><Mail className="h-4 w-4" /></span>
-                    <span className="pt-2 break-all">{email}</span>
-                  </a>
+                  <li><a href={`mailto:${email}`} className="inline-flex min-h-11 items-center gap-2 break-all hover:text-[rgb(var(--ds-footer-ink))]"><Mail aria-hidden="true" className="h-4 w-4 shrink-0" />{email}</a></li>
                 )}
                 {address && (
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`} target="_blank" rel="noreferrer" className="group flex flex-1 min-w-[150px] items-start gap-3 transition hover:text-white lg:min-w-0 lg:flex-none">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3C83FC]/15 text-[#79aaff] transition group-hover:bg-[#3C83FC] group-hover:text-white"><MapPin className="h-4 w-4" /></span>
-                    <span className="pt-1 leading-6">{address}</span>
-                  </a>
+                  <li>
+                    <a href={directions || undefined} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-start gap-2 py-2 leading-snug hover:text-[rgb(var(--ds-footer-ink))]">
+                      <MapPin aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{address}<span className="sr-only"> (opens Google Maps)</span></span>
+                    </a>
+                  </li>
                 )}
-                {!phone && !email && !address && <p className="leading-6 text-slate-400">Visit the doctor profile for current clinic information.</p>}
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-white/10 pt-7">
-            <div className="flex flex-col items-center justify-between gap-4 text-center text-xs text-slate-400 md:flex-row md:text-left">
-              <p>© {new Date().getFullYear()} {doctorName}. All rights reserved.</p>
-              <Link to="/" className="inline-flex items-center gap-1.5 font-semibold text-blue-200 transition hover:text-white">Powered by Doctylia <ArrowRight className="h-3.5 w-3.5" /></Link>
-              <p>Health information is educational and does not replace medical advice.</p>
+                {!phone && !email && !address && <li className="leading-6">Visit the doctor's page for clinic information.</li>}
+              </ul>
             </div>
           </div>
         </div>
-      </footer>
 
-      {whatsappUrl && (
-        <a href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Chat with the clinic on WhatsApp" className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full drop-shadow-xl transition duration-300 hover:-translate-y-1 hover:scale-105 sm:bottom-6 sm:right-6">
-          <WhatsAppIcon className="h-14 w-14" />
-        </a>
-      )}
-    </>
+        <div className="flex flex-col gap-8 pt-10 md:flex-row md:items-end md:justify-between">
+          <Link to={base} className="inline-flex items-center gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 ring-1 ring-white/20">
+              {profile?.profile_photo_url ? (
+                <OptimizedImage src={profile.profile_photo_url} alt="" width={96} height={96} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+              ) : (
+                <span aria-hidden="true" className="font-ds-display text-xl">{name.replace(/^Dr\.?\s*/i, "").charAt(0)}</span>
+              )}
+            </span>
+            <span>
+              <span className="block font-ds-display text-[1.25rem] font-medium leading-tight">{name}</span>
+              <span className="block text-ds-small text-[rgb(var(--ds-footer-ink-2))]">{[specialty, clinicLine].filter(Boolean).join(" · ")}</span>
+            </span>
+          </Link>
+
+          {socials.length > 0 && (
+            <ul className="flex flex-wrap gap-2" aria-label="Social media">
+              {socials.map(({ label, icon: Icon, url }) => (
+                <li key={label}>
+                  <a href={url || undefined} target="_blank" rel="noreferrer" aria-label={`${label} (opens in a new tab)`} className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 text-[rgb(var(--ds-footer-ink))] transition-colors hover:bg-white/10">
+                    <Icon aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="mt-10 flex flex-col gap-3 border-t border-white/[0.12] pt-6 text-ds-label text-[rgb(var(--ds-footer-ink-2))] md:flex-row md:items-center md:justify-between">
+          <p>© {new Date().getFullYear()} {name}. All rights reserved.</p>
+          <p className="max-w-[48ch]">Health information here is educational and does not replace medical advice.</p>
+          <Link to="/" className="inline-flex min-h-11 items-center gap-1.5 font-medium hover:text-[rgb(var(--ds-footer-ink))]">
+            Powered by Doctylia <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
+    </footer>
   );
 };
 

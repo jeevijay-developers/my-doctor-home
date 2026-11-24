@@ -1,250 +1,175 @@
-import { useEffect, useState } from "react";
-import { ArrowUpRight, Clock, HeartPulse, Laptop, MapPin, Stethoscope } from "lucide-react";
+import { useId, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, ChevronDown, Clock } from "lucide-react";
+import { displayPrice, serviceType } from "@/lib/doctorSite/services";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import AnimatedItem from "@/components/landing/AnimatedItem";
-import { cardColorClass, type CardColor } from "@/lib/cardColor";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { scrollToSection } from "@/lib/scrollToSection";
-import { useIsDesktop } from "@/hooks/useIsDesktop";
+import { FEATURE_KEYS } from "@/lib/features";
 import type { Tables } from "@/integrations/supabase/types";
-import {
-  Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi,
-} from "@/components/ui/carousel";
+import DsButton from "./ui/DsButton";
+import SectionHeader from "./ui/SectionHeader";
+import { bookNow } from "./siteActions";
+import { DUR, EASE, staggerDelay } from "./motion/tokens";
 
-const PRIMARY = "#3C83FC";
-const DESCRIPTION_TRUNCATE_LENGTH = 140;
-const CAROUSEL_THRESHOLD = 3;
 type Service = Tables<"services">;
 
-const getServiceType = (type: string) => {
-  if (type === "online") return { label: "Online", Icon: Laptop };
-  if (type === "both") return { label: "Clinic & Online", Icon: Stethoscope };
-  return { label: "At Clinic", Icon: MapPin };
+const INITIAL_VISIBLE = 6;
+const LONG_DESCRIPTION = 140;
+
+type RowProps = {
+  index: number;
+  name: string;
+  description?: string | null;
+  type: string | null | undefined;
+  duration: number | null | undefined;
+  price: number | null;
+  onBook: () => void;
 };
 
-const resolveServicePrice = (service: Service, consultationFee?: number | null) =>
-  (service.price && Number(service.price) > 0 ? Number(service.price) : consultationFee) ?? 500;
-
-const ServiceCard = ({ service, price, index, onBook, onSeeMore }: {
-  service: Service;
-  price: number;
-  index: number;
-  onBook: () => void;
-  onSeeMore: () => void;
-}) => {
-  const type = getServiceType(service.type);
-  const isLongDescription = (service.description?.length || 0) > DESCRIPTION_TRUNCATE_LENGTH;
+const ServiceRow = ({ index, name, description, type, duration, price, onBook }: RowProps) => {
+  const [open, setOpen] = useState(false);
+  const descId = useId();
+  const kind = serviceType(type);
+  const isLong = (description?.length ?? 0) > LONG_DESCRIPTION;
 
   return (
-    <AnimatedItem index={index} className="h-full">
-      <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white p-5 shadow-[0_10px_30px_rgba(15,43,80,0.07)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_18px_38px_rgba(60,131,252,0.14)] dark:border-blue-900/60 dark:bg-gray-900 dark:hover:border-blue-700 sm:p-6">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-blue-50 transition-transform duration-500 group-hover:scale-125 dark:bg-blue-950/30" />
+    <motion.li
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: DUR.medium, ease: EASE.out, delay: staggerDelay(index) }}
+      className="group relative grid grid-cols-[auto_1fr] gap-x-4 border-t border-ds-line py-6 last:border-b sm:gap-x-6 md:grid-cols-[3rem_1fr_auto] md:items-center md:py-7"
+    >
+      <span aria-hidden="true" className="pt-1 font-ds-display text-[1.0625rem] italic text-ds-ink-3 ds-tabular md:pt-0">
+        {String(index + 1).padStart(2, "0")}
+      </span>
 
-        <div className="relative flex items-start justify-between gap-3">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-950/40" style={{ color: PRIMARY }}>
-            <HeartPulse className="h-6 w-6" strokeWidth={2} />
+      <div className="min-w-0">
+        <h3 className="font-ds-display text-ds-h3 font-medium text-ds-ink">{name}</h3>
+        <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-ds-small text-ds-ink-2">
+          <span className="inline-flex items-center gap-1.5">
+            <kind.Icon aria-hidden="true" className="h-4 w-4" strokeWidth={1.75} />
+            {kind.label}
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/80 px-2.5 py-1 text-[11px] font-bold text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
-            <type.Icon className="h-3 w-3" />
-            {type.label}
-          </span>
-        </div>
-
-        <div className="relative mt-5 flex-1">
-          <h3 className="font-heading text-lg font-extrabold leading-snug text-[#092b50] dark:text-white sm:text-xl">
-            {service.name?.trim() || "Consultation"}
-          </h3>
-          {service.description && (
-            <>
-              <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                {service.description}
-              </p>
-              {isLongDescription && (
-                <button type="button" onClick={onSeeMore} className="mt-1.5 text-xs font-bold hover:underline" style={{ color: PRIMARY }}>
-                  View details
-                </button>
-              )}
-            </>
+          {Number(duration) > 0 && (
+            <span className="inline-flex items-center gap-1.5 ds-tabular">
+              <Clock aria-hidden="true" className="h-4 w-4" strokeWidth={1.75} />
+              {duration} min
+            </span>
           )}
-        </div>
-
-        <div className="relative mt-6 border-t border-blue-50 pt-4 dark:border-blue-950">
-          <div className="flex items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              <Clock className="h-4 w-4" style={{ color: PRIMARY }} />
-              {service.duration || 30} min
-            </span>
-            <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-extrabold text-[#092b50] dark:bg-blue-950/50 dark:text-blue-200">
-              ₹{price}
-            </span>
+          {price !== null && <span className="font-semibold text-ds-ink ds-tabular">₹{price.toLocaleString("en-IN")}</span>}
+        </p>
+        {description && (
+          <div className="mt-3 max-w-[62ch]">
+            <p id={descId} className={`text-ds-body text-ds-ink-2 ${open || !isLong ? "" : "line-clamp-2"}`}>
+              {description}
+            </p>
+            {isLong && (
+              <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+                aria-controls={descId}
+                className="mt-1 inline-flex min-h-11 items-center gap-1 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline"
+              >
+                {open ? "Show less" : "Read more"}
+                <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform duration-ds-2 ${open ? "rotate-180" : ""}`} />
+              </button>
+            )}
           </div>
+        )}
+      </div>
 
-          <button
-            type="button"
-            onClick={onBook}
-            className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold text-white shadow-[0_8px_20px_rgba(60,131,252,0.22)] transition-all hover:brightness-95 active:scale-[0.98]"
-            style={{ backgroundColor: PRIMARY }}
-          >
-            Book This Service
-            <ArrowUpRight className="h-4 w-4" />
-          </button>
-        </div>
-      </article>
-    </AnimatedItem>
+      <div className="col-start-2 mt-4 md:col-start-3 md:mt-0">
+        <DsButton variant="secondary" onClick={onBook} className="group/btn w-full sm:w-auto" aria-label={`Book ${name}`}>
+          Book
+          <ArrowRight aria-hidden="true" className="h-4 w-4 transition-transform duration-ds-2 ease-ds-out group-hover/btn:translate-x-1" strokeWidth={2} />
+        </DsButton>
+      </div>
+    </motion.li>
   );
 };
 
-const ServicesSection = ({ cardColor = "card" }: { cardColor?: CardColor }) => {
-  const { services, profile } = useDoctorData();
-  const [activeService, setActiveService] = useState<Service | null>(null);
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
-  const [selectedService, setSelectedService] = useState(0);
-  const isDesktop = useIsDesktop();
-  const showCarousel = services.length === 0 || !isDesktop || services.length > CAROUSEL_THRESHOLD;
+const ServicesSection = () => {
+  const { services, profile, settings, hasFeature } = useDoctorData();
+  const [showAll, setShowAll] = useState(false);
+  // An online-only service can only be booked when the doctor's plan offers online consultation.
+  const onlineAllowed = hasFeature?.(FEATURE_KEYS.ONLINE_CONSULTATION) === true;
+  const list = ((services ?? []) as Service[]).filter((service) => service.type !== "online" || onlineAllowed);
+  const visible = showAll ? list : list.slice(0, INITIAL_VISIBLE);
 
-  const bookService = (service?: Service) => {
-    if (service && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("doctylia:select-service", { detail: service }));
-    }
-    scrollToSection("booking");
+  const online = Boolean(settings?.show_online_consultation) && hasFeature?.(FEATURE_KEYS.ONLINE_CONSULTATION);
+  const onlineFee = Number(settings?.online_fee) > 0 ? Number(settings.online_fee) : null;
+
+  // Same event as before: BookingWidget preselects the service (and its visit type).
+  const book = (service: Partial<Service>) => {
+    window.dispatchEvent(new CustomEvent("doctylia:select-service", { detail: service }));
+    bookNow();
   };
 
-  useEffect(() => {
-    if (!carouselApi) return;
-    const updateSelected = () => setSelectedService(carouselApi.selectedScrollSnap());
-    updateSelected();
-    carouselApi.on("select", updateSelected);
-    carouselApi.on("reInit", updateSelected);
-    return () => {
-      carouselApi.off("select", updateSelected);
-      carouselApi.off("reInit", updateSelected);
-    };
-  }, [carouselApi]);
+  // No services added yet: the booking widget still sells a plain consultation, so list exactly that
+  // (the doctor's own consultation fee and slot length; nothing invented, price omitted if unset).
+  const defaultFee = Number(profile?.consultation_fee) > 0 ? Number(profile.consultation_fee) : null;
+  const defaultDuration = Number(settings?.slot_duration_minutes) || null;
 
   return (
-    <>
-      <section id="services" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(60,131,252,0.12),transparent_70%)]" />
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.08] dark:opacity-[0.06]"
-          style={{
-            backgroundImage: "radial-gradient(#3C83FC 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-            maskImage: "linear-gradient(to bottom, black, transparent 70%)",
-            WebkitMaskImage: "linear-gradient(to bottom, black, transparent 70%)",
-          }}
+    <section id="services" aria-labelledby="services-heading" className="ds-grain bg-ds-paper-2 py-[4.5rem] md:py-32">
+      <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8">
+        <SectionHeader
+          id="services-heading"
+          eyebrow="Services"
+          title={<>Services &amp; consultations</>}
+          intro="Choose a service to book it directly. Prices and visit lengths are set by the clinic."
         />
 
-        <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em]" style={{ color: PRIMARY }}>
-              Our Expertise
-            </p>
-            <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
-              Medical <span style={{ color: PRIMARY }}>Services</span>
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
-              Professional care with clear consultation times, flexible visit types, and instant appointment booking.
-            </p>
-          </div>
-
-          {showCarousel ? (
-            <Carousel
-              setApi={setCarouselApi}
-              opts={{ align: "start", loop: services.length > 3 }}
-              className="mx-auto mt-9 max-w-6xl sm:mt-12"
-            >
-              <CarouselContent className="-ml-4 pb-2">
-                {(services as Service[]).map((service, index) => (
-                  <CarouselItem key={service.id} className="basis-[88%] pl-4 sm:basis-1/2 lg:basis-1/3">
-                    <ServiceCard
-                      service={service}
-                      price={resolveServicePrice(service, profile?.consultation_fee)}
-                      index={index}
-                      onBook={() => bookService(service)}
-                      onSeeMore={() => setActiveService(service)}
-                    />
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-
-              <div className="mt-7 flex items-center justify-center gap-4">
-                <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-                <div className="flex items-center gap-1.5">
-                  {(services as Service[]).map((service, index) => (
-                    <button
-                      key={service.id}
-                      type="button"
-                      aria-label={`Go to service ${index + 1}`}
-                      onClick={() => carouselApi?.scrollTo(index)}
-                      className={`h-2 rounded-full transition-all duration-300 ${selectedService === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
-                      style={selectedService === index ? { backgroundColor: PRIMARY } : undefined}
-                    />
-                  ))}
-                </div>
-                <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-              </div>
-            </Carousel>
-          ) : (
-            <div className="mx-auto mt-9 grid max-w-6xl gap-6 sm:mt-12 lg:grid-cols-3">
-              {(services as Service[]).map((service, index) => (
-                <ServiceCard
-                  key={service.id}
-                  service={service}
-                  price={resolveServicePrice(service, profile?.consultation_fee)}
-                  index={index}
-                  onBook={() => bookService(service)}
-                  onSeeMore={() => setActiveService(service)}
-                />
-              ))}
-            </div>
+        <ol className="mt-10 md:mt-14" aria-label="Services">
+          {visible.map((service, index) => (
+            <ServiceRow
+              key={service.id}
+              index={index}
+              name={service.name?.trim() || "Consultation"}
+              description={service.description}
+              type={service.type}
+              duration={service.duration}
+              price={displayPrice(service, profile?.consultation_fee)}
+              onBook={() => book(service)}
+            />
+          ))}
+          {list.length === 0 && (
+            <ServiceRow
+              index={0}
+              name="Clinic consultation"
+              description="See the doctor at the clinic. Pick a time that suits you and book it online."
+              type="clinic"
+              duration={defaultDuration}
+              price={defaultFee}
+              onBook={() => book({ id: undefined, type: "clinic" })}
+            />
           )}
-        </div>
-      </section>
-
-      <Dialog open={Boolean(activeService)} onOpenChange={(open) => !open && setActiveService(null)}>
-        <DialogContent className="max-w-lg rounded-2xl border border-blue-100 bg-card p-6 shadow-xl dark:border-blue-900">
-          {activeService && (
-            <div className="space-y-5">
-              <DialogHeader className="space-y-3 text-left">
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-950/40" style={{ color: PRIMARY }}>
-                  <HeartPulse className="h-6 w-6" />
-                </span>
-                <DialogTitle className="font-heading text-xl font-extrabold text-[#092b50] dark:text-white">
-                  {activeService.name?.trim() || "Consultation"}
-                </DialogTitle>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{getServiceType(activeService.type).label}</span>
-                  <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{activeService.duration || 30} min</span>
-                  <span className="rounded-full bg-blue-50 px-2.5 py-1 font-extrabold text-[#092b50] dark:bg-blue-950/50 dark:text-blue-200">
-                    ₹{resolveServicePrice(activeService, profile?.consultation_fee)}
-                  </span>
-                </div>
-              </DialogHeader>
-
-              <p className="max-h-[45vh] overflow-y-auto whitespace-pre-line text-sm leading-7 text-slate-600 dark:text-slate-300">
-                {activeService.description}
-              </p>
-
-              <div className="flex justify-end border-t border-blue-100 pt-4 dark:border-blue-900">
-                <button
-                  type="button"
-                  className="h-11 rounded-xl px-6 text-sm font-bold text-white"
-                  style={{ backgroundColor: PRIMARY }}
-                  onClick={() => {
-                    const serviceToBook = activeService;
-                    setActiveService(null);
-                    requestAnimationFrame(() => bookService(serviceToBook));
-                  }}
-                >
-                  Book Now
-                </button>
-              </div>
-            </div>
+          {online && (
+            <ServiceRow
+              index={Math.max(visible.length, list.length === 0 ? 1 : 0)}
+              name="Online consultation"
+              description="Speak with the doctor by video from wherever you are. Book a slot, pay online, and join the call from your phone."
+              type="online"
+              duration={Number(settings?.online_duration) || null}
+              price={onlineFee}
+              onBook={() => book({ id: undefined, type: "online" })}
+            />
           )}
-        </DialogContent>
-      </Dialog>
-    </>
+        </ol>
+
+        <AnimatePresence>
+          {list.length > INITIAL_VISIBLE && !showAll && (
+            <motion.div exit={{ opacity: 0 }} className="mt-8 flex justify-center">
+              <DsButton variant="quiet" onClick={() => setShowAll(true)}>
+                Show all {list.length} services
+                <ChevronDown aria-hidden="true" className="h-4 w-4" />
+              </DsButton>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </section>
   );
 };
 

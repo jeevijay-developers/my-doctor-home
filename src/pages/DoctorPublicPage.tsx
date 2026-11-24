@@ -1,5 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
+import "@/styles/doctor-site.css";
+import SmoothScroll from "@/components/doctor/motion/SmoothScroll";
+import { dsScrollTo } from "@/components/doctor/motion/scroll";
 import { DoctorProvider, useDoctorData } from "@/contexts/DoctorContext";
 import Navbar from "@/components/doctor/Navbar";
 import HeroBanner from "@/components/doctor/HeroBanner";
@@ -12,11 +16,19 @@ import BlogPreview from "@/components/doctor/BlogPreview";
 import ClinicDetails from "@/components/doctor/ClinicDetails";
 import ContactQueryForm from "@/components/doctor/ContactQueryForm";
 import Footer from "@/components/doctor/Footer";
-import AnimatedSection from "@/components/landing/AnimatedSection";
-import SectionCard from "@/components/doctor/SectionCard";
+import BottomActionBar from "@/components/doctor/BottomActionBar";
+import DoctorThemeProvider from "@/components/doctor/DoctorThemeProvider";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { DEFAULT_TITLE, buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName } from "@/lib/seo/doctorSeo";
-import { scrollToSection } from "@/lib/scrollToSection";
+// Root of the doctor site: scopes the `ds-*` design tokens, smooth scroll and the
+// reduced-motion policy (`motion` honours the OS setting via reducedMotion="user").
+const DoctorSiteShell = ({ children }: { children: ReactNode }) => (
+  <DoctorThemeProvider>
+    <MotionConfig reducedMotion="user">
+      <div className="doctor-site min-h-screen bg-ds-paper text-ds-ink">{children}</div>
+    </MotionConfig>
+  </DoctorThemeProvider>
+);
 
 function upsertMeta(selector: string, attr: "name" | "property", key: string, content: string) {
   let el = document.head.querySelector<HTMLMetaElement>(selector);
@@ -104,74 +116,69 @@ const DoctorPageContent = () => {
 
   useEffect(() => {
     if (loading || !profile || !hash) return;
-    const target = decodeURIComponent(hash.slice(1));
-    const frame = window.requestAnimationFrame(() => scrollToSection(target));
+    let target = hash.slice(1);
+    try {
+      target = decodeURIComponent(target);
+    } catch {
+      // A malformed escape (e.g. "#%E0%A4%A") is just not a section id; use it as typed.
+    }
+    const frame = window.requestAnimationFrame(() => dsScrollTo(target));
     return () => window.cancelAnimationFrame(frame);
   }, [hash, loading, profile]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-royal border-t-transparent rounded-full" />
-      </div>
+      <DoctorSiteShell>
+        <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Loading">
+          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-ds-line border-t-ds-accent" />
+        </div>
+      </DoctorSiteShell>
     );
   }
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="font-heading font-bold text-2xl text-primary mb-2">Doctor Not Found</h1>
-          <p className="text-muted-foreground">This page doesn't exist or hasn't been set up yet.</p>
-        </div>
-      </div>
+      <DoctorSiteShell>
+        <main className="flex min-h-screen items-center justify-center px-6">
+          <div className="max-w-md text-center">
+            <h1 className="font-ds-display text-ds-h2 font-medium">Doctor Not Found</h1>
+            <p className="mt-3 text-ds-ink-2">This page doesn't exist or hasn't been set up yet.</p>
+          </div>
+        </main>
+      </DoctorSiteShell>
     );
   }
 
   if (profile.plan_status === "cancelled") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-secondary p-6">
-        <div className="max-w-md text-center bg-card border rounded-2xl p-8 shadow-lg">
-          <h1 className="font-heading font-bold text-2xl text-primary mb-2">This clinic is temporarily unavailable</h1>
-          <p className="text-muted-foreground">Please check back later or contact the clinic directly.</p>
-        </div>
-      </div>
+      <DoctorSiteShell>
+        <main className="flex min-h-screen items-center justify-center px-6">
+          <div className="max-w-md rounded-ds-md border border-ds-line bg-ds-surface p-8 text-center shadow-ds-1">
+            <h1 className="font-ds-display text-ds-h3 font-medium">This clinic is temporarily unavailable</h1>
+            <p className="mt-3 text-ds-ink-2">Please check back later or contact the clinic directly.</p>
+          </div>
+        </main>
+      </DoctorSiteShell>
     );
   }
 
-  // Alternating card colors follow the visible section order below.
-  // Color B ("card") = Patient Review testimonial card. The Stats card
-  // (rendered inside HeroBanner) is always slot 1 (B) when shown, hardcoded
-  // in HeroBanner.tsx itself since its position never varies. Everything
-  // from here on is a card that may or may not render for a given doctor,
-  // so the slot counter only advances for cards that actually show - that
-  // way the alternation stays correct (and keeps working for any future
-  // card added to this list) regardless of which optional sections are on.
-  let slot = settings.show_quick_stats !== false ? 2 : 1;
-  const nextCardColor = () => {
-    const color = slot % 2 === 0 ? "secondary" : "card";
-    slot += 1;
-    return color;
-  };
-
   const showAbout = settings.show_about !== false;
-  const showServices = settings.show_services !== false && services.length > 0;
+  const showServices = settings.show_services !== false;
   const showGallery = Boolean(settings.show_gallery);
   const showReviews = settings.show_reviews !== false;
   const showBlog = settings.show_blog !== false;
   const showClinicDetails = settings.show_clinic_details !== false;
 
-  const servicesColor = showServices ? nextCardColor() : undefined;
-  const aboutColor = showAbout ? nextCardColor() : undefined;
-  const galleryColor = showGallery ? nextCardColor() : undefined;
-  const bookingColor = nextCardColor(); // always rendered
-  const reviewsColor = showReviews ? nextCardColor() : undefined;
-  const blogColor = showBlog ? nextCardColor() : undefined;
-  const clinicDetailsColor = showClinicDetails ? nextCardColor() : undefined;
-  const queryFormColor = nextCardColor(); // always rendered, right after Clinic Details
 
   return (
-    <div className="min-h-screen bg-secondary/30 dark:bg-black">
+    <DoctorSiteShell>
+    <SmoothScroll>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-ds-accent focus:px-5 focus:py-3 focus:font-medium focus:text-white"
+      >
+        Skip to main content
+      </a>
       {structuredData && (
         <script
           type="application/ld+json"
@@ -179,31 +186,27 @@ const DoctorPageContent = () => {
         />
       )}
       <Navbar />
-      <main>
-        <HeroBanner cardColor={servicesColor ?? aboutColor ?? "secondary"} />
-        {showServices && (
-          <AnimatedSection><SectionCard><ServicesSection cardColor={servicesColor} /></SectionCard></AnimatedSection>
-        )}
-        {showAbout && (
-          <AnimatedSection><SectionCard><AboutSection cardColor={aboutColor} /></SectionCard></AnimatedSection>
-        )}
-        {showGallery && (
-          <AnimatedSection><SectionCard><GallerySection cardColor={galleryColor} /></SectionCard></AnimatedSection>
-        )}
-        <AnimatedSection><SectionCard><BookingWidget cardColor={bookingColor} /></SectionCard></AnimatedSection>
-        {showReviews && (
-          <AnimatedSection><SectionCard><ReviewsSection cardColor={reviewsColor} /></SectionCard></AnimatedSection>
-        )}
-        {showBlog && (
-          <AnimatedSection><SectionCard><BlogPreview cardColor={blogColor} /></SectionCard></AnimatedSection>
-        )}
-        {showClinicDetails && (
-          <AnimatedSection><SectionCard><ClinicDetails cardColor={clinicDetailsColor} /></SectionCard></AnimatedSection>
-        )}
-        <AnimatedSection><SectionCard><ContactQueryForm cardColor={queryFormColor} /></SectionCard></AnimatedSection>
+      <main id="main">
+        {/* Order: hero, about, gallery, services, booking, reviews, articles, clinic details & contact, contact form. */}
+        <HeroBanner />
+        {showAbout && <AboutSection />}
+        {showGallery && <GallerySection />}
+        {showServices && <ServicesSection />}
+        {/* Stable wrapper: BookingWidget swaps its root between states, so observers watch this. */}
+        <div id="booking-zone">
+          <BookingWidget />
+        </div>
+        {showReviews && <ReviewsSection />}
+        {showBlog && <BlogPreview />}
+        {showClinicDetails && <ClinicDetails />}
+        <ContactQueryForm />
       </main>
       <Footer />
-    </div>
+      <BottomActionBar />
+      {/* Keeps the footer clear of the fixed mobile action bar. */}
+      <div aria-hidden="true" style={{ height: "var(--ds-bottom-bar)" }} />
+    </SmoothScroll>
+    </DoctorSiteShell>
   );
 };
 

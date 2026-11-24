@@ -6,7 +6,8 @@ import {
   IndianRupee, BadgeCheck, MapPin, Globe, Receipt, Download, Printer, X, Hash,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import "@/styles/doctor-site.css";
+import DsButton from "./ui/DsButton";
 import doctyliaLogo from "@/assets/doctylia-logo.webp";
 import { getClinicMapsUrl } from "@/lib/clinicLocation";
 
@@ -28,8 +29,8 @@ type Props = {
   onDownload: () => void;
 };
 
-const TEAL_DARK = "#0a4e58";
-const TEAL = "#0f6e7c";
+const TEAL_DARK = "#14213D"; // ink
+const TEAL = "#1D4ED8"; // accent
 
 // Subtle repeating "+" texture for the sidebar, tiled via CSS background-image.
 // Mirrors AppointmentSlip so both documents share one visual language.
@@ -262,16 +263,17 @@ const PaymentSlip = ({
             </div>
           </div>
 
-          <div data-payment-slip-print-hide className="flex flex-wrap gap-2 justify-end p-4 border-t bg-secondary/40">
-            <Button variant="outline" onClick={handlePrint} className="gap-1.5">
-              <Printer className="h-4 w-4" /> Print
-            </Button>
-            <Button variant="outline" onClick={onDownload} className="gap-1.5">
-              <Download className="h-4 w-4" /> Download PDF
-            </Button>
-            <Button onClick={onClose} className="gap-1.5 bg-royal hover:bg-royal/90 text-white">
-              <X className="h-4 w-4" /> Close
-            </Button>
+          {/* Scoped to the doctor-site tokens; the slip card above keeps its own inline colours so PDFs stay exact. */}
+          <div data-payment-slip-print-hide className="doctor-site flex flex-col-reverse gap-2 border-t border-ds-line !bg-ds-paper-2 p-4 sm:flex-row sm:justify-end">
+            <DsButton variant="quiet" onClick={onClose}>
+              <X aria-hidden="true" className="h-4 w-4" /> Close
+            </DsButton>
+            <DsButton variant="secondary" onClick={handlePrint}>
+              <Printer aria-hidden="true" className="h-4 w-4" /> Print
+            </DsButton>
+            <DsButton onClick={onDownload}>
+              <Download aria-hidden="true" className="h-4 w-4" /> Download PDF
+            </DsButton>
           </div>
         </div>
       </DialogContent>

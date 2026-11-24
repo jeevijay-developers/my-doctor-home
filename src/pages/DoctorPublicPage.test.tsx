@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import DoctorPublicPage from "./DoctorPublicPage";
 
@@ -21,8 +21,6 @@ vi.mock("@/components/doctor/BlogPreview", () => stub("blog"));
 vi.mock("@/components/doctor/ClinicDetails", () => stub("clinic"));
 vi.mock("@/components/doctor/ContactQueryForm", () => stub("query"));
 vi.mock("@/components/doctor/Footer", () => stub("footer"));
-vi.mock("@/components/doctor/SectionCard", () => ({ default: ({ children }: any) => <>{children}</> }));
-vi.mock("@/components/landing/AnimatedSection", () => ({ default: ({ children }: any) => <>{children}</> }));
 
 const base = (over: Record<string, unknown> = {}) => ({
   profile: { id: "d1", full_name: "Asha Rao", specialization: "Cardiologist", city: "Pune", slug: "asha", plan_status: "active" },
@@ -91,11 +89,27 @@ describe("DoctorPublicPage", () => {
     for (const s of ["blog", "gallery", "booking", "query"]) expect(screen.getByText(`SECTION:${s}`)).toBeInTheDocument();
   });
 
-  it("hides services when there are none, but still shows the gallery section (empty state) when it is on", () => {
+  it("lays the sections out in the owner's order: hero, about, gallery, services, booking, reviews, articles, clinic details, contact form, footer", () => {
+    ctx.value = base({ settings: { show_gallery: true }, gallery: [{ id: 1 }] });
+    const { container } = renderPage();
+    const order = [...container.querySelectorAll("div")]
+      .filter((el) => el.children.length === 0) // the section stubs themselves, not wrappers around them
+      .map((el) => el.textContent?.match(/^SECTION:(\w+)$/)?.[1])
+      .filter(Boolean);
+    expect(order).toEqual(["navbar", "hero", "about", "gallery", "services", "booking", "reviews", "blog", "clinic", "query", "footer"]);
+  });
+
+  it("still shows Services (it offers the plain consultation) and Gallery (placeholder) when the doctor has switched them on but added nothing", () => {
     ctx.value = base({ services: [], settings: { show_gallery: true }, gallery: [] });
     renderPage();
-    expect(screen.queryByText("SECTION:services")).not.toBeInTheDocument();
+    expect(screen.getByText("SECTION:services")).toBeInTheDocument();
     expect(screen.getByText("SECTION:gallery")).toBeInTheDocument();
+  });
+
+  it("hides Services only when the doctor switches it off", () => {
+    ctx.value = base({ settings: { show_services: false } });
+    renderPage();
+    expect(screen.queryByText("SECTION:services")).not.toBeInTheDocument();
   });
 
   it("sets the document title and a canonical link for the doctor, and restores the title on unmount", () => {
@@ -107,10 +121,45 @@ describe("DoctorPublicPage", () => {
     expect(document.title).toBe("Before");
   });
 
+  it("does not crash on a malformed #hash in the URL", () => {
+    expect(() =>
+      render(
+        <MemoryRouter initialEntries={["/#%E0%A4%A"]}>
+          <DoctorPublicPage />
+        </MemoryRouter>,
+      ),
+    ).not.toThrow();
+    expect(screen.getByText("SECTION:hero")).toBeInTheDocument();
+  });
+
   it("emits JSON-LD structured data for the doctor", () => {
     const { container } = renderPage();
     const ld = container.querySelector('script[type="application/ld+json"]');
     expect(ld).toBeTruthy();
     expect(ld!.innerHTML).toContain("Asha Rao");
+  });
+
+  it("is wrapped in the doctor-site design scope, with a skip link and one main landmark", () => {
+    const { container } = renderPage();
+    expect(container.querySelector(".doctor-site")).toBeTruthy();
+    const skip = screen.getByRole("link", { name: "Skip to main content" });
+    expect(skip).toHaveAttribute("href", "#main");
+    expect(container.querySelectorAll("main#main")).toHaveLength(1);
+  });
+
+  it("keeps booking inside a stable wrapper that the action bar can observe", () => {
+    const { container } = renderPage();
+    const zone = container.querySelector("#booking-zone");
+    expect(zone).toBeTruthy();
+    expect(within(zone as HTMLElement).getByText("SECTION:booking")).toBeInTheDocument();
+  });
+
+  it("themes the loading and not-found states too", () => {
+    ctx.value = base({ loading: true });
+    const { container, rerender } = renderPage();
+    expect(container.querySelector(".doctor-site")).toBeTruthy();
+    ctx.value = base({ profile: null });
+    rerender(<MemoryRouter><DoctorPublicPage /></MemoryRouter>);
+    expect(container.querySelector(".doctor-site")).toBeTruthy();
   });
 });

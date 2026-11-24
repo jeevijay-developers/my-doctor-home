@@ -33,6 +33,8 @@ export interface PageHead {
   preconnect?: string[];
   /** LCP image to fetch immediately, before any JavaScript runs. Must equal the <img src>. */
   preloadImage?: string;
+  /** Same-origin .woff2 files that style above-the-fold text, fetched before the CSS that names them is parsed. */
+  preloadFonts?: string[];
 }
 
 export const INDEXABLE = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
@@ -54,6 +56,10 @@ export function renderPage(template: string, page: PageHead): string {
     ...(page.preloadImage
       ? [`<link rel="preload" as="image" href="${escapeHtml(page.preloadImage)}" fetchpriority="high" />`]
       : []),
+    // Font preloads need `crossorigin` even when same-origin, or the browser fetches the file twice.
+    ...(page.preloadFonts ?? []).map(
+      (href) => `<link rel="preload" as="font" type="font/woff2" href="${escapeHtml(href)}" crossorigin />`,
+    ),
     `<title>${t}</title>`,
     `<meta name="description" content="${d}" />`,
     `<meta name="robots" content="${escapeHtml(page.robots)}" />`,

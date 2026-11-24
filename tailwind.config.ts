@@ -17,6 +17,29 @@ export default {
         heading: ['"Plus Jakarta Sans"', 'sans-serif'],
         body: ['Inter', 'sans-serif'],
         script: ['Caveat', 'cursive'],
+        // Doctor public site only (see src/styles/doctor-site.css).
+        "ds-display": ['Newsreader', 'Georgia', '"Times New Roman"', 'serif'],
+      },
+      // Doctor public site design tokens. Values live in src/styles/doctor-site.css under
+      // `.doctor-site` (light) and `.dark .doctor-site` (dark); nothing else reads them.
+      fontSize: {
+        "ds-display": ["clamp(2.5rem, 1.55rem + 4.2vw, 4.75rem)", { lineHeight: "1.02", letterSpacing: "-0.02em" }],
+        "ds-h2": ["clamp(2rem, 1.45rem + 2.4vw, 3.25rem)", { lineHeight: "1.08", letterSpacing: "-0.015em" }],
+        "ds-h3": ["clamp(1.25rem, 1.12rem + 0.6vw, 1.5rem)", { lineHeight: "1.25", letterSpacing: "-0.01em" }],
+        "ds-lead": ["clamp(1.125rem, 1.07rem + 0.3vw, 1.25rem)", { lineHeight: "1.55" }],
+        "ds-body": ["1.0625rem", { lineHeight: "1.6" }],
+        "ds-small": ["0.9375rem", { lineHeight: "1.5" }],
+        "ds-label": ["0.875rem", { lineHeight: "1.4" }],
+      },
+      transitionTimingFunction: {
+        "ds-out": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "ds-in-out": "cubic-bezier(0.65, 0, 0.35, 1)",
+      },
+      transitionDuration: {
+        "ds-1": "160ms",
+        "ds-2": "240ms",
+        "ds-3": "420ms",
+        "ds-4": "700ms",
       },
       colors: {
         border: "hsl(var(--border))",
@@ -89,6 +112,24 @@ export default {
         "cloud-blue": "hsl(var(--cloud-blue))",
         "text-gray": "hsl(var(--text-gray))",
         "near-black": "hsl(var(--near-black))",
+        ds: {
+          paper: "rgb(var(--ds-paper) / <alpha-value>)",
+          "paper-2": "rgb(var(--ds-paper-2) / <alpha-value>)",
+          surface: "rgb(var(--ds-surface) / <alpha-value>)",
+          ink: "rgb(var(--ds-ink) / <alpha-value>)",
+          "ink-2": "rgb(var(--ds-ink-2) / <alpha-value>)",
+          "ink-3": "rgb(var(--ds-ink-3) / <alpha-value>)",
+          line: "rgb(var(--ds-line) / <alpha-value>)",
+          accent: "rgb(var(--ds-accent) / <alpha-value>)",
+          "accent-hover": "rgb(var(--ds-accent-hover) / <alpha-value>)",
+          "accent-ink": "rgb(var(--ds-accent-ink) / <alpha-value>)",
+          "accent-soft": "rgb(var(--ds-accent-soft) / <alpha-value>)",
+          live: "rgb(var(--ds-live) / <alpha-value>)",
+          "live-dot": "rgb(var(--ds-live-dot) / <alpha-value>)",
+          warm: "rgb(var(--ds-warm) / <alpha-value>)",
+          star: "rgb(var(--ds-star) / <alpha-value>)",
+          danger: "rgb(var(--ds-danger) / <alpha-value>)",
+        },
       },
       // Single source of truth for readable text: the bright brand/status hues are fills (`bg-*`, borders),
       // so `text-*` resolves to their darker "ink" tone (>= 4.5:1 on white; lighter in dark mode).
@@ -112,12 +153,18 @@ export default {
         xl: "12px",
         "2xl": "16px",
         pill: "9999px",
+        "ds-sm": "10px",
+        "ds-md": "16px",
+        "ds-lg": "28px",
       },
       boxShadow: {
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
         xl: "var(--shadow-xl)",
+        "ds-1": "var(--ds-shadow-1)",
+        "ds-2": "var(--ds-shadow-2)",
+        "ds-3": "var(--ds-shadow-3)",
       },
       keyframes: {
         "accordion-down": {

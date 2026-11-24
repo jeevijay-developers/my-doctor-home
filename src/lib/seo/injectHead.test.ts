@@ -123,6 +123,20 @@ describe("renderPage", () => {
     expect(renderPage(t, page({ bodyHtml: "<main>hi</main>" }))).not.toContain("<main>hi</main>");
   });
 
+  it("preloads above-the-fold fonts with crossorigin, in the head and before the title", () => {
+    const html = renderPage(TEMPLATE, page({ preloadFonts: ["/fonts/newsreader-latin.woff2"] }));
+    const tag = '<link rel="preload" as="font" type="font/woff2" href="/fonts/newsreader-latin.woff2" crossorigin />';
+    expect(html).toContain(tag);
+    expect(html.indexOf(tag)).toBeLessThan(html.indexOf("<title>"));
+    expect(html.indexOf(tag)).toBeLessThan(html.indexOf("</head>"));
+  });
+
+  it("emits no font preload unless asked, and keeps the image preload high priority", () => {
+    expect(renderPage(TEMPLATE, page())).not.toContain('as="font"');
+    const html = renderPage(TEMPLATE, page({ preloadImage: "https://x/hero.jpg", preloadFonts: ["/fonts/a.woff2"] }));
+    expect(html).toContain('<link rel="preload" as="image" href="https://x/hero.jpg" fetchpriority="high" />');
+  });
+
   it("robots values flow through", () => {
     expect(renderPage(TEMPLATE, page({ robots: NOINDEX }))).toContain('name="robots" content="noindex, follow"');
   });

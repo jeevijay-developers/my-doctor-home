@@ -41,3 +41,6 @@ node_modules/
 
 
 # E2E local-only env (points at the throwaway local Supabase stack)
+
+# Playwright MCP screenshots and logs
+.playwright-mcp/

@@ -1,169 +1,121 @@
-import { useEffect, useState } from "react";
-import { Expand, Image as ImageIcon } from "lucide-react";
+import { useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight, Expand } from "lucide-react";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import {
-  Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi,
-} from "@/components/ui/carousel";
-import { cardColorClass, type CardColor } from "@/lib/cardColor";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useIsDesktop } from "@/hooks/useIsDesktop";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Tables } from "@/integrations/supabase/types";
+import SectionHeader from "./ui/SectionHeader";
+import { DUR, EASE, staggerDelay } from "./motion/tokens";
 
-const PRIMARY = "#3C83FC";
-const AUTOPLAY_MS = 4500;
-const CAROUSEL_THRESHOLD = 3;
-type GalleryPhoto = Tables<"gallery_photos">;
+type Photo = Tables<"gallery_photos">;
 
-const GalleryCard = ({ photo, onOpen }: { photo: GalleryPhoto; onOpen: () => void }) => (
-  <button
-    type="button"
-    onClick={onOpen}
-    className="group block w-full overflow-hidden rounded-2xl border border-blue-100 bg-white p-2 text-left shadow-[0_10px_30px_rgba(15,43,80,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_18px_38px_rgba(60,131,252,0.16)] dark:border-blue-900/60 dark:bg-gray-900 dark:hover:border-blue-700"
-  >
-    <span className="relative block aspect-[4/3] overflow-hidden rounded-xl bg-blue-50 dark:bg-gray-800">
-      <img
-        src={photo.photo_url}
-        alt={photo.caption || "Clinic facility"}
-        loading="lazy"
-        decoding="async"
-        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-      />
-      <span className="absolute inset-0 bg-gradient-to-t from-[#092b50]/85 via-transparent to-transparent" />
-      <span className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-blue-700 opacity-0 shadow-md backdrop-blur transition-opacity group-hover:opacity-100 dark:bg-gray-900/90 dark:text-blue-300">
-        <Expand className="h-4 w-4" />
-      </span>
-      <span className="absolute bottom-0 left-0 right-0 flex items-end gap-2 p-4 text-white">
-        <ImageIcon className="mb-0.5 h-4 w-4 shrink-0" style={{ color: PRIMARY }} />
-        <span className="line-clamp-2 text-sm font-bold leading-5">
-          {photo.caption || "Our Clinic"}
-        </span>
-      </span>
-    </span>
-  </button>
-);
+// One to three photos: an even row (a masonry of two leaves the right half empty).
+const FEW_COLUMNS: Record<number, string> = { 1: "max-w-xl", 2: "sm:grid-cols-2", 3: "sm:grid-cols-3" };
 
-const GallerySection = ({ cardColor = "secondary" }: { cardColor?: CardColor }) => {
+// Mixed aspect ratios give the grid an editorial rhythm without cropping faces.
+const SHAPES = ["aspect-[4/5]", "aspect-[1/1]", "aspect-[4/3]", "aspect-[3/4]", "aspect-[1/1]", "aspect-[4/5]"];
+
+/**
+ * The clinic gallery (spec §5.8). No autoplay: moving content under a reading
+ * patient is disorienting, so photos change only when asked to. A lightbox with
+ * previous/next opens on tap.
+ */
+const GallerySection = () => {
   const { gallery } = useDoctorData();
-  const photos = gallery as GalleryPhoto[];
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
-  const [selectedPhoto, setSelectedPhoto] = useState(0);
-  const [snapCount, setSnapCount] = useState(0);
-  const [hovering, setHovering] = useState(false);
-  const [activePhoto, setActivePhoto] = useState<GalleryPhoto | null>(null);
-  const isDesktop = useIsDesktop();
-  const showCarousel = photos.length === 0 || !isDesktop || photos.length > CAROUSEL_THRESHOLD;
+  const photos = (gallery ?? []) as Photo[];
+  const [open, setOpen] = useState<number | null>(null);
+  const lastShown = useRef<Photo | null>(null);
 
-  useEffect(() => {
-    if (!carouselApi) return;
-    const updateCarousel = () => {
-      setSelectedPhoto(carouselApi.selectedScrollSnap());
-      setSnapCount(carouselApi.scrollSnapList().length);
-    };
-    updateCarousel();
-    carouselApi.on("select", updateCarousel);
-    carouselApi.on("reInit", updateCarousel);
-    return () => {
-      carouselApi.off("select", updateCarousel);
-      carouselApi.off("reInit", updateCarousel);
-    };
-  }, [carouselApi]);
-
-  useEffect(() => {
-    if (!carouselApi || photos.length <= 1 || hovering || activePhoto) return;
-    const timer = window.setInterval(() => {
-      if (carouselApi.canScrollNext()) carouselApi.scrollNext();
-      else carouselApi.scrollTo(0);
-    }, AUTOPLAY_MS);
-    return () => window.clearInterval(timer);
-  }, [activePhoto, carouselApi, hovering, photos.length]);
-
-  return (
-    <>
-      <section id="gallery" className={`relative overflow-hidden ${cardColorClass(cardColor)}`}>
-        <div className="pointer-events-none absolute -left-24 top-16 h-72 w-72 rounded-full bg-blue-100/45 blur-3xl dark:bg-blue-900/15" />
-        <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-900/15" />
-
-        <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12 lg:py-20">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="font-heading text-xs font-extrabold uppercase tracking-[0.18em]" style={{ color: PRIMARY }}>
-              A Space Designed for Care
-            </p>
-            <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-[-0.035em] text-[#092b50] dark:text-white sm:text-4xl lg:text-5xl">
-              Our <span style={{ color: PRIMARY }}>Clinic</span>
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
-              Take a look inside our welcoming, modern clinic designed around your comfort and care.
-            </p>
-          </div>
-
-          {photos.length === 0 ? (
-            <p className="mx-auto mt-9 max-w-md rounded-2xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400 sm:mt-12">
-              No photos available yet. Check back soon.
-            </p>
-          ) : showCarousel ? (
-            <Carousel
-              setApi={setCarouselApi}
-              opts={{ align: "start", loop: photos.length > 3 }}
-              className="mx-auto mt-9 max-w-6xl sm:mt-12"
-              onMouseEnter={() => setHovering(true)}
-              onMouseLeave={() => setHovering(false)}
-            >
-              <CarouselContent className="-ml-4 pb-2">
-                {photos.map((photo) => (
-                  <CarouselItem key={photo.id} className="basis-[92%] pl-4 sm:basis-1/2 lg:basis-1/3">
-                    <GalleryCard photo={photo} onOpen={() => setActivePhoto(photo)} />
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-
-              <div className="mt-7 flex items-center justify-center gap-4">
-                <CarouselPrevious className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-                <div className="flex items-center gap-1.5">
-                  {Array.from({ length: snapCount }, (_, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      aria-label={`Go to clinic image ${index + 1}`}
-                      onClick={() => carouselApi?.scrollTo(index)}
-                      className={`h-2 rounded-full transition-all duration-300 ${selectedPhoto === index ? "w-6" : "w-2 bg-blue-200 dark:bg-blue-900"}`}
-                      style={selectedPhoto === index ? { backgroundColor: PRIMARY } : undefined}
-                    />
-                  ))}
-                </div>
-                <CarouselNext className="static h-10 w-10 translate-y-0 border-blue-200 bg-white text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-300" />
-              </div>
-            </Carousel>
-          ) : (
-            <div className="mx-auto mt-9 grid max-w-6xl gap-6 sm:mt-12 lg:grid-cols-3">
-              {photos.map((photo) => (
-                <GalleryCard key={photo.id} photo={photo} onOpen={() => setActivePhoto(photo)} />
-              ))}
-            </div>
-          )}
+  if (photos.length === 0) {
+    return (
+      <section id="gallery" aria-labelledby="gallery-heading" className="py-[4.5rem] md:py-32">
+        <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8">
+          <SectionHeader id="gallery-heading" eyebrow="The clinic" title="A look inside" intro="Where you will be seen." />
+          <p className="mt-10 rounded-ds-lg border border-dashed border-ds-line px-6 py-14 text-center text-ds-body text-ds-ink-2 md:mt-14">
+            Photos of the clinic will appear here soon.
+          </p>
         </div>
       </section>
+    );
+  }
 
-      <Dialog open={Boolean(activePhoto)} onOpenChange={(open) => !open && setActivePhoto(null)}>
-        <DialogContent className="max-w-4xl rounded-2xl border border-blue-100 bg-white/95 p-2 shadow-2xl backdrop-blur-md dark:border-blue-900 dark:bg-gray-950/95 sm:p-4">
-          {activePhoto && (
-            <div className="flex flex-col items-center gap-3">
-              <div className="flex max-h-[80vh] w-full items-center justify-center overflow-hidden rounded-xl bg-[#092b50] p-2">
+  if (open !== null && photos[open]) lastShown.current = photos[open];
+  // While the dialog fades out `open` is already null; keep showing the last photo instead of blanking it.
+  const current = open !== null ? photos[open] : lastShown.current;
+  const step = (delta: number) => setOpen((i) => (i === null ? i : (i + delta + photos.length) % photos.length));
+
+  return (
+    <section id="gallery" aria-labelledby="gallery-heading" className="py-[4.5rem] md:py-32">
+      <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8">
+        <SectionHeader id="gallery-heading" eyebrow="The clinic" title="A look inside" intro="Where you will be seen." />
+
+        <ul className={`mt-10 md:mt-14 ${photos.length <= 3 ? `grid gap-3 sm:gap-4 ${FEW_COLUMNS[photos.length]}` : "columns-2 gap-3 sm:gap-4 lg:columns-3"}`}>
+          {photos.map((photo, index) => (
+            <motion.li
+              key={photo.id}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: DUR.medium, ease: EASE.out, delay: staggerDelay(index % 3) }}
+              className="mb-3 break-inside-avoid sm:mb-4"
+            >
+              <button
+                type="button"
+                onClick={() => setOpen(index)}
+                className="group relative block w-full overflow-hidden rounded-ds-md bg-ds-paper-2 ring-1 ring-ds-line"
+                aria-label={`Open photo ${index + 1} of ${photos.length}${photo.caption ? `: ${photo.caption}` : ""}`}
+              >
                 <img
-                  src={activePhoto.photo_url}
-                  alt={activePhoto.caption || "Clinic photo"}
-                  className="max-h-[75vh] max-w-full rounded-lg object-contain"
+                  src={photo.photo_url}
+                  alt={photo.caption || "Clinic photo"}
+                  loading="lazy"
+                  decoding="async"
+                  className={`${photos.length <= 3 ? "aspect-[4/3]" : SHAPES[index % SHAPES.length]} w-full object-cover transition-transform duration-ds-4 ease-ds-out group-hover:scale-[1.04]`}
                 />
-              </div>
-              {activePhoto.caption && (
-                <p className="px-4 py-1 text-center text-sm font-semibold text-[#092b50] dark:text-white">
-                  {activePhoto.caption}
-                </p>
+                <span aria-hidden="true" className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-ds-paper/90 text-ds-ink opacity-0 shadow-ds-1 backdrop-blur transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  <Expand className="h-4 w-4" />
+                </span>
+              </button>
+              {photo.caption && <p className="mt-2 px-1 text-ds-small text-ds-ink-2">{photo.caption}</p>}
+            </motion.li>
+          ))}
+        </ul>
+      </div>
+
+      <Dialog open={open !== null} onOpenChange={(isOpen) => !isOpen && setOpen(null)}>
+        <DialogContent className="doctor-site max-w-4xl gap-3 rounded-ds-lg border-ds-line bg-ds-paper p-3 text-ds-ink sm:p-5">
+          <DialogTitle className="sr-only">{current?.caption || "Clinic photo"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Photo {(open ?? 0) + 1} of {photos.length}. Use the arrow keys or buttons to move between photos.
+          </DialogDescription>
+          {current && (
+            <div
+              className="relative"
+              onKeyDown={(event) => {
+                if (event.key === "ArrowRight") step(1);
+                if (event.key === "ArrowLeft") step(-1);
+              }}
+            >
+              <img src={current.photo_url} alt={current.caption || "Clinic photo"} className="max-h-[72vh] w-full rounded-ds-md bg-ds-paper-2 object-contain" />
+              {photos.length > 1 && (
+                <>
+                  <button type="button" onClick={() => step(-1)} aria-label="Previous photo" className="absolute left-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-ds-paper/90 shadow-ds-2 backdrop-blur">
+                    <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+                  </button>
+                  <button type="button" onClick={() => step(1)} aria-label="Next photo" className="absolute right-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-ds-paper/90 shadow-ds-2 backdrop-blur">
+                    <ChevronRight aria-hidden="true" className="h-5 w-5" />
+                  </button>
+                </>
               )}
+              <p className="mt-3 flex items-center justify-between px-1 text-ds-small text-ds-ink-2">
+                <span>{current.caption}</span>
+                <span className="ds-tabular">{(open ?? 0) + 1} / {photos.length}</span>
+              </p>
             </div>
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </section>
   );
 };
 
