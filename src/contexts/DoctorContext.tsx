@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PUBLIC_PROFILE_COLUMNS } from "@/lib/publicProfileColumns";
 import type { Tables } from "@/integrations/supabase/types";
+import { readPreviewMessage } from "@/lib/doctorSite/heroSettings";
 
 type DoctorData = {
   profile: any;
@@ -36,6 +37,18 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
     settings: {}, workingHours: [], isPremium: false, loading: true,
   });
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean>>({});
+  // Only inside the My Website preview frame: the editor's unsaved settings, shown live.
+  const [previewSettings, setPreviewSettings] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.parent === window) return;
+    const onMessage = (event: MessageEvent) => {
+      const next = readPreviewMessage(event, slug);
+      if (next) setPreviewSettings(next);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [slug]);
 
   const hasFeature = useCallback((key: string) => featureFlags[key] ?? false, [featureFlags]);
 
@@ -148,5 +161,6 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  return <DoctorContext.Provider value={{ ...data, hasFeature }}>{children}</DoctorContext.Provider>;
+  const settings = previewSettings ? { ...data.settings, ...previewSettings } : data.settings;
+  return <DoctorContext.Provider value={{ ...data, settings, hasFeature }}>{children}</DoctorContext.Provider>;
 };

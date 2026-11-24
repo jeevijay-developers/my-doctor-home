@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -23,6 +23,7 @@ import { FEATURE_KEYS } from "@/lib/features";
 import { DEFAULT_QUICK_STATS, AVAILABLE_STAT_ICONS, QuickStatItem } from "@/lib/quickStats";
 import { buildDoctorMeta } from "@/lib/seo/doctorSeo";
 import { SLOT_DURATION_OPTIONS, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
+import { PREVIEW_SETTINGS_MESSAGE, withoutPlatformDefaults } from "@/lib/doctorSite/heroSettings";
 
 type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
 
@@ -55,6 +56,17 @@ const MyWebsite = () => {
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
+  const previewRef = useRef<HTMLIFrameElement>(null);
+  const sendPreview = useCallback(() => {
+    const frame = previewRef.current?.contentWindow;
+    if (!frame || !profile?.slug) return;
+    frame.postMessage({ type: PREVIEW_SETTINGS_MESSAGE, slug: profile.slug, settings }, window.location.origin);
+  }, [settings, profile?.slug]);
+  // Debounced so typing stays smooth; the preview updates a moment after each keystroke.
+  useEffect(() => {
+    const t = window.setTimeout(sendPreview, 150);
+    return () => window.clearTimeout(t);
+  }, [sendPreview]);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -81,12 +93,12 @@ const MyWebsite = () => {
         profile,
         settings: { ...settingsRes.data, seo_title: "", seo_description: "" },
       });
-      setSettings({
+      setSettings(withoutPlatformDefaults({
         ...settingsRes.data,
         seo_title: settingsRes.data.seo_title?.trim() ? settingsRes.data.seo_title : auto.title,
         seo_description: settingsRes.data.seo_description?.trim() ? settingsRes.data.seo_description : auto.description,
         quick_stats: parsedStats || DEFAULT_QUICK_STATS,
-      });
+      }));
     }
     setServices((servicesRes.data || []).map((s: any) => ({ ...s, description: s.description || "" })));
     setWorkingHours((hoursRes.data || []) as WorkingHour[]);
@@ -154,8 +166,10 @@ const MyWebsite = () => {
     }
 
     setLastSaved(new Date());
-    setPreviewKey((k) => k + 1);
-    if (!silent) toast({ title: "Changes saved!" });
+    if (!silent) {
+      setPreviewKey((k) => k + 1);
+      toast({ title: "Changes saved!" });
+    }
     load();
     } finally {
       // Every early return (validation failures, save errors) must release the Save button.
@@ -302,7 +316,7 @@ const MyWebsite = () => {
               <AccordionTrigger className="text-sm font-semibold text-primary">Hero Banner</AccordionTrigger>
               <AccordionContent className="space-y-4 pb-4">
                 <p className="text-xs text-muted-foreground">
-                  Hero is always visible at the top of your website. Clinic location and hours come from Profile / Working Hours — only their labels are editable here.
+                  The first thing patients see. Changes show in the preview as you type; Save to publish them. Leave a field empty to use the automatic text shown in grey.
                 </p>
 
                 <div>
@@ -346,7 +360,7 @@ const MyWebsite = () => {
                   <div>
                     <Label className="text-xs">Headline — Line 1</Label>
                     <Input
-                      placeholder="Trusted Care for"
+                      placeholder={profile?.full_name ? `Dr. ${profile.full_name}` : "Your name"}
                       value={settings.hero_headline_line1 ?? ""}
                       onChange={(e) => updateSetting("hero_headline_line1", e.target.value)}
                       disabled={!canEditWebsite}
@@ -355,18 +369,19 @@ const MyWebsite = () => {
                   <div>
                     <Label className="text-xs">Headline — Line 2 (highlighted)</Label>
                     <Input
-                      placeholder="You & Your Family"
+                      placeholder="e.g. for your whole family"
                       value={settings.hero_headline_line2 ?? ""}
                       onChange={(e) => updateSetting("hero_headline_line2", e.target.value)}
                       disabled={!canEditWebsite}
                     />
                   </div>
                 </div>
+                <p className="-mt-2 text-[10px] text-muted-foreground">Empty: your name is the headline. Line 2 is shown in italics.</p>
 
                 <div>
                   <Label className="text-xs">Description</Label>
                   <Textarea
-                    placeholder="Compassionate, personalized and professional healthcare for a better tomorrow."
+                    placeholder={`${profile?.specialization ? `${profile.specialization}${profile?.city ? ` in ${profile.city}` : ""}. ` : ""}Book a clinic visit online in under a minute, no phone call needed.`}
                     value={settings.hero_description ?? ""}
                     onChange={(e) => updateSetting("hero_description", e.target.value)}
                     rows={2}
@@ -378,7 +393,7 @@ const MyWebsite = () => {
                   <div>
                     <Label className="text-xs">Location Label</Label>
                     <Input
-                      placeholder="Clinic Location"
+                      placeholder="The clinic"
                       value={settings.hero_location_label ?? ""}
                       onChange={(e) => updateSetting("hero_location_label", e.target.value)}
                       disabled={!canEditWebsite}
@@ -387,7 +402,7 @@ const MyWebsite = () => {
                   <div>
                     <Label className="text-xs">Hours Label</Label>
                     <Input
-                      placeholder="Consultation"
+                      placeholder="Today"
                       value={settings.hero_hours_label ?? ""}
                       onChange={(e) => updateSetting("hero_hours_label", e.target.value)}
                       disabled={!canEditWebsite}
@@ -396,10 +411,11 @@ const MyWebsite = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <p className="sm:col-span-2 -mb-1 text-[10px] text-muted-foreground">Shown beside your clinic address and today's hours, under the hero text.</p>
                   <div>
                     <Label className="text-xs">Primary Button Label</Label>
                     <Input
-                      placeholder="Book Appointment"
+                      placeholder="Book appointment"
                       value={settings.hero_primary_button_label ?? ""}
                       onChange={(e) => updateSetting("hero_primary_button_label", e.target.value)}
                       disabled={!canEditWebsite}
@@ -408,7 +424,7 @@ const MyWebsite = () => {
                   <div>
                     <Label className="text-xs">Call Button Label</Label>
                     <Input
-                      placeholder="Call Now"
+                      placeholder="Call <your number>"
                       value={settings.hero_secondary_button_label ?? ""}
                       onChange={(e) => updateSetting("hero_secondary_button_label", e.target.value)}
                       disabled={!canEditWebsite}
@@ -420,7 +436,7 @@ const MyWebsite = () => {
                 <div>
                   <Label className="text-xs">"Get Directions" Link Label</Label>
                   <Input
-                    placeholder="Get Directions"
+                    placeholder="Get directions"
                     value={settings.hero_directions_label ?? ""}
                     onChange={(e) => updateSetting("hero_directions_label", e.target.value)}
                     disabled={!canEditWebsite}
@@ -429,7 +445,7 @@ const MyWebsite = () => {
 
                 <div className="p-3 rounded-lg bg-secondary space-y-2 border border-border/50">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs">Experience Badge (overlaps bottom of photo)</Label>
+                    <Label className="text-xs">Photo badge (floats on your hero photo)</Label>
                     <Switch
                       checked={settings.show_hero_stat_badge ?? true}
                       onCheckedChange={(v) => updateSetting("show_hero_stat_badge", v)}
@@ -439,7 +455,7 @@ const MyWebsite = () => {
                   {(settings.show_hero_stat_badge ?? true) && (
                     <>
                       <Input
-                        placeholder="Leave blank to use experience (e.g. 15+ Years)"
+                        placeholder="Empty: shows your rating, or your years of experience"
                         value={settings.hero_stat_text ?? ""}
                         onChange={(e) => updateSetting("hero_stat_text", e.target.value)}
                         disabled={!canEditWebsite}
@@ -969,7 +985,16 @@ const MyWebsite = () => {
               </div>
             </div>
             {previewUrl ? (
-              <iframe key={previewKey} src={previewUrl} className="w-full" style={{ height: "calc(100vh - 12rem)" }} title="Preview" />
+              <iframe
+                ref={previewRef}
+                key={previewKey}
+                src={previewUrl}
+                // The site loads its data after the frame's load event; send now and again shortly after.
+                onLoad={() => { sendPreview(); window.setTimeout(sendPreview, 1200); }}
+                className="w-full"
+                style={{ height: "calc(100vh - 12rem)" }}
+                title="Preview"
+              />
             ) : (
               <div className="flex items-center justify-center h-96 text-muted-foreground">
                 Complete onboarding to see your website preview

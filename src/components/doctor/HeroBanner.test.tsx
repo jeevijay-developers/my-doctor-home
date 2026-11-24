@@ -41,6 +41,47 @@ const mockData = (over: Record<string, unknown> = {}) =>
 
 const renderHero = () => render(<MemoryRouter><HeroBanner /></MemoryRouter>);
 
+describe("HeroBanner follows My Website -> Hero Banner", () => {
+  beforeEach(() => {
+    rpc.mockReset();
+    rpc.mockResolvedValue({ data: [], error: null });
+  });
+
+  const withPhoto = (settings: Record<string, unknown>, profile: Record<string, unknown> = {}) =>
+    mockData({
+      profile: { id: "doc-1", full_name: "asha rao", specialization: "Pediatrician", city: "Pune", phone: "9876543210", address: "12 MG Road", clinic_name: "Little Steps", ...profile },
+      settings: { ...platformDefaults, hero_photo_url: "https://x/hero.jpg", ...settings },
+    });
+
+  it("shows the doctor's own photo badge text with the chosen icon, once", () => {
+    withPhoto({ hero_stat_text: "1,200+ children treated", hero_stat_icon: "Heart", show_hero_stat_badge: true });
+    renderHero();
+    expect(screen.getAllByText("1,200+ children treated")).toHaveLength(1); // on the photo, not repeated in the stats row
+  });
+
+  it("with the badge switched off, the photo has no badge", () => {
+    withPhoto({ hero_stat_text: "1,200+ children treated", show_hero_stat_badge: false }, { experience_years: 9 });
+    renderHero();
+    expect(screen.queryByText("1,200+ children treated")).not.toBeInTheDocument();
+    expect(screen.queryByText("Experience", { selector: "span" })).not.toBeInTheDocument();
+  });
+
+  it("uses the location and hours labels beside the address and today's hours", () => {
+    withPhoto({ hero_location_label: "Find us", hero_hours_label: "OPD today" });
+    renderHero();
+    expect(screen.getByText("Find us")).toBeInTheDocument();
+    expect(screen.getByText("Little Steps, 12 MG Road, Pune")).toBeInTheDocument();
+    expect(screen.getByText("OPD today")).toBeInTheDocument();
+  });
+
+  it("uses the doctor's own headline and description", () => {
+    withPhoto({ hero_headline_line1: "Gentle care", hero_headline_line2: "for little ones", hero_description: "Child health, close to home." });
+    renderHero();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Gentle care for little ones");
+    expect(screen.getByText("Child health, close to home.")).toBeInTheDocument();
+  });
+});
+
 describe("HeroBanner", () => {
   beforeEach(() => {
     rpc.mockReset();

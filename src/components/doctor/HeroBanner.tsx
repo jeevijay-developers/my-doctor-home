@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { Award, MapPin, Phone, Star } from "lucide-react";
+import { Clock3, MapPin, Phone, Star } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { HERO_IMAGE_WIDTH } from "@/lib/seo/imageUrl";
 import { useDoctorData } from "@/contexts/DoctorContext";
@@ -8,6 +8,7 @@ import { getClinicMapsUrl } from "@/lib/clinicLocation";
 import { getClinicStatus } from "@/lib/doctorSite/clinicStatus";
 import { clinicPhone, customClaims, doctorName, isDefaultDescription, isDefaultHeadline, siteLabels, telHref, trustFacts } from "@/lib/doctorSite/doctorFacts";
 import { getStatIconComponent } from "@/lib/quickStats";
+import { heroPhotoBadge } from "@/lib/doctorSite/heroSettings";
 import { todaysHours } from "@/lib/doctorSite/clinicStatus";
 import { dsCn as cn } from "./ui/dsCn";
 import QuickBookCard from "./hero/QuickBookCard";
@@ -73,11 +74,15 @@ const HeroBanner = () => {
   const { scrollYProgress } = useScroll({ target: portraitRef, offset: ["start start", "end start"] });
   const parallax = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 60]);
 
-  const chipFact = facts.find((f) => f.id === "rating") ?? facts.find((f) => f.id === "experience");
+  // The floating badge on the photo (My Website -> Hero Banner -> Photo badge).
+  const badge = heroPhoto || fallbackPhoto ? heroPhotoBadge(settings, facts) : null;
+  const BadgeIcon = badge ? getStatIconComponent(badge.icon) : null;
 
   const trustCells = [
     ...facts.map((f) => ({ key: f.id, value: f.value, label: f.label, rating: f.id === "rating", icon: undefined as string | undefined })),
-    ...claims.map((c) => ({ key: c.value, value: c.value, label: c.label || "Highlight", rating: false, icon: c.icon })),
+    ...claims
+      .filter((c) => !(badge && !badge.label && c.value === badge.value))
+      .map((c) => ({ key: c.value, value: c.value, label: c.label || "Highlight", rating: false, icon: c.icon })),
   ];
 
   return (
@@ -155,6 +160,29 @@ const HeroBanner = () => {
             </motion.dl>
           )}
 
+          {rowDirections && (clinicAddress || hoursToday) && (
+            <motion.dl {...rise(0.26)} className="order-6 mt-6 grid max-w-[34rem] gap-x-6 gap-y-3 text-ds-small sm:grid-cols-2">
+              {clinicAddress && (
+                <div className="flex gap-2.5">
+                  <MapPin aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-ds-accent-ink" strokeWidth={1.75} />
+                  <div className="min-w-0">
+                    <dt className="text-ds-label font-medium uppercase tracking-[0.08em] text-ds-ink-3">{labels.location}</dt>
+                    <dd className="text-ds-ink">{clinicName ? `${clinicName}, ` : ""}{clinicAddress}</dd>
+                  </div>
+                </div>
+              )}
+              {hoursToday && (
+                <div className="flex gap-2.5">
+                  <Clock3 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-ds-accent-ink" strokeWidth={1.75} />
+                  <div className="min-w-0">
+                    <dt className="text-ds-label font-medium uppercase tracking-[0.08em] text-ds-ink-3">{labels.hours}</dt>
+                    <dd className="text-ds-ink ds-tabular">{hoursToday}</dd>
+                  </div>
+                </div>
+              )}
+            </motion.dl>
+          )}
+
           {(phone || rowDirections) && (
             <motion.div {...rise(0.28)} className="order-6 -ml-4 mt-4 flex flex-wrap gap-1">
               {phone && (
@@ -200,22 +228,20 @@ const HeroBanner = () => {
                   <TiltGlare />
                 </div>
                 </TiltLayer>
-                {chipFact && (
+                {badge && BadgeIcon && (
                   <TiltLayer depth={70} className="absolute -left-3 bottom-8 sm:-left-8 sm:bottom-12">
                     <motion.div
                       initial={{ opacity: 0, y: 16, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{ duration: DUR.medium + 0.1, ease: EASE.out, delay: 0.55 }}
                     >
-                      <div className="ds-glass ds-float flex items-center gap-3 rounded-ds-md px-4 py-3 !shadow-ds-2">
-                        <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-full bg-ds-accent-soft text-ds-accent-ink">
-                          {chipFact.id === "rating" ? <Star className="h-5 w-5 fill-ds-star text-ds-star" /> : <Award className="h-5 w-5" strokeWidth={1.75} />}
+                      <div className="ds-glass ds-float flex max-w-[16rem] items-center gap-3 rounded-ds-md px-4 py-3 !shadow-ds-2">
+                        <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ds-accent-soft text-ds-accent-ink">
+                          <BadgeIcon className={badge.icon === "Star" ? "h-5 w-5 fill-ds-star text-ds-star" : "h-5 w-5"} strokeWidth={1.75} />
                         </span>
-                        <span className="leading-tight">
-                          <span className="block font-ds-display text-[1.25rem] font-medium text-ds-ink ds-tabular">
-                            {chipFact.id === "rating" ? `${chipFact.value} / 5` : chipFact.value}
-                          </span>
-                          <span className="block text-ds-label text-ds-ink-2">{chipFact.id === "rating" ? chipFact.label : "Experience"}</span>
+                        <span className="min-w-0 leading-tight">
+                          <span className="block font-ds-display text-[1.25rem] font-medium text-ds-ink ds-tabular">{badge.value}</span>
+                          {badge.label && <span className="block text-ds-label text-ds-ink-2">{badge.label}</span>}
                         </span>
                       </div>
                     </motion.div>
