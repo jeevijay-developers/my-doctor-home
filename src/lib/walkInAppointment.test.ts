@@ -335,6 +335,8 @@ describe("walk-in display", () => {
 
     render(createElement(MemoryRouter, null, createElement(AppointmentsPage)));
 
-    await waitFor(() => expect(screen.getByText("Walk-in")).toBeInTheDocument());
+    // Desktop table and mobile card both render in jsdom (CSS breakpoints don't apply),
+    // so "Walk-in" appears twice — either is enough to confirm the display logic.
+    await waitFor(() => expect(screen.getAllByText("Walk-in").length).toBeGreaterThan(0));
   });
 });

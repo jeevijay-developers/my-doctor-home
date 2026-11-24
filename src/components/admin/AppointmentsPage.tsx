@@ -731,18 +731,7 @@ const AppointmentsPage = () => {
 
       {filtered.length > 0 && (
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {!isStaff && (
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <Checkbox
-                  checked={selectedIds.size === 0 ? false : allOnPageSelected ? true : "indeterminate"}
-                  onCheckedChange={selectAllOnPage}
-                  aria-label="Select all appointments on this page"
-                  className="h-4 w-4 rounded"
-                />
-                Select all
-              </label>
-            )}
+          <div className="text-xs text-muted-foreground">
             {selectedIds.size > 0 ? (
               <span>{selectedIds.size} of {filtered.length} selected on this page</span>
             ) : (
@@ -762,72 +751,185 @@ const AppointmentsPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((a, index) => {
-            const sc = statusConfig[a.status] || statusConfig.pending;
-            const isSelected = selectedIds.has(a.id);
-            const borderColor = sc.bg.split(" ").find((c) => c.startsWith("border-l-")) || "";
-            const serialNumber = appointmentSerialNumber(index, page, PAGE_SIZE);
-            return (
-              <Card
-                key={a.id}
-                className={`relative border-border/60 shadow-none border-l-4 ${borderColor} transition-all ${
-                  isSelected ? "bg-royal/5 ring-2 ring-royal ring-offset-2" : ""
-                }`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 text-center text-xs font-semibold text-muted-foreground" aria-label={`Appointment ${serialNumber}`}>
-                        #{serialNumber}
-                      </span>
-                      {!isStaff && (
+        <>
+          {/* Table — tablet/desktop, same styling as the Patients table */}
+          <Card className="hidden md:block border-border/60 shadow-none overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/60 border-b border-border">
+                  <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    {!isStaff && (
+                      <th className="pl-4 pr-2 py-3 w-10">
                         <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleSelected(a.id)}
-                          aria-label={`Select appointment for ${a.patient_name}`}
+                          checked={selectedIds.size === 0 ? false : allOnPageSelected ? true : "indeterminate"}
+                          onCheckedChange={selectAllOnPage}
+                          aria-label="Select all appointments on this page"
                           className="h-5 w-5 rounded"
                         />
-                      )}
-                      <div className="w-10 h-10 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
-                        {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
-                      </div>
-                      <div>
-                        <div className="font-medium text-foreground flex items-center gap-2">
-                          <NameButton onClick={() => setViewing(a)}>
-                            {a.patient_name}
-                          </NameButton>
-                          {a.queue_number != null && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold" title="Queue number">Q{a.queue_number}</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
-                          <span>{a.service_name}</span>
-                          <span>·</span>
+                      </th>
+                    )}
+                    <th className="px-4 py-3 w-10">#</th>
+                    <th className="px-4 py-3">Patient</th>
+                    <th className="px-4 py-3">Booking</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Date</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Amount</th>
+                    <th className="px-4 py-3 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((a, index) => {
+                    const sc = statusConfig[a.status] || statusConfig.pending;
+                    const isSelected = selectedIds.has(a.id);
+                    const serialNumber = appointmentSerialNumber(index, page, PAGE_SIZE);
+                    return (
+                      <tr
+                        key={a.id}
+                        className={`border-b border-border/60 last:border-0 transition-colors ${
+                          isSelected ? "bg-royal/5" : ""
+                        }`}
+                      >
+                        {!isStaff && (
+                          <td className="pl-4 pr-2 py-3 w-10">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelected(a.id)}
+                              aria-label={`Select appointment for ${a.patient_name}`}
+                              className="h-5 w-5 rounded"
+                            />
+                          </td>
+                        )}
+                        <td className="px-4 py-3 text-xs font-semibold text-muted-foreground" aria-label={`Appointment ${serialNumber}`}>
+                          #{serialNumber}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
+                              {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <NameButton onClick={() => setViewing(a)} className="font-medium text-foreground truncate block">
+                                  {a.patient_name}
+                                </NameButton>
+                                {a.queue_number != null && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold flex-shrink-0" title="Queue number">Q{a.queue_number}</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">{a.service_name}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                           <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{a.time_slot ? a.time_slot.slice(0, 5) : "Walk-in"}</span>
-                          <span>·</span>
-                          <span>{a.date}</span>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{a.date}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className={`text-[10px] capitalize ${a.appointment_type === "clinic" ? "bg-royal/10 text-royal border-royal/20" : "bg-teal/10 text-teal border-teal/20"}`}>
+                            {a.appointment_type}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{sc.label}</Badge>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">₹{a.amount}</td>
+                        <td className="px-4 py-3 w-10">
+                          {getStatusOptions(a.status).length > 0 && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  aria-label={`Change status for ${a.patient_name}`}
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {getStatusOptions(a.status).map((o) => (
+                                  <DropdownMenuItem key={o.next} onClick={() => requestStatusChange(a, o.next)}>
+                                    {o.label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Cards — mobile */}
+          <div className="md:hidden space-y-2">
+            {filtered.map((a, index) => {
+              const sc = statusConfig[a.status] || statusConfig.pending;
+              const isSelected = selectedIds.has(a.id);
+              const serialNumber = appointmentSerialNumber(index, page, PAGE_SIZE);
+              return (
+                <Card
+                  key={a.id}
+                  className={`relative border-border/60 shadow-none transition-all ${
+                    isSelected ? "bg-royal/5" : ""
+                  }`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 text-center text-xs font-semibold text-muted-foreground" aria-label={`Appointment ${serialNumber}`}>
+                          #{serialNumber}
+                        </span>
+                        {!isStaff && (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelected(a.id)}
+                            aria-label={`Select appointment for ${a.patient_name}`}
+                            className="h-5 w-5 rounded"
+                          />
+                        )}
+                        <div className="w-10 h-10 rounded-full bg-royal/10 flex items-center justify-center text-sm font-bold text-royal flex-shrink-0">
+                          {a.patient_name?.charAt(0)?.toUpperCase() || "P"}
+                        </div>
+                        <div>
+                          <div className="font-medium text-foreground flex items-center gap-2">
+                            <NameButton onClick={() => setViewing(a)}>
+                              {a.patient_name}
+                            </NameButton>
+                            {a.queue_number != null && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold" title="Queue number">Q{a.queue_number}</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                            <span>{a.service_name}</span>
+                            <span>·</span>
+                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{a.time_slot ? a.time_slot.slice(0, 5) : "Walk-in"}</span>
+                            <span>·</span>
+                            <span>{a.date}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className={`text-[10px] capitalize ${a.appointment_type === "clinic" ? "bg-royal/10 text-royal border-royal/20" : "bg-teal/10 text-teal border-teal/20"}`}>
-                        {a.appointment_type}
-                      </Badge>
-                      <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{sc.label}</Badge>
-                      {(a.reschedule_count ?? 0) > 0 && (
-                        <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
-                          Rescheduled ({a.reschedule_count})
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className={`text-[10px] capitalize ${a.appointment_type === "clinic" ? "bg-royal/10 text-royal border-royal/20" : "bg-teal/10 text-teal border-teal/20"}`}>
+                          {a.appointment_type}
                         </Badge>
-                      )}
-                      {a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
-                        <Badge variant="outline" className="text-[10px] bg-teal/10 text-teal border-teal/20">
-                          <Video className="h-3 w-3 mr-1" /> Video call
-                        </Badge>
-                      )}
-                      <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
-                      {getStatusOptions(a.status).length > 0 && (
-                        <div onClick={(e) => e.stopPropagation()}>
+                        <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{sc.label}</Badge>
+                        {(a.reschedule_count ?? 0) > 0 && (
+                          <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
+                            Rescheduled ({a.reschedule_count})
+                          </Badge>
+                        )}
+                        {a.appointment_type === "online" && a.status !== "cancelled" && a.status !== "completed" && (
+                          <Badge variant="outline" className="text-[10px] bg-teal/10 text-teal border-teal/20">
+                            <Video className="h-3 w-3 mr-1" /> Video call
+                          </Badge>
+                        )}
+                        <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
+                        {getStatusOptions(a.status).length > 0 && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -847,15 +949,15 @@ const AppointmentsPage = () => {
                               ))}
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {filtered.length > 0 && (
