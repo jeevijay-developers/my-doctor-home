@@ -75,6 +75,18 @@ The database owns these rules; the UI only calls and renders them (`supabase/mig
 - **Queue**: `appointments.queue_number` is assigned by the database per doctor per day (never by the browser). Staff actions go through the single `queue_action` RPC (call next, complete, skip, recall, no-show, priority with a required reason, mark paid) and are logged to `queue_events`. Waiting order is `priority DESC, sort_time, created_at`; `src/lib/queue.ts` mirrors it for rendering. Public screens (`/dr/:slug/queue`, the manage-appointment page) use `get_public_queue` / `get_my_queue_status`, which return queue **numbers only** — never phones or complaints. The one exception: `get_public_queue` also returns `now_serving_name`, the patient currently in the room as a name masked in SQL (first name + last initial, e.g. "Aaryan K."); waiting and finished patients are never named.
 - Overdue appointments are closed nightly by `expire_overdue_appointments()` (called-but-unclosed → completed, never-called → no-show); the browser no longer does this.
 
+### Multi-doctor clinics (practitioners)
+
+Spec: `docs/superpowers/specs/2026-11-25-multi-doctor-clinic-design.md`.
+- **Tenant and doctors:** `doctor_id` is still the clinic tenant everywhere. `practitioners` are the doctors who see patients there; each clinic has exactly one `is_primary` (the owner by default, created by `ensure_primary_practitioner`).
+- **Which rows carry `practitioner_id`:** `appointments`, `working_hours`, `prescriptions`, `patient_visits` (NOT NULL) and `patient_documents` (nullable). Patients, medical history, invoices and services stay clinic-level.
+- **`trg_a00_fill_practitioner`:** fills a missing value only when it is unambiguous (single doctor, or the caller / visit / appointment says who). Otherwise it raises `PRACTITIONER_REQUIRED`. **New code for multi-doctor flows must always send `practitioner_id`.** Composite FKs `(practitioner_id, doctor_id)` keep it inside the clinic.
+- **Per-doctor scope:** slots, queue numbers, "in the room", `queue_action` locks, `get_slot_counts` / `get_public_queue` and `get_my_queue_status` are per practitioner. Any slot lock must use `slot_lock_key()`.
+- **RPC defaults and same-day moves:** a NULL `_practitioner_id` means the primary. A same-day change of doctor must go through `queue_action('transfer')` (`USE_QUEUE_TRANSFER`).
+- `appointments.sort_time` is an IST `time` recomputed by `trg_set_appointment_sort_time` whenever `time_slot` is in an UPDATE's SET list; set `sort_time` in a separate UPDATE (see `queue_action` transfer).
+- `get_slot_counts` returns `time_slot` as text from a `time` column (`'10:00:00'`); compare with `::time` in SQL tests.
+- **Checks:** run `supabase/tests/multi-doctor/*.sql`.
+
 ### Prescription sharing
 
 Manual only, never automatic. `PrescriptionShare` (in the slip's action bar) calls `create_prescription_share`, which makes one active link per prescription (30 days, earlier links revoked; only the SHA-256 is stored, the token is returned once) and opens `wa.me/<patient phone>` with the link. The patient opens `/rx/:token` (`SharedPrescription`, noindex) and must enter the last 4 digits of the phone saved on the patient record; `get_shared_prescription` locks a link for 15 minutes after 8 wrong guesses (reuses `token_lookup_attempts`, key `rx:<share id>`). Sharing needs `prescriptions.view`. `prescription_shares` is read-only to clients (writes via the RPCs); the slip body is the shared `PrescriptionSlipCard`.
