@@ -246,19 +246,33 @@ const BookingWidget = () => {
   // Keep the time field on a real free slot: the committed time when coming back, else what the
   // patient had, else the earliest free one (so if the shown time gets booked, it moves on, and the
   // Continue button always names the time that will be booked).
+  // A time the widget chose by itself only carries over within the same day (e.g. when the live
+  // list refreshes); on another day it resets to that day's earliest free time. A time the patient
+  // picked themselves is kept on the new day when it is free there.
   const shownBefore = useRef("");
+  const shownDay = useRef("");
+  const patientPicked = useRef(false);
+  const pickTime = (time: string) => {
+    patientPicked.current = true;
+    shownBefore.current = time;
+    setPickedTime(time);
+  };
   useEffect(() => {
     if (!selectedDate) {
       shownBefore.current = "";
+      shownDay.current = "";
       setPickedTime("");
       return;
     }
+    const day = format(selectedDate, "yyyy-MM-dd");
     const slots = availableKey ? availableKey.split(",") : [];
+    const carry = shownBefore.current && (day === shownDay.current || patientPicked.current);
     let next = "";
     if (selectedTime && slots.includes(selectedTime)) next = selectedTime;
-    else if (shownBefore.current && slots.includes(shownBefore.current)) next = shownBefore.current;
+    else if (carry && slots.includes(shownBefore.current)) next = shownBefore.current;
     else next = slots[0] ?? "";
     shownBefore.current = next;
+    shownDay.current = day;
     setPickedTime(next);
   }, [availableKey, selectedDate, selectedTime]);
 
@@ -1069,7 +1083,9 @@ const BookingWidget = () => {
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div>
-          <h3 className="mb-2 text-ds-label font-semibold uppercase tracking-[0.08em] text-ds-ink-2">Select Date</h3>
+          <div className="mb-2 flex h-6 items-center">
+            <h3 className="text-ds-label font-semibold uppercase tracking-[0.08em] text-ds-ink-2">Select Date</h3>
+          </div>
           <DatePicker
             id="bk-date"
             value={selectedDate}
@@ -1081,7 +1097,7 @@ const BookingWidget = () => {
           />
         </div>
         <div>
-          <div className="mb-2 flex items-baseline justify-between gap-3">
+          <div className="mb-2 flex h-6 items-center justify-between gap-3">
             <h3 className="text-ds-label font-semibold uppercase tracking-[0.08em] text-ds-ink-2">Select Time Slot</h3>
             {selectedDate && availableTimeSlots.length > 0 && (
               <span className="inline-flex items-center gap-1.5 text-ds-label font-medium text-ds-live ds-tabular">
@@ -1096,7 +1112,7 @@ const BookingWidget = () => {
             value={pickedTime}
             disabled={checkingSlot || !selectedDate}
             emptyLabel={selectedDate ? "No times available" : "Choose a date first"}
-            onChange={setPickedTime}
+            onChange={pickTime}
           />
         </div>
       </div>
@@ -1109,8 +1125,14 @@ const BookingWidget = () => {
         <p className="rounded-ds-md border border-dashed border-ds-line px-4 py-6 text-center text-ds-small text-ds-ink-2">
           No time slots are available for this date. Please select another date.
         </p>
-      ) : (
-        <div className="-mx-5 -mb-5 rounded-b-ds-lg border-t border-ds-line bg-ds-paper-2/70 px-5 py-4 sm:-mx-9 sm:-mb-9 sm:px-9 sm:py-5">
+      ) : null}
+    </div>
+  );
+
+  // The "When" step's summary + Continue, as the card's footer: full width, flush with its bottom edge.
+  const renderWhenFooter = () =>
+    step <= 3 && selectedDate && availableTimeSlots.length > 0 ? (
+      <div className="border-t border-ds-line bg-ds-paper-2/70 px-5 py-4 sm:px-9 sm:py-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-ds-small text-ds-ink-2">
               <span className="block font-semibold text-ds-ink ds-tabular">
@@ -1123,10 +1145,8 @@ const BookingWidget = () => {
             </DsButton>
           </div>
           <p className="mt-3 text-ds-label text-ds-ink-3">Only free times are listed, and the list updates live.</p>
-        </div>
-      )}
-    </div>
-  );
+      </div>
+    ) : null;
 
   const ageInvalid = age !== "" && (Number(age) < 0 || Number(age) > 120);
   const fieldClass =
@@ -1366,9 +1386,10 @@ const BookingWidget = () => {
 
           <div
             id="booking-card"
-            className="ds-glass relative overflow-hidden rounded-ds-lg p-5 !shadow-ds-2 sm:p-9 lg:col-span-7 lg:col-start-6 lg:row-span-2 lg:row-start-1 lg:self-start"
+            className="ds-glass relative overflow-hidden rounded-ds-lg !shadow-ds-2 lg:sticky lg:top-28 lg:col-span-7 lg:col-start-6 lg:row-span-2 lg:row-start-1 lg:self-start"
           >
             <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ds-accent via-[rgb(var(--ds-aurora-3))] to-ds-star opacity-80" />
+            <div className="p-5 sm:p-9">
             {stepHeader()}
 
             <div ref={stepRegionRef} tabIndex={-1} className="outline-none">
@@ -1386,6 +1407,8 @@ const BookingWidget = () => {
               </motion.div>
             </AnimatePresence>
             </div>
+            </div>
+            {renderWhenFooter()}
           </div>
         </div>
       </section>

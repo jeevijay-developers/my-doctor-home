@@ -312,6 +312,26 @@ describe("BookingWidget (pay at clinic)", () => {
     expect(screen.getByText("10:00 AM")).toBeInTheDocument(); // the summary shows the quick-booked time
   });
 
+  it("a time the patient picked stays when they switch to another day", async () => {
+    render(<BookingWidget />);
+    await pickTomorrow();
+    await waitFor(() => expect(timeField()).toHaveTextContent("09:00 AM"));
+    fireEvent.click(timeField());
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Hour" })).getByRole("radio", { name: "11" }));
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Minute" })).getByRole("radio", { name: "30" }));
+    // Day after tomorrow (next month's page if needed).
+    const target = new Date(Date.now() + 2 * 86_400_000);
+    fireEvent.click(dateField());
+    const find = () => [...document.querySelectorAll<HTMLButtonElement>('button[name="day"]')].find((b) => b.textContent === String(target.getDate()) && !b.disabled);
+    let day = find();
+    if (!day) {
+      fireEvent.click(screen.getByRole("button", { name: "Go to next month" }));
+      day = find();
+    }
+    fireEvent.click(day!);
+    await waitFor(() => expect(timeField()).toHaveTextContent("11:30 AM"));
+  });
+
   it("going Back keeps the time that was chosen", async () => {
     render(<BookingWidget />);
     await gotoDetails();

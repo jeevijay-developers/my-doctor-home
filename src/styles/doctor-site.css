@@ -291,6 +291,10 @@ html:has(.doctor-site) {
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
+  /* Fade in from the top and out at the bottom: the section's edges clip the glow, and
+     without this a hard line shows under the navbar and where the next section starts. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 clamp(120px, 22%, 240px), #000 calc(100% - clamp(140px, 24%, 260px)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 clamp(120px, 22%, 240px), #000 calc(100% - clamp(140px, 24%, 260px)), transparent 100%);
 }
 .doctor-site .ds-aurora > span {
   position: absolute;

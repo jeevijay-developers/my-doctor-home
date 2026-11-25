@@ -4,34 +4,36 @@ import { dsCn as cn } from "../ui/dsCn";
 import { DUR, EASE } from "../motion/tokens";
 
 /**
- * Numbered steps with labels, joined by a line that fills as the patient moves on.
- * Screen readers get "Step 2 of 3 · Your details" (live) and a progressbar, as before.
+ * Numbered steps in equal columns, each label centered under its circle, joined by a rail
+ * that runs from the first circle's center to the last one's and fills as the patient moves on.
+ * Screen readers get "Step 2 of 3 · Your details" (live) and a progressbar.
  */
 const BookingStepper = ({ labels, current }: { labels: string[]; current: number }) => {
   const total = labels.length;
+  // The rail starts and ends at the centers of the outer columns.
+  const inset = `${100 / (2 * total)}%`;
   return (
     <div>
       <p aria-live="polite" className="sr-only">
         Step {current} of {total} · {labels[current - 1]}
       </p>
       <div role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={current} aria-label="Booking progress" className="relative">
-        {/* The rail behind the dots, and its filled part. */}
-        <div aria-hidden="true" className="absolute left-4 right-4 top-4 h-[2px] rounded-full bg-ds-line" />
+        <div aria-hidden="true" className="absolute top-4 h-[2px] -translate-y-1/2 rounded-full bg-ds-line" style={{ left: inset, right: inset }} />
         <motion.div
           aria-hidden="true"
-          className="absolute left-4 top-4 h-[2px] origin-left rounded-full bg-gradient-to-r from-ds-accent to-[rgb(var(--ds-aurora-3))]"
-          style={{ right: "1rem" }}
+          className="absolute top-4 h-[2px] origin-left -translate-y-1/2 rounded-full bg-gradient-to-r from-ds-accent to-[rgb(var(--ds-aurora-3))]"
+          style={{ left: inset, right: inset }}
           initial={false}
           animate={{ scaleX: total > 1 ? (current - 1) / (total - 1) : 1 }}
           transition={{ duration: DUR.medium, ease: EASE.out }}
         />
-        <ol className="relative flex justify-between">
+        <ol className="relative grid" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}>
           {labels.map((label, i) => {
             const n = i + 1;
             const done = n < current;
             const on = n === current;
             return (
-              <li key={label} className={cn("flex flex-col gap-2", i === 0 ? "items-start" : i === total - 1 ? "items-end" : "items-center")}>
+              <li key={label} className="flex flex-col items-center gap-2 text-center">
                 <span
                   aria-hidden="true"
                   className={cn(
@@ -43,7 +45,7 @@ const BookingStepper = ({ labels, current }: { labels: string[]; current: number
                 >
                   {done ? <Check className="h-4 w-4" strokeWidth={2.5} /> : n}
                 </span>
-                <span aria-hidden="true" className={cn("text-ds-label font-medium", on ? "text-ds-ink" : "text-ds-ink-3")}>
+                <span aria-hidden="true" className={cn("text-ds-label font-medium leading-tight", on ? "text-ds-ink" : "text-ds-ink-3")}>
                   {label}
                 </span>
               </li>
