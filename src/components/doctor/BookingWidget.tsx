@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, XCircle, ChevronLeft, Video, Users, Clock, FileText, Building2, Receipt, AlertCircle, CalendarPlus, Plus } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronDown, Video, Users, Clock, FileText, Building2, Receipt, AlertCircle, CalendarPlus } from "lucide-react";
 
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +40,13 @@ const getNextDays = (count: number) => {
   for (let i = 0; i < count; i++) days.push(addDays(today, i));
   return days;
 };
+
+/** Marks a required field's label (the input itself is also `required`). */
+const Req = () => (
+  <span aria-hidden="true" className="ml-0.5 text-ds-danger">
+    *
+  </span>
+);
 
 const SummaryRow = ({ label, value }: { label: string; value: string }) => (
   <div className="flex justify-between gap-4 text-ds-small">
@@ -165,7 +172,6 @@ const BookingWidget = () => {
     return () => window.removeEventListener("doctylia:select-service", handleSelectService as EventListener);
   }, [hasFeature]);
 
-  const [showMore, setShowMore] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [serviceOpen, setServiceOpen] = useState(false);
@@ -283,7 +289,7 @@ const BookingWidget = () => {
   const totalSteps = wantsOnlinePayment ? 3 : 2;
 
   const validatePatientDetails = () => {
-    if (!name || !phone || !age || !gender) return false;
+    if (!name || !phone || !age || !gender || !complaint.trim()) return false;
     if (!isValidIndianPhone(phone)) { toast.error(phoneErrorMessage); return false; }
     if (Number(age) < 0 || Number(age) > 120) { toast.error("Please enter a valid age (0–120)."); return false; }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("Enter a valid email or leave it blank."); return false; }
@@ -391,7 +397,7 @@ const BookingWidget = () => {
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setConfirmedPaymentStatus("pay_at_clinic"); setPaymentMeta(null);
     setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setUnconfirmed(null); setMockCheckoutOpen(false);
-    setToken(""); setPatientsAhead(null); setConfirmedApptId(null); setShowMore(false); setServiceOpen(false);
+    setToken(""); setPatientsAhead(null); setConfirmedApptId(null); setServiceOpen(false);
   };
 
   // Everything that makes up the booking. A cached payment order is only reusable while this is unchanged.
@@ -755,7 +761,7 @@ const BookingWidget = () => {
   };
 
   const sectionShell = (children: React.ReactNode, narrow = true) => (
-    <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="ds-glow bg-ds-paper py-[4.5rem] md:py-32">
+    <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="bg-ds-paper py-[4.5rem] md:py-32">
       <div className={`mx-auto px-5 sm:px-6 lg:px-8 ${narrow ? "max-w-[44rem]" : "max-w-[1200px]"}`}>{children}</div>
     </section>
   );
@@ -1153,7 +1159,7 @@ const BookingWidget = () => {
     "h-12 w-full rounded-ds-sm border bg-ds-surface px-4 text-ds-body text-ds-ink outline-none transition-colors placeholder:text-ds-ink-3 focus:border-ds-accent ";
 
   const phoneShowError = Boolean(phone) && !isValidIndianPhone(phone) && (phoneTouched || phone.replace(/\D/g, "").length >= 10);
-  const missingDetails = !name.trim() || !phone || !age || !gender || !selectedTime;
+  const missingDetails = !name.trim() || !phone || !age || !gender || !complaint.trim() || !selectedTime;
 
   const renderWho = () => (
     <form
@@ -1168,7 +1174,8 @@ const BookingWidget = () => {
           if (!name.trim()) document.getElementById("bk-name")?.focus();
           else if (!phone) document.getElementById("bk-phone")?.focus();
           else if (!age) document.getElementById("bk-age")?.focus();
-          else if (!gender) document.querySelector<HTMLElement>('[aria-label="Gender"] [role="radio"]')?.focus();
+          else if (!gender) document.getElementById("bk-gender")?.focus();
+          else if (!complaint.trim()) document.getElementById("bk-reason")?.focus();
           return;
         }
         if (wantsOnlinePayment) proceedToReview();
@@ -1186,41 +1193,47 @@ const BookingWidget = () => {
       </div>
 
       <h3 className="font-ds-display text-ds-h3 font-medium">Patient Details</h3>
-      <p className="-mt-3 text-ds-small text-ds-ink-2">Name, mobile number, age and gender are needed to book.</p>
+      <p className="-mt-3 text-ds-small text-ds-ink-2">Fields marked * are needed to book.</p>
 
       <div>
-        <label htmlFor="bk-name" className="mb-1.5 block text-ds-small font-medium">Full name</label>
+        <label htmlFor="bk-name" className="mb-1.5 block text-ds-small font-medium">Full name<Req /></label>
         <input id="bk-name" name="name" type="text" autoFocus autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} className={fieldClass + "border-ds-line"} />
-      </div>
-
-      <div>
-        <label htmlFor="bk-phone" className="mb-1.5 block text-ds-small font-medium">Mobile number</label>
-        <div className="flex items-stretch gap-2">
-          <span aria-hidden="true" className="flex w-14 shrink-0 items-center justify-center rounded-ds-sm border border-ds-line bg-ds-paper-2 text-ds-small text-ds-ink-2">+91</span>
-          <input
-            id="bk-phone"
-            name="phone"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel"
-            maxLength={13}
-            required
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            onBlur={() => setPhoneTouched(true)}
-            aria-invalid={phoneShowError ? true : undefined}
-            aria-describedby={phoneShowError ? "bk-phone-error" : undefined}
-            className={fieldClass + (phoneShowError ? "border-ds-danger" : "border-ds-line")}
-          />
-        </div>
-        {phoneShowError && (
-          <p id="bk-phone-error" role="alert" className="mt-1.5 text-ds-small text-ds-danger">{phoneErrorMessage}</p>
-        )}
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div>
-          <label htmlFor="bk-age" className="mb-1.5 block text-ds-small font-medium">Age</label>
+          <label htmlFor="bk-phone" className="mb-1.5 block text-ds-small font-medium">Mobile number<Req /></label>
+          <div className="flex items-stretch gap-2">
+            <span aria-hidden="true" className="flex w-14 shrink-0 items-center justify-center rounded-ds-sm border border-ds-line bg-ds-paper-2 text-ds-small text-ds-ink-2">+91</span>
+            <input
+              id="bk-phone"
+              name="phone"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              maxLength={13}
+              required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onBlur={() => setPhoneTouched(true)}
+              aria-invalid={phoneShowError ? true : undefined}
+              aria-describedby={phoneShowError ? "bk-phone-error" : undefined}
+              className={fieldClass + "min-w-0 " + (phoneShowError ? "border-ds-danger" : "border-ds-line")}
+            />
+          </div>
+          {phoneShowError && (
+            <p id="bk-phone-error" role="alert" className="mt-1.5 text-ds-small text-ds-danger">{phoneErrorMessage}</p>
+          )}
+        </div>
+        <div>
+          <label htmlFor="bk-email" className="mb-1.5 block text-ds-small font-medium">Email</label>
+          <input id="bk-email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="For your booking confirmation" className={fieldClass + "border-ds-line"} />
+        </div>
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div>
+          <label htmlFor="bk-age" className="mb-1.5 block text-ds-small font-medium">Age<Req /></label>
           <input
             id="bk-age"
             name="age"
@@ -1237,42 +1250,32 @@ const BookingWidget = () => {
           />
           {ageInvalid && <p id="bk-age-error" role="alert" className="mt-1.5 text-ds-small text-ds-danger">Please enter an age between 0 and 120.</p>}
         </div>
-        <fieldset>
-          <legend className="mb-1.5 text-ds-small font-medium">Gender</legend>
-          <div role="radiogroup" aria-label="Gender" onKeyDown={radioKeyDown} className="grid grid-cols-3 gap-2">
-            {(["male", "female", "other"] as const).map((g) => (
-              <button
-                key={g}
-                type="button"
-                role="radio"
-                tabIndex={gender === g || (!gender && g === "male") ? 0 : -1}
-                aria-checked={gender === g}
-                onClick={() => setGender(g)}
-                className={`min-h-12 rounded-ds-sm border text-ds-small font-medium capitalize transition-colors duration-ds-1 ${gender === g ? "border-ds-accent bg-ds-accent-soft font-semibold ring-1 ring-ds-accent" : "border-ds-line bg-ds-surface hover:border-ds-ink/30"}`}
-              >
-                {g}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      </div>
-
-      {showMore ? (
-        <div className="space-y-6 border-t border-ds-line pt-6">
-          <div>
-            <label htmlFor="bk-email" className="mb-1.5 block text-ds-small font-medium">Email (optional)</label>
-            <input id="bk-email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="For your booking confirmation" className={fieldClass + "border-ds-line"} />
-          </div>
-          <div>
-            <label htmlFor="bk-reason" className="mb-1.5 block text-ds-small font-medium">Reason for visit (optional)</label>
-            <textarea id="bk-reason" rows={3} value={complaint} onChange={(e) => setComplaint(e.target.value)} className="w-full resize-none rounded-ds-sm border border-ds-line bg-ds-surface px-4 py-3 text-ds-body outline-none transition-colors focus:border-ds-accent" />
+        <div>
+          <label htmlFor="bk-gender" className="mb-1.5 block text-ds-small font-medium">Gender<Req /></label>
+          {/* A native select: one tap opens the phone's own picker, and it is fully keyboard accessible. */}
+          <div className="relative">
+            <select
+              id="bk-gender"
+              name="gender"
+              required
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              className={fieldClass + "appearance-none border-ds-line pr-11 " + (gender ? "" : "text-ds-ink-3")}
+            >
+              <option value="" disabled>Select gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-ink-3" />
           </div>
         </div>
-      ) : (
-        <button type="button" onClick={() => setShowMore(true)} className="inline-flex min-h-11 items-center gap-1.5 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline">
-          <Plus aria-hidden="true" className="h-4 w-4" /> Add email or reason for visit (optional)
-        </button>
-      )}
+      </div>
+
+      <div>
+        <label htmlFor="bk-reason" className="mb-1.5 block text-ds-small font-medium">Reason for visit<Req /></label>
+        <textarea id="bk-reason" name="reason" rows={3} required value={complaint} onChange={(e) => setComplaint(e.target.value)} className="w-full resize-none rounded-ds-sm border border-ds-line bg-ds-surface px-4 py-3 text-ds-body outline-none transition-colors focus:border-ds-accent" />
+      </div>
 
       <p className="text-ds-label text-ds-ink-3">
         By booking, you agree to Doctylia's{" "}
@@ -1286,7 +1289,7 @@ const BookingWidget = () => {
           role={attempted ? "alert" : undefined}
           className={`text-center text-ds-small ${attempted ? "font-medium text-ds-danger" : "text-ds-ink-2"}`}
         >
-          {selectedTime ? "Enter your name, mobile number, age and gender to continue." : "Choose a time first."}
+          {selectedTime ? "Enter your name, mobile number, age, gender and reason for visit to continue." : "Choose a time first."}
         </p>
       )}
       {wantsOnlinePayment ? (
@@ -1361,7 +1364,7 @@ const BookingWidget = () => {
 
   return (
     <>
-      <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="ds-glow ds-dots bg-ds-paper py-[4.5rem] md:py-32">
+      <section id="booking" aria-labelledby="booking-heading" ref={zoneRef} className="ds-dots bg-ds-paper py-[4.5rem] md:py-32">
         <div className="mx-auto grid max-w-[1200px] gap-8 px-5 sm:px-6 lg:grid-cols-12 lg:gap-x-14 lg:gap-y-10 lg:px-8">
           <div className="lg:col-span-5 lg:row-start-1">
             <SectionHeader
@@ -1388,7 +1391,6 @@ const BookingWidget = () => {
             id="booking-card"
             className="ds-glass relative overflow-hidden rounded-ds-lg !shadow-ds-2 lg:sticky lg:top-28 lg:col-span-7 lg:col-start-6 lg:row-span-2 lg:row-start-1 lg:self-start"
           >
-            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ds-accent via-[rgb(var(--ds-aurora-3))] to-ds-star opacity-80" />
             <div className="p-5 sm:p-9">
             {stepHeader()}
 

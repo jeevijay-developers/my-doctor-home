@@ -34,34 +34,53 @@ const Stars = ({ rating, size = 16 }: { rating: number; size?: number }) => (
   </span>
 );
 
-const ReviewCard = ({ review, index }: { review: Review; index: number }) => {
+// A review longer than this many characters is cut after 5 lines with a "Read more" link, so the
+// tallest card is bounded and every card in the row stretches to the same height. (About 30
+// characters fit on a line of a card.)
+const CLAMP_CHARS = 140;
+
+const ReviewCard = ({ review, index, onRead }: { review: Review; index: number; onRead: (review: Review) => void }) => {
   const spotlight = useSpotlight<HTMLElement>();
+  const text = (review.review_text ?? "").trim();
+  const long = text.length > CLAMP_CHARS;
   return (
-  <motion.article
-    {...spotlight}
-    initial={{ opacity: 0, y: 16 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, margin: "-40px" }}
-    transition={{ duration: DUR.medium, ease: EASE.out, delay: staggerDelay(index) }}
-    className="ds-spotlight flex h-full w-[85vw] max-w-[22rem] shrink-0 snap-start flex-col rounded-ds-md border border-ds-line bg-ds-surface p-6 shadow-ds-1 transition-[transform,box-shadow] duration-ds-2 ease-ds-out hover:-translate-y-1 hover:shadow-ds-2 sm:w-[22rem]"
-  >
-    <Stars rating={review.rating} />
-    <blockquote className="mt-4 flex-1 font-ds-display text-[1.1875rem] leading-snug text-ds-ink">
-      {review.review_text ? `“${review.review_text}”` : <span className="text-ds-ink-2">Rated {review.rating} out of 5.</span>}
-    </blockquote>
-    <footer className="mt-5 flex items-center justify-between gap-3 border-t border-ds-line pt-4 text-ds-small">
-      <span className="min-w-0">
-        <span className="block truncate font-medium text-ds-ink">{review.patient_name}</span>
-        <span className="block text-ds-ink-3">{formatReviewDate(review.created_at)}</span>
-      </span>
-      {review.is_verified && (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ds-accent-soft px-2.5 py-1 text-ds-label font-medium text-ds-accent-ink">
-          <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
-          Verified
+    <motion.article
+      {...spotlight}
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: DUR.medium, ease: EASE.out, delay: staggerDelay(index) }}
+      className="ds-spotlight flex w-[85vw] max-w-[22rem] shrink-0 snap-start flex-col rounded-ds-md border border-ds-line bg-ds-surface p-6 shadow-ds-1 sm:w-[22rem]"
+    >
+      <Stars rating={review.rating} />
+      <div className="mt-4 flex-1">
+        <blockquote className={`font-ds-display text-[1.1875rem] leading-snug text-ds-ink ${long ? "line-clamp-5" : ""}`}>
+          {text ? `“${text}”` : <span className="text-ds-ink-2">Rated {review.rating} out of 5.</span>}
+        </blockquote>
+        {long && (
+          <button
+            type="button"
+            onClick={() => onRead(review)}
+            aria-label={`Read the full review by ${review.patient_name}`}
+            className="mt-2 inline-flex min-h-8 items-center text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline"
+          >
+            Read more
+          </button>
+        )}
+      </div>
+      <footer className="mt-4 flex items-center justify-between gap-3 border-t border-ds-line pt-4 text-ds-small">
+        <span className="min-w-0">
+          <span className="block truncate font-medium text-ds-ink">{review.patient_name}</span>
+          <span className="block text-ds-ink-3">{formatReviewDate(review.created_at)}</span>
         </span>
-      )}
-    </footer>
-  </motion.article>
+        {review.is_verified && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ds-accent-soft px-2.5 py-1 text-ds-label font-medium text-ds-accent-ink">
+            <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
+            Verified
+          </span>
+        )}
+      </footer>
+    </motion.article>
   );
 };
 
@@ -86,6 +105,7 @@ const ReviewsSection = () => {
   const railRef = useRef<HTMLDivElement>(null);
 
   const [showForm, setShowForm] = useState(false);
+  const [reading, setReading] = useState<Review | null>(null);
   const [name, setName] = useState("");
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
@@ -155,7 +175,7 @@ const ReviewsSection = () => {
               className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain px-5 pb-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden"
             >
               {list.map((review, index) => (
-                <ReviewCard key={review.id} review={review} index={index} />
+                <ReviewCard key={review.id} review={review} index={index} onRead={setReading} />
               ))}
             </div>
             {list.length > 3 && (
@@ -180,6 +200,26 @@ const ReviewsSection = () => {
       </div>
 
       {/* Portalled outside .doctor-site, so the dialog carries the scope itself. */}
+      <Dialog open={reading !== null} onOpenChange={(open) => { if (!open) setReading(null); }}>
+        <DialogContent className="doctor-site max-w-lg gap-0 rounded-ds-lg border-ds-line bg-ds-paper p-6 text-ds-ink shadow-ds-3 sm:p-8">
+          {reading && (
+            <>
+              <DialogHeader className="space-y-2 text-left">
+                <DialogTitle className="font-ds-display text-ds-h3 font-medium">{reading.patient_name}</DialogTitle>
+                <DialogDescription className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ds-small text-ds-ink-2">
+                  <Stars rating={reading.rating} />
+                  <span>{formatReviewDate(reading.created_at)}</span>
+                  {reading.is_verified && <span className="text-ds-accent-ink">Verified</span>}
+                </DialogDescription>
+              </DialogHeader>
+              <blockquote className="mt-5 max-h-[55vh] overflow-y-auto whitespace-pre-line font-ds-display text-[1.1875rem] leading-snug text-ds-ink" data-lenis-prevent>
+                {`“${(reading.review_text ?? "").trim()}”`}
+              </blockquote>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="doctor-site max-w-lg gap-0 overflow-hidden rounded-ds-lg border-ds-line bg-ds-paper p-0 text-ds-ink shadow-ds-3">
           <DialogHeader className="space-y-1 p-6 pb-2 text-left sm:p-8 sm:pb-2">

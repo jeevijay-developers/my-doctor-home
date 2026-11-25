@@ -12,9 +12,9 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 
 const fill = (name: string, phone: string, message: string) => {
-  fireEvent.change(screen.getByLabelText("Your name"), { target: { value: name } });
-  fireEvent.change(screen.getByLabelText("Mobile number"), { target: { value: phone } });
-  fireEvent.change(screen.getByLabelText("Your message"), { target: { value: message } });
+  fireEvent.change(screen.getByLabelText(/^Your name/), { target: { value: name } });
+  fireEvent.change(screen.getByLabelText(/^Mobile number/), { target: { value: phone } });
+  fireEvent.change(screen.getByLabelText(/^Your message/), { target: { value: message } });
 };
 const send = () => fireEvent.click(screen.getByRole("button", { name: /send message/i }));
 
@@ -32,25 +32,39 @@ describe("ContactQueryForm", () => {
     expect(screen.getByText("Please enter your name.")).toBeInTheDocument();
     expect(screen.getByText("Please enter your phone number.")).toBeInTheDocument();
     expect(screen.getByText("Please write your message.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Your name")).toHaveFocus();
-    expect(screen.getByLabelText("Your name")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText(/^Your name/)).toHaveFocus();
+    expect(screen.getByLabelText(/^Your name/)).toHaveAttribute("aria-invalid", "true");
     expect(fn.invoke).not.toHaveBeenCalled();
   });
 
   it("validates a field as soon as the patient leaves it, not only on submit", () => {
     render(<ContactQueryForm />);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    const phone = screen.getByLabelText("Mobile number");
+    const phone = screen.getByLabelText(/^Mobile number/);
     fireEvent.change(phone, { target: { value: "123" } });
     fireEvent.blur(phone);
     expect(screen.getByRole("alert")).toHaveTextContent(/valid/i);
   });
 
-  it("keeps email out of the way until it is asked for", () => {
+  it("shows email on the form above the message, without an optional tag, and marks required fields with *", () => {
     render(<ContactQueryForm />);
-    expect(screen.queryByLabelText(/Email/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Add an email/ }));
-    expect(screen.getByLabelText(/Email/)).toBeInTheDocument();
+    const email = screen.getByLabelText("Email");
+    expect(screen.queryByText(/optional/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add an email/ })).not.toBeInTheDocument();
+    const message = screen.getByLabelText(/Your message/);
+    expect(email.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const label of [/Your name/, /Mobile number/, /Your message/]) {
+      expect(screen.getByText(label).textContent).toContain("*");
+    }
+    expect(screen.getByText("Email").textContent).not.toContain("*");
+  });
+
+  it("rejects an email that is not an email, but still allows leaving it empty", async () => {
+    render(<ContactQueryForm />);
+    const email = screen.getByLabelText("Email");
+    fireEvent.change(email, { target: { value: "not-an-email" } });
+    fireEvent.blur(email);
+    expect(screen.getByRole("alert")).toHaveTextContent(/valid email/i);
   });
 
   it("sends the message for this doctor with a normalised phone and thanks the patient", async () => {
@@ -81,6 +95,6 @@ describe("ContactQueryForm", () => {
     send();
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(screen.queryByText("Message sent")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Your name")).toHaveValue("Sunita");
+    expect(screen.getByLabelText(/^Your name/)).toHaveValue("Sunita");
   });
 });

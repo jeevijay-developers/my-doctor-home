@@ -61,6 +61,20 @@ describe("ReviewsSection", () => {
     expect(rail).toHaveAttribute("data-lenis-prevent-horizontal");
   });
 
+  it("cuts a long review to the same size as the others and opens the full text on Read more", () => {
+    const long = "The doctor listened carefully and explained everything. ".repeat(6).trim();
+    mockData([review({ id: "r1", review_text: "Great care." }), review({ id: "r2", patient_name: "Ravi S.", review_text: long })]);
+    render(<ReviewsSection />);
+    // Only the long one is cut and offers Read more; the short one is shown whole.
+    expect(screen.getAllByRole("button", { name: /Read the full review/ })).toHaveLength(1);
+    expect(screen.getByText(`“${long}”`)).toHaveClass("line-clamp-5");
+    expect(screen.getByText("“Great care.”")).not.toHaveClass("line-clamp-5");
+    fireEvent.click(screen.getByRole("button", { name: "Read the full review by Ravi S." }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent(long);
+    expect(dialog).toHaveTextContent("Ravi S.");
+  });
+
   it("submits a review for this doctor and thanks the patient", async () => {
     mockData([]);
     render(<ReviewsSection />);

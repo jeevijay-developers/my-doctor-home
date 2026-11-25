@@ -110,7 +110,7 @@ const AboutSection = () => {
           )}
 
           <div className="mt-9">
-            <DsButton size="lg" magnetic onClick={bookNow}>
+            <DsButton size="lg" onClick={bookNow}>
               {name ? `Book with ${name}` : "Book an appointment"}
               <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={2} />
             </DsButton>

@@ -55,11 +55,12 @@ async function gotoReview() {
   await screen.findByRole("heading", { name: "Select Time Slot" });
   await waitFor(() => expect(timeField()).toHaveTextContent("09:00 AM"));
   continueWithTime();
-  await screen.findByLabelText("Full name");
-  fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Ravi Kumar" } });
-  fireEvent.change(screen.getByLabelText("Mobile number"), { target: { value: "9876500001" } });
-  fireEvent.change(screen.getByLabelText("Age"), { target: { value: "40" } });
-  fireEvent.click(screen.getByRole("radio", { name: /^male$/i }));
+  await screen.findByLabelText(/^Full name/);
+  fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: "Ravi Kumar" } });
+  fireEvent.change(screen.getByLabelText(/^Mobile number/), { target: { value: "9876500001" } });
+  fireEvent.change(screen.getByLabelText(/^Age/), { target: { value: "40" } });
+  fireEvent.change(screen.getByLabelText(/^Gender/), { target: { value: "male" } });
+  fireEvent.change(screen.getByLabelText(/^Reason for visit/), { target: { value: "Headache for three days" } });
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("heading", { name: /Review Booking Summary/ });
 }

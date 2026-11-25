@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, Loader2, Plus, Send } from "lucide-react";
+import { CheckCircle2, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { DigitsInput } from "@/components/ui/digits-input";
 import { useDoctorData } from "@/contexts/DoctorContext";
@@ -10,6 +10,13 @@ import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/Turnst
 import { dsCn as cn } from "./ui/dsCn";
 import DsButton from "./ui/DsButton";
 import SectionHeader from "./ui/SectionHeader";
+
+/** The red-free asterisk that marks a required field (the form is also marked `required`). */
+const Req = () => (
+  <span aria-hidden="true" className="ml-0.5 text-ds-danger">
+    *
+  </span>
+);
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -24,14 +31,13 @@ const inputClass = (invalid: boolean) =>
 /**
  * "Ask a question" (spec §5.10). Same fields, anti-spam and edge function as
  * before. Friction changes: errors show under a field when the patient leaves
- * it (not in a pop-up after submitting), email stays out of the way until asked
- * for, and the first field is ready to type into.
+ * it (not in a pop-up after submitting). Required fields carry a * (name, mobile
+ * number, message); email is always on the form, above the message.
  */
 const ContactQueryForm = () => {
   const { profile } = useDoctorData();
   const [values, setValues] = useState({ name: "", phone: "", email: "", message: "" });
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
-  const [showEmail, setShowEmail] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -46,7 +52,7 @@ const ContactQueryForm = () => {
     ...(!values.phone.trim()
       ? { phone: "Please enter your phone number." }
       : !isValidIndianPhone(values.phone) && { phone: phoneErrorMessage }),
-    ...(values.email.trim() && !isValidEmail(values.email) && { email: "Enter a valid email or leave it blank." }),
+    ...(values.email.trim() && !isValidEmail(values.email) && { email: "Enter a valid email address." }),
     ...(!values.message.trim() && { message: "Please write your message." }),
   };
   const shown = (field: Field) => (touched[field] ? errors[field] : undefined);
@@ -65,7 +71,6 @@ const ContactQueryForm = () => {
 
     if (Object.keys(errors).length > 0) {
       setTouched({ name: true, phone: true, email: true, message: true });
-      if (errors.email) setShowEmail(true);
       const first = (["name", "phone", "email", "message"] as Field[]).find((f) => errors[f]);
       if (first) document.getElementById(`query-${first}`)?.focus();
       return;
@@ -154,7 +159,7 @@ const ContactQueryForm = () => {
             <form onSubmit={handleSubmit} noValidate className="space-y-5 rounded-ds-lg border border-ds-line bg-ds-surface p-6 shadow-ds-1 sm:p-8">
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="query-name" className="mb-1.5 block text-ds-small font-medium">Your name</label>
+                  <label htmlFor="query-name" className="mb-1.5 block text-ds-small font-medium">Your name<Req /></label>
                   <input
                     id="query-name"
                     value={values.name}
@@ -169,7 +174,7 @@ const ContactQueryForm = () => {
                   {errorText("name")}
                 </div>
                 <div>
-                  <label htmlFor="query-phone" className="mb-1.5 block text-ds-small font-medium">Mobile number</label>
+                  <label htmlFor="query-phone" className="mb-1.5 block text-ds-small font-medium">Mobile number<Req /></label>
                   <DigitsInput
                     id="query-phone"
                     value={values.phone}
@@ -189,8 +194,24 @@ const ContactQueryForm = () => {
               </div>
 
               <div>
+                <label htmlFor="query-email" className="mb-1.5 block text-ds-small font-medium">Email</label>
+                <input
+                  id="query-email"
+                  type="email"
+                  value={values.email}
+                  onChange={(e) => set("email")(e.target.value)}
+                  onBlur={touch("email")}
+                  autoComplete="email"
+                  disabled={submitting}
+                  {...a11y("email")}
+                  className={cn(inputClass(!!shown("email")), "h-12")}
+                />
+                {errorText("email")}
+              </div>
+
+              <div>
                 <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                  <label htmlFor="query-message" className="text-ds-small font-medium">Your message</label>
+                  <label htmlFor="query-message" className="text-ds-small font-medium">Your message<Req /></label>
                   <span className="text-ds-label text-ds-ink-3 ds-tabular">{values.message.length}/1000</span>
                 </div>
                 <textarea
@@ -208,30 +229,6 @@ const ContactQueryForm = () => {
                 />
                 {errorText("message")}
               </div>
-
-              {showEmail ? (
-                <div>
-                  <label htmlFor="query-email" className="mb-1.5 block text-ds-small font-medium">
-                    Email <span className="font-normal text-ds-ink-3">(optional)</span>
-                  </label>
-                  <input
-                    id="query-email"
-                    type="email"
-                    value={values.email}
-                    onChange={(e) => set("email")(e.target.value)}
-                    onBlur={touch("email")}
-                    autoComplete="email"
-                    disabled={submitting}
-                    {...a11y("email")}
-                    className={cn(inputClass(!!shown("email")), "h-12")}
-                  />
-                  {errorText("email")}
-                </div>
-              ) : (
-                <button type="button" onClick={() => setShowEmail(true)} className="inline-flex min-h-11 items-center gap-1.5 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline">
-                  <Plus aria-hidden="true" className="h-4 w-4" /> Add an email (optional)
-                </button>
-              )}
 
               <TurnstileWidget action="contact" onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
