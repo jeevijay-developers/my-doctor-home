@@ -16,6 +16,10 @@ BEGIN
   SELECT u, 'authenticated', 'authenticated', u::text || '@example.test', '{"full_name":"Dr Queue"}'::jsonb
   FROM unnest(ARRAY[d, d2]) AS u;
   UPDATE public.profiles SET plan_status = 'trial', trial_end = now() + interval '5 days' WHERE id IN (d, d2);
+  -- Since 20261126100000 a second bookable doctor needs a seat: pilot-enable multi-doctor
+  -- for this trial clinic (1 + trial_extra_doctor_seats = 2 seats).
+  INSERT INTO public.doctor_feature_overrides (doctor_id, feature_key, enabled, reason, granted_by)
+  VALUES (d, 'multi_doctor', true, 'test: two doctors', d);
   pa := public.primary_practitioner_id(d);
   p_other := public.primary_practitioner_id(d2);
   INSERT INTO public.practitioners (doctor_id, display_name, slug) VALUES (d, 'Dr B', 'dr-b') RETURNING id INTO pb;

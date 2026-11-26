@@ -158,7 +158,7 @@ const Navbar = () => {
               </Link>
             )}
 
-            <DsButton onClick={bookNow} magnetic className="ml-1 hidden md:inline-flex">
+            <DsButton onClick={bookNow} className="ml-1 hidden md:inline-flex">
               <CalendarCheck2 className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
               {labels.book}
             </DsButton>

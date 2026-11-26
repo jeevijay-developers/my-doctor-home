@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, CalendarClock } from "lucide-react";
 import { relativeDayLabel, SELECT_SLOT_EVENT, slotLabel, type NextAvailable, type SelectSlotDetail } from "@/lib/doctorSite/nextAvailable";
 import DsButton from "../ui/DsButton";
-import { ShineBorder } from "../ui/ShineBorder";
 import { bookNow } from "../siteActions";
 import { DUR, EASE } from "../motion/tokens";
 import type { useNextAvailable } from "./useNextAvailable";
@@ -45,7 +44,6 @@ const QuickBookCard = ({ state, fee }: Props) => {
 
   return (
     <div {...spotlight} className="ds-glass ds-spotlight relative overflow-hidden rounded-ds-md p-5 !shadow-ds-2 sm:p-6">
-      <ShineBorder borderWidth={1.5} />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="ds-eyebrow">{slot ? `Next available · ${relativeDayLabel(slot.date)}` : "Book a visit"}</p>
@@ -90,7 +88,6 @@ const QuickBookCard = ({ state, fee }: Props) => {
       <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
         <DsButton
           size="lg"
-          magnetic
           onClick={bookSlot}
           aria-describedby={slot ? slotTextId : undefined}
           className="w-full sm:w-auto"

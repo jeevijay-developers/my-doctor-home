@@ -185,4 +185,17 @@ describe("sitemap", () => {
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     expect(await res.text()).toContain("sitemap_unavailable");
   });
+
+  it("lists /dr/:slug/doctor/:doctorSlug only for clinics with 2+ active practitioners", async () => {
+    const pr = (o: any) => ({ doctor_id: "d1", slug: "a", is_active: true, updated_at: null, ...o });
+    const { xml } = await run({
+      profiles: [doc(), doc({ id: "d2", slug: "dr-solo" })],
+      blog_posts: [],
+      practitioners: [pr({}), pr({ slug: "b" }), pr({ doctor_id: "d2", slug: "only" })],
+    });
+    const l = locs(xml);
+    expect(l).toContain("/dr/dr-asha/doctor/a");
+    expect(l).toContain("/dr/dr-asha/doctor/b");
+    expect(l.join()).not.toContain("/dr/dr-solo/doctor");
+  });
 });

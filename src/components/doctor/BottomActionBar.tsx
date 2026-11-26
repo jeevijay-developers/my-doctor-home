@@ -121,7 +121,7 @@ const BottomActionBar = () => {
                 <Phone className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
               </a>
             )}
-            <DsButton onClick={bookNow} magnetic>
+            <DsButton onClick={bookNow}>
               <CalendarCheck2 className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
               {labels.book}
             </DsButton>

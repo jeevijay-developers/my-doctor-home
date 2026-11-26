@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { Clock3, MapPin, Phone, Star } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight, Clock3, MapPin, Phone, Star, Stethoscope } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { HERO_IMAGE_WIDTH } from "@/lib/seo/imageUrl";
 import { useDoctorData } from "@/contexts/DoctorContext";
@@ -12,12 +12,12 @@ import { heroPhotoBadge } from "@/lib/doctorSite/heroSettings";
 import { todaysHours } from "@/lib/doctorSite/clinicStatus";
 import { dsCn as cn } from "./ui/dsCn";
 import QuickBookCard from "./hero/QuickBookCard";
+import DsButton from "./ui/DsButton";
+import { dsScrollTo } from "./motion/scroll";
 import { useNow } from "./ui/useNow";
 import { useNextAvailable } from "./hero/useNextAvailable";
 import { useSplitReveal } from "./motion/useSplitReveal";
-import AuroraBackdrop from "./effects/AuroraBackdrop";
 import CountUp from "./effects/CountUp";
-import { TiltCard, TiltGlare, TiltLayer } from "./effects/TiltCard";
 import { DUR, EASE } from "./motion/tokens";
 
 const rise = (delay: number) => ({
@@ -27,10 +27,8 @@ const rise = (delay: number) => ({
 });
 
 const HeroBanner = () => {
-  const { profile, reviews, settings, workingHours } = useDoctorData();
-  const reduce = useReducedMotion();
+  const { profile, reviews, settings, workingHours, isMultiDoctor, bookablePractitioners } = useDoctorData();
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const portraitRef = useRef<HTMLDivElement>(null);
   useSplitReveal(headingRef, { immediate: true });
 
   const name = doctorName(profile);
@@ -44,7 +42,8 @@ const HeroBanner = () => {
   const phone = clinicPhone(profile);
   const directions = (profile?.google_maps_url || "").trim() || getClinicMapsUrl(profile);
   const fee = Number(profile?.consultation_fee) > 0 ? Number(profile.consultation_fee) : null;
-  const nextSlot = useNextAvailable(profile?.id, workingHours ?? [], settings?.slot_duration_minutes, settings?.booking_advance_days);
+  // Several doctors: no single "next free slot" to offer (no lookup at all); the patient picks a doctor first.
+  const nextSlot = useNextAvailable(isMultiDoctor ? undefined : profile?.id, workingHours ?? [], settings?.slot_duration_minutes, settings?.booking_advance_days);
 
   // Platform-default copy is filler every doctor gets; show the doctor's own
   // headline if they wrote one, otherwise their name (the thing a patient checks first).
@@ -71,8 +70,6 @@ const HeroBanner = () => {
   // Without a photo the clinic card carries Directions; don't offer it twice.
   const rowDirections = heroPhoto || fallbackPhoto ? directions : "";
 
-  const { scrollYProgress } = useScroll({ target: portraitRef, offset: ["start start", "end start"] });
-  const parallax = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 60]);
 
   // The floating badge on the photo (My Website -> Hero Banner -> Photo badge).
   const badge = heroPhoto || fallbackPhoto ? heroPhotoBadge(settings, facts) : null;
@@ -87,7 +84,6 @@ const HeroBanner = () => {
 
   return (
     <section id="top" aria-labelledby="hero-heading" className="ds-grain relative overflow-hidden">
-      <AuroraBackdrop />
       <div className="mx-auto grid max-w-[1200px] gap-12 px-5 pb-16 pt-5 sm:px-6 md:pt-10 md:grid-cols-12 lg:gap-12 lg:px-8 lg:pb-28 lg:pt-12">
         {/* Phones: headline, then the booking card straight away (it must sit above the
             fixed action bar without scrolling); supporting copy follows. lg: editorial order. */}
@@ -123,13 +119,44 @@ const HeroBanner = () => {
                 {line1 && line2 && " "}
                 {line2 && <em className="font-medium italic">{line2}</em>}
               </>
+            ) : isMultiDoctor ? (
+              (profile?.clinic_name ?? "").trim() || name || "Book your visit"
             ) : (
               name || "Book your visit"
             )}
           </h1>
 
           <motion.div {...rise(0.12)} className="order-3 mt-6 max-w-[34rem] md:order-5 md:mt-8">
-            <QuickBookCard state={nextSlot} fee={fee} />
+            {isMultiDoctor ? (
+              <div className="ds-glass relative overflow-hidden rounded-ds-md p-5 !shadow-ds-2 sm:p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="ds-eyebrow">Book a visit</p>
+                    <p className="mt-1.5 font-ds-display text-[1.75rem] font-medium leading-tight text-ds-ink sm:text-[2rem]">
+                      {(bookablePractitioners ?? []).length} doctors at this clinic
+                    </p>
+                    <p className="mt-1 text-ds-small text-ds-ink-2">Pick who you would like to see, then choose a time.</p>
+                  </div>
+                  <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ds-accent-soft text-ds-accent-ink">
+                    <Stethoscope className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                </div>
+                <DsButton
+                  href="#doctors"
+                  size="lg"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    dsScrollTo("doctors");
+                  }}
+                  className="mt-5 w-full sm:w-auto"
+                >
+                  Choose your doctor
+                  <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
+                </DsButton>
+              </div>
+            ) : (
+              <QuickBookCard state={nextSlot} fee={fee} />
+            )}
           </motion.div>
 
           {description && (
@@ -201,20 +228,13 @@ const HeroBanner = () => {
           )}
         </div>
 
-        <div ref={portraitRef} className="relative md:col-span-5 md:self-center">
-          <motion.figure style={{ y: parallax }} className="relative mx-auto w-full max-w-[440px] md:ml-auto md:mr-0">
-            <div aria-hidden="true" className="absolute -inset-6 -z-10 rounded-[2.5rem] bg-[radial-gradient(60%_55%_at_50%_45%,rgb(var(--ds-star)/0.16),transparent_70%),radial-gradient(50%_50%_at_70%_70%,rgb(var(--ds-accent)/0.10),transparent_70%)] md:-inset-10" />
+        <div className="relative md:col-span-5 md:self-center">
+          {/* Static on purpose: no tilt, parallax, zoom-in, glow or floating badge. */}
+          <figure className="relative mx-auto w-full max-w-[440px] md:ml-auto md:mr-0">
             {heroPhoto || fallbackPhoto ? (
               <>
-                <TiltCard>
-                <TiltLayer depth={0}>
-                <div className="relative aspect-[4/5] overflow-hidden rounded-ds-lg bg-ds-paper-2 shadow-ds-2 ring-1 ring-ds-line">
-                  <motion.div
-                    initial={reduce ? false : { scale: 1.06 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 1.4, ease: EASE.out }}
-                    className="h-full w-full"
-                  >
+                <div className="relative">
+                  <div className="aspect-[4/5] overflow-hidden rounded-ds-lg bg-ds-paper-2 shadow-ds-2 ring-1 ring-ds-line">
                     <OptimizedImage
                       src={heroPhoto || fallbackPhoto}
                       alt={name ? `Portrait of ${name}` : "Doctor portrait"}
@@ -224,30 +244,19 @@ const HeroBanner = () => {
                       {...{ fetchpriority: heroPhoto ? "high" : "auto" }}
                       className="h-full w-full object-cover object-top"
                     />
-                  </motion.div>
-                  <TiltGlare />
+                  </div>
+                  {badge && BadgeIcon && (
+                    <div className="absolute -left-3 bottom-8 flex max-w-[16rem] items-center gap-3 rounded-ds-md border border-ds-line bg-ds-surface px-4 py-3 shadow-ds-2 sm:-left-8 sm:bottom-12">
+                      <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ds-accent-soft text-ds-accent-ink">
+                        <BadgeIcon className={badge.icon === "Star" ? "h-5 w-5 fill-ds-star text-ds-star" : "h-5 w-5"} strokeWidth={1.75} />
+                      </span>
+                      <span className="min-w-0 leading-tight">
+                        <span className="block font-ds-display text-[1.25rem] font-medium text-ds-ink ds-tabular">{badge.value}</span>
+                        {badge.label && <span className="block text-ds-label text-ds-ink-2">{badge.label}</span>}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                </TiltLayer>
-                {badge && BadgeIcon && (
-                  <TiltLayer depth={70} className="absolute -left-3 bottom-8 sm:-left-8 sm:bottom-12">
-                    <motion.div
-                      initial={{ opacity: 0, y: 16, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: DUR.medium + 0.1, ease: EASE.out, delay: 0.55 }}
-                    >
-                      <div className="ds-glass ds-float flex max-w-[16rem] items-center gap-3 rounded-ds-md px-4 py-3 !shadow-ds-2">
-                        <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ds-accent-soft text-ds-accent-ink">
-                          <BadgeIcon className={badge.icon === "Star" ? "h-5 w-5 fill-ds-star text-ds-star" : "h-5 w-5"} strokeWidth={1.75} />
-                        </span>
-                        <span className="min-w-0 leading-tight">
-                          <span className="block font-ds-display text-[1.25rem] font-medium text-ds-ink ds-tabular">{badge.value}</span>
-                          {badge.label && <span className="block text-ds-label text-ds-ink-2">{badge.label}</span>}
-                        </span>
-                      </div>
-                    </motion.div>
-                  </TiltLayer>
-                )}
-                </TiltCard>
                 {(name || specialty) && (
                   <figcaption className="mt-3 flex items-baseline justify-between gap-3 px-1 text-ds-small">
                     <span className="whitespace-nowrap font-ds-display text-[1.0625rem] italic text-ds-ink">{name}</span>
@@ -257,8 +266,7 @@ const HeroBanner = () => {
               </>
             ) : (
               // No photo: a useful clinic card instead of an empty frame.
-              <TiltCard max={5}>
-              <div className="ds-glass relative overflow-hidden rounded-ds-lg p-6 !shadow-ds-2 sm:p-8">
+              <div className="relative overflow-hidden rounded-ds-lg border border-ds-line bg-ds-surface p-6 shadow-ds-2 sm:p-8">
                 <p className="ds-eyebrow">{labels.location}</p>
                 <p className="mt-3 font-ds-display text-ds-h3 font-medium text-ds-ink">{clinicName || name}</p>
                 {clinicAddress && <p className="mt-2 text-ds-body text-ds-ink-2">{clinicAddress}</p>}
@@ -279,9 +287,8 @@ const HeroBanner = () => {
                   </a>
                 )}
               </div>
-              </TiltCard>
             )}
-          </motion.figure>
+          </figure>
         </div>
       </div>
     </section>

@@ -60,7 +60,7 @@ describe("BulkDeleteDoctorsDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /delete selected/i }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
     expect(supabase.functions.invoke).toHaveBeenCalledWith(
-      "delete-doctor-account",
+      "admin-delete-doctors",
       expect.objectContaining({ body: { doctor_ids: ["doc-1"] } })
     );
   });

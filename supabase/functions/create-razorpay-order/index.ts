@@ -21,6 +21,7 @@ import {
   resolveAuthoritativePrice,
   type ServiceRecordForPricing,
 } from "../_shared/commissionSplit.ts";
+import { resolveBookingPractitioner } from "../_shared/practitioners.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
@@ -47,6 +48,9 @@ type BookingPayload = {
   time_slot: string; // HH:mm
   amount: number; // Used only for validation — actual amount is read from DB
   chief_complaint?: string | null;
+  // The doctor (practitioner) the patient chose. Optional: a single-doctor clinic omits it and
+  // the server picks the only bookable doctor. Always overwritten with the resolved id.
+  practitioner_id?: string | null;
 };
 
 function isValidBooking(b: Partial<BookingPayload>): b is BookingPayload {
@@ -92,6 +96,10 @@ Deno.serve(async (req) => {
   if (!doctor) return json(404, { error: "Doctor not found" });
   if (doctor.plan_status === "cancelled") return json(400, { error: "This clinic is temporarily unavailable" });
 
+  // Which doctor this booking is for (mirrors fill_practitioner + seat limits in the DB).
+  const pick = await resolveBookingPractitioner(admin, booking.doctor_id, booking.practitioner_id ?? null);
+  if (!pick.ok) return json(pick.status, { error: pick.error });
+
   const hasLiveKeys = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
   const mode = resolvePaymentMode(hasLiveKeys);
   // Missing keys must not silently turn real bookings into free mock ones.
@@ -126,6 +134,7 @@ Deno.serve(async (req) => {
     .from("appointments")
     .select("id", { count: "exact", head: true })
     .eq("doctor_id", booking.doctor_id)
+    .eq("practitioner_id", pick.id)
     .eq("date", booking.date)
     .eq("time_slot", booking.time_slot)
     .eq("appointment_type", booking.appointment_type)
@@ -164,7 +173,9 @@ Deno.serve(async (req) => {
 
   const priceResolution = resolveAuthoritativePrice({
     appointmentType: booking.appointment_type,
-    consultationFee: doctor.consultation_fee,
+    // The chosen doctor's own fee, else the clinic's (as public_booking_price does). A paid
+    // service still wins, and an online visit still uses website_settings.online_fee first.
+    consultationFee: pick.fee ?? doctor.consultation_fee,
     onlineFee,
     service: serviceRow,
   });
@@ -188,7 +199,10 @@ Deno.serve(async (req) => {
     service_id: serviceRow?.id ?? null,
     service_name: resolvedServiceName,
     amount: serverPrice,
+    practitioner_id: pick.id,
   };
+  // The captcha token is single-use and has no business being stored with the payment.
+  delete authoritativeBooking.captchaToken;
 
   // ---- COMMISSION RESOLUTION & INTEGER PAISE MATH ----
   const { data: defaultCommSetting } = await admin
@@ -244,7 +258,7 @@ Deno.serve(async (req) => {
     if (insErr) return json(500, { error: insErr.message });
 
     // Create a pending transfer record for tracking
-    await admin.from("transfers").insert({
+    const { error: mockTransferErr } = await admin.from("transfers").insert({
       payment_id: paymentRow.id,
       doctor_id: booking.doctor_id,
       razorpay_transfer_id: mockId("trf"),
@@ -257,6 +271,9 @@ Deno.serve(async (req) => {
       status: "pending",
       is_mock: true,
     });
+    if (mockTransferErr) {
+      console.error("create-razorpay-order: transfers insert failed", { paymentId: paymentRow.id, code: mockTransferErr.code, message: mockTransferErr.message });
+    }
 
     return json(200, {
       order_id: orderId,
@@ -283,6 +300,7 @@ Deno.serve(async (req) => {
       receipt: `appt_${booking.doctor_id.slice(0, 8)}_${Date.now()}`,
       notes: {
         doctor_id: booking.doctor_id,
+        practitioner_id: pick.id,
         patient_phone: booking.patient_phone,
         service_id: serviceRow?.id ?? "",
         service_name: resolvedServiceName,
@@ -346,7 +364,7 @@ Deno.serve(async (req) => {
     if (insErr) return json(500, { error: insErr.message });
 
     // Record the pending transfer
-    await admin.from("transfers").insert({
+    const { error: transferErr } = await admin.from("transfers").insert({
       payment_id: paymentRow.id,
       doctor_id: booking.doctor_id,
       razorpay_transfer_id: rzTransferId,
@@ -359,6 +377,9 @@ Deno.serve(async (req) => {
       status: doctorNetPaise > 0 ? "pending" : "processed",
       is_mock: false,
     });
+    if (transferErr) {
+      console.error("create-razorpay-order: transfers insert failed", { paymentId: paymentRow.id, code: transferErr.code, message: transferErr.message });
+    }
 
     return json(200, {
       order_id: order.id,

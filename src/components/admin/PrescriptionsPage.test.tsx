@@ -12,10 +12,18 @@ vi.mock("@/integrations/supabase/client", () => ({
     return mock.current.client;
   },
 }));
+const who = vi.hoisted(() => ({
+  current: { isStaff: false, role: "owner", myPractitionerId: null as string | null },
+}));
+const prac = vi.hoisted(() => ({ current: null as any }));
 vi.mock("@/hooks/useProfile", () => {
-  const profile = { id: "doc-1", full_name: "Dr Test" };
-  return { useProfile: () => ({ profile, isStaff: false, can: () => true }) };
+  const profile = { id: "doc-1", full_name: "Dr Test", clinic_name: "Test Clinic" };
+  return { useProfile: () => ({ profile, can: () => true, ...who.current }) };
 });
+vi.mock("@/hooks/usePractitioners", () => ({
+  usePractitioners: () =>
+    prac.current ?? { isMulti: false, active: [], bookable: [], practitioners: [], byId: () => undefined },
+}));
 vi.mock("@/contexts/TrialStatusContext", () => ({ useTrialStatus: () => ({ accessLevel: "full" }) }));
 vi.mock("sonner", () => ({ toast: { error: h.error, success: h.success, info: vi.fn() } }));
 
@@ -44,6 +52,8 @@ const choosePatient = async (dialog: HTMLElement, label: string) => {
 describe("PrescriptionsPage - Add Prescription patient fields", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    who.current = { isStaff: false, role: "owner", myPractitionerId: null };
+    prac.current = null;
     mock.current = createTableMock();
     mock.current.tables.patients = { data: PATIENTS, error: null };
     mock.current.tables.prescriptions = (ops: any[]) =>
@@ -108,6 +118,8 @@ describe("PrescriptionsPage - Add Prescription patient fields", () => {
 
     await waitFor(() => expect(savedRows()).toHaveLength(1));
     expect(savedRows()[0]).toMatchObject({ doctor_id: "doc-1", patient_id: "p1", patient_name: "Aaryan", patient_age: 34, patient_weight: 62.5 });
+    // Single-doctor clinics send exactly what they did before practitioners existed.
+    expect(savedRows()[0]).not.toHaveProperty("practitioner_id");
     expect(h.error).not.toHaveBeenCalled();
   });
 
@@ -144,5 +156,124 @@ describe("PrescriptionsPage - Add Prescription patient fields", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
     await waitFor(() => expect(h.error).toHaveBeenCalledWith(expect.stringMatching(/between/)));
     expect(savedRows()).toHaveLength(0);
+  });
+});
+
+// ---- Multi-doctor clinics ----
+
+const OWNER_PR = {
+  id: "pr-own", user_id: "doc-1", display_name: "Test", qualifications: null, specialization: null,
+  registration_number: null, signature_url: null, is_active: true, is_bookable: true, is_primary: true,
+};
+const VIKRAM = {
+  id: "pr-vik", user_id: "u-vik", display_name: "Vikram Mehta", qualifications: "MBBS, MD", specialization: "Dermatologist",
+  registration_number: "MMC-42", signature_url: null, is_active: true, is_bookable: true, is_primary: false,
+};
+const multiState = () => {
+  const all = [OWNER_PR, VIKRAM];
+  const map = new Map(all.map((p) => [p.id, p]));
+  return {
+    practitioners: all, active: all, bookable: all, primary: OWNER_PR, access: { enabled: true },
+    isMulti: true, loading: false, refetch: vi.fn(), byId: (id: string | null | undefined) => (id ? map.get(id) : undefined),
+  };
+};
+
+const RX_BY_VIKRAM = {
+  id: "rx-v", doctor_id: "doc-1", practitioner_id: "pr-vik", patient_id: null, patient_name: "Kiran",
+  diagnosis: "Eczema", medications: null, notes: null, date: "2026-11-25", created_at: "2026-11-25T10:00:00Z",
+  patient_age: 30, patient_weight: null, visit_id: null, medicines: [], advice: null, diet_advice: null,
+  lifestyle_advice: null, follow_up_date: null, follow_up_instructions: null,
+};
+const RX_BY_OWNER = { ...RX_BY_VIKRAM, id: "rx-o", practitioner_id: "pr-own", patient_name: "Ravi" };
+
+const openRx = async (name: string) => {
+  fireEvent.click((await screen.findAllByRole("button", { name }))[0]);
+  return screen.findByRole("dialog");
+};
+
+describe("PrescriptionsPage - multi-doctor clinic", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    who.current = { isStaff: false, role: "owner", myPractitionerId: "pr-own" };
+    prac.current = multiState();
+    mock.current = createTableMock();
+    mock.current.tables.patients = { data: PATIENTS, error: null };
+    mock.current.tables.prescriptions = (ops: any[]) =>
+      ops.some((o) => o[0] === "insert")
+        ? { data: { id: "rx1", patient_id: "p1", patient_name: "Aaryan", date: "2026-11-18", medicines: [] }, error: null }
+        : { data: [RX_BY_VIKRAM, RX_BY_OWNER], count: 2, error: null };
+  });
+
+  it("reception must pick the prescribing doctor before saving, and the payload carries it", async () => {
+    who.current = { isStaff: true, role: "staff", myPractitionerId: null };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+    await waitFor(() => expect(h.error).toHaveBeenCalledWith("Please choose a doctor."));
+    expect(savedRows()).toHaveLength(0);
+
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "Prescribing doctor" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Vikram Mehta/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+
+    await waitFor(() => expect(savedRows()).toHaveLength(1));
+    expect(savedRows()[0]).toMatchObject({ doctor_id: "doc-1", patient_id: "p1", practitioner_id: "pr-vik" });
+  });
+
+  it("a doctor login writes without choosing, and the database fills the author", async () => {
+    who.current = { isStaff: true, role: "doctor", myPractitionerId: "pr-vik" };
+    const dialog = await openNew();
+    expect(within(dialog).queryByRole("combobox", { name: "Prescribing doctor" })).not.toBeInTheDocument();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+
+    await waitFor(() => expect(savedRows()).toHaveLength(1));
+    expect(savedRows()[0]).not.toHaveProperty("practitioner_id");
+  });
+
+  it("shows each prescription's author and filters the list by doctor", async () => {
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    expect((await screen.findAllByText("Vikram Mehta")).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Filter by doctor" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Vikram Mehta/ }));
+
+    await waitFor(() =>
+      expect(mock.current.opsOf("prescriptions").some((q: any) => mock.current.hasOp(q, "eq", "practitioner_id", "pr-vik"))).toBe(true),
+    );
+  });
+
+  it("hides Edit on another doctor's prescription for a doctor login, but not on their own", async () => {
+    who.current = { isStaff: true, role: "doctor", myPractitionerId: "pr-own" };
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+
+    const sheet = await openRx("Kiran");
+    expect(within(sheet).getByRole("button", { name: /view/i })).toBeInTheDocument();
+    expect(within(sheet).queryByRole("button", { name: /^edit$/i })).not.toBeInTheDocument();
+  });
+
+  it("a doctor login can edit their own prescription", async () => {
+    who.current = { isStaff: true, role: "doctor", myPractitionerId: "pr-own" };
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    const sheet = await openRx("Ravi");
+    expect(within(sheet).getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+  });
+
+  it("the owner can still edit another doctor's prescription", async () => {
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    const sheet = await openRx("Kiran");
+    expect(within(sheet).getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+  });
+
+  it("the slip names the prescribing doctor with their registration number", async () => {
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    const sheet = await openRx("Kiran");
+    fireEvent.click(within(sheet).getByRole("button", { name: /view/i }));
+
+    expect((await screen.findAllByText("Dr. Vikram Mehta")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Reg. No.: MMC-42").length).toBeGreaterThan(0);
+    expect(screen.getByText("Test Clinic")).toBeInTheDocument();
   });
 });

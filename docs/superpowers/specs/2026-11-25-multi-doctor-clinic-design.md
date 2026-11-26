@@ -160,14 +160,13 @@ New:
 | Actor | Clinical data | Appointments / queue | Billing |
 |---|---|---|---|
 | Owner | All, always | All | All |
-| Doctor role | Per `clinical_visibility` | Own queue; all if `appointments.all_doctors` | Off by default; `billing.own_only` limits it to their own revenue |
+| Doctor role | Per `clinical_visibility` | Own queue; all if `appointments.all_doctors` | Off by default (doctor logins have no billing keys). A per-doctor revenue view (`billing.own_only`) is NOT built; it belongs with the P3 per-doctor reports |
 | Staff | Only if granted, as today | All | Per permission |
 
 New permission keys, added in **both** `src/lib/staffPermissions.ts` and `supabase/functions/_shared/staffPermissions.ts`:
 - `practitioners.view`
 - `practitioners.manage`
 - `appointments.all_doctors`
-- `billing.own_only`
 
 There are permission presets for "Doctor" and "Reception". Reception never includes `patients.medical_records` or `prescriptions.*`.
 

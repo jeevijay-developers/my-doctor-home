@@ -8,9 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Clock, Copy, ExternalLink, MoreVertical, PhoneCall, RotateCcw, SkipForward, Star, Users } from "lucide-react";
 import { PaymentCollectDialog } from "./PaymentCollect";
+import PractitionerSelect from "./PractitionerSelect";
+import { useProfile } from "@/hooks/useProfile";
+import { usePractitioners } from "@/hooks/usePractitioners";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 import {
   averageConsultMinutes,
   clinicToday,
@@ -19,6 +24,7 @@ import {
   isUnpaid,
   queueErrorMessage,
   splitQueue,
+  splitQueueByPractitioner,
   type QueueAppointment,
 } from "@/lib/queue";
 
@@ -34,6 +40,15 @@ type Props = {
 const COLUMNS =
   "id, patient_name, service_name, status, payment_status, payment_method, amount, time_slot, sort_time, created_at, queue_number, serving_started_at, skipped_at, completed_at, priority, priority_reason, appointment_type";
 
+// Multi-doctor clinics also load who each patient is seeing; single-doctor clinics send
+// exactly the request they always did.
+const MULTI_COLUMNS = `${COLUMNS}, practitioner_id`;
+
+// The "All doctors" tab of a multi-doctor clinic.
+const ALL_TAB = "all";
+// A doctor login limited to their own patients but with no practitioner row: shows nothing.
+const NO_TAB = "__none__";
+
 const minutesSince = (iso: string | null) => (iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000)) : 0);
 const tokenLabel = (n: number | null) => (n == null ? "—" : `#${n}`);
 
@@ -48,8 +63,20 @@ const DAY_END = "23:59";
 const STALE_AFTER_MS = 45000;
 
 const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Props) => {
+  const { isMulti, active, byId, loading: practitionersLoading } = usePractitioners();
+  const { role, myPractitionerId, can } = useProfile();
+  // A doctor login without "all doctors" access only ever sees their own line.
+  const ownOnly = isMulti && role === "doctor" && !can("appointments.all_doctors");
+  const tabs = useMemo(
+    () => (!isMulti ? [] : ownOnly ? active.filter((p) => p.id === myPractitionerId) : active),
+    [isMulti, ownOnly, active, myPractitionerId],
+  );
+  const [tabChoice, setTabChoice] = useState<string | null>(null);
   const [rows, setRows] = useState<QueueAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  // Whether the rows on screen were fetched WITH each patient's doctor. Rows fetched before the
+  // clinic turned out to be multi-doctor have none, so a doctor login would see an empty line.
+  const [rowsHaveDoctor, setRowsHaveDoctor] = useState(false);
   const [busy, setBusy] = useState(false);
   const [from, setFrom] = useState(DAY_START);
   const [to, setTo] = useState(DAY_END);
@@ -60,6 +87,9 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
   const [markPaidFor, setMarkPaidFor] = useState<QueueAppointment | null>(null);
   const [priorityFor, setPriorityFor] = useState<QueueAppointment | null>(null);
   const [priorityReason, setPriorityReason] = useState("");
+  const [transferFor, setTransferFor] = useState<QueueAppointment | null>(null);
+  const [transferTo, setTransferTo] = useState<string | null>(null);
+  const [transferReason, setTransferReason] = useState("");
   const today = clinicToday();
   const requestSeq = useRef(0);
   const busyRef = useRef(false);
@@ -68,7 +98,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
     const seq = ++requestSeq.current;
     const { data, error } = await supabase
       .from("appointments")
-      .select(COLUMNS)
+      .select(isMulti ? MULTI_COLUMNS : COLUMNS)
       .eq("doctor_id", doctorId)
       .eq("date", today)
       .eq("appointment_type", "clinic")
@@ -83,9 +113,10 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
       return false;
     }
     setRows((data ?? []) as unknown as QueueAppointment[]);
+    setRowsHaveDoctor(isMulti);
     setLastOkAt(Date.now());
     return true;
-  }, [doctorId, today]);
+  }, [doctorId, today, isMulti]);
 
   // Realtime pushes changes; polling and tab-focus refetch cover a dropped socket.
   const loadRef = useRef(load);
@@ -116,15 +147,43 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
     };
   }, [doctorId, today]);
 
-  const queue = useMemo(() => splitQueue(rows, from, to), [rows, from, to]);
-  const avgMinutes = useMemo(() => averageConsultMinutes(rows.filter((r) => r.status === "completed")), [rows]);
+  // The clinic turned out to be multi-doctor (known after the first load): fetch again with
+  // each patient's doctor. Never fires for a single-doctor clinic.
+  useEffect(() => {
+    if (isMulti) loadRef.current();
+  }, [isMulti]);
+
+  // Which board is showing: "all", one doctor's id, or (single-doctor) the whole clinic.
+  const defaultTab = role === "doctor" && myPractitionerId && tabs.some((t) => t.id === myPractitionerId) ? myPractitionerId : ALL_TAB;
+  const tab = !isMulti
+    ? null
+    : ownOnly
+      ? (myPractitionerId ?? NO_TAB)
+      : tabChoice && (tabChoice === ALL_TAB || tabs.some((t) => t.id === tabChoice))
+        ? tabChoice
+        : defaultTab;
+  const allTab = tab === ALL_TAB;
+  const doctorTab = tab && !allTab ? tab : null;
+
+  const scopedRows = useMemo(
+    () => (doctorTab ? rows.filter((r) => r.practitioner_id === doctorTab) : rows),
+    [rows, doctorTab],
+  );
+  const queue = useMemo(() => splitQueue(scopedRows, from, to), [scopedRows, from, to]);
+  const byDoctor = useMemo(() => (isMulti ? splitQueueByPractitioner(rows, from, to) : null), [isMulti, rows, from, to]);
+  const avgMinutes = useMemo(() => averageConsultMinutes(scopedRows.filter((r) => r.status === "completed")), [scopedRows]);
+  // Each doctor has their own patient in the room; `_expect` must name that doctor's one.
+  const servingFor = (a: QueueAppointment): QueueAppointment | null =>
+    byDoctor ? (byDoctor.get(a.practitioner_id ?? "")?.serving ?? null) : queue.serving;
+  // The doctor a call_next is for: only sent for multi-doctor clinics.
+  const doctorOf = (a: QueueAppointment): string | null => (isMulti ? (a.practitioner_id ?? null) : null);
   // `tick` re-renders every 15s so this flips without a new fetch.
   const stale = lastOkAt != null && Date.now() - lastOkAt > STALE_AFTER_MS && tick >= 0;
   const disabled = !canAct || writeDisabled || busy || stale;
 
   // `expect` = who this screen believes is in the room right now ("none" or an appointment id).
   // If another device changed that, the server answers STALE instead of completing the wrong patient.
-  const run = async (action: string, appointmentId?: string, reason?: string, method?: string, expect?: string, reference?: string | null): Promise<boolean> => {
+  const run = async (action: string, appointmentId?: string, reason?: string, method?: string, expect?: string, reference?: string | null, practitionerId?: string | null): Promise<boolean> => {
     if (busyRef.current) { toast.info("Still working on the previous action..."); return false; }
     busyRef.current = true;
     setBusy(true);
@@ -136,9 +195,10 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
         _payment_method: method ?? null,
         _expect: expect ?? null,
         ...(reference ? { _payment_reference: reference } : {}),
+        ...(practitionerId ? { _practitioner_id: practitionerId } : {}),
       });
       if (error || !data?.ok) {
-        toast.error(queueErrorMessage(data?.error));
+        toast.error(data?.error ? queueErrorMessage(data.error) : (practitionerErrorMessage(error?.message) ?? queueErrorMessage(undefined)));
         // The screen was out of date: show the real state right away.
         if (data?.error === "STALE") await load();
         return false;
@@ -163,13 +223,14 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
       setPayFor({ appointment, then });
       return;
     }
-    if (then === "next") run("call_next", undefined, undefined, undefined, appointment.id);
+    if (then === "next") run("call_next", undefined, undefined, undefined, appointment.id, undefined, doctorOf(appointment));
     else run("complete", appointment.id);
   };
 
   // Calling someone out of order completes the patient in the room, so an unpaid one gets
   // the same payment prompt as every other way of finishing them.
   const callNow = (target: QueueAppointment) => {
+    const serving = servingFor(target);
     if (serving && serving.id !== target.id && isUnpaid(serving)) {
       setPayFor({ appointment: serving, then: "call", callId: target.id });
       return;
@@ -183,7 +244,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
     setPayFor(null);
     if (method && !(await run("mark_paid", appointment.id, undefined, method, undefined, reference))) return;
     if (then === "call") await run("call", callId, undefined, undefined, appointment.id);
-    else if (then === "next") await run("call_next", undefined, undefined, undefined, appointment.id);
+    else if (then === "next") await run("call_next", undefined, undefined, undefined, appointment.id, undefined, doctorOf(appointment));
     else await run("complete", appointment.id);
   };
 
@@ -203,12 +264,37 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
     if (await run("mark_paid", markPaidFor.id, undefined, method, undefined, reference)) setMarkPaidFor(null);
   };
 
-  const publicLink = doctorSlug ? `${window.location.origin}/dr/${doctorSlug}/queue` : null;
+  const openTransfer = (a: QueueAppointment) => {
+    setTransferTo(null);
+    setTransferReason("");
+    setTransferFor(a);
+  };
 
-  const serving = queue.serving;
+  const submitTransfer = async () => {
+    if (!transferFor || !transferTo) return;
+    // Keep the dialog open if the server refuses (e.g. the other doctor's slot is taken).
+    if (await run("transfer", transferFor.id, transferReason.trim() || undefined, undefined, undefined, undefined, transferTo)) {
+      setTransferFor(null);
+    }
+  };
+
+  const tabDoctor = doctorTab ? byId(doctorTab) : undefined;
+  const publicLink = doctorSlug
+    ? `${window.location.origin}/dr/${doctorSlug}/queue${tabDoctor?.slug ? `?doctor=${tabDoctor.slug}` : ""}`
+    : null;
+
+  // The All tab has no single room: each doctor's is shown separately.
+  const serving = allTab ? null : queue.serving;
   const waitingCount = queue.waiting.length;
+  const roomsBusy = byDoctor ? [...byDoctor.values()].filter((q) => q.serving).length : 0;
+  const totalWaiting = byDoctor ? [...byDoctor.values()].reduce((n, q) => n + q.waiting.length, 0) : 0;
+  // Position in the patient's own doctor's line (the All tab mixes several lines).
+  const aheadOf = (a: QueueAppointment, index: number) =>
+    allTab && byDoctor ? (byDoctor.get(a.practitioner_id ?? "")?.waiting.findIndex((w) => w.id === a.id) ?? index) : index;
 
-  if (loading) {
+  // Also wait while the clinic's doctors load, and (multi-doctor) for the refetch that brings each
+  // patient's doctor, so a doctor login never flashes a false "Nobody in the room".
+  if (loading || practitionersLoading || (isMulti && !rowsHaveDoctor)) {
     return <div className="py-16 text-center text-sm text-muted-foreground">Loading today's queue…</div>;
   }
 
@@ -220,10 +306,24 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => loadRef.current()}>Retry</Button>
         </div>
       )}
+      {isMulti && (
+        <Tabs value={tab ?? undefined} onValueChange={setTabChoice}>
+          <TabsList className="h-auto flex-wrap justify-start">
+            {!ownOnly && <TabsTrigger value={ALL_TAB}>All ({totalWaiting})</TabsTrigger>}
+            {tabs.map((p) => (
+              <TabsTrigger key={p.id} value={p.id}>
+                {p.display_name} ({byDoctor?.get(p.id)?.waiting.length ?? 0})
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
       {/* Counters */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Now serving", value: serving ? tokenLabel(serving.queue_number) : "—", tone: "bg-royal/10 text-royal" },
+          allTab
+            ? { label: "In the room", value: String(roomsBusy), tone: "bg-royal/10 text-royal" }
+            : { label: "Now serving", value: serving ? tokenLabel(serving.queue_number) : "—", tone: "bg-royal/10 text-royal" },
           { label: "Waiting", value: String(waitingCount), tone: "bg-warning/10 text-warning" },
           { label: "Done", value: String(queue.done.length), tone: "bg-success/10 text-success" },
           { label: "Skipped", value: String(queue.skipped.length), tone: "bg-muted text-muted-foreground" },
@@ -272,7 +372,37 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
         <p className="text-xs text-muted-foreground">Showing patients who arrived or are booked {from ? `from ${from}` : ""} {to ? `until ${to}` : ""}. Actions still follow the full line.</p>
       )}
 
-      {/* Now serving */}
+      {/* Now serving: one compact card per doctor on the All tab */}
+      {allTab ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {tabs.map((p) => {
+              const inRoom = byDoctor?.get(p.id)?.serving ?? null;
+              return (
+                <Card key={p.id} className={`shadow-none ${inRoom ? "border-royal/40 bg-royal/5" : "border-dashed border-border"}`}>
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-heading font-bold shrink-0 ${inRoom ? "bg-royal text-white" : "bg-secondary text-muted-foreground"}`}>
+                      {inRoom ? tokenLabel(inRoom.queue_number) : "—"}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground truncate">{p.display_name}</div>
+                      <div className="font-medium text-foreground truncate">{inRoom ? inRoom.patient_name : "Nobody in the room"}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          {canAct && waitingCount > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Button className="bg-royal hover:bg-royal/90" disabled>
+                <PhoneCall className="h-4 w-4 mr-1" /> Call next patient
+              </Button>
+              <p className="text-xs text-muted-foreground">Choose a doctor tab to call the next patient</p>
+            </div>
+          )}
+        </div>
+      ) : (
       <Card className={`border-2 ${serving ? "border-royal/40 bg-royal/5" : "border-dashed border-border"} shadow-none`}>
         <CardContent className="p-4 sm:p-5">
           {serving ? (
@@ -315,7 +445,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
                 </p>
               </div>
               {canAct && waitingCount > 0 && (
-                <Button className="bg-royal hover:bg-royal/90" disabled={disabled} onClick={() => run("call_next", undefined, undefined, undefined, "none")}>
+                <Button className="bg-royal hover:bg-royal/90" disabled={disabled} onClick={() => run("call_next", undefined, undefined, undefined, "none", undefined, doctorTab)}>
                   <PhoneCall className="h-4 w-4 mr-1" /> Call next patient
                 </Button>
               )}
@@ -323,6 +453,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Waiting line */}
       <div>
@@ -334,7 +465,9 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
         ) : (
           <div className="space-y-2">
             {queue.waiting.map((a, index) => {
-              const est = estimateWaitMinutes(index, avgMinutes, !!serving);
+              const ahead = aheadOf(a, index);
+              const est = estimateWaitMinutes(ahead, avgMinutes, !!servingFor(a));
+              const doctor = allTab ? byId(a.practitioner_id)?.display_name : null;
               return (
                 <Card key={a.id} className={`shadow-none border-border/60 ${a.priority ? "border-l-4 border-l-destructive" : ""}`}>
                   <CardContent className="p-3 flex items-center justify-between gap-3">
@@ -354,7 +487,8 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
                         <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                           <span>{a.time_slot ? `Slot ${a.time_slot.slice(0, 5)}` : `Arrived ${a.sort_time.slice(0, 5)}`}</span>
                           <span>·</span>
-                          <span>{index === 0 ? "Next" : `${index} ahead`}{est != null ? ` · ~${formatWait(est)}` : ""}</span>
+                          <span>{ahead === 0 ? "Next" : `${ahead} ahead`}{est != null ? ` · ~${formatWait(est)}` : ""}</span>
+                          {doctor && <Badge variant="outline" className="text-[10px] text-muted-foreground">{doctor}</Badge>}
                           {isUnpaid(a) && <span>· ₹{a.amount} due</span>}
                         </div>
                         {a.priority && a.priority_reason ? <div className="text-[11px] text-destructive mt-0.5">{a.priority_reason}</div> : null}
@@ -377,6 +511,7 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
                             )}
                             <DropdownMenuItem onClick={() => run("skip", a.id)}>Skip for now</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => run("no_show", a.id)}>Mark no-show</DropdownMenuItem>
+                            {isMulti && <DropdownMenuItem onClick={() => openTransfer(a)}>Transfer to…</DropdownMenuItem>}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -470,6 +605,37 @@ const LiveQueue = ({ doctorId, doctorSlug, canAct, writeDisabled = false }: Prop
         description={`How did ${markPaidFor?.patient_name ?? "the patient"} pay?`}
         onConfirm={markPaidLater}
       />
+
+      {/* Transfer to another doctor (multi-doctor clinics, today's waiting patients) */}
+      <Dialog open={!!transferFor} onOpenChange={(o) => !o && setTransferFor(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Transfer {transferFor?.patient_name}</DialogTitle>
+            <DialogDescription>The patient moves to the other doctor's line for today and gets a new queue number.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="transfer-doctor" className="text-xs">Doctor</Label>
+              <PractitionerSelect
+                id="transfer-doctor"
+                value={transferTo}
+                onChange={setTransferTo}
+                options="bookable"
+                required
+                excludeIds={transferFor?.practitioner_id ? [transferFor.practitioner_id] : []}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="transfer-reason" className="text-xs">Reason (optional)</Label>
+              <Textarea id="transfer-reason" value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder="e.g. Doctor running late" maxLength={200} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setTransferFor(null)}>Cancel</Button>
+            <Button className="bg-royal hover:bg-royal/90" disabled={!transferTo || disabled} onClick={submitTransfer}>Transfer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Priority reason */}
       <Dialog open={!!priorityFor} onOpenChange={(o) => !o && setPriorityFor(null)}>

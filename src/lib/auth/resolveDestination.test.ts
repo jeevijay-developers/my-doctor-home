@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   isAdmin: false as boolean | null,
   member: null as { status: string } | null,
-  staff: null as { status: string } | null,
+  staff: null as { status: string; role?: string } | null,
   profile: null as { onboarding_completed: boolean } | null,
   rpcCalls: [] as string[],
   fromCalls: [] as string[],
@@ -80,6 +80,25 @@ describe("resolvePostLoginDestination", () => {
     expect(state.rpcCalls).not.toContain("touch_staff_login");
     // staff never hit the profiles/onboarding check
     expect(state.fromCalls).not.toContain("profiles");
+  });
+
+  it("an active doctor login lands on the live queue", async () => {
+    state.staff = { status: "active", role: "doctor" };
+    expect(await resolvePostLoginDestination("u", { onboarding: true })).toEqual({ to: "/admin/appointments?tab=queue" });
+    expect(state.rpcCalls).toContain("touch_staff_login");
+    expect(await resolvePostLoginDestination("u", { onboarding: false })).toEqual({ to: "/admin/appointments?tab=queue" });
+  });
+
+  it("staff with role 'staff' still go to /admin/dashboard", async () => {
+    state.staff = { status: "active", role: "staff" };
+    expect(await resolvePostLoginDestination("u", { onboarding: false })).toEqual({ to: "/admin/dashboard" });
+  });
+
+  it("an inactive doctor login gets the inactive error, not the queue", async () => {
+    state.staff = { status: "disabled", role: "doctor" };
+    expect(await resolvePostLoginDestination("u", { onboarding: true })).toEqual({
+      error: expect.stringMatching(/staff account is inactive/i),
+    });
   });
 
   it("inactive staff gets an error", async () => {

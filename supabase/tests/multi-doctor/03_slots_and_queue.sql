@@ -18,6 +18,10 @@ BEGIN
      SET plan_status = 'trial', trial_end = now() + interval '5 days',
          onboarding_completed = true, consultation_fee = 400
    WHERE id = d;
+  -- Since 20261126100000 a second bookable doctor needs a seat: pilot-enable multi-doctor
+  -- for this trial clinic (1 + trial_extra_doctor_seats = 2 seats).
+  INSERT INTO public.doctor_feature_overrides (doctor_id, feature_key, enabled, reason, granted_by)
+  VALUES (d, 'multi_doctor', true, 'test: two doctors', d);
   pa := public.primary_practitioner_id(d);
   INSERT INTO public.practitioners (doctor_id, display_name, slug, consultation_fee)
   VALUES (d, 'Dr B', 'dr-b', 900) RETURNING id INTO pb;

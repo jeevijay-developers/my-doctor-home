@@ -24,6 +24,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const DoctorPublicPage = lazy(() => import("./pages/DoctorPublicPage"));
+const PractitionerPage = lazy(() => import("./pages/PractitionerPage"));
 const DoctorDirectory = lazy(() => import("./pages/DoctorDirectory"));
 const HealthArticlesHub = lazy(() => import("./pages/HealthArticlesHub"));
 const BlogListPage = lazy(() => import("./pages/BlogListPage"));
@@ -138,6 +139,7 @@ const App = () => (
               <Route path="/health-articles" element={<HealthArticlesHub />} />
               <Route path="/health-articles/:category" element={<HealthArticlesHub />} />
               <Route path="/dr/:slug" element={<DoctorPublicPage />} />
+              <Route path="/dr/:slug/doctor/:doctorSlug" element={<PractitionerPage />} />
               <Route path="/dr/:slug/blog" element={<BlogListPage />} />
               <Route path="/dr/:slug/blog/:postId" element={<BlogPostPage />} />
               <Route path="/dr/:slug/manage" element={<ManageAppointment />} />

@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Shield } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -58,8 +58,18 @@ const SuperAdminLayout = () => {
             </div>
           </header>
           <main className="flex-1 bg-background p-4 md:p-6 overflow-auto">
-
-            <Outlet />
+            {/* Every module is lazy-loaded. Without a boundary here the one at the
+                app root catches the suspense and blanks the whole screen (sidebar
+                and header included) on each first visit to a module. */}
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
+                  <Loader2 className="h-6 w-6 animate-spin text-royal" />
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
           </main>
         </div>
       </div>

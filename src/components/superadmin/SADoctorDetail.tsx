@@ -16,6 +16,7 @@ import { logAdminAction } from "@/lib/adminAudit";
 import { ArrowLeft, Ban, RotateCcw, CalendarPlus, Percent } from "lucide-react";
 import SAFeatureAccess from "./SAFeatureAccess";
 import SAImportAccessCard from "./SAImportAccessCard";
+import SADoctorSeatsCard from "./SADoctorSeatsCard";
 import { useSuperAdminAccess } from "@/contexts/SuperAdminAccessContext";
 
 const TIER_LABELS: Record<string, string> = { free: "Free", pro: "Pro", premium: "Premium" };
@@ -205,7 +206,10 @@ const SADoctorDetail = () => {
             <Select value={p.plan_tier || "free"} onValueChange={setPendingTier}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="free">Free</SelectItem>
+                {/* Free is the tier a doctor carries during the 7-day trial, not a plan you can move someone to:
+                    picking it would create an "active" account with no trial and no end date. It is listed only
+                    so a doctor who is currently on it shows correctly. */}
+                {(p.plan_tier || "free") === "free" && <SelectItem value="free" disabled>Free (trial)</SelectItem>}
                 <SelectItem value="pro">Pro</SelectItem>
                 <SelectItem value="premium">Premium</SelectItem>
               </SelectContent>
@@ -262,6 +266,7 @@ const SADoctorDetail = () => {
 
       <SAFeatureAccess doctorId={id!} />
       <SAImportAccessCard doctorId={id!} canManage={can("plan_requests.manage")} />
+      <SADoctorSeatsCard doctorId={id!} canManage={can("plan_requests.manage")} />
 
       <AlertDialog open={pendingTier !== null} onOpenChange={(open) => !open && setPendingTier(null)}>
         <AlertDialogContent>

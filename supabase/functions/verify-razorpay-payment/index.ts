@@ -99,6 +99,7 @@ Deno.serve(async (req) => {
     patient_email?: string | null; service_id?: string | null; service_name: string;
     appointment_type: "clinic" | "online"; date: string;
     time_slot: string; amount: number; chief_complaint?: string | null;
+    practitioner_id?: string | null;
   } | null;
 
   if (!booking) {
@@ -140,6 +141,8 @@ Deno.serve(async (req) => {
     .from("appointments")
     .insert({
       doctor_id: booking.doctor_id,
+      // Chosen at order time. Older pending payments have none: the DB fills it then.
+      practitioner_id: booking.practitioner_id ?? undefined,
       patient_name: booking.patient_name,
       patient_phone: booking.patient_phone,
       patient_age: booking.patient_age ?? null,
@@ -163,13 +166,48 @@ Deno.serve(async (req) => {
     .single();
 
   if (apptErr) {
-    await admin.from("payments").update({ status: "captured", razorpay_payment_id, razorpay_signature, needs_refund: true }).eq("id", payment.id);
-    await admin.from("transfers").update({ status: "failed", error: "Appointment create failed: " + apptErr.message }).eq("payment_id", payment.id);
-    const code = apptErr.message?.includes("SLOT_FULL") ? "SLOT_FULL"
-      : apptErr.message?.includes("SLOT_IN_PAST") ? "SLOT_IN_PAST"
+    const { error: refundFlagErr } = await admin.from("payments").update({ status: "captured", razorpay_payment_id, razorpay_signature, needs_refund: true }).eq("id", payment.id);
+    if (refundFlagErr) {
+      console.error("verify-razorpay-payment: needs_refund update failed", { paymentId: payment.id, code: refundFlagErr.code, message: refundFlagErr.message });
+    }
+    const { error: transferFailErr } = await admin.from("transfers").update({ status: "failed", error: "Appointment create failed: " + apptErr.message }).eq("payment_id", payment.id);
+    if (transferFailErr) {
+      console.error("verify-razorpay-payment: transfers update failed", { paymentId: payment.id, code: transferFailErr.code, message: transferFailErr.message });
+    }
+    const msg = apptErr.message ?? "";
+    const doctorUnavailable = ["SEAT_LIMIT", "PRACTITIONER_NOT_BOOKABLE", "PRACTITIONER_REQUIRED", "PRACTITIONER_MISMATCH"].some((c) => msg.includes(c));
+    const code = doctorUnavailable ? "DOCTOR_UNAVAILABLE"
+      : msg.includes("SLOT_FULL") ? "SLOT_FULL"
+      : msg.includes("SLOT_IN_PAST") ? "SLOT_IN_PAST"
       : "APPOINTMENT_CREATE_FAILED";
-    console.error("verify-razorpay-payment appointment insert failed:", code, apptErr.message);
-    return json(409, { error: code, message: "Your payment was received, but this slot is no longer available. Our team will contact you to reschedule or refund." });
+    console.error("verify-razorpay-payment appointment insert failed:", code, msg, { paymentId: payment.id });
+
+    // Tell the clinic owner a paid booking needs a refund or a rebooking. Best effort: this must
+    // never throw or alter the response (the 'booking_refund' type may not be allowed by the
+    // table's CHECK yet, in which case the insert fails and is only logged).
+    try {
+      const { error: notifyErr } = await admin.from("notifications").insert({
+        doctor_id: booking.doctor_id,
+        recipient_user_id: booking.doctor_id,
+        source_type: "booking_refund",
+        title: "A paid booking needs attention",
+        message: "A patient paid but the booking could not be confirmed. Open Billing to refund or rebook.",
+      });
+      if (notifyErr) {
+        console.error("verify-razorpay-payment: refund notification failed", { paymentId: payment.id, code: notifyErr.code, message: notifyErr.message });
+      }
+    } catch (e) {
+      console.error("verify-razorpay-payment: refund notification threw", { paymentId: payment.id, error: String(e) });
+    }
+
+    return json(409, {
+      error: code,
+      message: doctorUnavailable
+        ? "Your payment was received, but this doctor is no longer available for online booking. Our team will contact you to rebook or refund."
+        : "Your payment was received, but this slot is no longer available. Our team will contact you to reschedule or refund.",
+      refund_pending: true,
+      payment_id: payment.id,
+    });
   }
 
   // Update payment record with capture + appointment link

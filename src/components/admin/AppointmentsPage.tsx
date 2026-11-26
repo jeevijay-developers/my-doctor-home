@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
@@ -36,6 +36,9 @@ import NameButton from "./NameButton";
 import BulkSelectionBar from "./BulkSelectionBar";
 import { defaultAppointmentAmount } from "@/lib/appointmentAmount";
 import { appointmentSerialNumber } from "@/lib/appointmentList";
+import { usePractitioners } from "@/hooks/usePractitioners";
+import PractitionerSelect, { ALL_DOCTORS } from "./PractitionerSelect";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 
 const WALK_IN_TIME = "walk-in";
 
@@ -57,6 +60,7 @@ type Appointment = {
   patient_weight?: number | null;
   zoom_meeting_id?: string | null;
   zoom_join_url?: string | null;
+  practitioner_id?: string | null;
 };
 
 const paymentLabel = (a: { payment_status: string; payment_method?: string | null; payment_gateway?: string | null }) => {
@@ -93,7 +97,22 @@ const STATUS_ACTIONS: Record<string, { label: string; tone: string; requiresCanc
 
 const AppointmentsPage = () => {
   const navigate = useNavigate();
-  const { profile, isStaff, can } = useProfile();
+  const { profile, isStaff, can, role, myPractitionerId } = useProfile();
+  // Multi-doctor clinics only: everything below that reads `isMulti` is invisible to a
+  // single-doctor clinic, which renders and requests exactly what it did before.
+  const { isMulti, bookable, byId } = usePractitioners();
+  const [searchParams] = useSearchParams();
+  const [doctorFilterState, setDoctorFilter] = useState<string>(ALL_DOCTORS);
+  // A doctor login without "see all doctors" is locked to their own appointments: no "All doctors"
+  // item, filter pinned to their own id. This is a CONVENIENCE view, not a privacy boundary:
+  // appointments are clinic-visible by design and the database does not restrict them (only
+  // clinical records are restricted per doctor).
+  // Doctor logins cannot create or move bookings (the database raises DOCTOR_LOGIN_FORBIDDEN).
+  const isDoctorLogin = role === "doctor";
+  const ownOnly = role === "doctor" && !!myPractitionerId && !can("appointments.all_doctors");
+  const doctorFilter = ownOnly && isMulti ? myPractitionerId! : doctorFilterState;
+  const practitionerFilter = isMulti && doctorFilter !== ALL_DOCTORS ? doctorFilter : null;
+  const isBookableId = (id: string | null | undefined): id is string => !!id && bookable.some((p) => p.id === id);
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
   const { accessLevel: trialAccessLevel } = useTrialStatus();
   const writeDisabled = trialAccessLevel === "grace";
@@ -125,14 +144,21 @@ const AppointmentsPage = () => {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [adding, setAdding] = useState(false);
   const addingRef = useRef(false);
-  const [view, setView] = useState<"list" | "queue">("list");
+  // ?tab=queue (e.g. from the dashboard) opens straight on the live queue.
+  const [view, setView] = useState<"list" | "queue">(() => (searchParams.get("tab") === "queue" ? "queue" : "list"));
+  const [newPractitionerId, setNewPractitionerId] = useState<string | null>(null);
   const handleNewOpenChange = (open: boolean) => {
     setShowNew(open);
-    if (open) { setNewAppt(blankNewAppt()); setCountersPaid(true); setPayMethod("cash"); setPayRef(""); setSubmitAttempted(false); }
+    if (open) {
+      setNewAppt(blankNewAppt()); setCountersPaid(true); setPayMethod("cash"); setPayRef(""); setSubmitAttempted(false);
+      // Default to the doctor being filtered on, else the logged-in doctor; otherwise the
+      // front desk must choose.
+      setNewPractitionerId(isBookableId(practitionerFilter) ? practitionerFilter : isBookableId(myPractitionerId) ? myPractitionerId : null);
+    }
   };
   const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [rescheduleForm, setRescheduleForm] = useState({ date: "", time_slot: "" });
+  const [rescheduleForm, setRescheduleForm] = useState<{ date: string; time_slot: string; practitioner_id: string | null }>({ date: "", time_slot: "", practitioner_id: null });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
@@ -185,6 +211,7 @@ const AppointmentsPage = () => {
     if (statusFilter === "pending") q = q.in("status", ["pending", "confirmed"] as any);
     else if (statusFilter !== "all") q = q.eq("status", statusFilter as any);
     if (typeFilter !== "all") q = q.eq("appointment_type", typeFilter as any);
+    if (practitionerFilter) q = q.eq("practitioner_id", practitionerFilter);
     if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`patient_name.ilike.%${term}%,service_name.ilike.%${term}%`);
@@ -214,6 +241,7 @@ const AppointmentsPage = () => {
     const seq = ++countsSeq.current;
     const base = () => {
       let q = supabase.from("appointments").select("*", { count: "exact", head: true }).eq("doctor_id", profile.id);
+      if (practitionerFilter) q = q.eq("practitioner_id", practitionerFilter);
       if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
       return q;
     };
@@ -231,12 +259,12 @@ const AppointmentsPage = () => {
   };
 
   // Reset to page 1 whenever the result set changes shape underneath the pager.
-  useEffect(() => { setPage(1); }, [statusFilter, typeFilter, selectedDate, dateFilterActive, debouncedSearch]);
+  useEffect(() => { setPage(1); }, [statusFilter, typeFilter, selectedDate, dateFilterActive, debouncedSearch, practitionerFilter]);
 
-  useEffect(() => { load(); }, [profile, statusFilter, typeFilter, selectedDate, dateFilterActive, debouncedSearch, page]);
-  useEffect(() => { clearSelection(); }, [debouncedSearch, statusFilter, typeFilter, dateFilterActive, selectedDate, page, view]);
+  useEffect(() => { load(); }, [profile, statusFilter, typeFilter, selectedDate, dateFilterActive, debouncedSearch, page, practitionerFilter]);
+  useEffect(() => { clearSelection(); }, [debouncedSearch, statusFilter, typeFilter, dateFilterActive, selectedDate, page, view, practitionerFilter]);
   loadStatusCountsRef.current = loadStatusCounts;
-  useEffect(() => { loadStatusCounts(); }, [profile, selectedDate, dateFilterActive]);
+  useEffect(() => { loadStatusCounts(); }, [profile, selectedDate, dateFilterActive, practitionerFilter]);
 
   // If the current page no longer exists (e.g. after deleting the last row
   // on it), step back to the last valid page.
@@ -396,17 +424,27 @@ const AppointmentsPage = () => {
 
   const openReschedule = (a: Appointment) => {
     setRescheduling(a);
-    setRescheduleForm({ date: a.date, time_slot: a.time_slot ?? "" });
+    setRescheduleForm({ date: a.date, time_slot: a.time_slot ?? "", practitioner_id: a.practitioner_id ?? null });
   };
+
+  // The database refuses a same-day change of doctor outside the queue (USE_QUEUE_TRANSFER),
+  // so the dialog says so up front instead of failing on Save.
+  const rescheduleDoctorChanged = isMulti && !!rescheduling && rescheduleForm.practitioner_id !== (rescheduling.practitioner_id ?? null);
+  const rescheduleNeedsTransfer = rescheduleDoctorChanged && rescheduleForm.date === clinicToday();
 
   const submitReschedule = async () => {
     if (!rescheduling) return;
     if (!rescheduleForm.time_slot) { toast.error("Please select a time slot"); return; }
+    if (rescheduleNeedsTransfer) { toast.error(practitionerErrorMessage("USE_QUEUE_TRANSFER")); return; }
     const { error } = await supabase.from("appointments").update({
       date: rescheduleForm.date, time_slot: rescheduleForm.time_slot,
+      ...(isMulti && !isDoctorLogin && rescheduleForm.practitioner_id ? { practitioner_id: rescheduleForm.practitioner_id } : {}),
       reschedule_count: (rescheduling.reschedule_count ?? 0) + 1,
     } as any).eq("id", rescheduling.id);
-    if (error) { toast.error(error.message.includes("SLOT_FULL") ? "That slot is full." : "Could not reschedule."); return; }
+    if (error) {
+      toast.error(error.message.includes("SLOT_FULL") ? "That slot is full." : practitionerErrorMessage(error.message) ?? "Could not reschedule.");
+      return;
+    }
     // Keep Zoom in sync when the underlying appointment moves.
     if (rescheduling.zoom_meeting_id) {
       await syncZoom(rescheduling.id, "update");
@@ -428,6 +466,8 @@ const AppointmentsPage = () => {
     const vitalsProblem = Object.values(vitalsErrors({ age: newAppt.patient_age, gender: newAppt.patient_gender, weight: newAppt.patient_weight }))[0];
     if (vitalsProblem) { toast.error(vitalsProblem); return; }
     if (newAppt.amount < 0) { toast.error("Amount cannot be negative"); return; }
+    if (isMulti && !newPractitionerId) { toast.error(practitionerErrorMessage("PRACTITIONER_REQUIRED")); return; }
+    const practitionerPatch = isMulti && newPractitionerId ? { practitioner_id: newPractitionerId } : {};
     const paidNow = countersPaid && Number(newAppt.amount) > 0;
     if (paidNow) {
       const refProblem = paymentReferenceError(payMethod, payRef);
@@ -449,11 +489,14 @@ const AppointmentsPage = () => {
     setAdding(true);
     try {
       if (!isWalkIn) {
-        const { count: taken, error: takenError } = await supabase
+        let slotCheck = supabase
           .from("appointments").select("*", { count: "exact", head: true })
           .eq("doctor_id", profile.id).eq("date", newAppt.date).eq("time_slot", newAppt.time_slot)
           .eq("appointment_type", "clinic")
           .neq("status", "cancelled");
+        // Slots are per doctor in a multi-doctor clinic.
+        if (isMulti && newPractitionerId) slotCheck = slotCheck.eq("practitioner_id", newPractitionerId);
+        const { count: taken, error: takenError } = await slotCheck;
         if (takenError) { toast.error("Could not check that slot. Please try again."); return; }
         if ((taken ?? 0) >= 1) {
           setSlotConflict({ time: newAppt.time_slot });
@@ -464,7 +507,7 @@ const AppointmentsPage = () => {
       const token = generateBookingToken();
       const { status, time_slot, patient_age, patient_gender, patient_weight, ...rest } = newAppt;
       const { error } = await supabase.from("appointments").insert({
-        doctor_id: profile.id, ...rest, time_slot: isWalkIn ? null : time_slot, service_name: rest.service_name.trim(),
+        doctor_id: profile.id, ...practitionerPatch, ...rest, time_slot: isWalkIn ? null : time_slot, service_name: rest.service_name.trim(),
         patient_name: rest.patient_name.trim(),
         appointment_type: "clinic",
         patient_phone: normalizedPhone,
@@ -486,6 +529,8 @@ const AppointmentsPage = () => {
           setSlotConflict({ time: newAppt.time_slot });
         } else if (error.message.includes("SLOT_IN_PAST")) {
           toast.error("Cannot book an appointment for a past date or time slot.");
+        } else if (practitionerErrorMessage(error.message)) {
+          toast.error(practitionerErrorMessage(error.message));
         } else {
           toast.error("Could not add appointment");
         }
@@ -545,7 +590,7 @@ const AppointmentsPage = () => {
         <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
           <CalendarCheck className="h-6 w-6 text-royal" /> Appointments
         </h1>
-        {can("appointments.create") && (
+        {can("appointments.create") && !isDoctorLogin && (
         <Dialog open={showNew} onOpenChange={handleNewOpenChange}>
           <DialogTrigger asChild>
             <Button
@@ -592,6 +637,15 @@ const AppointmentsPage = () => {
                 }))}
                 errors={submitAttempted ? vitalsErrors({ age: newAppt.patient_age, gender: newAppt.patient_gender, weight: newAppt.patient_weight }) : {}}
               />
+              {isMulti && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-appt-doctor">Doctor *</Label>
+                  <PractitionerSelect id="new-appt-doctor" options="bookable" required value={newPractitionerId} onChange={setNewPractitionerId} />
+                  {submitAttempted && !newPractitionerId && (
+                    <p className="text-[11px] text-destructive">{practitionerErrorMessage("PRACTITIONER_REQUIRED")}</p>
+                  )}
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="new-appt-service">Service *</Label>
                 <Input id="new-appt-service" maxLength={100} value={newAppt.service_name} onChange={(e) => setNewAppt({ ...newAppt, service_name: e.target.value })} placeholder="e.g. Clinic Visit" aria-invalid={submitAttempted && !newAppt.service_name.trim()} className="h-10" />
@@ -642,7 +696,7 @@ const AppointmentsPage = () => {
                   />
                 )}
               </div>
-              <Button onClick={() => addAppointment()} disabled={writeDisabled || adding} className="w-full h-10 bg-royal hover:bg-royal/90">{adding ? "Adding…" : "Add Appointment"}</Button>
+              <Button onClick={() => addAppointment()} disabled={writeDisabled || adding || (isMulti && !newPractitionerId)} className="w-full h-10 bg-royal hover:bg-royal/90">{adding ? "Adding…" : "Add Appointment"}</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -727,6 +781,9 @@ const AppointmentsPage = () => {
             <SelectItem value="online">Online</SelectItem>
           </SelectContent>
         </Select>
+        {isMulti && (
+          <PractitionerSelect allowAll={!ownOnly} disabled={ownOnly} value={doctorFilter} onChange={setDoctorFilter} className="w-full sm:w-52" aria-label="Doctor filter" />
+        )}
       </div>
 
       {filtered.length > 0 && (
@@ -818,6 +875,9 @@ const AppointmentsPage = () => {
                                 )}
                               </div>
                               <div className="text-xs text-muted-foreground truncate">{a.service_name}</div>
+                              {isMulti && byId(a.practitioner_id) && (
+                                <Badge variant="outline" className="mt-0.5 text-[10px] font-normal text-muted-foreground">{byId(a.practitioner_id)!.display_name}</Badge>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -910,6 +970,9 @@ const AppointmentsPage = () => {
                             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{a.time_slot ? a.time_slot.slice(0, 5) : "Walk-in"}</span>
                             <span>·</span>
                             <span>{a.date}</span>
+                            {isMulti && byId(a.practitioner_id) && (
+                              <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">{byId(a.practitioner_id)!.display_name}</Badge>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1026,6 +1089,7 @@ const AppointmentsPage = () => {
                     {[
                       { label: "Date", value: viewing.date },
                       { label: "Time", value: viewing.time_slot ? viewing.time_slot.slice(0, 5) : "Walk-in" },
+                      ...(isMulti && byId(viewing.practitioner_id) ? [{ label: "Doctor", value: byId(viewing.practitioner_id)!.display_name }] : []),
                       { label: "Service", value: viewing.service_name },
                       { label: "Type", value: viewing.appointment_type },
                       { label: "Amount", value: `₹${viewing.amount}` },
@@ -1099,15 +1163,24 @@ const AppointmentsPage = () => {
         <DialogContent>
           <DialogHeader><DialogTitle>Reschedule Appointment</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            {isMulti && !isDoctorLogin && (
+              <div className="space-y-1.5">
+                <Label htmlFor="reschedule-doctor">Doctor</Label>
+                <PractitionerSelect id="reschedule-doctor" options="bookable" includeIds={rescheduling?.practitioner_id ? [rescheduling.practitioner_id] : undefined} value={rescheduleForm.practitioner_id} onChange={(id) => setRescheduleForm({ ...rescheduleForm, practitioner_id: id })} />
+              </div>
+            )}
             <div className="space-y-1.5">
-              <Label>Date</Label>
-              <Input type="date" min={todayStr} value={rescheduleForm.date} onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} className="h-10" />
+              <Label htmlFor="reschedule-date">Date</Label>
+              <Input id="reschedule-date" type="date" min={todayStr} value={rescheduleForm.date} onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label>Time</Label>
               <Input type="time" value={rescheduleForm.time_slot} onChange={(e) => setRescheduleForm({ ...rescheduleForm, time_slot: e.target.value })} className="h-10" />
             </div>
-            <Button onClick={submitReschedule} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Save New Slot</Button>
+            {rescheduleNeedsTransfer && (
+              <p className="text-xs text-muted-foreground" role="status">{practitionerErrorMessage("USE_QUEUE_TRANSFER")}</p>
+            )}
+            <Button onClick={submitReschedule} disabled={writeDisabled || rescheduleNeedsTransfer} className="w-full h-10 bg-royal hover:bg-royal/90">Save New Slot</Button>
           </div>
         </DialogContent>
       </Dialog>

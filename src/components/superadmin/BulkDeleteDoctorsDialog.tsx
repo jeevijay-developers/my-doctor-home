@@ -27,7 +27,7 @@ const BulkDeleteDoctorsDialog = ({ targets, onClose, onDeleted }: {
     if (count === 0 || !confirmed) return;
     setDeleting(true);
     const { data: { session } } = await supabase.auth.getSession();
-    const { data, error } = await supabase.functions.invoke("delete-doctor-account", {
+    const { data, error } = await supabase.functions.invoke("admin-delete-doctors", {
       headers: { Authorization: `Bearer ${session?.access_token}` },
       body: { doctor_ids: targets.map((t) => t.id) },
     });

@@ -55,19 +55,17 @@ const gotoDetails = async () => {
   await screen.findByRole("heading", { name: "Select Time Slot" });
   await waitFor(() => expect(timeField()).toHaveTextContent("09:00 AM")); // earliest free time is preselected
   continueWithTime();
-  await screen.findByLabelText("Full name");
+  await screen.findByLabelText(/^Full name/);
 };
 
 const fillDetails = (over: Record<string, string> = {}) => {
-  const v = { name: "Ravi Kumar", phone: "9876500001", age: "40", email: "", ...over };
-  fireEvent.change(screen.getByLabelText("Full name"), { target: { value: v.name } });
-  fireEvent.change(screen.getByLabelText("Mobile number"), { target: { value: v.phone } });
-  fireEvent.change(screen.getByLabelText("Age"), { target: { value: v.age } });
-  if (v.email) {
-    fireEvent.click(screen.getByRole("button", { name: /Add email or reason/ })); // optional fields stay out of the way
-    fireEvent.change(screen.getByLabelText("Email (optional)"), { target: { value: v.email } });
-  }
-  fireEvent.click(screen.getByRole("radio", { name: /^male$/i }));
+  const v = { name: "Ravi Kumar", phone: "9876500001", age: "40", email: "", reason: "Headache for three days", ...over };
+  fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: v.name } });
+  fireEvent.change(screen.getByLabelText(/^Mobile number/), { target: { value: v.phone } });
+  if (v.email) fireEvent.change(screen.getByLabelText("Email"), { target: { value: v.email } });
+  fireEvent.change(screen.getByLabelText(/^Age/), { target: { value: v.age } });
+  fireEvent.change(screen.getByLabelText(/^Gender/), { target: { value: "male" } });
+  fireEvent.change(screen.getByLabelText(/^Reason for visit/), { target: { value: v.reason } });
 };
 
 const book = () => fireEvent.click(screen.getByRole("button", { name: /Confirm booking · ₹/ }));
@@ -106,20 +104,54 @@ describe("BookingWidget (pay at clinic)", () => {
     expect(screen.getByRole("button", { name: /^Continue · / })).toBeEnabled();
   });
 
-  it("asks only for what is needed: optional email and reason stay hidden until requested", async () => {
+  it("shows every field up front: required ones marked *, email and reason with no optional tag", async () => {
     render(<BookingWidget />);
     await gotoDetails();
-    expect(screen.getByLabelText("Full name")).toHaveFocus();
-    expect(screen.queryByLabelText("Email (optional)")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Add email or reason/ }));
-    expect(screen.getByLabelText("Email (optional)")).toBeInTheDocument();
-    expect(screen.getByLabelText("Reason for visit (optional)")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Full name/)).toHaveFocus();
+    expect(screen.queryByText(/optional/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add email or reason/ })).not.toBeInTheDocument();
+    for (const label of [/^Full name/, /^Mobile number/, /^Age/, /^Gender/, /^Reason for visit/]) {
+      expect(screen.getByText(label, { selector: "label" }).textContent).toContain("*");
+    }
+    expect(screen.getByText("Email", { selector: "label" }).textContent).not.toContain("*");
+  });
+
+  it("lays the form out as name, then mobile + email, then age + gender, then reason", async () => {
+    render(<BookingWidget />);
+    await gotoDetails();
+    const order = ["Full name", "Mobile number", "Email", "Age", "Gender", "Reason for visit"].map((l) => screen.getByLabelText(new RegExp(`^${l}`)));
+    for (let i = 1; i < order.length; i++) {
+      expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+    // Mobile and email share a row; so do age and gender.
+    expect(order[1].closest(".grid")).toBe(order[2].closest(".grid"));
+    expect(order[3].closest(".grid")).toBe(order[4].closest(".grid"));
+    expect(order[0].closest(".grid")).not.toBe(order[1].closest(".grid"));
+  });
+
+  it("gender is a dropdown of Male, Female and Other", async () => {
+    render(<BookingWidget />);
+    await gotoDetails();
+    const gender = screen.getByLabelText(/^Gender/) as HTMLSelectElement;
+    expect(gender.tagName).toBe("SELECT");
+    expect(gender.value).toBe("");
+    expect([...gender.options].map((o) => o.textContent)).toEqual(["Select gender", "Male", "Female", "Other"]);
+  });
+
+  it("the reason for visit is required: without it the booking is not sent and the field gets the focus", async () => {
+    render(<BookingWidget />);
+    await gotoDetails();
+    fillDetails({ reason: "  " });
+    book();
+    expect(await screen.findByRole("alert")).toHaveTextContent(/reason for visit/);
+    expect(screen.getByLabelText(/^Reason for visit/)).toHaveFocus();
+    expect(inserts()).toHaveLength(0);
   });
 
   it("tells the patient about a wrong phone number when they leave the field, not while they are still typing", async () => {
     render(<BookingWidget />);
     await gotoDetails();
-    const phone = screen.getByLabelText("Mobile number");
+    const phone = screen.getByLabelText(/^Mobile number/);
     fireEvent.change(phone, { target: { value: "98765" } });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     fireEvent.blur(phone);
@@ -131,34 +163,25 @@ describe("BookingWidget (pay at clinic)", () => {
     await gotoDetails();
     const confirm = screen.getByRole("button", { name: /Confirm booking/ });
     expect(confirm).toBeEnabled();
-    expect(screen.getByText(/Enter your name, mobile number, age and gender/)).toBeInTheDocument();
+    expect(screen.getByText(/Enter your name, mobile number, age, gender and reason for visit/)).toBeInTheDocument();
     fireEvent.click(confirm);
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Enter your name, mobile number, age and gender/);
-    expect(screen.getByLabelText("Full name")).toHaveFocus();
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Enter your name, mobile number, age, gender and reason for visit/);
+    expect(screen.getByLabelText(/^Full name/)).toHaveFocus();
     expect(inserts()).toHaveLength(0);
     // with the name given, the next empty field (mobile number) gets the focus
-    fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Ravi Kumar" } });
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: "Ravi Kumar" } });
     fireEvent.click(confirm);
-    expect(screen.getByLabelText("Mobile number")).toHaveFocus();
+    expect(screen.getByLabelText(/^Mobile number/)).toHaveFocus();
     fillDetails();
-    expect(screen.queryByText(/Enter your name, mobile number, age and gender/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Enter your name, mobile number, age, gender and reason for visit/)).not.toBeInTheDocument();
   });
 
   it("submits from the keyboard (Enter / the phone's Go key)", async () => {
     render(<BookingWidget />);
     await gotoDetails();
     fillDetails();
-    fireEvent.submit(screen.getByLabelText("Full name").closest("form")!);
+    fireEvent.submit(screen.getByLabelText(/^Full name/).closest("form")!);
     await waitFor(() => expect(inserts()).toHaveLength(1));
-  });
-
-  it("gender can be chosen with the arrow keys", async () => {
-    render(<BookingWidget />);
-    await gotoDetails();
-    const male = screen.getByRole("radio", { name: /^male$/i });
-    male.focus();
-    fireEvent.keyDown(male, { key: "ArrowRight" });
-    expect(screen.getByRole("radio", { name: /^female$/i })).toHaveAttribute("aria-checked", "true");
   });
 
   it("a service picked after a booking is confirmed starts a fresh booking instead of rewriting the confirmation", async () => {
@@ -277,7 +300,7 @@ describe("BookingWidget (pay at clinic)", () => {
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "Minute" })).getByRole("radio", { name: "30" }));
     expect(screen.getByRole("button", { name: "Continue · 11:30 AM" })).toBeInTheDocument();
     continueWithTime();
-    await screen.findByLabelText("Full name");
+    await screen.findByLabelText(/^Full name/);
     fillDetails();
     book();
     await waitFor(() => expect(inserts()).toHaveLength(1));
@@ -294,7 +317,7 @@ describe("BookingWidget (pay at clinic)", () => {
     expect(await screen.findByRole("button", { name: "Checking…" })).toBeDisabled();
     expect(dateField()).toBeDisabled(); // cannot wander off mid-check
     release({});
-    await screen.findByLabelText("Full name");
+    await screen.findByLabelText(/^Full name/);
   });
 
   it("quick-book from the hero opens the details with that date and time chosen, after a live re-check", async () => {
@@ -308,7 +331,7 @@ describe("BookingWidget (pay at clinic)", () => {
     await waitFor(() => expect(h.refresh).toHaveBeenCalled());
     await waitFor(() => expect(dateField()).toBeDisabled()); // locked while the slot is re-checked
     release({});
-    await screen.findByLabelText("Full name");
+    await screen.findByLabelText(/^Full name/);
     expect(screen.getByText("10:00 AM")).toBeInTheDocument(); // the summary shows the quick-booked time
   });
 
@@ -425,5 +448,15 @@ describe("BookingWidget (pay at clinic)", () => {
     expect(await screen.findByRole("button", { name: "Book Another" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add to calendar/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Download Appointment Slip/ })).toBeInTheDocument();
+  });
+
+  it("a single-doctor clinic has no doctor step and sends no practitioner_id (the database fills it)", async () => {
+    render(<BookingWidget />);
+    expect(screen.queryByRole("radiogroup", { name: "Doctor" })).not.toBeInTheDocument();
+    await gotoDetails();
+    fillDetails();
+    book();
+    await waitFor(() => expect(inserts()).toHaveLength(1));
+    expect(inserts()[0].ops.find((o: any[]) => o[0] === "insert")[1]).not.toHaveProperty("practitioner_id");
   });
 });

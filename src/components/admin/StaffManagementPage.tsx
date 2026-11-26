@@ -18,8 +18,10 @@ import {
 import { toast } from "sonner";
 import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
 import { normalizePhoneNumber } from "@/lib/auth/otp/productionOtpService";
-import { PERMISSION_MODULES, type PermissionKey, type Permissions } from "@/lib/staffPermissions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PERMISSION_MODULES, PERMISSION_PRESETS, type PermissionKey, type Permissions } from "@/lib/staffPermissions";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { FEATURE_KEYS } from "@/lib/features";
 import LockedFeatureCard from "./LockedFeatureCard";
@@ -28,6 +30,17 @@ import { useTrialStatus } from "@/contexts/TrialStatusContext";
 type StaffRow = {
   id: string; staff_name: string; phone: string; status: string;
   permissions: Permissions; created_at: string; last_login_at: string | null;
+  // 'doctor' = a login for one of the clinic's doctors (multi-doctor); managed on the Doctors page.
+  role?: "staff" | "doctor" | null; practitioner_id?: string | null;
+};
+
+type PresetChoice = "custom" | "reception";
+const isDoctorLogin = (s: StaffRow) => s.role === "doctor";
+const presetPermissions = (keys: PermissionKey[]): Permissions => Object.fromEntries(keys.map((k) => [k, true]));
+// Edge functions answer practitioner refusals with a bare code (e.g. PHONE_OWNS_CLINIC).
+const edgeError = async (error: unknown, fallback: string) => {
+  const raw = await edgeFunctionErrorMessage(error, fallback);
+  return practitionerErrorMessage(raw) ?? raw;
 };
 
 const emptyPermissions: Permissions = {};
@@ -49,6 +62,7 @@ const StaffManagementPage = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [permissions, setPermissions] = useState<Permissions>(emptyPermissions);
+  const [preset, setPreset] = useState<PresetChoice>("custom");
   const [saving, setSaving] = useState(false);
 
   const [deleting, setDeleting] = useState<StaffRow | null>(null);
@@ -68,6 +82,7 @@ const StaffManagementPage = () => {
     setEditingId(null);
     setForm(emptyForm);
     setPermissions({});
+    setPreset("custom");
     setDialogOpen(true);
   };
 
@@ -78,7 +93,16 @@ const StaffManagementPage = () => {
     setDialogOpen(true);
   };
 
-  const togglePermission = (key: PermissionKey) => setPermissions((prev) => ({ ...prev, [key]: !prev[key] }));
+  const togglePermission = (key: PermissionKey) => {
+    setPreset("custom");
+    setPermissions((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const choosePreset = (value: string) => {
+    const next = value === "reception" ? "reception" : "custom";
+    setPreset(next);
+    if (next === "reception") setPermissions(presetPermissions(PERMISSION_PRESETS.reception));
+  };
 
   const save = async () => {
     if (!form.staff_name.trim()) { toast.error("Staff name is required"); return; }
@@ -104,7 +128,7 @@ const StaffManagementPage = () => {
         });
         if (phoneError) {
           setSaving(false);
-          toast.error(await edgeFunctionErrorMessage(phoneError, "Could not change phone number"));
+          toast.error(await edgeError(phoneError, "Could not change phone number"));
           load();
           return;
         }
@@ -124,7 +148,7 @@ const StaffManagementPage = () => {
     setSaving(false);
     if (error) {
       console.error("create-staff-account failed:", error);
-      toast.error(await edgeFunctionErrorMessage(error, "Could not create staff account. Check the browser console for details."));
+      toast.error(await edgeError(error, "Could not create staff account. Check the browser console for details."));
       return;
     }
     toast.success("Staff account created. They can now log in with their phone number.");
@@ -147,7 +171,7 @@ const StaffManagementPage = () => {
       headers: { Authorization: `Bearer ${session?.access_token}` },
       body: { staff_id: deleting.id },
     });
-    if (error) { toast.error(await edgeFunctionErrorMessage(error, "Could not delete staff account")); return; }
+    if (error) { toast.error(await edgeError(error, "Could not delete staff account")); return; }
     toast.success("Staff account deleted");
     setDeleting(null);
     load();
@@ -230,6 +254,9 @@ const StaffManagementPage = () => {
                             {s.staff_name?.charAt(0)?.toUpperCase() || "S"}
                           </div>
                           <span className="font-semibold text-foreground">{s.staff_name}</span>
+                          {isDoctorLogin(s) && (
+                            <Badge variant="secondary" className="text-[10px] bg-royal/10 text-royal">Doctor</Badge>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-foreground">{maskPhone(s.phone)}</td>
@@ -244,6 +271,9 @@ const StaffManagementPage = () => {
                         </Badge>
                       </td>
                       <td className="px-4 py-3">
+                        {isDoctorLogin(s) ? (
+                          <span className="text-xs text-muted-foreground">Managed in Doctors</span>
+                        ) : (
                         <div className="flex items-center gap-1">
                           {can("staff.edit") && (
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(s)} aria-label="Edit">
@@ -261,6 +291,7 @@ const StaffManagementPage = () => {
                             </Button>
                           )}
                         </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -280,7 +311,12 @@ const StaffManagementPage = () => {
                         {s.staff_name?.charAt(0)?.toUpperCase() || "S"}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-foreground truncate">{s.staff_name}</div>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-semibold text-foreground truncate">{s.staff_name}</span>
+                          {isDoctorLogin(s) && (
+                            <Badge variant="secondary" className="text-[10px] flex-shrink-0 bg-royal/10 text-royal">Doctor</Badge>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground truncate">{maskPhone(s.phone)}</div>
                       </div>
                     </div>
@@ -291,6 +327,9 @@ const StaffManagementPage = () => {
                   <Badge variant="secondary" className="text-[10px] flex items-center gap-1 w-fit">
                     <ShieldCheck className="h-3 w-3" /> {grantedCount(s.permissions)} permission{grantedCount(s.permissions) === 1 ? "" : "s"}
                   </Badge>
+                  {isDoctorLogin(s) ? (
+                    <div className="pt-2 border-t border-border text-xs text-muted-foreground">Managed in Doctors</div>
+                  ) : (
                   <div className="flex items-center gap-1 pt-1 border-t border-border">
                     {can("staff.edit") && (
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(s)} aria-label="Edit">
@@ -308,6 +347,7 @@ const StaffManagementPage = () => {
                       </Button>
                     )}
                   </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -339,6 +379,20 @@ const StaffManagementPage = () => {
             <div>
               <h3 className="font-heading font-semibold text-sm text-foreground mb-1">Permissions</h3>
               <p className="text-xs text-muted-foreground mb-3">Only checked items will be accessible to this staff member — everything else stays hidden and blocked.</p>
+              {!editingId && (
+                <div className="flex items-center gap-2 mb-3">
+                  <Label htmlFor="staff-preset" className="text-xs text-muted-foreground">Start from</Label>
+                  <Select value={preset} onValueChange={choosePreset}>
+                    <SelectTrigger id="staff-preset" aria-label="Start from" className="h-9 w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="reception">Reception</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {PERMISSION_MODULES.map((mod) => (
                   <Card key={mod.key} className="border-border/60 shadow-none">

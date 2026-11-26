@@ -25,6 +25,8 @@ export type VitalsSummary = {
 
 export type PrescriptionSlipData = {
   id: string;
+  /** The prescription's author doctor; the caller passes `slipDoctor(profile, byId(practitioner_id))` as `profile`. */
+  practitioner_id?: string | null;
   patient_id: string | null;
   patient_name: string;
   diagnosis: string | null;

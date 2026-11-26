@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERMISSION_MODULES, ROUTE_PERMISSIONS, permissionForPath, type PermissionKey } from "./staffPermissions";
+import { PERMISSION_MODULES, PERMISSION_PRESETS, ROUTE_PERMISSIONS, permissionForPath, type PermissionKey } from "./staffPermissions";
 
 const ALL_KEYS = PERMISSION_MODULES.flatMap((m) => m.permissions.map((p) => p.key));
 
@@ -72,5 +72,26 @@ describe("permissionForPath", () => {
 
   it("settings is gated on profile.view", () => {
     expect(permissionForPath("/admin/settings")).toBe("profile.view");
+  });
+});
+
+describe("PERMISSION_PRESETS", () => {
+  it("only uses real permission keys, without duplicates", () => {
+    for (const keys of Object.values(PERMISSION_PRESETS)) {
+      for (const k of keys) expect(ALL_KEYS).toContain(k);
+      expect(new Set(keys).size).toBe(keys.length);
+    }
+  });
+  it("reception gets no clinical access (no prescriptions.*, no patients.medical_records)", () => {
+    const reception = PERMISSION_PRESETS.reception;
+    expect(reception.some((k) => k.startsWith("prescriptions."))).toBe(false);
+    expect(reception).not.toContain("patients.medical_records");
+  });
+  it("doctor logins cannot create bookings (reception books for them)", () => {
+    expect(PERMISSION_PRESETS.doctor).not.toContain("appointments.create");
+    expect(PERMISSION_PRESETS.doctor).toContain("appointments.edit");
+  });
+  it("/admin/doctors is gated on practitioners.view", () => {
+    expect(permissionForPath("/admin/doctors")).toBe("practitioners.view");
   });
 });

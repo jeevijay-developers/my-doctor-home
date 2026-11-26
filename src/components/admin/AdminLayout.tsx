@@ -8,7 +8,7 @@ import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { usePanelTheme } from "@/hooks/usePanelTheme";
 import ThemeToggle from "@/components/ThemeToggle";
-import { useDoctorNotifications, type DoctorNotification } from "@/hooks/useDoctorNotifications";
+import { useDoctorNotifications, notificationRoute, type DoctorNotification } from "@/hooks/useDoctorNotifications";
 import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { Button } from "@/components/ui/button";
 import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
@@ -80,16 +80,8 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
 
   const openNotification = (n: DoctorNotification) => {
     if (!n.is_read) markAsRead(n.id);
-    if (n.source_type === "ticket_reply" && n.ticket_id) {
-      navigate(`/admin/support?ticket=${n.ticket_id}`);
-    } else if (
-      n.source_type === "trial_warning" || n.source_type === "cap_warning" || n.source_type === "plan_warning" ||
-      n.source_type === "plan_request" || /plan|trial|subscription/i.test(n.title)
-    ) {
-      navigate("/admin/settings?tab=subscription");
-    } else if (n.source_type === "paid_no_show") {
-      navigate("/admin/appointments");
-    }
+    const to = notificationRoute(n);
+    if (to) navigate(to);
   };
 
   return (

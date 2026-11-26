@@ -10,6 +10,10 @@ const h = vi.hoisted(() => ({
   profile: null as any,
   isStaff: false,
   can: ((_k: string) => true) as (k: string) => boolean,
+  role: undefined as string | undefined,
+  staffName: null as string | null,
+  myPractitionerId: null as string | null,
+  isMulti: false,
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -18,7 +22,10 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 vi.mock("@/hooks/useProfile", () => ({
-  useProfile: () => ({ profile: h.profile, isStaff: h.isStaff, can: h.can }),
+  useProfile: () => ({ profile: h.profile, isStaff: h.isStaff, can: h.can, role: h.role, staffName: h.staffName, myPractitionerId: h.myPractitionerId }),
+}));
+vi.mock("@/hooks/usePractitioners", () => ({
+  usePractitioners: () => ({ isMulti: h.isMulti, byId: (id: string) => (id === "pr-2" ? { id, display_name: "Dr. Meera" } : undefined) }),
 }));
 vi.mock("@/hooks/usePlanAccess", () => ({
   usePlanAccess: () => ({ nearCap: false, appointmentsUsed: 0, appointmentsCap: 30 }),
@@ -61,6 +68,7 @@ describe("DashboardHome", () => {
     h.profile = { id: "doc-1", full_name: "Asha Rao", slug: "asha", plan_status: "active", plan_tier: "pro", trial_end: null };
     h.isStaff = false;
     h.can = () => true;
+    h.role = undefined; h.staffName = null; h.myPractitionerId = null; h.isMulti = false;
     mock.current = createTableMock();
     seed();
     sessionStorage.clear();
@@ -165,5 +173,41 @@ describe("DashboardHome", () => {
     await screen.findByText(/Welcome back/);
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByLabelText(/^Revenue:/)).not.toBeInTheDocument();
+  });
+
+  describe("doctor login in a multi-doctor clinic", () => {
+    beforeEach(() => {
+      h.isStaff = true; h.role = "doctor"; h.staffName = "Dr. Meera"; h.myPractitionerId = "pr-2"; h.isMulti = true;
+      h.can = (k) => k !== "billing.view" && k !== "appointments.all_doctors";
+    });
+
+    it("greets by their own name, not the owner's, and shares under it", async () => {
+      renderPage();
+      expect(await screen.findByText(/Welcome back, Dr\. Meera/)).toBeInTheDocument();
+      expect(screen.queryByText(/Asha/)).not.toBeInTheDocument();
+      const box = (await screen.findByDisplayValue(/Book your appointment online with/)) as HTMLTextAreaElement;
+      expect(box.value).toContain("Dr. Meera");
+      expect(box.value).not.toContain("Asha");
+    });
+
+    it("scopes appointment queries to their practitioner and hides revenue", async () => {
+      renderPage();
+      await screen.findByText(/Welcome back/);
+      await waitFor(() => expect(mock.current.opsOf("appointments").length).toBe(3));
+      for (const q of mock.current.opsOf("appointments")) {
+        expect(mock.current.hasOp(q, "eq", "practitioner_id", "pr-2")).toBe(true);
+      }
+      expect(screen.queryByLabelText(/^Revenue/)).not.toBeInTheDocument();
+      expect(mock.current.opsOf("invoices").length).toBe(0);
+    });
+
+    it("with appointments.all_doctors the queries are not narrowed", async () => {
+      h.can = (k) => k !== "billing.view";
+      renderPage();
+      await screen.findByLabelText(/Appointments: 12/);
+      for (const q of mock.current.opsOf("appointments")) {
+        expect(mock.current.hasOp(q, "eq", "practitioner_id", "pr-2")).toBe(false);
+      }
+    });
   });
 });

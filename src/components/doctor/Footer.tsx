@@ -84,7 +84,6 @@ const Footer = ({ profileOverride }: FooterProps) => {
               <DsButton
                 href={sectionHref("booking")}
                 size="lg"
-                magnetic
                 onClick={(event: React.MouseEvent<HTMLAnchorElement>) => {
                   event.preventDefault(); // keep it a single-page navigation (no full reload on a phone)
                   if (isDoctorHome) dsScrollTo("booking", { focusSelector: "[data-booking-start]" });

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import PrescriptionShare from "./PrescriptionShare";
 import { createTableMock } from "@/test/tableMock";
+import { toast } from "sonner";
 
 const mock = vi.hoisted(() => ({ current: null as any }));
 vi.mock("@/integrations/supabase/client", () => ({
@@ -38,6 +39,7 @@ describe("PrescriptionShare", () => {
     fireEvent.click(screen.getByRole("button", { name: /share on whatsapp/i }));
     await waitFor(() => expect(tab.close).toHaveBeenCalled());
     expect(tab.location.href).toBe("");
+    expect(toast.error).toHaveBeenCalledWith("You don't have access to this prescription.");
   });
 
   it("warns when the patient has no usable phone number", () => {

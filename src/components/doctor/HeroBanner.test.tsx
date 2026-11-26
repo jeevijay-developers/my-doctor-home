@@ -169,6 +169,49 @@ describe("HeroBanner", () => {
   });
 });
 
+describe("HeroBanner for a clinic with several doctors", () => {
+  beforeEach(() => {
+    rpc.mockReset();
+    rpc.mockResolvedValue({ data: [], error: null });
+    scroll.dsScrollTo.mockReset();
+  });
+
+  const multi = (over: Record<string, unknown> = {}) =>
+    mockData({
+      profile: { id: "doc-1", full_name: "asha rao", specialization: "Pediatrician", city: "Pune", clinic_name: "Little Steps Clinic" },
+      isMultiDoctor: true,
+      ...over,
+    });
+
+  it("does not look up a next free slot", async () => {
+    multi();
+    renderHero();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 400));
+    });
+    expect(rpc).not.toHaveBeenCalledWith("get_slot_counts", expect.anything());
+    expect(screen.queryByRole("button", { name: /book this slot|choose a time/i })).not.toBeInTheDocument();
+  });
+
+  it("names the clinic and offers Choose your doctor, pointing at #doctors", async () => {
+    multi();
+    renderHero();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Little Steps Clinic");
+    const cta = screen.getByRole("link", { name: /choose your doctor/i });
+    expect(cta).toHaveAttribute("href", "#doctors");
+    fireEvent.click(cta);
+    expect(scroll.dsScrollTo).toHaveBeenCalledWith("doctors");
+  });
+
+  it("a single-doctor clinic still gets the slot shortcut", async () => {
+    mockData({ isMultiDoctor: false });
+    renderHero();
+    await screen.findByRole("button", { name: /book this slot/i }, { timeout: 3000 });
+    expect(screen.queryByRole("link", { name: /choose your doctor/i })).not.toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledWith("get_slot_counts", expect.anything());
+  });
+});
+
 describe("BottomActionBar", () => {
   it("offers Book, Call and WhatsApp when the clinic has both contacts", () => {
     mockData({ settings: { whatsapp_number: "9876543210" } });

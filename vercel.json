@@ -58,6 +58,7 @@
     { "source": "/refund-policy", "destination": "/api/seo?kind=page&path=/refund-policy" },
     { "source": "/auth", "destination": "/api/seo?kind=page&path=/auth" },
     { "source": "/dr/:slug", "destination": "/api/seo?kind=doctor&slug=:slug" },
+    { "source": "/dr/:slug/doctor/:doctorSlug", "destination": "/api/seo?kind=practitioner&slug=:slug&doctor=:doctorSlug" },
     { "source": "/dr/:slug/blog", "destination": "/api/seo?kind=blog&slug=:slug" },
     { "source": "/dr/:slug/blog/:post", "destination": "/api/seo?kind=post&slug=:slug&post=:post" },
     { "source": "/health-articles", "destination": "/api/seo?kind=articles" },

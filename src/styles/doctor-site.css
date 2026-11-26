@@ -182,18 +182,6 @@ html.lenis body {
 /* Lenis's stock CSS also sets `iframe { pointer-events: none }`. Deliberately left out:
    it would make the clinic's Google Map impossible to pan or zoom. */
 
-/* Shine border sweep (ShineBorder.tsx). Paused for reduced motion below. */
-@keyframes ds-shine {
-  0% { background-position: 0% 0%; }
-  50% { background-position: 100% 100%; }
-  to { background-position: 0% 0%; }
-}
-.doctor-site .ds-shine,
-.ds-shine {
-  animation: ds-shine var(--ds-shine-duration, 12s) infinite linear;
-  will-change: background-position;
-}
-
 /* Skeleton shimmer for loading placeholders. */
 @keyframes ds-shimmer {
   from { background-position: 200% 0; }
@@ -225,10 +213,6 @@ html:has(.doctor-site) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ds-shine,
-  .doctor-site .ds-shine {
-    animation: none !important;
-  }
   .doctor-site *,
   .doctor-site *::before,
   .doctor-site *::after {
@@ -284,58 +268,6 @@ html:has(.doctor-site) {
   }
 }
 
-/* Aurora: three soft colour fields drifting behind the hero (AuroraBackdrop.tsx). */
-.doctor-site .ds-aurora {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-  /* Fade in from the top and out at the bottom: the section's edges clip the glow, and
-     without this a hard line shows under the navbar and where the next section starts. */
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 clamp(120px, 22%, 240px), #000 calc(100% - clamp(140px, 24%, 260px)), transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 clamp(120px, 22%, 240px), #000 calc(100% - clamp(140px, 24%, 260px)), transparent 100%);
-}
-.doctor-site .ds-aurora > span {
-  position: absolute;
-  width: 52vmax;
-  height: 52vmax;
-  border-radius: 9999px;
-  will-change: transform;
-  animation: ds-drift 24s ease-in-out infinite alternate;
-}
-.doctor-site .ds-aurora > span:nth-child(1) {
-  top: -22vmax;
-  right: -14vmax;
-  background: radial-gradient(closest-side, rgb(var(--ds-aurora-1) / calc(var(--ds-aurora-alpha) * 1.2)), transparent);
-}
-.doctor-site .ds-aurora > span:nth-child(2) {
-  top: 8%;
-  left: -24vmax;
-  background: radial-gradient(closest-side, rgb(var(--ds-aurora-2) / var(--ds-aurora-alpha)), transparent);
-  animation-duration: 30s;
-  animation-delay: -8s;
-}
-.doctor-site .ds-aurora > span:nth-child(3) {
-  bottom: -30vmax;
-  left: 30%;
-  background: radial-gradient(closest-side, rgb(var(--ds-aurora-3) / var(--ds-aurora-alpha)), transparent);
-  animation-duration: 36s;
-  animation-delay: -14s;
-}
-.doctor-site .ds-aurora[data-paused] > span {
-  animation-play-state: paused;
-}
-@keyframes ds-drift {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(5vmax, 3vmax, 0) scale(1.12); }
-  100% { transform: translate3d(-4vmax, 6vmax, 0) scale(0.92); }
-}
-@media (max-width: 767.98px) {
-  .doctor-site .ds-aurora > span { width: 80vmax; height: 80vmax; }
-  .doctor-site .ds-aurora > span:nth-child(3) { display: none; }
-}
-
 /* Dot grid, faded towards the edges (Magic UI "Dot Pattern"). Uses ::after, so it can
    share an element with .ds-grain (::before). */
 .doctor-site .ds-dots {
@@ -352,23 +284,6 @@ html:has(.doctor-site) {
   background-size: 22px 22px;
   -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 25%, transparent 80%);
   mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 25%, transparent 80%);
-}
-
-/* A still colour glow behind a focal card (no animation). */
-.doctor-site .ds-glow {
-  position: relative;
-  isolation: isolate;
-}
-.doctor-site .ds-glow::before {
-  content: "";
-  position: absolute;
-  inset: 8% 0 auto;
-  height: 75%;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(45% 55% at 25% 40%, rgb(var(--ds-aurora-1) / 0.12), transparent 70%),
-    radial-gradient(40% 50% at 80% 60%, rgb(var(--ds-aurora-3) / 0.10), transparent 70%);
 }
 
 /* Cursor spotlight + glowing edge (Magic UI "Magic Card"), driven by useSpotlight(). */
@@ -414,7 +329,6 @@ html:has(.doctor-site) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .doctor-site .ds-aurora > span,
   .doctor-site .ds-float {
     animation: none !important;
   }

@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.delete-doctor-account]
 verify_jwt = false
+
+[functions.admin-delete-doctors]
+verify_jwt = false

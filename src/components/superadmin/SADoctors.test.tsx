@@ -7,6 +7,8 @@ import { SuperAdminAccessProvider, buildSuperAdminAccess } from "@/contexts/Supe
 import type { SAPermissions } from "@/lib/superadminPermissions";
 import { createTableMock } from "@/test/tableMock";
 
+Element.prototype.scrollIntoView = vi.fn();
+
 const mock = vi.hoisted(() => ({ current: null as any }));
 vi.mock("@/integrations/supabase/client", () => ({
   get supabase() {
@@ -36,9 +38,10 @@ const renderPage = (isOwner: boolean, perms: SAPermissions = {}) =>
 
 const selectAll = async () => {
   await screen.findAllByText("Dr Asha");
-  fireEvent.click(screen.getByRole("button", { name: "Select items to delete" }));
-  fireEvent.click(screen.getByRole("button", { name: /Select all 2/ }));
+  fireEvent.click(screen.getAllByLabelText("Select all doctors")[0]);
 };
+
+const nameOrder = () => screen.getAllByRole("link").map((a) => a.textContent).filter((t) => t?.startsWith("Dr "));
 
 describe("SADoctors", () => {
   beforeEach(() => {
@@ -70,7 +73,7 @@ describe("SADoctors", () => {
     const del = screen.getByRole("button", { name: /Delete Selected/ });
     expect(del).toBeEnabled();
     fireEvent.click(del);
-    expect(screen.getByText("BULK-DELETE-DIALOG:d1,d2")).toBeInTheDocument();
+    expect(screen.getByText("BULK-DELETE-DIALOG:d2,d1")).toBeInTheDocument();
   });
 
   it("team member with only doctors.view cannot delete doctors", async () => {
@@ -86,6 +89,72 @@ describe("SADoctors", () => {
     renderPage(false, { "doctors.view": true, "doctors.delete": true });
     await selectAll();
     expect(screen.getByRole("button", { name: /Delete Selected/ })).toBeEnabled();
+  });
+
+  it("shows a loading skeleton instead of 'No doctors found' until data arrives", async () => {
+    renderPage(true);
+    expect(screen.queryByText("No doctors found.")).not.toBeInTheDocument();
+    await screen.findAllByText("Dr Asha");
+    expect(screen.queryByText("No doctors found.")).not.toBeInTheDocument();
+  });
+
+  it("shows an Active badge for active plans", async () => {
+    renderPage(true);
+    await screen.findAllByText("Dr Asha");
+    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
+  });
+
+  it("every row has a checkbox and the action bar only appears once something is selected", async () => {
+    renderPage(true);
+    await screen.findAllByText("Dr Asha");
+    expect(screen.queryByRole("toolbar", { name: "Bulk actions" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByLabelText("Select Dr Bala")[0]);
+    expect(screen.getByRole("toolbar", { name: "Bulk actions" })).toBeInTheDocument();
+    expect(screen.getByText("1 doctor selected")).toBeInTheDocument();
+  });
+
+  it("sorts by name A→Z and Z→A", async () => {
+    renderPage(true);
+    await screen.findAllByText("Dr Asha");
+    expect(nameOrder().slice(0, 2)).toEqual(["Dr Bala", "Dr Asha"]); // newest joined first
+    fireEvent.click(screen.getByLabelText("Sort"));
+    fireEvent.click(await screen.findByRole("option", { name: "Name: A → Z" }));
+    expect(nameOrder().slice(0, 2)).toEqual(["Dr Asha", "Dr Bala"]);
+    fireEvent.click(screen.getByLabelText("Sort"));
+    fireEvent.click(await screen.findByRole("option", { name: "Name: Z → A" }));
+    expect(nameOrder().slice(0, 2)).toEqual(["Dr Bala", "Dr Asha"]);
+  });
+
+  it("filters by a custom joined date range", async () => {
+    renderPage(true);
+    await screen.findAllByText("Dr Asha");
+    fireEvent.click(screen.getByLabelText("Joined date"));
+    fireEvent.click(await screen.findByRole("option", { name: "Custom range…" }));
+    fireEvent.change(screen.getByLabelText("Joined from"), { target: { value: "2026-09-02" } });
+    expect(screen.queryAllByText("Dr Asha")).toHaveLength(0);
+    expect(screen.getAllByText("Dr Bala").length).toBeGreaterThan(0);
+  });
+
+  it("bulk suspend updates only non-suspended selected doctors after confirmation", async () => {
+    mock.current.tables.profiles = { data: [...rows, { id: "d3", full_name: "Dr Chet", plan_tier: "pro", plan_status: "cancelled", created_at: "2026-09-03T00:00:00Z" }] };
+    renderPage(true);
+    await screen.findAllByText("Dr Asha");
+    fireEvent.click(screen.getAllByLabelText("Select all doctors")[0]);
+    fireEvent.click(screen.getByRole("button", { name: /Suspend Selected/ }));
+    expect(await screen.findByText("Suspend 2 doctors?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    await waitFor(() => {
+      const upd = mock.current.opsOf("profiles").find((q: any) => q.ops.some((o: any[]) => o[0] === "update"));
+      expect(upd).toBeTruthy();
+      expect(upd.ops.find((o: any[]) => o[0] === "update")[1]).toEqual({ plan_status: "cancelled" });
+      expect(upd.ops.find((o: any[]) => o[0] === "in")[2].sort()).toEqual(["d1", "d2"]);
+    });
+  });
+
+  it("team member without doctors.edit cannot suspend", async () => {
+    renderPage(false, { "doctors.view": true });
+    await selectAll();
+    expect(screen.getByRole("button", { name: /Suspend Selected/ })).toBeDisabled();
   });
 
   it("a single-doctor message requires subject and body, then inserts one notification addressed to that doctor", async () => {

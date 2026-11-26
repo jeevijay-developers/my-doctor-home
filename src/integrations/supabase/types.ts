@@ -291,6 +291,70 @@ export type Database = {
           },
         ]
       }
+      clinic_doctor_seats: {
+        Row: {
+          doctor_id: string
+          extra_seats: number
+          reason: string | null
+          set_at: string
+          set_by: string | null
+        }
+        Insert: {
+          doctor_id: string
+          extra_seats?: number
+          reason?: string | null
+          set_at?: string
+          set_by?: string | null
+        }
+        Update: {
+          doctor_id?: string
+          extra_seats?: number
+          reason?: string | null
+          set_at?: string
+          set_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_doctor_seats_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_access_log: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          id: string
+          patient_id: string
+          viewer_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          id?: string
+          patient_id: string
+          viewer_user_id: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          patient_id?: string
+          viewer_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_access_log_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doctor_bank_accounts: {
         Row: {
           account_holder_name: string | null
@@ -2836,6 +2900,8 @@ export type Database = {
           last_login_at: string | null
           permissions: Json
           phone: string
+          practitioner_id: string | null
+          role: string
           staff_name: string
           status: string
           updated_at: string
@@ -2849,6 +2915,8 @@ export type Database = {
           last_login_at?: string | null
           permissions?: Json
           phone: string
+          practitioner_id?: string | null
+          role?: string
           staff_name: string
           status?: string
           updated_at?: string
@@ -2862,6 +2930,8 @@ export type Database = {
           last_login_at?: string | null
           permissions?: Json
           phone?: string
+          practitioner_id?: string | null
+          role?: string
           staff_name?: string
           status?: string
           updated_at?: string
@@ -2874,6 +2944,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_members_practitioner_fk"
+            columns: ["practitioner_id", "doctor_id"]
+            isOneToOne: false
+            referencedRelation: "practitioners"
+            referencedColumns: ["id", "doctor_id"]
           },
         ]
       }
@@ -3146,6 +3223,7 @@ export type Database = {
           booking_advance_days: number
           buffer_minutes: number
           cancellation_cutoff_hours: number
+          clinical_visibility: string
           created_at: string
           doctor_id: string
           google_analytics_id: string | null
@@ -3198,6 +3276,7 @@ export type Database = {
           booking_advance_days?: number
           buffer_minutes?: number
           cancellation_cutoff_hours?: number
+          clinical_visibility?: string
           created_at?: string
           doctor_id: string
           google_analytics_id?: string | null
@@ -3250,6 +3329,7 @@ export type Database = {
           booking_advance_days?: number
           buffer_minutes?: number
           cancellation_cutoff_hours?: number
+          clinical_visibility?: string
           created_at?: string
           doctor_id?: string
           google_analytics_id?: string | null
@@ -3389,6 +3469,22 @@ export type Database = {
         Returns: Json
       }
       cancel_custom_plan: { Args: { _doctor_id: string }; Returns: undefined }
+      clinic_doctor_seat_limit: {
+        Args: { _doctor_id: string }
+        Returns: number
+      }
+      clinic_multi_doctor_enabled: {
+        Args: { _doctor_id: string }
+        Returns: boolean
+      }
+      clinical_row_visible: {
+        Args: {
+          _doctor_id: string
+          _patient_id: string
+          _practitioner_id: string
+        }
+        Returns: boolean
+      }
       consume_rate_limit: {
         Args: { _key: string; _limit: number; _window_seconds: number }
         Returns: boolean
@@ -3479,6 +3575,8 @@ export type Database = {
           payment_gateway: string
           payment_method: string
           payment_status: string
+          practitioner_id: string
+          practitioner_name: string
           reschedule_count: number
           service_name: string
           status: string
@@ -3496,6 +3594,7 @@ export type Database = {
           standard_cap: number
         }[]
       }
+      get_clinic_doctor_access: { Args: { _doctor_id: string }; Returns: Json }
       get_doctor_feature_access: {
         Args: { _doctor_id: string }
         Returns: {
@@ -3555,6 +3654,27 @@ export type Database = {
           feature_key: string
         }[]
       }
+      get_public_practitioners: {
+        Args: { _doctor_id: string }
+        Returns: {
+          bio: string
+          bookable: boolean
+          consultation_fee: number
+          display_name: string
+          experience_years: number
+          id: string
+          is_owner: boolean
+          is_primary: boolean
+          online_booking: boolean
+          photo_url: string
+          qualifications: string
+          registration_number: string
+          slot_duration_minutes: number
+          slug: string
+          sort_order: number
+          specialization: string
+        }[]
+      }
       get_public_queue: {
         Args: { _doctor_id: string; _practitioner_id?: string }
         Returns: Json
@@ -3597,6 +3717,9 @@ export type Database = {
         Returns: Json
       }
       is_active_team_member: { Args: { _user_id: string }; Returns: boolean }
+      is_doctor_login: { Args: { _doctor_id: string }; Returns: boolean }
+      log_clinical_access: { Args: { _patient_id: string }; Returns: undefined }
+      my_practitioner_id: { Args: { _doctor_id: string }; Returns: string }
       patient_import_cap: { Args: { _doctor_id: string }; Returns: number }
       patient_import_clinic: { Args: never; Returns: string }
       patient_import_eligible: {
@@ -3604,11 +3727,25 @@ export type Database = {
         Returns: boolean
       }
       patient_import_row_error: { Args: { _r: Json }; Returns: string }
+      phone_owns_clinic: { Args: { _digits: string }; Returns: boolean }
       platform_int_setting: {
         Args: { _default: number; _key: string }
         Returns: number
       }
       practitioner_filled_by_trigger: { Args: never; Returns: string }
+      practitioner_manager_clinic: { Args: never; Returns: string }
+      practitioner_seat_rank: {
+        Args: { _practitioner_id: string }
+        Returns: number
+      }
+      practitioner_within_seats: {
+        Args: { _practitioner_id: string }
+        Returns: boolean
+      }
+      prescription_row_visible: {
+        Args: { _prescription_id: string }
+        Returns: boolean
+      }
       primary_practitioner_id: { Args: { _doctor_id: string }; Returns: string }
       public_booking_price: {
         Args: {
@@ -3640,6 +3777,10 @@ export type Database = {
           _practitioner_id: string
           _reason: string
         }
+        Returns: Json
+      }
+      reassign_practitioner_appointments: {
+        Args: { _from: string; _from_date?: string; _to: string }
         Returns: Json
       }
       rebase_custom_plan: { Args: { _doctor_id: string }; Returns: undefined }
@@ -3746,6 +3887,10 @@ export type Database = {
       }
       send_plan_expiry_notifications: { Args: never; Returns: undefined }
       send_trial_warning_notifications: { Args: never; Returns: undefined }
+      set_clinic_doctor_seats: {
+        Args: { _doctor_id: string; _extra: number; _reason: string }
+        Returns: Json
+      }
       set_custom_plan_appointments_limit: {
         Args: { _doctor_id: string; _limit: number }
         Returns: undefined
@@ -3759,6 +3904,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_practitioner_status: {
+        Args: { _id: string; _is_active: boolean; _is_bookable: boolean }
+        Returns: Json
+      }
+      set_primary_practitioner: { Args: { _id: string }; Returns: Json }
       slot_lock_key: {
         Args: {
           _date: string
@@ -3771,6 +3921,10 @@ export type Database = {
       staff_doctor_id: { Args: { _user_id: string }; Returns: string }
       staff_has_permission: {
         Args: { _permission: string; _user_id: string }
+        Returns: boolean
+      }
+      storage_patient_object_visible: {
+        Args: { _name: string }
         Returns: boolean
       }
       submit_plan_request: {
@@ -3804,6 +3958,7 @@ export type Database = {
         Args: { _doctor_id: string; _price: number; _valid_until: string }
         Returns: undefined
       }
+      upsert_practitioner: { Args: { _data: Json; _id: string }; Returns: Json }
       withdraw_plan_request: {
         Args: { _request_id: string }
         Returns: undefined

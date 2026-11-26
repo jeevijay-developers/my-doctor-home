@@ -353,3 +353,56 @@ describe("handleSeoRequest - static pages", () => {
     expect(await res.text()).toBe(TEMPLATE);
   });
 });
+
+describe("handleSeoRequest - practitioner", () => {
+  const profile = { id: "d1", slug: "dr-a", full_name: "A Sharma", specialization: "ENT", city: "Kota", plan_status: "active" };
+  const practitioners = [
+    { id: "p1", slug: "a-sharma", display_name: "A Sharma", specialization: "ENT", is_primary: true },
+    { id: "p2", slug: "ravi-kumar", display_name: "Ravi Kumar", specialization: "Orthodontist", qualifications: "BDS", bio: "Ravi treats braces.", is_primary: false },
+  ];
+
+  it("renders head, JSON-LD and body for a doctor", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/profiles": () => [profile], "/get_public_practitioners": () => practitioners });
+    const res = await handler(req("kind=practitioner&slug=dr-a&doctor=ravi-kumar"), env, f);
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain('href="https://doctylia.com/dr/dr-a/doctor/ravi-kumar"');
+    expect(html).toContain("Dr. Ravi Kumar");
+    expect(html).toContain('"worksFor":{"@id":"https://doctylia.com/dr/dr-a#clinic"}');
+    expect(html).toContain("Ravi treats braces.");
+    expect(res.headers.get("Cache-Control")).toContain("s-maxage=3600");
+  });
+
+  it("301s an unknown doctor to the clinic page", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/profiles": () => [profile], "/get_public_practitioners": () => practitioners });
+    const res = await handler(req("kind=practitioner&slug=dr-a&doctor=nobody"), env, f);
+    expect(res.status).toBe(301);
+    expect(res.headers.get("Location")).toBe("https://doctylia.com/dr/dr-a");
+  });
+
+  it("301s to the clinic page for a single-doctor clinic", async () => {
+    const handler = await fresh();
+    const f = fakeFetch({ "/profiles": () => [profile], "/get_public_practitioners": () => [practitioners[0]] });
+    const res = await handler(req("kind=practitioner&slug=dr-a&doctor=a-sharma"), env, f);
+    expect(res.status).toBe(301);
+  });
+
+  it("404s an unknown clinic", async () => {
+    const handler = await fresh();
+    const res = await handler(req("kind=practitioner&slug=nobody&doctor=x"), env, fakeFetch({}));
+    expect(res.status).toBe(404);
+  });
+
+  it("clinic page lists employees when there are 2+ doctors, and is unchanged when the fetch fails", async () => {
+    const handler = await fresh();
+    const multi = await (await handler(req("kind=doctor&slug=dr-a"), env, fakeFetch({ "/profiles": () => [profile], "/get_public_practitioners": () => practitioners }))).text();
+    expect(multi).toContain('"MedicalClinic"');
+    expect(multi).toContain("/dr/dr-a/doctor/ravi-kumar#physician");
+    const handler2 = await fresh();
+    const failed = await (await handler2(req("kind=doctor&slug=dr-a"), env, fakeFetch({ "/profiles": () => [profile], "/get_public_practitioners": () => new Response("x", { status: 500 }) }))).text();
+    expect(failed).toContain('"@type":["Physician","MedicalBusiness"]');
+    expect(failed).not.toContain("MedicalClinic");
+  });
+});

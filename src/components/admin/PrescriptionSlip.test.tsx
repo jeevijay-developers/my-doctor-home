@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import PrescriptionSlip, { type PrescriptionSlipData } from "./PrescriptionSlip";
+import { slipDoctor } from "@/lib/practitioners/slipDoctor";
 
 const profile = {
   full_name: "Test Doctor", specialization: "Dermatologist", qualifications: "MBBS, MD",
@@ -40,5 +41,18 @@ describe("PrescriptionSlip", () => {
   it("renders nothing when prescription is null", () => {
     const { container } = render(<PrescriptionSlip open onClose={() => {}} profile={profile} prescription={null} onDownload={() => {}} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("names the prescribing doctor of a multi-doctor clinic, keeping the clinic details", () => {
+    const author = {
+      user_id: "u-2", display_name: "Vikram Mehta", qualifications: "MBBS, DVD", specialization: null,
+      registration_number: "MMC-42", signature_url: null,
+    };
+    render(<PrescriptionSlip open onClose={() => {}} profile={slipDoctor(profile, author)} prescription={prescription} onDownload={() => {}} />);
+    expect(screen.getAllByText("Dr. Vikram Mehta").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Reg. No.: MMC-42").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/MBBS, DVD - Dermatologist/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/Dr\. Test Doctor/)).not.toBeInTheDocument();
+    expect(screen.getByText("Test Clinic")).toBeInTheDocument();
   });
 });
