@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import QueueDisplay from "./QueueDisplay";
 import { createTableMock } from "@/test/tableMock";
@@ -17,9 +17,9 @@ const flush = async () => {
   });
 };
 
-const renderPage = () =>
+const renderPage = (url = "/dr/asha/queue") =>
   render(
-    <MemoryRouter initialEntries={["/dr/asha/queue"]}>
+    <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/dr/:slug/queue" element={<QueueDisplay />} />
       </Routes>
@@ -147,5 +147,102 @@ describe("QueueDisplay", () => {
     });
     await flush();
     expect(screen.getByText("#8")).toBeInTheDocument();
+  });
+
+  describe("multi-doctor clinics", () => {
+    const DR_A = { id: "p1", display_name: "Asha Rao", slug: "dr-a", specialization: "Cardiologist", is_primary: true, bookable: true };
+    const DR_B = { id: "p2", display_name: "Meera Shah", slug: "dr-b", specialization: "Dermatologist", is_primary: false, bookable: true };
+    const queueCalls = () => mock.current.rpc.mock.calls.filter((c: any[]) => c[0] === "get_public_queue").map((c: any[]) => c[1]);
+
+    it("a single-doctor clinic asks for its queue exactly as before (no practitioner key)", async () => {
+      mock.current.rpcs.get_public_practitioners = () => [DR_A];
+      renderPage();
+      await flush();
+      expect(screen.getByText("#7")).toBeInTheDocument();
+      expect(queueCalls().length).toBeGreaterThan(0);
+      for (const a of queueCalls()) expect(a).toEqual({ _doctor_id: "d1" });
+    });
+
+    it("?doctor=<slug> shows that doctor's queue and name", async () => {
+      mock.current.rpcs.get_public_practitioners = () => [DR_A, DR_B];
+      mock.current.rpcs.get_public_queue = (args: any) => (args._practitioner_id === "p2" ? queue({ now_serving: 3, next_up: [4] }) : queue());
+      renderPage("/dr/asha/queue?doctor=dr-b");
+      await flush();
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Dr. Meera Shah");
+      expect(screen.getByText("#3")).toBeInTheDocument();
+      expect(queueCalls().length).toBeGreaterThan(0);
+      for (const a of queueCalls()) expect(a).toEqual({ _doctor_id: "d1", _practitioner_id: "p2" });
+    });
+
+    it("without ?doctor shows one panel per doctor, each polling its own queue", async () => {
+      mock.current.rpcs.get_public_practitioners = () => [DR_A, DR_B];
+      mock.current.rpcs.get_public_queue = (args: any) =>
+        args._practitioner_id === "p2" ? queue({ now_serving: 3, now_serving_name: "Ravi K.", next_up: [4] }) : queue({ now_serving: 7, next_up: [8] });
+      renderPage();
+      await flush();
+      const a = screen.getByRole("region", { name: "Dr. Asha Rao" });
+      const b = screen.getByRole("region", { name: "Dr. Meera Shah" });
+      expect(within(a).getByText("#7")).toBeInTheDocument();
+      expect(within(a).getByText("#8")).toBeInTheDocument();
+      expect(within(b).getByText("#3")).toBeInTheDocument();
+      expect(within(b).getByText("Ravi K.")).toBeInTheDocument();
+      expect(within(b).getByText("#4")).toBeInTheDocument();
+      expect(queueCalls()).toEqual(expect.arrayContaining([
+        { _doctor_id: "d1", _practitioner_id: "p1" },
+        { _doctor_id: "d1", _practitioner_id: "p2" },
+      ]));
+      const before = queueCalls().length;
+      await act(async () => {
+        vi.advanceTimersByTime(5100);
+      });
+      await flush();
+      expect(queueCalls().length).toBe(before + 2);
+    });
+
+    it("starts polling the queue at once, without waiting for the doctor list (no practitioner key)", async () => {
+      mock.current.rpcs.get_public_practitioners = () => new Promise(() => {});
+      renderPage();
+      await flush();
+      expect(screen.getByText("#7")).toBeInTheDocument();
+      expect(queueCalls()[0]).toEqual({ _doctor_id: "d1" });
+    });
+
+    it("switches to a panel per doctor when the list arrives later", async () => {
+      let release: (v: unknown) => void = () => {};
+      mock.current.rpcs.get_public_practitioners = () => new Promise((r) => { release = r; });
+      renderPage();
+      await flush();
+      expect(screen.getByText("#7")).toBeInTheDocument();
+      await act(async () => { release({ data: [DR_A, DR_B], error: null }); });
+      await flush();
+      expect(screen.getByRole("region", { name: "Dr. Asha Rao" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Dr. Meera Shah" })).toBeInTheDocument();
+    });
+
+    it("retries a failed doctor list once after a second", async () => {
+      const err = vi.spyOn(console, "error").mockImplementation(() => {});
+      let n = 0;
+      mock.current.rpcs.get_public_practitioners = () => (++n === 1 ? { data: null, error: { message: "boom" } } : { data: [DR_A, DR_B], error: null });
+      renderPage();
+      await flush();
+      expect(screen.queryByRole("region", { name: "Dr. Asha Rao" })).not.toBeInTheDocument();
+      await act(async () => { vi.advanceTimersByTime(1100); });
+      await flush();
+      expect(screen.getByRole("region", { name: "Dr. Asha Rao" })).toBeInTheDocument();
+      expect(n).toBe(2);
+      err.mockRestore();
+    });
+
+    it("logs and keeps the single queue when the list fails twice", async () => {
+      const err = vi.spyOn(console, "error").mockImplementation(() => {});
+      mock.current.rpcs.get_public_practitioners = () => ({ data: null, error: { message: "boom" } });
+      renderPage();
+      await flush();
+      await act(async () => { vi.advanceTimersByTime(1100); });
+      await flush();
+      expect(screen.getByText("#7")).toBeInTheDocument();
+      expect(err).toHaveBeenCalled();
+      err.mockRestore();
+    });
   });
 });

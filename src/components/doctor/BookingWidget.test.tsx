@@ -449,4 +449,14 @@ describe("BookingWidget (pay at clinic)", () => {
     expect(screen.getByRole("button", { name: /Add to calendar/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Download Appointment Slip/ })).toBeInTheDocument();
   });
+
+  it("a single-doctor clinic has no doctor step and sends no practitioner_id (the database fills it)", async () => {
+    render(<BookingWidget />);
+    expect(screen.queryByRole("radiogroup", { name: "Doctor" })).not.toBeInTheDocument();
+    await gotoDetails();
+    fillDetails();
+    book();
+    await waitFor(() => expect(inserts()).toHaveLength(1));
+    expect(inserts()[0].ops.find((o: any[]) => o[0] === "insert")[1]).not.toHaveProperty("practitioner_id");
+  });
 });

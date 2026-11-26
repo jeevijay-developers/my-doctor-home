@@ -17,6 +17,31 @@ export interface DoctorSeoInput {
   settings?: any;
   services?: any[];
   reviews?: any[];
+  /** Active doctors of a multi-doctor clinic (get_public_practitioners rows). Fewer than 2 changes nothing. */
+  practitioners?: PractitionerSeo[];
+}
+
+/** The public columns of get_public_practitioners that SEO uses. */
+export interface PractitionerSeo {
+  slug: string;
+  display_name: string;
+  specialization?: string | null;
+  qualifications?: string | null;
+  experience_years?: number | null;
+  bio?: string | null;
+  photo_url?: string | null;
+  registration_number?: string | null;
+  is_active?: boolean;
+  is_primary?: boolean;
+}
+
+/** Active doctors with a slug, in the order given. */
+export function activePractitioners(list?: PractitionerSeo[] | null): PractitionerSeo[] {
+  return (list ?? []).filter((p) => p && p.slug && p.is_active !== false);
+}
+
+function practitionerPath(clinicSlug: string, doctorSlug: string): string {
+  return `/dr/${clinicSlug}/doctor/${doctorSlug}`;
 }
 
 /** "pooja sharma" / "ANITA SHARMA" -> "Pooja Sharma". Mixed-case input is assumed deliberate and left alone. */
@@ -151,6 +176,14 @@ export function buildDoctorJsonLd(input: DoctorSeoInput) {
       : {}),
   };
 
+  // Multi-doctor clinic: the main node describes the clinic, the doctors hang off it as employees.
+  const team = activePractitioners(input.practitioners);
+  if (team.length >= 2 && profile.slug) {
+    physician["@type"] = ["MedicalClinic", "MedicalBusiness"];
+    physician["@id"] = `${canonical}#clinic`;
+    physician.employee = team.map((p) => ({ "@id": `${origin}${practitionerPath(profile.slug, p.slug)}#physician` }));
+  }
+
   const hubs = doctorHubPaths(profile);
   const crumbs: Array<{ name: string; item: string }> = [{ name: "Doctylia", item: `${origin}/` }];
   if (hubs.cityPath) {
@@ -167,6 +200,68 @@ export function buildDoctorJsonLd(input: DoctorSeoInput) {
       {
         "@type": "BreadcrumbList",
         itemListElement: crumbs.map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: c.item })),
+      },
+    ],
+  };
+}
+
+export interface PractitionerSeoInput {
+  origin: string;
+  profile: any;
+  practitioner: PractitionerSeo;
+  settings?: any;
+}
+
+export function buildPractitionerMeta({ origin, profile, practitioner }: PractitionerSeoInput) {
+  const name = formatDoctorName(practitioner?.display_name ?? "");
+  const specialization = practitioner?.specialization?.trim() || "";
+  const city = profile?.city ? ` in ${profile.city}` : "";
+  const title = name ? `${name}${specialization ? ` - ${specialization}` : ""}${city} | Doctylia` : "";
+
+  let description = practitioner?.bio?.trim().slice(0, 160) || "";
+  if (!description && name) {
+    const clinic = doctorDisplayName(profile);
+    const exp = practitioner.experience_years ? ` (${practitioner.experience_years}+ years experience)` : "";
+    description = `Book an appointment with ${name}${specialization ? `, ${specialization}` : ""}${city}${exp}${clinic ? ` at ${clinic}'s clinic` : ""}. Timings, fees and online booking on Doctylia.`;
+  }
+
+  return {
+    title,
+    description,
+    canonical: profile?.slug && practitioner?.slug ? `${origin}${practitionerPath(profile.slug, practitioner.slug)}` : "",
+    image: (practitioner?.photo_url || "") as string,
+  };
+}
+
+export function buildPractitionerJsonLd(input: PractitionerSeoInput) {
+  const { origin, profile, practitioner } = input;
+  const name = formatDoctorName(practitioner?.display_name ?? "");
+  if (!profile?.slug || !practitioner?.slug || !name) return null;
+
+  const meta = buildPractitionerMeta(input);
+  const clinicUrl = `${origin}/dr/${profile.slug}`;
+  const physician: Record<string, unknown> = {
+    "@type": "Physician",
+    "@id": `${meta.canonical}#physician`,
+    name,
+    url: meta.canonical,
+    description: meta.description,
+    ...(practitioner.specialization ? { medicalSpecialty: practitioner.specialization } : {}),
+    ...(meta.image ? { image: meta.image } : {}),
+    worksFor: { "@id": `${clinicUrl}#clinic` },
+  };
+
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      physician,
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { name: "Doctylia", item: `${origin}/` },
+          { name: doctorDisplayName(profile) || "Clinic", item: clinicUrl },
+          { name, item: meta.canonical },
+        ].map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: c.item })),
       },
     ],
   };

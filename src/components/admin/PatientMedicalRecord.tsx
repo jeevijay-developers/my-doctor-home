@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { usePractitioners } from "@/hooks/usePractitioners";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { FEATURE_KEYS } from "@/lib/features";
 import { ArrowLeft, Mail, Phone, Cake, VenetianMask, CalendarClock, Activity } from "lucide-react";
@@ -37,7 +38,8 @@ const BackToOverview = ({ onClick }: { onClick: () => void }) => (
 const PatientMedicalRecord = () => {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
-  const { profile } = useProfile();
+  const { profile, role } = useProfile();
+  const { isMulti } = usePractitioners();
   const { hasFeature, loading: planLoading } = useFeatureAccess();
   const isPremium = hasFeature(FEATURE_KEYS.PATIENT_RECORDS);
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -56,6 +58,39 @@ const PatientMedicalRecord = () => {
     };
     load();
   }, [profile, patientId]);
+
+  // A doctor login opening a patient's record in a multi-doctor clinic is written to the
+  // clinical access log, once per patient opened (the database ignores it in shared mode).
+  const loggedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isMulti || role !== "doctor" || !patientId || loggedFor.current === patientId) return;
+    loggedFor.current = patientId;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    // supabase-js answers { error } rather than throwing. A failed write is retried once after a
+    // moment; if that fails too the guard is cleared so the next open of this record tries again.
+    const send = async (retry: boolean) => {
+      let failure: unknown = null;
+      try {
+        const { error } = await supabase.rpc("log_clinical_access", { _patient_id: patientId });
+        failure = error;
+      } catch (e) {
+        failure = e;
+      }
+      if (!failure) return;
+      console.error("Could not record clinical access:", failure);
+      if (cancelled) { if (loggedFor.current === patientId) loggedFor.current = null; return; }
+      if (retry) timer = setTimeout(() => { void send(false); }, 2000);
+      else if (loggedFor.current === patientId) loggedFor.current = null;
+    };
+    void send(true);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      // Unmounted before it was confirmed (e.g. a retry still pending): let the next open try again.
+      if (timer && loggedFor.current === patientId) loggedFor.current = null;
+    };
+  }, [isMulti, role, patientId]);
 
   if (planLoading) {
     return (

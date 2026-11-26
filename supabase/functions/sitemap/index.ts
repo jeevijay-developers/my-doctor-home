@@ -14,11 +14,14 @@
 // is eligible (listed doctor, not hub_hidden); /health-articles/:category needs
 // >= DIRECTORY_MIN_INDEXABLE eligible posts. Pagination URLs are not listed.
 //
+// Doctor sub-pages: /dr/:slug/doctor/:doctorSlug only for clinics with >= 2 active practitioners.
+//
 // Marketing URLs have no content timestamp, so they omit <lastmod>.
 // Doctor and post URLs include <lastmod> from updated_at.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { buildCorsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
 import { DIRECTORY_MIN_INDEXABLE, directorySlug } from "../_shared/directorySlug.ts";
+import { practitionerSitemapEntries, type SitemapPractitioner } from "../_shared/practitionerSitemap.ts";
 
 const SITE = "https://doctylia.com";
 const PAGE_SIZE = 1000;
@@ -101,6 +104,7 @@ Deno.serve(async (req) => {
     const doctors = await fetchDoctors(admin);
     const doctorById = new Map(doctors.map((doctor) => [doctor.id, doctor]));
     const posts = await fetchPosts(admin);
+    const practitioners = await fetchPractitioners(admin);
 
     const urls = [
       urlEntry("/", "weekly", "1.0"),
@@ -120,6 +124,10 @@ Deno.serve(async (req) => {
         "0.8",
         lastMod(doctor.updated_at),
       ));
+    }
+
+    for (const entry of practitionerSitemapEntries(doctors, practitioners)) {
+      urls.push(urlEntry(entry.path, "weekly", "0.7", lastMod(entry.updated_at)));
     }
 
     const doctorsWithPosts = new Set<string>();
@@ -267,6 +275,24 @@ async function fetchPosts(admin: SupabaseClient): Promise<PostRow[]> {
     }
     if (error) throw new Error(error.message);
     const batch = (data ?? []) as unknown as PostRow[];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function fetchPractitioners(admin: SupabaseClient): Promise<SitemapPractitioner[]> {
+  const rows: SitemapPractitioner[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await admin
+      .from("practitioners")
+      .select("doctor_id, slug, is_active, updated_at")
+      .eq("is_active", true)
+      .order("id", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    // Before the practitioners migration is applied the sitemap simply has no doctor sub-pages.
+    if (error) return [];
+    const batch = (data ?? []) as unknown as SitemapPractitioner[];
     rows.push(...batch);
     if (batch.length < PAGE_SIZE) break;
   }

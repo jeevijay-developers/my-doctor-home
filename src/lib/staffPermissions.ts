@@ -5,6 +5,7 @@ export type PermissionKey =
   | "dashboard.view"
   | "website.view" | "website.edit" | "website.settings"
   | "appointments.view" | "appointments.create" | "appointments.edit" | "appointments.cancel"
+  | "appointments.all_doctors"
   | "patients.view" | "patients.add" | "patients.edit" | "patients.medical_records"
   | "prescriptions.view" | "prescriptions.create" | "prescriptions.edit"
   | "reviews.view" | "reviews.manage"
@@ -12,7 +13,8 @@ export type PermissionKey =
   | "billing.view" | "billing.manage"
   | "profile.view" | "profile.edit"
   | "staff.view" | "staff.create" | "staff.edit" | "staff.disable"
-  | "inquiries.view" | "inquiries.manage";
+  | "inquiries.view" | "inquiries.manage"
+  | "practitioners.view" | "practitioners.manage";
 
 export type Permissions = Partial<Record<PermissionKey, boolean>>;
 
@@ -36,6 +38,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     { key: "appointments.create", label: "Create Appointment" },
     { key: "appointments.edit", label: "Edit Appointment" },
     { key: "appointments.cancel", label: "Cancel Appointment" },
+    { key: "appointments.all_doctors", label: "See all doctors' appointments & queues" },
   ]},
   { key: "patients", label: "Patients", permissions: [
     { key: "patients.view", label: "View Patients" },
@@ -76,7 +79,22 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     { key: "inquiries.view", label: "View Inquiries" },
     { key: "inquiries.manage", label: "Manage Inquiries" },
   ]},
+  { key: "practitioners", label: "Doctors", permissions: [
+    { key: "practitioners.view", label: "View doctors" },
+    { key: "practitioners.manage", label: "Add & manage doctors" },
+  ]},
 ];
+
+// Starting points when adding a login: a doctor who sees patients, or front-desk reception.
+// Reception never gets clinical access (prescriptions, medical records).
+export const PERMISSION_PRESETS: Record<"doctor" | "reception", PermissionKey[]> = {
+  doctor: ["dashboard.view", "appointments.view", "appointments.edit",
+           "patients.view", "patients.add", "patients.edit", "patients.medical_records",
+           "prescriptions.view", "prescriptions.create", "prescriptions.edit", "profile.view"],
+  reception: ["dashboard.view", "appointments.view", "appointments.create", "appointments.edit", "appointments.cancel",
+              "appointments.all_doctors", "patients.view", "patients.add", "patients.edit",
+              "billing.view", "billing.manage", "inquiries.view", "inquiries.manage", "practitioners.view"],
+};
 
 // Route (pathname prefix) → permission required to enter it. Checked at both
 // the sidebar (hide) and route (block + redirect) level. "/admin/settings"
@@ -96,6 +114,7 @@ export const ROUTE_PERMISSIONS: { prefix: string; permission: PermissionKey }[] 
   { prefix: "/admin/settings", permission: "profile.view" },
   { prefix: "/admin/staff", permission: "staff.view" },
   { prefix: "/admin/inquiries", permission: "inquiries.view" },
+  { prefix: "/admin/doctors", permission: "practitioners.view" },
 ];
 
 export const permissionForPath = (pathname: string): PermissionKey | null => {

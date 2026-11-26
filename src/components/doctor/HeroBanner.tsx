@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion } from "framer-motion";
-import { Clock3, MapPin, Phone, Star } from "lucide-react";
+import { ArrowRight, Clock3, MapPin, Phone, Star, Stethoscope } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { HERO_IMAGE_WIDTH } from "@/lib/seo/imageUrl";
 import { useDoctorData } from "@/contexts/DoctorContext";
@@ -12,6 +12,8 @@ import { heroPhotoBadge } from "@/lib/doctorSite/heroSettings";
 import { todaysHours } from "@/lib/doctorSite/clinicStatus";
 import { dsCn as cn } from "./ui/dsCn";
 import QuickBookCard from "./hero/QuickBookCard";
+import DsButton from "./ui/DsButton";
+import { dsScrollTo } from "./motion/scroll";
 import { useNow } from "./ui/useNow";
 import { useNextAvailable } from "./hero/useNextAvailable";
 import { useSplitReveal } from "./motion/useSplitReveal";
@@ -25,7 +27,7 @@ const rise = (delay: number) => ({
 });
 
 const HeroBanner = () => {
-  const { profile, reviews, settings, workingHours } = useDoctorData();
+  const { profile, reviews, settings, workingHours, isMultiDoctor, bookablePractitioners } = useDoctorData();
   const headingRef = useRef<HTMLHeadingElement>(null);
   useSplitReveal(headingRef, { immediate: true });
 
@@ -40,7 +42,8 @@ const HeroBanner = () => {
   const phone = clinicPhone(profile);
   const directions = (profile?.google_maps_url || "").trim() || getClinicMapsUrl(profile);
   const fee = Number(profile?.consultation_fee) > 0 ? Number(profile.consultation_fee) : null;
-  const nextSlot = useNextAvailable(profile?.id, workingHours ?? [], settings?.slot_duration_minutes, settings?.booking_advance_days);
+  // Several doctors: no single "next free slot" to offer (no lookup at all); the patient picks a doctor first.
+  const nextSlot = useNextAvailable(isMultiDoctor ? undefined : profile?.id, workingHours ?? [], settings?.slot_duration_minutes, settings?.booking_advance_days);
 
   // Platform-default copy is filler every doctor gets; show the doctor's own
   // headline if they wrote one, otherwise their name (the thing a patient checks first).
@@ -116,13 +119,44 @@ const HeroBanner = () => {
                 {line1 && line2 && " "}
                 {line2 && <em className="font-medium italic">{line2}</em>}
               </>
+            ) : isMultiDoctor ? (
+              (profile?.clinic_name ?? "").trim() || name || "Book your visit"
             ) : (
               name || "Book your visit"
             )}
           </h1>
 
           <motion.div {...rise(0.12)} className="order-3 mt-6 max-w-[34rem] md:order-5 md:mt-8">
-            <QuickBookCard state={nextSlot} fee={fee} />
+            {isMultiDoctor ? (
+              <div className="ds-glass relative overflow-hidden rounded-ds-md p-5 !shadow-ds-2 sm:p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="ds-eyebrow">Book a visit</p>
+                    <p className="mt-1.5 font-ds-display text-[1.75rem] font-medium leading-tight text-ds-ink sm:text-[2rem]">
+                      {(bookablePractitioners ?? []).length} doctors at this clinic
+                    </p>
+                    <p className="mt-1 text-ds-small text-ds-ink-2">Pick who you would like to see, then choose a time.</p>
+                  </div>
+                  <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ds-accent-soft text-ds-accent-ink">
+                    <Stethoscope className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                </div>
+                <DsButton
+                  href="#doctors"
+                  size="lg"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    dsScrollTo("doctors");
+                  }}
+                  className="mt-5 w-full sm:w-auto"
+                >
+                  Choose your doctor
+                  <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
+                </DsButton>
+              </div>
+            ) : (
+              <QuickBookCard state={nextSlot} fee={fee} />
+            )}
           </motion.div>
 
           {description && (

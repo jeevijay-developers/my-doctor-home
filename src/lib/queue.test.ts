@@ -10,8 +10,10 @@ import {
   queueErrorMessage,
   queueStateOf,
   splitQueue,
+  splitQueueByPractitioner,
   type QueueAppointment,
 } from "./queue";
+import { practitionerErrorMessage } from "./practitioners/errors";
 
 const appt = (over: Partial<QueueAppointment>): QueueAppointment => ({
   id: "a",
@@ -134,9 +136,49 @@ describe("helpers", () => {
     expect(queueErrorMessage(undefined)).toMatch(/try again/i);
   });
 
+  it("explains FORBIDDEN as missing permission or someone else's queue", () => {
+    expect(queueErrorMessage("FORBIDDEN")).toMatch(/permission/i);
+    expect(queueErrorMessage("FORBIDDEN")).toMatch(/own queue/i);
+  });
+
+  it("uses the shared practitioner text for doctor-related queue errors", () => {
+    for (const code of ["PRACTITIONER_REQUIRED", "PRACTITIONER_NOT_FOUND", "PRACTITIONER_NOT_BOOKABLE",
+      "PRACTITIONER_IN_SERVICE", "NOT_TRANSFERABLE", "SLOT_TAKEN"]) {
+      expect(queueErrorMessage(code)).toBe(practitionerErrorMessage(code));
+    }
+  });
+
   it("computes the clinic's date in IST regardless of the machine zone", () => {
     // 20:00 UTC on 27 Oct is 01:30 IST on 28 Oct.
     expect(clinicToday(new Date("2026-10-27T20:00:00Z"))).toBe("2026-10-28");
     expect(clinicToday(new Date("2026-10-28T10:00:00Z"))).toBe("2026-10-28");
+  });
+});
+
+describe("splitQueueByPractitioner", () => {
+  it("groups rows per doctor with one person in the room each", () => {
+    const rows = [
+      appt({ id: "1", practitioner_id: "a", serving_started_at: "2026-10-28T15:00:00Z" }),
+      appt({ id: "2", practitioner_id: "a", sort_time: "21:05:00" }),
+      appt({ id: "3", practitioner_id: "b", serving_started_at: "2026-10-28T15:05:00Z" }),
+      appt({ id: "4", practitioner_id: "b", sort_time: "21:10:00" }),
+      appt({ id: "5", practitioner_id: "b", sort_time: "21:02:00" }),
+      appt({ id: "6", practitioner_id: "b", status: "completed" }),
+    ];
+    const byDoctor = splitQueueByPractitioner(rows);
+    expect([...byDoctor.keys()].sort()).toEqual(["a", "b"]);
+    expect(byDoctor.get("a")!.serving?.id).toBe("1");
+    expect(byDoctor.get("a")!.waiting.map((r) => r.id)).toEqual(["2"]);
+    expect(byDoctor.get("b")!.serving?.id).toBe("3");
+    expect(byDoctor.get("b")!.waiting.map((r) => r.id)).toEqual(["5", "4"]);
+    expect(byDoctor.get("b")!.done.map((r) => r.id)).toEqual(["6"]);
+  });
+
+  it("applies the same time window as splitQueue", () => {
+    const rows = [
+      appt({ id: "1", practitioner_id: "a", sort_time: "09:00:00" }),
+      appt({ id: "2", practitioner_id: "a", sort_time: "22:00:00" }),
+    ];
+    expect(splitQueueByPractitioner(rows, "08:00", "12:00").get("a")!.waiting.map((r) => r.id)).toEqual(["1"]);
   });
 });

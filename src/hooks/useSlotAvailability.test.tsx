@@ -27,6 +27,25 @@ describe("useSlotAvailability", () => {
     expect(result.current.bookedIn("nothing")).toBe(0);
   });
 
+  it("adds _practitioner_id only when a practitioner is given", async () => {
+    m.rpc.mockResolvedValue({ data: [] });
+    renderHook(() => useSlotAvailability("doc-1", "2026-11-01", "clinic", "pr-2"));
+    await waitFor(() => expect(m.rpc).toHaveBeenCalled());
+    expect(m.rpc).toHaveBeenCalledWith("get_slot_counts", {
+      _doctor_id: "doc-1", _date: "2026-11-01", _appointment_type: "clinic", _practitioner_id: "pr-2",
+    });
+    // The realtime filter stays clinic-wide.
+    const ch = m.channel.mock.results[0].value;
+    expect(ch.on.mock.calls[0][1]).toMatchObject({ filter: "doctor_id=eq.doc-1" });
+  });
+
+  it("omits _practitioner_id when it is null or undefined", async () => {
+    m.rpc.mockResolvedValue({ data: [] });
+    renderHook(() => useSlotAvailability("doc-1", "2026-11-01", "clinic", null));
+    await waitFor(() => expect(m.rpc).toHaveBeenCalled());
+    expect(Object.keys(m.rpc.mock.calls[0][1])).not.toContain("_practitioner_id");
+  });
+
   it("defaults appointment type to clinic", async () => {
     m.rpc.mockResolvedValue({ data: [] });
     renderHook(() => useSlotAvailability("doc-1", "2026-11-01"));
@@ -79,5 +98,40 @@ describe("useSlotAvailability", () => {
     const { result } = renderHook(() => useSlotAvailability("doc-1", "2026-11-01"));
     await waitFor(() => expect(m.rpc).toHaveBeenCalled());
     expect(result.current.counts).toEqual({});
+  });
+});
+
+describe("useSlotAvailability stale responses", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const ch: any = { on: vi.fn(() => ch), subscribe: vi.fn(() => ch) };
+    m.channel.mockReturnValue(ch);
+  });
+
+  it("ignores a slow response for an earlier doctor and clears counts when the key changes", async () => {
+    let resolveSlow: (v: unknown) => void = () => {};
+    m.rpc.mockImplementationOnce(() => new Promise((r) => { resolveSlow = r; }));
+    m.rpc.mockResolvedValue({ data: [{ time_slot: "11:00:00", booked: 1 }] });
+    const { result, rerender } = renderHook(({ p }) => useSlotAvailability("doc-1", "2026-11-01", "clinic", p), {
+      initialProps: { p: "pa" as string },
+    });
+    rerender({ p: "pb" });
+    await waitFor(() => expect(result.current.counts["11:00"]).toBe(1));
+    await act(async () => {
+      resolveSlow({ data: [{ time_slot: "09:00:00", booked: 1 }] });
+    });
+    expect(result.current.counts).toEqual({ "11:00": 1 });
+    expect(result.current.isFull("09:00")).toBe(false);
+  });
+
+  it("resets counts at once when the doctor changes", async () => {
+    m.rpc.mockResolvedValueOnce({ data: [{ time_slot: "09:00:00", booked: 1 }] });
+    const { result, rerender } = renderHook(({ p }) => useSlotAvailability("doc-1", "2026-11-01", "clinic", p), {
+      initialProps: { p: "pa" as string },
+    });
+    await waitFor(() => expect(result.current.counts["09:00"]).toBe(1));
+    m.rpc.mockImplementation(() => new Promise(() => {}));
+    rerender({ p: "pb" });
+    await waitFor(() => expect(result.current.counts).toEqual({}));
   });
 });

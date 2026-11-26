@@ -21,6 +21,7 @@ vi.mock("@/components/doctor/BlogPreview", () => stub("blog"));
 vi.mock("@/components/doctor/ClinicDetails", () => stub("clinic"));
 vi.mock("@/components/doctor/ContactQueryForm", () => stub("query"));
 vi.mock("@/components/doctor/Footer", () => stub("footer"));
+vi.mock("@/components/doctor/DoctorsSection", () => stub("doctors"));
 
 const base = (over: Record<string, unknown> = {}) => ({
   profile: { id: "d1", full_name: "Asha Rao", specialization: "Cardiologist", city: "Pune", slug: "asha", plan_status: "active" },
@@ -137,6 +138,22 @@ describe("DoctorPublicPage", () => {
     const ld = container.querySelector('script[type="application/ld+json"]');
     expect(ld).toBeTruthy();
     expect(ld!.innerHTML).toContain("Asha Rao");
+  });
+
+  it("single-doctor JSON-LD has no employee links", () => {
+    const { container } = renderPage();
+    const ld = container.querySelector('script[type="application/ld+json"]')!;
+    expect(ld.innerHTML).not.toContain("employee");
+  });
+
+  it("multi-doctor JSON-LD makes the main node a clinic with employee links", () => {
+    const doc = (slug: string, name: string) => ({ id: slug, slug, display_name: name, is_primary: false, bookable: true });
+    ctx.value = base({ isMultiDoctor: true, practitioners: [doc("asha-rao", "Asha Rao"), doc("ravi-n", "Ravi N")] });
+    const { container } = renderPage();
+    const ld = JSON.parse(container.querySelector('script[type="application/ld+json"]')!.textContent!);
+    const main = ld["@graph"][0];
+    expect(main["@type"]).toContain("MedicalClinic");
+    expect(main.employee).toHaveLength(2);
   });
 
   it("is wrapped in the doctor-site design scope, with a skip link and one main landmark", () => {

@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import PermissionGate from "@/components/admin/PermissionGate";
 import { ProfileProvider } from "@/hooks/useProfile";
+import { PractitionersProvider } from "@/hooks/usePractitioners";
 
 const DashboardHome = lazy(() => import("@/components/admin/DashboardHome"));
 const MyWebsite = lazy(() => import("@/components/admin/MyWebsite"));
@@ -17,6 +18,7 @@ const PrescriptionsPage = lazy(() => import("@/components/admin/PrescriptionsPag
 const ReviewsManagePage = lazy(() => import("@/components/admin/ReviewsManagePage"));
 const InquiriesPage = lazy(() => import("@/components/admin/InquiriesPage"));
 const StaffManagementPage = lazy(() => import("@/components/admin/StaffManagementPage"));
+const DoctorsPage = lazy(() => import("@/components/admin/doctors/DoctorsPage"));
 const SupportPage = lazy(() => import("@/components/admin/SupportPage"));
 
 const PageFallback = () => (
@@ -31,6 +33,8 @@ const PageFallback = () => (
 // no-op unless the current session is staff).
 const AdminDashboard = () => (
   <ProfileProvider>
+    {/* One shared fetch of the clinic's doctors for every page and the sidebar (see usePractitioners). */}
+    <PractitionersProvider>
     <AdminLayout>
       <Suspense fallback={<PageFallback />}>
         <Routes>
@@ -49,6 +53,7 @@ const AdminDashboard = () => (
           <Route path="reviews" element={<PermissionGate permission="reviews.view"><ReviewsManagePage /></PermissionGate>} />
           <Route path="inquiries" element={<PermissionGate permission="inquiries.view"><InquiriesPage /></PermissionGate>} />
           <Route path="staff" element={<PermissionGate permission="staff.view"><StaffManagementPage /></PermissionGate>} />
+          <Route path="doctors" element={<PermissionGate permission="practitioners.view"><DoctorsPage /></PermissionGate>} />
           {/* Not permission-gated — same as the sidebar's old Contact Support
               trigger before this became a page. There's no staff.* permission
               key for support requests, and RLS already scopes support_tickets
@@ -59,6 +64,7 @@ const AdminDashboard = () => (
         </Routes>
       </Suspense>
     </AdminLayout>
+    </PractitionersProvider>
   </ProfileProvider>
 );
 

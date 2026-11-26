@@ -7,6 +7,7 @@
 // a superset of the target's (no taking over a more privileged colleague).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { beginStaffRequest, json, normalizeStaffPhone } from "../_shared/staffPermissions.ts";
+import { staffMayEditStaffRow } from "../_shared/practitioners.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -58,9 +59,13 @@ Deno.serve(async (req) => {
   const DENIED = "Not authorized to change this staff member's phone number";
   if (!authorityDoctorId) return json(403, { error: DENIED });
 
-  const { data: target } = await admin.from("staff_members").select("id, doctor_id, phone, permissions").eq("id", staffId).maybeSingle();
+  const { data: target } = await admin.from("staff_members").select("id, doctor_id, phone, permissions, role, practitioner_id").eq("id", staffId).maybeSingle();
   if (!target) return json(404, { error: "Staff account not found" });
   if (target.doctor_id !== authorityDoctorId) return json(403, { error: DENIED });
+
+  // Doctor-role / practitioner-linked logins are owner-only: this function runs as the service
+  // role, so the DB trigger that protects those rows does not apply here.
+  if (!staffMayEditStaffRow(callerPermissions === null, target)) return json(403, { error: "OWNER_ONLY" });
 
   // The phone IS the login identity, so changing it is account takeover of that user.
   // A staff (non-doctor) caller may therefore only re-point colleagues whose permissions

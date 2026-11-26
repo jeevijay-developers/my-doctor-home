@@ -3,6 +3,7 @@ import { MessageCircle, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 import {
   buildShareMessage, buildWhatsAppUrl, prescriptionShareUrl, whatsappNumber,
 } from "@/lib/prescriptionShare";
@@ -56,7 +57,8 @@ const PrescriptionShare = ({ prescriptionId, patientName, patientPhone, doctorNa
     const { data, error } = await supabase.rpc("create_prescription_share" as any, { _prescription_id: prescriptionId });
     const token = (data as { token?: string } | null)?.token;
     if (error || !token) {
-      toast.error("Could not create the share link");
+      const raw = error?.message ?? (data as { error?: string } | null)?.error;
+      toast.error(practitionerErrorMessage(raw) ?? "Could not create the share link");
       return null;
     }
     return prescriptionShareUrl(window.location.origin, token);
@@ -82,7 +84,7 @@ const PrescriptionShare = ({ prescriptionId, patientName, patientPhone, doctorNa
 
   const revoke = async () => {
     const { error } = await supabase.rpc("revoke_prescription_share" as any, { _prescription_id: prescriptionId });
-    if (error) { toast.error("Could not revoke the link"); return; }
+    if (error) { toast.error(practitionerErrorMessage(error.message) ?? "Could not revoke the link"); return; }
     toast.success("Link revoked");
     await loadStatus();
   };

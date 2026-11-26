@@ -7,10 +7,20 @@
 import { PUBLIC_PROFILE_COLUMNS } from "../publicProfileColumns";
 import { directorySlug } from "../directory/slug";
 import { buildDoctorBody, buildHubHead, isHubIndexable, type DirectoryDoctor, type DirectoryFacet } from "./directorySeo";
-import { buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName, doctorHubPaths } from "./doctorSeo";
+import {
+  activePractitioners,
+  buildDoctorJsonLd,
+  buildDoctorMeta,
+  buildPractitionerJsonLd,
+  buildPractitionerMeta,
+  doctorDisplayName,
+  doctorHubPaths,
+  formatDoctorName,
+  type PractitionerSeo,
+} from "./doctorSeo";
 import { buildBlogListHead, buildBlogPostHead, blogPostPath, doctorPath, encodePathSegment, UUID_RE } from "./blogSeo";
 import { ARTICLES_BASE, ARTICLES_PAGE_SIZE, articlesPath, buildArticlesHead, isArticlesIndexable, type ArticleFacet, type HubArticle } from "./healthArticlesSeo";
-import { INDEXABLE, NOINDEX, renderPage } from "./injectHead";
+import { escapeHtml, INDEXABLE, NOINDEX, renderPage } from "./injectHead";
 import { HERO_IMAGE_WIDTH, optimizedImageUrl } from "./imageUrl";
 import { buildStaticPageHead } from "./staticPages";
 
@@ -143,14 +153,16 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
   if (profile.plan_status === "cancelled") return notFound(template, origin, path);
 
   const id = enc(profile.id);
-  const [services, reviews, settingsRows] = await Promise.all([
+  const [services, reviews, settingsRows, practitioners] = await Promise.all([
     up.select("services", `select=name,description,price&doctor_id=eq.${id}&active=eq.true&order=sort_order&limit=12`),
     up.select("reviews", `select=rating&doctor_id=eq.${id}&is_visible=eq.true`),
     up.select("website_settings", `select=*&doctor_id=eq.${id}&limit=1`),
+    // Best-effort: if this fails the page renders exactly as it does for a single-doctor clinic.
+    up.rpc("get_public_practitioners", { _doctor_id: profile.id }).catch(() => null) as Promise<PractitionerSeo[] | null>,
   ]);
   const settings = settingsRows?.[0] ?? {};
 
-  const input = { origin, profile, settings, services, reviews };
+  const input = { origin, profile, settings, services, reviews, ...(Array.isArray(practitioners) ? { practitioners } : {}) };
   const meta = buildDoctorMeta(input);
   const name = doctorDisplayName(profile);
   const jsonLd = buildDoctorJsonLd(input);
@@ -186,6 +198,51 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
         services,
         hubs: doctorHubPaths(profile),
       }),
+    }),
+    200,
+    SITE_CACHE,
+  );
+}
+
+async function practitionerPage(up: Upstream, template: string, origin: string, slug: string, doctorSlug: string): Promise<Response> {
+  const path = `${doctorPath(slug)}/doctor/${encodePathSegment(doctorSlug)}`;
+  const profiles = await up.select("profiles", `select=${PUBLIC_PROFILE_COLUMNS}&slug=eq.${enc(slug)}&onboarding_completed=eq.true&limit=1`);
+  const profile = profiles?.[0];
+  if (!profile || profile.plan_status === "cancelled") return notFound(template, origin, path);
+
+  const team = activePractitioners(await up.rpc("get_public_practitioners", { _doctor_id: profile.id }));
+  const practitioner = team.find((p) => p.slug === doctorSlug);
+  // Unknown or inactive doctor, or a clinic with one doctor (its page is the clinic page): back to the clinic.
+  if (!practitioner || team.length < 2) {
+    return new Response(null, {
+      status: 301,
+      headers: { Location: `${origin}${doctorPath(profile.slug)}`, "Cache-Control": "public, max-age=0, s-maxage=3600" },
+    });
+  }
+
+  const input = { origin, profile, practitioner };
+  const meta = buildPractitionerMeta(input);
+  const jsonLd = buildPractitionerJsonLd(input);
+  const name = formatDoctorName(practitioner.display_name);
+  const clinic = doctorDisplayName(profile);
+  const facts = [
+    practitioner.qualifications && `<p>${escapeHtml(practitioner.qualifications)}</p>`,
+    practitioner.experience_years ? `<p>${escapeHtml(String(practitioner.experience_years))}+ years of experience</p>` : "",
+    practitioner.registration_number ? `<p>Registration no. ${escapeHtml(practitioner.registration_number)}</p>` : "",
+  ].filter(Boolean).join("");
+  const bodyHtml = `<main><nav aria-label="Breadcrumb"><a href="${doctorPath(profile.slug)}">${escapeHtml(clinic || "Clinic")}</a></nav><h1>${escapeHtml(name)}${practitioner.specialization ? ` - ${escapeHtml(practitioner.specialization)}` : ""}</h1><p>${escapeHtml(meta.description)}</p>${facts}</main>`;
+
+  return htmlResponse(
+    renderPage(template, {
+      title: meta.title,
+      description: meta.description,
+      canonical: meta.canonical,
+      robots: INDEXABLE,
+      ogType: "profile",
+      image: meta.image,
+      preconnect: up.origin ? [up.origin] : [],
+      jsonLd: jsonLd ? [jsonLd] : [],
+      bodyHtml,
     }),
     200,
     SITE_CACHE,
@@ -300,6 +357,13 @@ export async function handleSeoRequest(
       const slug = url.searchParams.get("slug")?.trim();
       if (!slug) return notFound(template, origin, "/");
       return await doctorPage(up, template, origin, slug);
+    }
+    if (kind === "practitioner") {
+      const slug = url.searchParams.get("slug")?.trim();
+      const doctorSlug = url.searchParams.get("doctor")?.trim();
+      if (!slug) return notFound(template, origin, "/");
+      if (!doctorSlug) return notFound(template, origin, doctorPath(slug));
+      return await practitionerPage(up, template, origin, slug, doctorSlug);
     }
     if (kind === "blog" || kind === "post") {
       const slug = url.searchParams.get("slug")?.trim();

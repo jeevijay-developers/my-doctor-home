@@ -231,6 +231,72 @@ describe("ManageAppointment", () => {
     expect(screen.getByText(/You have 2 reschedules remaining/)).toBeInTheDocument();
   });
 
+  describe("multi-doctor clinics", () => {
+    const DR_A = { id: "p1", display_name: "Asha Rao", slug: "dr-a", slot_duration_minutes: null, bookable: true, is_primary: true };
+    const DR_B = { id: "p2", display_name: "Meera Shah", slug: "dr-b", slot_duration_minutes: 20, bookable: true, is_primary: false };
+    const week = (practitioner_id: string, is_open: boolean) =>
+      Array.from({ length: 7 }, (_, d) => ({ day_of_week: d, is_open, start_time: "10:00", end_time: "11:00", start_time_2: null, end_time_2: null, practitioner_id }));
+    const dayButtons = () => screen.getAllByRole("button").filter((b) => /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)/.test(b.textContent ?? ""));
+    const slotCallArgs = () => mock.current.rpc.mock.calls.filter((c: any[]) => c[0] === "get_slot_counts").map((c: any[]) => c[1]);
+
+    it("uses the appointment's own doctor: their hours, slot length and slot counts, and names them", async () => {
+      mock.current.rpcs.get_public_practitioners = () => [DR_A, DR_B];
+      // Dr A is closed all week, Dr B open all week: the clinic-wide lookup would find Dr A's rows first.
+      mock.current.tables.working_hours = { data: [...week("p1", false), ...week("p2", true)] };
+      mock.current.rpcs.get_appointment_by_token = () => [appt({ practitioner_id: "p2", practitioner_name: "Meera Shah" })];
+      renderPage();
+      await fillAndFind();
+      await screen.findByText("Ravi Kumar");
+      expect(screen.getByText("Doctor")).toBeInTheDocument();
+      expect(screen.getByText("Dr. Meera Shah")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /Reschedule/ }));
+      const days = dayButtons();
+      expect(days.every((b) => !(b as HTMLButtonElement).disabled)).toBe(true);
+      fireEvent.click(days[1]);
+      // Dr B's own 20-minute slots.
+      expect(await screen.findByRole("button", { name: "10:20" })).toBeInTheDocument();
+      await waitFor(() => expect(slotCallArgs().some((a: any) => a._practitioner_id === "p2")).toBe(true));
+    });
+
+    it("a single-doctor clinic sends the same slot-count request as before and shows no doctor line", async () => {
+      mock.current.rpcs.get_public_practitioners = () => [DR_A];
+      mock.current.tables.working_hours = { data: week("p1", true) };
+      mock.current.rpcs.get_appointment_by_token = () => [appt({ practitioner_id: "p1", practitioner_name: "Asha Rao" })];
+      renderPage();
+      await fillAndFind();
+      await screen.findByText("Ravi Kumar");
+      expect(screen.queryByText("Doctor")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /Reschedule/ }));
+      fireEvent.click(dayButtons()[1]);
+      await screen.findByRole("button", { name: "10:30" });
+      await waitFor(() => expect(slotCallArgs().length).toBeGreaterThan(0));
+      for (const a of slotCallArgs()) expect(Object.keys(a).sort()).toEqual(["_appointment_type", "_date", "_doctor_id"]);
+    });
+
+    it("retries a failed doctor list once and then shows the doctor line", async () => {
+      let n = 0;
+      mock.current.rpcs.get_public_practitioners = () => (++n === 1 ? { data: null, error: { message: "boom" } } : [DR_A, DR_B]);
+      mock.current.tables.working_hours = { data: [...week("p1", true), ...week("p2", true)] };
+      mock.current.rpcs.get_appointment_by_token = () => [appt({ practitioner_id: "p2", practitioner_name: "Meera Shah" })];
+      renderPage();
+      await fillAndFind();
+      await screen.findByText("Ravi Kumar");
+      await waitFor(() => expect(n).toBe(2), { timeout: 3000 });
+    });
+
+    it("logs when the doctor list fails twice and the page still works", async () => {
+      const err = vi.spyOn(console, "error").mockImplementation(() => {});
+      mock.current.rpcs.get_public_practitioners = () => ({ data: null, error: { message: "boom" } });
+      mock.current.tables.working_hours = { data: week("p1", true) };
+      mock.current.rpcs.get_appointment_by_token = () => [appt({ practitioner_id: "p1" })];
+      renderPage();
+      await fillAndFind();
+      await screen.findByText("Ravi Kumar");
+      await waitFor(() => expect(err).toHaveBeenCalledWith("get_public_practitioners failed", expect.anything()), { timeout: 3000 });
+      err.mockRestore();
+    });
+  });
+
   describe("My appointment page", () => {
     it("is titled for finding the appointment, then for the appointment itself", async () => {
       renderPage();

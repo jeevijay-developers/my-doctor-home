@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { usePractitioners } from "@/hooks/usePractitioners";
 import { Globe, ExternalLink, Copy, Monitor, Smartphone, Tablet, Save, Plus, Trash2, GripVertical, Clock, Pin, EyeOff, Eye, UserCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,15 @@ const MyWebsite = () => {
   const { profile, isStaff, can } = useProfile();
   const { hasFeature, sourceOf, loading: featuresLoading } = useFeatureAccess();
   const isPremium = hasFeature(FEATURE_KEYS.ONLINE_CONSULTATION);
+  // Working hours belong to a doctor (practitioner). This page edits the main doctor's;
+  // in a multi-doctor clinic each doctor's hours live on the Doctors page instead.
+  // Until the main doctor is known, hours load by clinic as they always did (in a
+  // single-doctor clinic those are the same rows), so the grid never shows up empty.
+  const { primary, isMulti } = usePractitioners();
+  const primaryId = primary?.id ?? null;
+  const primaryIdRef = useRef(primaryId);
+  primaryIdRef.current = primaryId;
+  const hoursLoadedFor = useRef<string | null>(null);
   // This page is route-gated only on "View My Website" (website.view), so a
   // staff member with just that checkbox reaches it — but everything below
   // (services, hours, gallery, settings) writes through website.edit /
@@ -68,12 +78,20 @@ const MyWebsite = () => {
     return () => window.clearTimeout(t);
   }, [sendPreview]);
 
+  const fetchHours = useCallback((clinicId: string) => {
+    const pid = primaryIdRef.current;
+    hoursLoadedFor.current = pid;
+    let q = supabase.from("working_hours").select("*").eq("doctor_id", clinicId);
+    if (pid) q = q.eq("practitioner_id", pid);
+    return q.order("day_of_week");
+  }, []);
+
   const load = useCallback(async () => {
     if (!profile) return;
     const [settingsRes, servicesRes, hoursRes, reviewsRes] = await Promise.all([
       supabase.from("website_settings").select("*").eq("doctor_id", profile.id).single(),
       supabase.from("services").select("*").eq("doctor_id", profile.id).order("sort_order"),
-      supabase.from("working_hours").select("*").eq("doctor_id", profile.id).order("day_of_week"),
+      fetchHours(profile.id),
       supabase.from("reviews").select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }),
     ]);
     if (settingsRes.data) {
@@ -103,13 +121,27 @@ const MyWebsite = () => {
     setServices((servicesRes.data || []).map((s: any) => ({ ...s, description: s.description || "" })));
     setWorkingHours((hoursRes.data || []) as WorkingHour[]);
     setReviews((reviewsRes.data || []) as Review[]);
-  }, [profile]);
+  }, [profile, fetchHours]);
 
   useEffect(() => { load(); }, [load]);
 
+  // The main doctor arrived after the first load: reload just the hours (not the whole
+  // page, which would throw away unsaved edits elsewhere).
+  useEffect(() => {
+    if (!profile || !primaryId || hoursLoadedFor.current === primaryId) return;
+    // Fewer than two doctors: the unfiltered clinic load already returned this doctor's rows, and a
+    // late refetch could overwrite edits made since. Only a multi-doctor clinic needs the filter.
+    if (!isMulti) { hoursLoadedFor.current = primaryId; return; }
+    let cancelled = false;
+    fetchHours(profile.id).then((res) => {
+      if (!cancelled && !res.error) setWorkingHours((res.data || []) as WorkingHour[]);
+    });
+    return () => { cancelled = true; };
+  }, [profile, primaryId, isMulti, fetchHours]);
+
   const saveAllRef = useCallback(() => {
     if (profile && settings.id) saveAll(true);
-  }, [profile, settings, services, workingHours]);
+  }, [profile, settings, services, workingHours, isMulti]);
 
   useEffect(() => {
     const interval = setInterval(saveAllRef, 30000);
@@ -156,7 +188,9 @@ const MyWebsite = () => {
       }
     }
 
-    for (const wh of workingHours) {
+    // In a multi-doctor clinic the grid is hidden and hours are edited on the Doctors
+    // page; writing these (possibly stale) rows back on autosave would undo those edits.
+    for (const wh of isMulti ? [] : workingHours) {
       if (wh.id) {
         await supabase.from("working_hours").update({
           is_open: wh.is_open, start_time: wh.start_time, end_time: wh.end_time,
@@ -712,7 +746,12 @@ const MyWebsite = () => {
                     How far apart patient appointment slots are on your booking page.
                   </p>
                 </div>
-                {dayNames.map((day, idx) => {
+                {isMulti ? (
+                  <p className="p-3 rounded-lg bg-secondary text-xs text-muted-foreground">
+                    Each doctor's hours are set on the{" "}
+                    <Link to="/admin/doctors" className="font-medium text-royal underline underline-offset-2">Doctors page</Link>.
+                  </p>
+                ) : dayNames.map((day, idx) => {
                   const wh = workingHours.find((h) => h.day_of_week === idx);
                   if (!wh) return null;
                   return (

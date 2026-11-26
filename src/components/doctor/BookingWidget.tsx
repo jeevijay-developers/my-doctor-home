@@ -33,6 +33,12 @@ import BookingAside from "./booking/BookingAside";
 import { radioKeyDown } from "./ui/radioKeyDown";
 import SectionHeader from "./ui/SectionHeader";
 import { DUR, EASE } from "./motion/tokens";
+import DoctorPicker from "./DoctorPicker";
+import { practitionerFee } from "@/lib/practitioners/fee";
+import { SELECT_DOCTOR_EVENT } from "./DoctorsSection";
+import { hoursFor } from "@/lib/practitioners/hours";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
+import { formatDoctorName } from "@/lib/seo/doctorSeo";
 
 const getNextDays = (count: number) => {
   const days = [];
@@ -80,11 +86,30 @@ type CachedOrder = {
 type CheckoutResponse = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 
 const STEP_LABELS = ["When", "Your details", "Review & pay"];
+// Multi-doctor clinics put a "Doctor" step (internal step 0) in front.
+const MULTI_STEP_LABELS = ["Doctor", ...STEP_LABELS];
 
 const BookingWidget = () => {
-  const { profile, services, settings, workingHours, isPremium, hasFeature } = useDoctorData();
+  const { profile, services, settings, workingHours, allWorkingHours, bookablePractitioners, soleBookable, refreshPractitioners, isMultiDoctor, isPremium, hasFeature } = useDoctorData();
   const { isMock: paymentModeIsMock } = usePaymentMode();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(isMultiDoctor ? 0 : 1);
+  // Multi-doctor clinics only: the doctor being booked. A single-doctor clinic never sets it,
+  // so its requests stay exactly as before (the database fills practitioner_id).
+  const [practitionerId, setPractitionerId] = useState<string | null>(null);
+  // Doctors a booking was refused for: the picker stops offering them (the list is reloaded meanwhile).
+  const [rejectedIds, setRejectedIds] = useState<string[]>([]);
+  // A clinic with two or more doctors where only one takes online bookings has no picker: that doctor is the one.
+  const doctors = useMemo(
+    () => (isMultiDoctor ? bookablePractitioners ?? [] : soleBookable ? [soleBookable] : []).filter((d) => !rejectedIds.includes(d.id)),
+    [isMultiDoctor, bookablePractitioners, soleBookable, rejectedIds],
+  );
+  const sel = isMultiDoctor ? doctors.find((d) => d.id === practitionerId) ?? null : doctors[0] ?? null;
+  const needsDoctor = isMultiDoctor && !sel;
+  // The hours slots are made from: the chosen doctor's own, else the clinic's.
+  const bookingHours = useMemo(
+    () => (sel ? hoursFor(allWorkingHours ?? [], sel.id) : workingHours),
+    [sel, allWorkingHours, workingHours],
+  );
   const [type, setType] = useState<"clinic" | "online">("clinic");
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -107,6 +132,8 @@ const BookingWidget = () => {
   // Razorpay took the payment but confirming it with our server failed: the patient may
   // already have been charged, so they must not pay again.
   const [unconfirmed, setUnconfirmed] = useState<{ order: CachedOrder; response: CheckoutResponse } | null>(null);
+  // The clinic refused the booking after the patient paid: the money is held for a refund, so no retry.
+  const [refundPending, setRefundPending] = useState<{ paymentId: string } | null>(null);
   const [token, setToken] = useState("");
   const [patientsAhead, setPatientsAhead] = useState<number | null>(null);
   const [confirmedApptId, setConfirmedApptId] = useState<string | null>(null);
@@ -125,12 +152,15 @@ const BookingWidget = () => {
   // creates a fresh order instead of silently booking stale details.
   useEffect(() => { if (step < 5) setCachedOrder(null); }, [step]);
 
+  // Nothing past the Doctor step without a doctor (e.g. a service picked first, or the doctor left the list).
+  useEffect(() => { if (needsDoctor && step > 0) setStep(0); }, [needsDoctor, step]);
+
   const advanceDays = settings?.booking_advance_days || 7;
   const days = useMemo(() => getNextDays(advanceDays), [advanceDays]);
 
   const dayOfWeek = selectedDate ? selectedDate.getDay() : -1;
-  const wh = workingHours.find((h) => h.day_of_week === dayOfWeek);
-  const slotDuration = settings?.slot_duration_minutes || DEFAULT_SLOT_DURATION_MINUTES;
+  const wh = bookingHours.find((h) => h.day_of_week === dayOfWeek);
+  const slotDuration = sel?.slot_duration_minutes || settings?.slot_duration_minutes || DEFAULT_SLOT_DURATION_MINUTES;
 
   const rawTimeSlots = wh?.is_open
     ? [...generateTimeSlots(wh.start_time, wh.end_time, slotDuration), ...generateTimeSlots(wh.start_time_2, wh.end_time_2, slotDuration)]
@@ -172,12 +202,48 @@ const BookingWidget = () => {
     return () => window.removeEventListener("doctylia:select-service", handleSelectService as EventListener);
   }, [hasFeature]);
 
+  // Multi-doctor: a different doctor means different hours and slots, so the date and time start
+  // over, and any payment order made for the previous doctor is dropped. Patient details are kept.
+  const chooseDoctor = (id: string) => {
+    if (id === live.current.practitionerId) return;
+    live.current.practitionerId = id;
+    setPayError("");
+    setPractitionerId(id);
+    setSelectedDate(null);
+    setSelectedTime("");
+    setCachedOrder(null);
+  };
+
+  // The list was reloaded and no longer needs a choice (one or no bookable doctor left): go on to When.
+  useEffect(() => {
+    if (!isMultiDoctor && step === 0) setStep(1);
+  }, [isMultiDoctor, step]);
+
+  // "Book" on a doctor's card (DoctorsSection): preselect that doctor and open When.
+  useEffect(() => {
+    if (!isMultiDoctor && !soleBookable) return;
+    const handleSelectDoctor = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string } | undefined>).detail?.id;
+      if (!id || !doctors.some((d) => d.id === id)) return;
+      if (live.current.submitting || live.current.paymentFailed) return;
+      if (live.current.confirmed) live.current.reset();
+      chooseDoctor(id);
+      setStep(1);
+    };
+    window.addEventListener(SELECT_DOCTOR_EVENT, handleSelectDoctor as EventListener);
+    return () => window.removeEventListener(SELECT_DOCTOR_EVENT, handleSelectDoctor as EventListener);
+    // chooseDoctor only touches state setters and the live ref.
+  }, [isMultiDoctor, soleBookable, doctors]);
+
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [serviceOpen, setServiceOpen] = useState(false);
   const stepRegionRef = useRef<HTMLDivElement>(null);
   // Latest values for code that runs outside React's render (window events, async results).
-  const live = useRef({ confirmed: false, paymentFailed: false, submitting: false, bookingKey: "", dateStr: null as string | null, reset: () => {} });
+  const live = useRef({
+    confirmed: false, paymentFailed: false, submitting: false, bookingKey: "", dateStr: null as string | null, reset: () => {},
+    practitionerId: null as string | null, needsDoctor: false,
+  });
   // The time currently shown in the time field. It only becomes the booking's time (selectedTime)
   // when the patient taps Continue and the slot passes the live availability re-check.
   const [pickedTime, setPickedTime] = useState("");
@@ -187,9 +253,9 @@ const BookingWidget = () => {
   // slots straight away instead of choosing a date first. Held back until the
   // booking area is near the screen (this starts live availability polling).
   useEffect(() => {
-    if (selectedDate || step > 3 || !zoneNear) return;
+    if (selectedDate || step > 3 || !zoneNear || needsDoctor) return;
     const firstBookable = days.find((d) => {
-      const row = workingHours.find((h) => h.day_of_week === d.getDay());
+      const row = bookingHours.find((h) => h.day_of_week === d.getDay());
       if (!row?.is_open) return false;
       const all = [
         ...generateTimeSlots(row.start_time, row.end_time, slotDuration),
@@ -205,11 +271,13 @@ const BookingWidget = () => {
         : all.length > 0;
     });
     if (firstBookable) setSelectedDate(firstBookable);
-  }, [selectedDate, step, zoneNear, days, workingHours, slotDuration]);
+  }, [selectedDate, step, zoneNear, days, bookingHours, slotDuration, needsDoctor]);
 
+  // The chosen doctor's own fee (when set) replaces the clinic's, as public_booking_price does.
+  const consultFee = sel ? practitionerFee(sel, profile?.consultation_fee) : (profile?.consultation_fee ?? 500);
   const defaultFee = type === "online"
-    ? (settings?.online_fee || (profile?.consultation_fee ?? 500))
-    : (profile?.consultation_fee ?? 500);
+    ? (settings?.online_fee || consultFee)
+    : consultFee;
 
   const defaultServiceOption = useMemo(() => ({
     id: null as string | null,
@@ -244,7 +312,7 @@ const BookingWidget = () => {
   }, [selectedServiceId, compatibleServices, defaultServiceOption]);
 
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
-  const { counts, isFull, refresh } = useSlotAvailability(profile?.id, dateStr, type);
+  const { counts, isFull, refresh } = useSlotAvailability(profile?.id, dateStr, type, sel?.id);
   // Free slots only: already-booked times (live counts) and past times are not offered at all.
   const availableTimeSlots = timeSlots.filter((time) => (counts[time] || 0) < 1).sort();
   const availableKey = availableTimeSlots.join(",");
@@ -285,8 +353,49 @@ const BookingWidget = () => {
   const wantsOnlinePayment = Boolean(settings?.require_payment);
   // The widget keeps its internal steps (1-3 pick a date and time, 4 details, 5 review),
   // but the patient sees one "When" screen, then details, then (online payment) review.
-  const visibleStep = step <= 3 ? 1 : step === 4 ? 2 : 3;
-  const totalSteps = wantsOnlinePayment ? 3 : 2;
+  // A multi-doctor clinic shows "Doctor" first, so every later step moves up by one.
+  const stepOffset = isMultiDoctor ? 1 : 0;
+  const visibleStep = step === 0 ? 1 : (step <= 3 ? 1 : step === 4 ? 2 : 3) + stepOffset;
+  const totalSteps = (wantsOnlinePayment ? 3 : 2) + stepOffset;
+  const stepLabels = isMultiDoctor ? MULTI_STEP_LABELS : STEP_LABELS;
+  // The doctor named on the review, confirmation, slips, calendar file and checkout.
+  const doctorLabel = sel ? formatDoctorName(sel.display_name) : `Dr. ${profile?.full_name ?? ""}`;
+  // Slips and the aside read the doctor from a profile-shaped object (they add "Dr." themselves).
+  const doctorProfile = useMemo(() => {
+    if (!isMultiDoctor && !sel) return profile;
+    const bare = sel ? formatDoctorName(sel.display_name).replace(/^Dr\.\s*/, "") : "";
+    return {
+      ...profile,
+      display_name: bare,
+      full_name: bare,
+      specialization: sel?.specialization ?? null,
+      qualifications: sel?.qualifications ?? null,
+      registration_number: sel?.registration_number ?? null,
+      profile_photo_url: sel?.photo_url ?? null,
+    };
+  }, [isMultiDoctor, profile, sel]);
+
+  // A booking the database or payment function refused because of the doctor: forget that doctor,
+  // stop offering them, tell the patient, and reload the list so the widget re-evaluates.
+  const handleDoctorRefusal = (raw: string): string | null => {
+    const refused = /PRACTITIONER_NOT_BOOKABLE|SEAT_LIMIT|PRACTITIONER_REQUIRED|PRACTITIONER_MISMATCH/.test(raw);
+    const mapped = practitionerErrorMessage(raw);
+    if (!mapped) return null;
+    if (!refused) return mapped;
+    const hadDoctor = sel?.id ?? null;
+    if (hadDoctor) setRejectedIds((ids) => (ids.includes(hadDoctor) ? ids : [...ids, hadDoctor]));
+    setPractitionerId(null);
+    live.current.practitionerId = null;
+    setSelectedDate(null);
+    setSelectedTime("");
+    setCachedOrder(null);
+    if (isMultiDoctor) setStep(0); // let the patient choose another doctor
+    void refreshPractitioners?.();
+    // No doctor was ever chosen (the list failed to load, or the page is stale): only a reload helps.
+    return !hadDoctor && /PRACTITIONER_REQUIRED|PRACTITIONER_NOT_BOOKABLE/.test(raw)
+      ? "Please reload the page to choose your doctor."
+      : mapped;
+  };
 
   const validatePatientDetails = () => {
     if (!name || !phone || !age || !gender || !complaint.trim()) return false;
@@ -329,6 +438,8 @@ const BookingWidget = () => {
         chief_complaint: complaint || null,
         status: "pending" as any,
         payment_status: "pay_at_clinic" as any,
+        // Only multi-doctor clinics name the doctor; otherwise the database fills it.
+        ...(sel ? { practitioner_id: sel.id } : {}),
       } as never);
 
     if (error) {
@@ -350,6 +461,11 @@ const BookingWidget = () => {
       }
       if (error.message?.includes("PHONE_REQUIRED")) {
         toast.error("Please enter a valid 10-digit mobile number.");
+        return null;
+      }
+      const doctorProblem = handleDoctorRefusal(error.message ?? "");
+      if (doctorProblem) {
+        toast.error(doctorProblem);
         return null;
       }
       toast.error("Booking failed. Please try again.");
@@ -393,16 +509,16 @@ const BookingWidget = () => {
   };
 
   const reset = () => {
-    setStep(1); setType("clinic"); setSelectedServiceId(null); setSelectedDate(null);
+    setStep(isMultiDoctor ? 0 : 1); setPractitionerId(null); live.current.practitionerId = null; setType("clinic"); setSelectedServiceId(null); setSelectedDate(null);
     setSelectedTime(""); setName(""); setPhone(""); setEmail(""); setAge(""); setGender(""); setComplaint("");
     setConfirmed(false); setConfirmedPaymentStatus("pay_at_clinic"); setPaymentMeta(null);
-    setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setUnconfirmed(null); setMockCheckoutOpen(false);
+    setCachedOrder(null); setPaymentFailed(false); setPaymentFailureMessage(""); setUnconfirmed(null); setRefundPending(null); setMockCheckoutOpen(false);
     setToken(""); setPatientsAhead(null); setConfirmedApptId(null); setServiceOpen(false);
   };
 
   // Everything that makes up the booking. A cached payment order is only reusable while this is unchanged.
-  const bookingKey = JSON.stringify([type, selectedService?.id ?? null, dateStr, selectedTime, name.trim(), phone, age, gender, email, complaint]);
-  live.current = { confirmed, paymentFailed, submitting, bookingKey, dateStr, reset };
+  const bookingKey = JSON.stringify([type, selectedService?.id ?? null, dateStr, selectedTime, name.trim(), phone, age, gender, email, complaint, sel?.id ?? null]);
+  live.current = { confirmed, paymentFailed, submitting, bookingKey, dateStr, reset, practitionerId, needsDoctor };
 
   const downloadSlip = () => downloadPdfFromNode('[data-slip-print-root] .slip-card', pdfFileName("Appointment", name, selectedDate ? format(selectedDate, "yyyy-MM-dd") : null, token));
   const downloadPaymentSlip = () => downloadPdfFromNode('[data-payment-slip-print-root] .slip-card', pdfFileName("Payment-Receipt", name, selectedDate ? format(selectedDate, "yyyy-MM-dd") : null, token));
@@ -464,6 +580,8 @@ const BookingWidget = () => {
     const handleSelectSlot = (event: Event) => {
       const detail = (event as CustomEvent<SelectSlotDetail>).detail;
       if (!detail?.dateKey || !detail.time) return;
+      // A slot means nothing before a doctor is chosen (the hero offers none to multi-doctor clinics).
+      if (live.current.needsDoctor) return;
       if (live.current.submitting || live.current.paymentFailed) return;
       if (live.current.confirmed) live.current.reset();
       const [y, m, d] = detail.dateKey.split("-").map(Number);
@@ -555,6 +673,7 @@ const BookingWidget = () => {
       time_slot: selectedTime,
       amount: selectedService.price,
       chief_complaint: complaint || null,
+      ...(sel ? { practitioner_id: sel.id } : {}),
     };
 
     const { data: orderData, error: orderErr } = await supabase.functions.invoke("create-razorpay-order", {
@@ -570,12 +689,17 @@ const BookingWidget = () => {
 
     if (orderErr || !orderData?.order_id) {
       const message = await edgeFunctionErrorMessage(orderErr, "Online payment isn't available right now.");
+      let refusalText: string | null = null;
       if (message.includes("SLOT_FULL")) {
         toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
         setStep(3); setSelectedTime(""); refresh();
       } else if (message.includes("SLOT_IN_PAST")) {
         toast.error("That time has already passed - please pick a later slot.");
         setStep(3); setSelectedTime(""); refresh();
+      } else if ((refusalText = handleDoctorRefusal(message)) !== null) {
+        const text = refusalText;
+        setPayError(text);
+        toast.error("Booking not completed", { description: text });
       } else {
         const notActive = /not (set up|active|configured)/i.test(message);
         const text = notActive
@@ -623,18 +747,35 @@ const BookingWidget = () => {
     });
 
     if (verifyErr || !verifyData?.ok || !verifyData?.appointment) {
-      const message = await edgeFunctionErrorMessage(
-        verifyErr,
-        "Payment verification failed. Please contact the clinic with your payment ID.",
-      );
+      const fallback = "Payment verification failed. Please contact the clinic with your payment ID.";
+      // The refusal details can arrive in an error response body or in a plain response.
+      let body: { error?: unknown; message?: unknown; refund_pending?: unknown; payment_id?: unknown } | null = verifyData ?? null;
+      let message = fallback;
+      const ctx = (verifyErr as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          body = await ctx.json();
+          message = String(body?.message || body?.error || fallback);
+        } catch {
+          // keep the fallback
+        }
+      } else if (!verifyErr && body?.error) {
+        message = String(body.message || body.error);
+      }
       setMockCheckoutOpen(false);
       setPaymentFailureMessage(message);
+      setRefundPending(
+        body?.refund_pending === true
+          ? { paymentId: String(body.payment_id || response.razorpay_payment_id) }
+          : null,
+      );
       setUnconfirmed({ order, response });
       setPaymentFailed(true);
       setSubmitting(false);
       return; // The payment may have gone through; see the "unconfirmed" screen.
     }
     setUnconfirmed(null);
+    setRefundPending(null);
 
     setPaymentMeta({
       razorpayPaymentId: response.razorpay_payment_id,
@@ -695,7 +836,7 @@ const BookingWidget = () => {
       amount: order.amount,
       currency: order.currency,
       order_id: order.order_id,
-      name: profile?.clinic_name || (profile?.full_name ? `Dr. ${profile.full_name}` : "Doctylia"),
+      name: sel ? doctorLabel : profile?.clinic_name || (profile?.full_name ? `Dr. ${profile.full_name}` : "Doctylia"),
       description: selectedService?.name,
       prefill: { name, contact: normalizeIndianPhone(phone), email: email || undefined },
       theme: { color: "#3C83FC" },
@@ -755,7 +896,7 @@ const BookingWidget = () => {
       durationMinutes: serviceDuration,
       status: confirmedPaymentStatus === "paid" || settings?.auto_confirm ? "CONFIRMED" : "TENTATIVE",
       location: type === "online" ? "Online consultation" : where,
-      description: [`Booking ID: ${token}`, `Patient: ${name}`, profile?.full_name ? `Doctor: Dr. ${profile.full_name}` : ""].filter(Boolean).join("\n"),
+      description: [`Booking ID: ${token}`, `Patient: ${name}`, sel ? `Doctor: ${doctorLabel}` : profile?.full_name ? `Doctor: Dr. ${profile.full_name}` : ""].filter(Boolean).join("\n"),
     });
     downloadIcs(`Appointment-${token || "visit"}`, ics);
   };
@@ -771,7 +912,7 @@ const BookingWidget = () => {
   if (confirmed) {
     const paid = confirmedPaymentStatus === "paid";
     const details: [string, string][] = [
-      ["Doctor", `Dr. ${profile?.full_name ?? ""}`],
+      ["Doctor", doctorLabel],
       ["When", `${selectedDate ? format(selectedDate, "EEEE, d MMMM") : ""} · ${selectedTime ? slotLabel(selectedTime) : ""}`],
       ["Visit", `${type === "clinic" ? "Clinic visit" : "Online consultation"} · ${selectedService?.name ?? ""}`],
       ["Patient", name],
@@ -871,7 +1012,7 @@ const BookingWidget = () => {
         <AppointmentSlip
           open={slipOpen}
           onClose={() => setSlipOpen(false)}
-          profile={profile}
+          profile={doctorProfile}
           settings={settings}
           token={token}
           service={selectedService}
@@ -889,7 +1030,7 @@ const BookingWidget = () => {
           <PaymentSlip
             open={paymentSlipOpen}
             onClose={() => setPaymentSlipOpen(false)}
-            profile={profile}
+            profile={doctorProfile}
             token={token}
             service={selectedService}
             type={type}
@@ -925,7 +1066,7 @@ const BookingWidget = () => {
 
           <dl className="mt-6 border-t border-ds-line text-ds-small">
             {[
-              ["Doctor", `Dr. ${profile?.full_name ?? ""}`],
+              ["Doctor", doctorLabel],
               ["Visit", `${type === "clinic" ? "Clinic visit" : "Online consultation"} · ${selectedService?.name ?? ""}`],
               ["When", `${selectedDate ? format(selectedDate, "EEEE, d MMMM") : ""} · ${selectedTime ? slotLabel(selectedTime) : ""}`],
               ["Amount", `₹${selectedService?.price ?? 0}`],
@@ -937,7 +1078,13 @@ const BookingWidget = () => {
             ))}
           </dl>
 
-          {unconfirmed ? (
+          {unconfirmed && refundPending ? (
+            <>
+              <p className="mt-6 text-ds-body font-semibold">
+                Payment received but your booking could not be confirmed. Reference: {refundPending.paymentId}. The clinic will contact you to refund or rebook — please do not pay again.
+              </p>
+            </>
+          ) : unconfirmed ? (
             <>
               <p className="mt-6 text-ds-body font-semibold">Your payment may have gone through. Please do NOT pay again.</p>
               <p className="mt-1 text-ds-small text-ds-ink-2">
@@ -977,7 +1124,7 @@ const BookingWidget = () => {
             open={mockCheckoutOpen}
             paymentId={cachedOrder.payment_id}
             amount={selectedService?.price ?? 0}
-            doctorName={`Dr. ${profile?.full_name || ""}`}
+            doctorName={doctorLabel}
             serviceName={selectedService?.name}
             dateLabel={selectedDate ? format(selectedDate, "d MMM yyyy") : undefined}
             timeLabel={selectedTime}
@@ -994,7 +1141,7 @@ const BookingWidget = () => {
 
   const stepHeader = () => (
     <div className="mb-8">
-      <BookingStepper labels={STEP_LABELS.slice(0, totalSteps)} current={visibleStep} />
+      <BookingStepper labels={stepLabels.slice(0, totalSteps)} current={visibleStep} />
       {step >= 4 && (
         <button
           type="button"
@@ -1013,9 +1160,57 @@ const BookingWidget = () => {
   const chipOn = "border-ds-accent bg-ds-accent-soft text-ds-ink ring-1 ring-ds-accent";
   const chipOff = "border-ds-line bg-ds-surface text-ds-ink hover:border-ds-ink/30";
 
+  // Multi-doctor step 0: choose the doctor; Continue waits for a choice.
+  const renderDoctor = () => (
+    <div className="space-y-6">
+      <h3 className="font-ds-display text-ds-h3 font-medium">Choose your doctor</h3>
+      {doctors.length === 0 && (
+        <p className="rounded-ds-md border border-dashed border-ds-line px-4 py-6 text-center text-ds-small text-ds-ink-2">
+          No doctors are taking online bookings right now. Please contact the clinic.
+        </p>
+      )}
+      <DoctorPicker doctors={doctors} value={sel?.id ?? null} onChange={chooseDoctor} clinicFee={profile?.consultation_fee} />
+      <DsButton size="lg" className="w-full" disabled={!sel} onClick={() => setStep(1)}>
+        Continue
+      </DsButton>
+    </div>
+  );
+
+  // The chosen doctor has no open day among the days patients can book.
+  const noOpenDays = !!sel && !days.some((d) => bookingHours.find((h) => h.day_of_week === d.getDay())?.is_open);
+
   const renderWhen = () => (
     <div className="space-y-9">
-      {consultationTypes.length > 1 && (
+      {sel && (
+        <div className="flex items-center justify-between gap-4 rounded-ds-md border border-ds-line bg-ds-paper-2 px-4 py-2">
+          <p className="min-w-0 text-ds-small">
+            <span className="text-ds-label uppercase tracking-[0.08em] text-ds-ink-3">Doctor</span>
+            <span className="block truncate text-ds-body font-semibold text-ds-ink">{doctorLabel}</span>
+          </p>
+          {isMultiDoctor && (
+            <button
+              type="button"
+              onClick={() => setStep(0)}
+              className="inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline"
+            >
+              Change<span className="sr-only"> doctor</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {noOpenDays && (
+        <div className="space-y-4 rounded-ds-md border border-dashed border-ds-line px-4 py-6 text-center">
+          <p className="text-ds-body text-ds-ink-2">{doctorLabel} has no online hours right now.</p>
+          {isMultiDoctor && (
+            <DsButton size="lg" variant="secondary" onClick={() => setStep(0)}>
+              Choose another doctor
+            </DsButton>
+          )}
+        </div>
+      )}
+
+      {!noOpenDays && consultationTypes.length > 1 && (
         <div role="radiogroup" aria-label="Consultation type" onKeyDown={radioKeyDown} className="grid grid-cols-2 gap-3">
           {consultationTypes.map((t) => (
             <button
@@ -1039,7 +1234,7 @@ const BookingWidget = () => {
         </div>
       )}
 
-      {compatibleServices.length > 1 && (
+      {!noOpenDays && compatibleServices.length > 1 && (
         // Most patients want the default: show it as one line and tuck the alternatives away,
         // so the dates and times (the actual decision) stay near the top of the card.
         <div>
@@ -1087,7 +1282,7 @@ const BookingWidget = () => {
         </div>
       )}
 
-      <div className="grid gap-6 sm:grid-cols-2">
+      {!noOpenDays && <div className="grid gap-6 sm:grid-cols-2">
         <div>
           <div className="mb-2 flex h-6 items-center">
             <h3 className="text-ds-label font-semibold uppercase tracking-[0.08em] text-ds-ink-2">Select Date</h3>
@@ -1098,7 +1293,7 @@ const BookingWidget = () => {
             fromDate={days[0]}
             toDate={days[days.length - 1]}
             disabled={checkingSlot}
-            isAvailable={(d) => days.some((day) => isSameDay(day, d)) && Boolean(workingHours.find((h) => h.day_of_week === d.getDay())?.is_open)}
+            isAvailable={(d) => days.some((day) => isSameDay(day, d)) && Boolean(bookingHours.find((h) => h.day_of_week === d.getDay())?.is_open)}
             onChange={(d) => { setSelectedDate(d); setSelectedTime(""); setStep(3); }}
           />
         </div>
@@ -1121,9 +1316,9 @@ const BookingWidget = () => {
             onChange={pickTime}
           />
         </div>
-      </div>
+      </div>}
 
-      {!selectedDate ? (
+      {noOpenDays ? null : !selectedDate ? (
         <p className="rounded-ds-md border border-dashed border-ds-line px-4 py-6 text-center text-ds-small text-ds-ink-2">
           No dates are open for booking right now. Please contact the clinic.
         </p>
@@ -1137,7 +1332,7 @@ const BookingWidget = () => {
 
   // The "When" step's summary + Continue, as the card's footer: full width, flush with its bottom edge.
   const renderWhenFooter = () =>
-    step <= 3 && selectedDate && availableTimeSlots.length > 0 ? (
+    step >= 1 && step <= 3 && selectedDate && availableTimeSlots.length > 0 ? (
       <div className="border-t border-ds-line bg-ds-paper-2/70 px-5 py-4 sm:px-9 sm:py-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-ds-small text-ds-ink-2">
@@ -1314,7 +1509,7 @@ const BookingWidget = () => {
       <div className="rounded-ds-md border border-ds-line bg-ds-paper-2 p-5">
         {[
           ["Appointment", [
-            ["Doctor Name", `Dr. ${profile?.full_name || ""}`],
+            ["Doctor Name", doctorLabel],
             ["Consultation Type", type === "clinic" ? "Clinic Visit" : "Online Consultation"],
             ["Service", selectedService?.name || ""],
             ["Appointment Date", selectedDate ? format(selectedDate, "EEEE, d MMMM yyyy") : ""],
@@ -1378,7 +1573,7 @@ const BookingWidget = () => {
 
           <div className="lg:col-span-5 lg:row-start-2">
             <BookingAside
-              profile={profile}
+              profile={doctorProfile}
               service={selectedService}
               type={type}
               autoConfirm={Boolean(settings?.auto_confirm)}
@@ -1403,7 +1598,8 @@ const BookingWidget = () => {
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: DUR.small, ease: EASE.out }}
               >
-                {step <= 3 && renderWhen()}
+                {step === 0 && isMultiDoctor && renderDoctor()}
+                {step >= 1 && step <= 3 && renderWhen()}
                 {step === 4 && renderWho()}
                 {step === 5 && wantsOnlinePayment && renderReview()}
               </motion.div>
@@ -1419,7 +1615,7 @@ const BookingWidget = () => {
           open={mockCheckoutOpen}
           paymentId={cachedOrder.payment_id}
           amount={selectedService?.price ?? 0}
-          doctorName={`Dr. ${profile?.full_name || ""}`}
+          doctorName={doctorLabel}
           serviceName={selectedService?.name}
           dateLabel={selectedDate ? format(selectedDate, "d MMM yyyy") : undefined}
           timeLabel={selectedTime}

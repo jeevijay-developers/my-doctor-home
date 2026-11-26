@@ -8,6 +8,7 @@ export type Destination = { to: string } | { error: string };
 //   owner (user_roles 'admin')        -> /superadmin
 //   active Team member                -> /superadmin   (inactive -> error)
 //   active clinic staff               -> /admin/dashboard (inactive -> error)
+//   active doctor login (staff role 'doctor') -> /admin/appointments?tab=queue
 //   doctor                            -> /admin/dashboard, or /onboarding if unfinished
 // `onboarding: true` marks a fresh login (records last_login_at and checks
 // doctor onboarding); `false` is used when an existing session is merely being
@@ -34,7 +35,7 @@ export async function resolvePostLoginDestination(
 
   const { data: staffRow } = await supabase
     .from("staff_members")
-    .select("status")
+    .select("status, role")
     .eq("id", userId)
     .maybeSingle();
   if (staffRow) {
@@ -42,7 +43,8 @@ export async function resolvePostLoginDestination(
       return { error: "Your staff account is inactive. Please contact your clinic." };
     }
     if (onboarding) await supabase.rpc("touch_staff_login");
-    return { to: "/admin/dashboard" };
+    // A doctor login spends the day in their own live queue.
+    return { to: staffRow.role === "doctor" ? "/admin/appointments?tab=queue" : "/admin/dashboard" };
   }
 
   if (!onboarding) return { to: "/admin/dashboard" };

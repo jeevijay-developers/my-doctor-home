@@ -230,3 +230,45 @@ describe("buildDoctorJsonLd", () => {
     expect(() => JSON.stringify(buildDoctorJsonLd({ origin, profile: base }))).not.toThrow();
   });
 });
+
+describe("multi-doctor SEO", async () => {
+  const { buildPractitionerJsonLd, buildPractitionerMeta } = await import("./doctorSeo");
+  const profile = { ...base, display_name: "Anita Sharma", city: "Kota", address: "12 Gandhi Marg" };
+  const pA = { id: "p1", slug: "anita", display_name: "Anita Sharma", specialization: "Dentist", qualifications: "BDS, MDS", experience_years: 12, bio: "Dentist with long experience.", photo_url: "https://cdn.example.com/a.jpg", registration_number: "R-1", is_active: true, is_primary: true };
+  const pB = { id: "p2", slug: "ravi-kumar", display_name: "ravi kumar", specialization: "Orthodontist", qualifications: "BDS", experience_years: 5, bio: null, photo_url: null, registration_number: null, is_active: true, is_primary: false };
+
+  it("buildPractitionerMeta: title, description, canonical, image", () => {
+    const m = buildPractitionerMeta({ origin, profile, practitioner: pB });
+    expect(m.title).toBe("Dr. Ravi Kumar - Orthodontist in Kota | Doctylia");
+    expect(m.canonical).toBe("https://doctylia.com/dr/dr-a/doctor/ravi-kumar");
+    expect(m.description).toContain("Dr. Ravi Kumar");
+    expect(m.image).toBe("");
+    expect(buildPractitionerMeta({ origin, profile, practitioner: pA }).image).toBe("https://cdn.example.com/a.jpg");
+  });
+
+  it("buildPractitionerJsonLd: Physician with worksFor the clinic and a Clinic > Doctor breadcrumb", () => {
+    const ld: any = buildPractitionerJsonLd({ origin, profile, practitioner: pB });
+    const phys = ld["@graph"][0];
+    expect(phys["@type"]).toBe("Physician");
+    expect(phys["@id"]).toBe("https://doctylia.com/dr/dr-a/doctor/ravi-kumar#physician");
+    expect(phys.worksFor).toEqual({ "@id": "https://doctylia.com/dr/dr-a#clinic" });
+    const crumbs = ld["@graph"][1].itemListElement;
+    expect(crumbs.slice(-2).map((c: any) => c.item)).toEqual(["https://doctylia.com/dr/dr-a", "https://doctylia.com/dr/dr-a/doctor/ravi-kumar"]);
+  });
+
+  it("multi-doctor clinic main node is a MedicalClinic with employee links", () => {
+    const ld: any = buildDoctorJsonLd({ origin, profile, practitioners: [pA, pB] } as any);
+    const main = ld["@graph"][0];
+    expect(main["@type"]).toEqual(["MedicalClinic", "MedicalBusiness"]);
+    expect(main["@id"]).toBe("https://doctylia.com/dr/dr-a#clinic");
+    expect(main.employee).toEqual([
+      { "@id": "https://doctylia.com/dr/dr-a/doctor/anita#physician" },
+      { "@id": "https://doctylia.com/dr/dr-a/doctor/ravi-kumar#physician" },
+    ]);
+  });
+
+  it("inactive practitioners do not make a clinic multi-doctor", () => {
+    const ld: any = buildDoctorJsonLd({ origin, profile, practitioners: [pA, { ...pB, is_active: false }] } as any);
+    expect(ld["@graph"][0]["@type"]).toEqual(["Physician", "MedicalBusiness"]);
+  });
+});

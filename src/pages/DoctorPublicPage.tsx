@@ -8,6 +8,7 @@ import { DoctorProvider, useDoctorData } from "@/contexts/DoctorContext";
 import Navbar from "@/components/doctor/Navbar";
 import HeroBanner from "@/components/doctor/HeroBanner";
 import AboutSection from "@/components/doctor/AboutSection";
+import DoctorsSection from "@/components/doctor/DoctorsSection";
 import ServicesSection from "@/components/doctor/ServicesSection";
 import GallerySection from "@/components/doctor/GallerySection";
 import BookingWidget from "@/components/doctor/BookingWidget";
@@ -59,7 +60,7 @@ function upsertCanonical(href: string) {
 }
 
 const DoctorPageContent = () => {
-  const { profile, settings, loading, services, reviews } = useDoctorData();
+  const { profile, settings, loading, services, reviews, isMultiDoctor, practitioners } = useDoctorData();
   const { hash } = useLocation();
 
   const doctorName = useMemo(() => doctorDisplayName(profile), [profile]);
@@ -110,8 +111,8 @@ const DoctorPageContent = () => {
   }, [pageTitle, pageDescription, seoMeta.canonical, seoMeta.image]);
 
   const structuredData = useMemo(
-    () => buildDoctorJsonLd({ origin: window.location.origin, profile, settings, services, reviews }),
-    [profile, settings, services, reviews],
+    () => buildDoctorJsonLd({ origin: window.location.origin, profile, settings, services, reviews, practitioners }),
+    [profile, settings, services, reviews, practitioners],
   );
 
   useEffect(() => {
@@ -187,9 +188,11 @@ const DoctorPageContent = () => {
       )}
       <Navbar />
       <main id="main">
-        {/* Order: hero, about, gallery, services, booking, reviews, articles, clinic details & contact, contact form. */}
+        {/* Order: hero, about, doctors (multi-doctor clinics), gallery, services, booking, reviews, articles, clinic details & contact, contact form. */}
         <HeroBanner />
         {showAbout && <AboutSection />}
+        {/* Multi-doctor clinics only: "Choose your doctor" (#doctors, the hero links here). */}
+        {isMultiDoctor && <DoctorsSection />}
         {showGallery && <GallerySection />}
         {showServices && <ServicesSection />}
         {/* Stable wrapper: BookingWidget swaps its root between states, so observers watch this. */}

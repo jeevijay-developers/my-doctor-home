@@ -16,6 +16,7 @@ import { logAdminAction } from "@/lib/adminAudit";
 import { ArrowLeft, Ban, RotateCcw, CalendarPlus, Percent } from "lucide-react";
 import SAFeatureAccess from "./SAFeatureAccess";
 import SAImportAccessCard from "./SAImportAccessCard";
+import SADoctorSeatsCard from "./SADoctorSeatsCard";
 import { useSuperAdminAccess } from "@/contexts/SuperAdminAccessContext";
 
 const TIER_LABELS: Record<string, string> = { free: "Free", pro: "Pro", premium: "Premium" };
@@ -265,6 +266,7 @@ const SADoctorDetail = () => {
 
       <SAFeatureAccess doctorId={id!} />
       <SAImportAccessCard doctorId={id!} canManage={can("plan_requests.manage")} />
+      <SADoctorSeatsCard doctorId={id!} canManage={can("plan_requests.manage")} />
 
       <AlertDialog open={pendingTier !== null} onOpenChange={(open) => !open && setPendingTier(null)}>
         <AlertDialogContent>

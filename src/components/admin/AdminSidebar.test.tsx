@@ -5,8 +5,9 @@ import AdminSidebar from "./AdminSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { PERMISSION_MODULES } from "@/lib/staffPermissions";
 
-const m = vi.hoisted(() => ({ useProfile: vi.fn(), signOut: vi.fn() }));
+const m = vi.hoisted(() => ({ useProfile: vi.fn(), signOut: vi.fn(), access: null as null | { has_feature: boolean }, isMulti: false }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: m.useProfile }));
+vi.mock("@/hooks/usePractitioners", () => ({ usePractitioners: () => ({ access: m.access, isMulti: m.isMulti }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { signOut: m.signOut } } }));
 
 const ALL_LINKS = [
@@ -33,6 +34,8 @@ describe("AdminSidebar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     m.signOut.mockResolvedValue({});
+    m.access = null;
+    m.isMulti = false;
   });
 
   it("shows every section to the doctor", () => {
@@ -76,6 +79,39 @@ describe("AdminSidebar", () => {
     renderSidebar();
     // If any item used a key outside the catalogue, the stub would grant it and the link would appear.
     for (const l of ALL_LINKS) expect(screen.queryByRole("link", { name: l })).not.toBeInTheDocument();
+  });
+
+  it("shows Doctors only when the plan includes multiple doctors", () => {
+    m.useProfile.mockReturnValue({ isStaff: false, loading: false, can: () => true });
+    const { unmount } = renderSidebar();
+    expect(screen.queryByRole("link", { name: "Doctors" })).not.toBeInTheDocument();
+    unmount();
+    m.access = { has_feature: true };
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Doctors" })).toHaveAttribute("href", "/admin/doctors");
+  });
+
+  it("shows Doctors for a clinic with 2+ active doctors even when the plan lapsed or access is unknown", () => {
+    m.useProfile.mockReturnValue({ isStaff: false, loading: false, can: () => true });
+    m.isMulti = true;
+    m.access = { has_feature: false };
+    const { unmount } = renderSidebar();
+    expect(screen.getByRole("link", { name: "Doctors" })).toBeInTheDocument();
+    unmount();
+    m.access = null;
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Doctors" })).toBeInTheDocument();
+  });
+
+  it("Doctors follows practitioners.view for staff", () => {
+    m.access = { has_feature: true };
+    m.useProfile.mockReturnValue(staff(["practitioners.view"]));
+    const { unmount } = renderSidebar();
+    expect(screen.getByRole("link", { name: "Doctors" })).toBeInTheDocument();
+    unmount();
+    m.useProfile.mockReturnValue(staff(["patients.view"]));
+    renderSidebar();
+    expect(screen.queryByRole("link", { name: "Doctors" })).not.toBeInTheDocument();
   });
 
   it("logout asks for confirmation, then signs out", async () => {

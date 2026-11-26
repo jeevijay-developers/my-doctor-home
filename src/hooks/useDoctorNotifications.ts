@@ -3,13 +3,31 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type DoctorNotification = {
   id: string;
-  source_type: "ticket_reply" | "direct_message" | "broadcast" | "trial_warning" | "cap_warning" | "plan_warning" | "plan_request" | "paid_no_show";
+  source_type: "ticket_reply" | "direct_message" | "broadcast" | "trial_warning" | "cap_warning" | "plan_warning" | "plan_request" | "paid_no_show" | "new_booking" | "booking_refund";
   title: string;
   message: string;
   ticket_id: string | null;
   is_read: boolean;
   created_at: string;
 };
+
+// Broadcast titles about the plan, trial or subscription open the subscription tab.
+const PLAN_TITLE = /\bplan\b|\btrial\b|subscription/i;
+
+/** Where clicking a notification in the admin bell goes; null = nowhere (just marks it read). */
+export function notificationRoute(n: DoctorNotification): string | null {
+  if (n.source_type === "ticket_reply" && n.ticket_id) return `/admin/support?ticket=${n.ticket_id}`;
+  // Checked before the title test below, so a booking whose title mentions "plan" still opens appointments.
+  if (n.source_type === "booking_refund") return "/admin/billing";
+  if (n.source_type === "new_booking" || n.source_type === "paid_no_show") return "/admin/appointments";
+  if (
+    n.source_type === "trial_warning" || n.source_type === "cap_warning" || n.source_type === "plan_warning" ||
+    n.source_type === "plan_request" || PLAN_TITLE.test(n.title)
+  ) {
+    return "/admin/settings?tab=subscription";
+  }
+  return null;
+}
 
 // Backs the admin panel's notification bell — see AdminLayout.tsx. Source
 // table is "notifications" (see the 2026-08-13 migration), a doctor-facing

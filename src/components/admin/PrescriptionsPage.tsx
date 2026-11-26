@@ -34,6 +34,11 @@ import NameButton from "./NameButton";
 import { prescriptionVitalsError, type PatientOption } from "@/lib/prescriptionPatient";
 import { parseWeight } from "@/lib/patientIntake";
 import { buildShareMessage, buildWhatsAppUrl, prescriptionShareUrl } from "@/lib/prescriptionShare";
+import { usePractitioners } from "@/hooks/usePractitioners";
+import PractitionerSelect, { ALL_DOCTORS } from "./PractitionerSelect";
+import { Badge } from "@/components/ui/badge";
+import { slipDoctor } from "@/lib/practitioners/slipDoctor";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 
 const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
@@ -44,6 +49,7 @@ type Prescription = {
   visit_id: string | null; medicines: unknown;
   advice: string | null; diet_advice: string | null; lifestyle_advice: string | null;
   follow_up_date: string | null; follow_up_instructions: string | null;
+  practitioner_id?: string | null;
 };
 
 const emptyForm = {
@@ -286,7 +292,16 @@ const MedicineSummaryLine = ({ rx }: { rx: Prescription }) => {
 };
 
 const PrescriptionsPage = () => {
-  const { profile, isStaff, can } = useProfile();
+  const { profile, isStaff, can, role, myPractitionerId } = useProfile();
+  const { isMulti, byId } = usePractitioners();
+  // Reception in a multi-doctor clinic names the prescribing doctor; a doctor login (or the
+  // owner with their own doctor row) writes as themselves and the database fills it in.
+  const needsDoctorPick = isMulti && !myPractitionerId;
+  // RLS is the real guard: in a multi-doctor clinic only the author or the owner may change a prescription.
+  const canChangeRx = (rx: Prescription) =>
+    !isMulti || role === "owner" || (!!myPractitionerId && rx.practitioner_id === myPractitionerId);
+  const [doctorFilter, setDoctorFilter] = useState<string>(ALL_DOCTORS);
+  const [rxDoctor, setRxDoctor] = useState<string | null>(null);
   const { accessLevel: trialAccessLevel } = useTrialStatus();
   const writeDisabled = trialAccessLevel === "grace";
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
@@ -323,6 +338,7 @@ const PrescriptionsPage = () => {
     const to = from + PAGE_SIZE - 1;
     let q = supabase.from("prescriptions").select("*", { count: "exact" }).eq("doctor_id", profile.id);
     if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
+    if (isMulti && doctorFilter !== ALL_DOCTORS) q = q.eq("practitioner_id", doctorFilter);
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`patient_name.ilike.%${term}%,diagnosis.ilike.%${term}%`);
     q = q.order("date", { ascending: false }).range(from, to);
@@ -345,11 +361,11 @@ const PrescriptionsPage = () => {
   };
 
   // Reset to page 1 whenever the search term changes underneath the pager.
-  useEffect(() => { setPage(1); }, [debouncedSearch, selectedDate, dateFilterActive]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, selectedDate, dateFilterActive, doctorFilter]);
 
-  useEffect(() => { load(); }, [profile, debouncedSearch, selectedDate, dateFilterActive, page]);
+  useEffect(() => { load(); }, [profile, debouncedSearch, selectedDate, dateFilterActive, page, isMulti, doctorFilter]);
   useEffect(() => { loadPatients(); }, [profile]);
-  useEffect(() => { clearSelection(); }, [debouncedSearch, dateFilterActive, selectedDate, page]);
+  useEffect(() => { clearSelection(); }, [debouncedSearch, dateFilterActive, selectedDate, page, doctorFilter]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -381,6 +397,7 @@ const PrescriptionsPage = () => {
       phone,
       data: {
         id: rx.id,
+        practitioner_id: rx.practitioner_id ?? null,
         patient_id: rx.patient_id,
         patient_name: rx.patient_name,
         diagnosis: rx.diagnosis,
@@ -451,11 +468,12 @@ const PrescriptionsPage = () => {
     const token = (data as { token?: string } | null)?.token;
     if (error || !token) {
       tab?.close();
-      toast.error("Could not create the share link");
+      toast.error(practitionerErrorMessage(error?.message ?? (data as { error?: string } | null)?.error) ?? "Could not create the share link");
       return;
     }
     const link = prescriptionShareUrl(window.location.origin, token);
-    const message = buildShareMessage({ patientName: rx.patient_name, doctorName: profile?.full_name || "", link });
+    const doctorName = slipDoctor(profile, byId(rx.practitioner_id))?.full_name || "";
+    const message = buildShareMessage({ patientName: rx.patient_name, doctorName, link });
     const url = buildWhatsAppUrl(phone, message);
     if (tab) tab.location.href = url; else window.location.href = url;
   };
@@ -487,6 +505,7 @@ const PrescriptionsPage = () => {
     if (vitalsError) { toast.error(vitalsError); return; }
     const medError = validateMedicines(formMedicines);
     if (medError) { toast.error(medError); return; }
+    if (needsDoctorPick && !rxDoctor) { toast.error(practitionerErrorMessage("PRACTITIONER_REQUIRED")); return; }
     const { data, error } = await supabase.from("prescriptions").insert({
       doctor_id: profile.id,
       patient_id: form.patient_id || null,
@@ -496,11 +515,13 @@ const PrescriptionsPage = () => {
       date: form.date,
       patient_age: form.patient_age ? Number(form.patient_age) : null,
       patient_weight: parseWeight(form.patient_weight),
+      ...(needsDoctorPick && rxDoctor ? { practitioner_id: rxDoctor } : {}),
     }).select().single();
-    if (error) { toast.error("Could not add prescription"); return; }
+    if (error) { toast.error(practitionerErrorMessage(error.message) ?? "Could not add prescription"); return; }
     setShowNew(false);
     setForm(emptyForm);
     setFormMedicines([]);
+    setRxDoctor(null);
     load();
     toast.success("Prescription added");
     if (data) openSlip(data as Prescription);
@@ -566,6 +587,14 @@ const PrescriptionsPage = () => {
   // are already the filtered/paginated result set.
   const filtered = prescriptions;
   const allOnPageSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+  // The slip and its share name the prescription's author doctor (clinic details stay the clinic's).
+  const slipProfile = slipDoctor(profile, byId(slipPrescription?.practitioner_id));
+  const authorBadge = (rx: Prescription) => {
+    const author = isMulti ? byId(rx.practitioner_id) : undefined;
+    return author ? (
+      <Badge variant="secondary" className="mt-1 text-[10px] font-medium">{author.display_name}</Badge>
+    ) : null;
+  };
   const selectAllOnPage = () => {
     if (allOnPageSelected) clearSelection();
     else setSelectedIds(new Set(filtered.map((p) => p.id)));
@@ -585,7 +614,7 @@ const PrescriptionsPage = () => {
           <p className="text-sm text-muted-foreground mt-0.5">{totalCount} total records</p>
         </div>
         {can("prescriptions.create") && (
-        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); else { setForm(emptyForm); setFormMedicines([]); } }}>
+        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); else { setForm(emptyForm); setFormMedicines([]); setRxDoctor(null); } }}>
           <DialogTrigger asChild>
             <Button
               className="bg-royal hover:bg-royal/90"
@@ -598,6 +627,12 @@ const PrescriptionsPage = () => {
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Add Prescription</DialogTitle></DialogHeader>
             <div className="space-y-4">
+              {needsDoctorPick && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-rx-doctor">Prescribing doctor *</Label>
+                  <PractitionerSelect id="new-rx-doctor" aria-label="Prescribing doctor" required value={rxDoctor} onChange={setRxDoctor} />
+                </div>
+              )}
               <PrescriptionPatientFields
                 idPrefix="new-rx"
                 selectLabel="Select Existing Patient"
@@ -629,10 +664,20 @@ const PrescriptionsPage = () => {
         inactiveLabel="Showing all prescriptions"
       />
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input className="pl-9 h-10" placeholder="Search by patient or diagnosis..." value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
+      {isMulti ? (
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative max-w-md flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-9 h-10" placeholder="Search by patient or diagnosis..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <PractitionerSelect allowAll value={doctorFilter} onChange={setDoctorFilter} aria-label="Filter by doctor" className="sm:w-56" />
+        </div>
+      ) : (
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input className="pl-9 h-10" placeholder="Search by patient or diagnosis..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+      )}
 
       {filtered.length > 0 && (
         <div className="flex items-center justify-between gap-3">
@@ -710,6 +755,7 @@ const PrescriptionsPage = () => {
                               <div className="text-xs text-muted-foreground md:hidden truncate">
                                 {rx.diagnosis || "—"}
                               </div>
+                              {authorBadge(rx)}
                             </div>
                           </div>
                         </td>
@@ -772,6 +818,7 @@ const PrescriptionsPage = () => {
                         <Pill className="h-3.5 w-3.5 text-teal flex-shrink-0 mt-0.5" />
                         <MedicineSummaryLine rx={rx} />
                       </div>
+                      {authorBadge(rx)}
                     </div>
                   </CardContent>
                 </Card>
@@ -856,7 +903,7 @@ const PrescriptionsPage = () => {
                     <Button variant="outline" className="h-10 w-full md:w-auto px-2 md:px-3 whitespace-nowrap" onClick={() => openSlip(viewing)}>
                       <Eye className="h-4 w-4 mr-1.5 flex-shrink-0" /> View
                     </Button>
-                    {can("prescriptions.edit") && (
+                    {can("prescriptions.edit") && canChangeRx(viewing) && (
                       <Button variant="outline" className="h-10 w-full md:w-auto px-2 md:px-3 whitespace-nowrap" onClick={startEdit}>
                         <Pencil className="h-4 w-4 mr-1.5 flex-shrink-0" /> Edit
                       </Button>
@@ -947,7 +994,7 @@ const PrescriptionsPage = () => {
       <PrescriptionSlip
         open={slipOpen}
         onClose={() => setSlipOpen(false)}
-        profile={profile}
+        profile={slipProfile}
         prescription={slipPrescription}
         onDownload={downloadSlip}
         hideShare
@@ -958,7 +1005,7 @@ const PrescriptionsPage = () => {
               prescriptionId={slipPrescription.id}
               patientName={slipPrescription.patient_name}
               patientPhone={slipPatientPhone}
-              doctorName={profile?.full_name || ""}
+              doctorName={slipProfile?.full_name || ""}
             />
           ) : undefined
         }
@@ -968,7 +1015,7 @@ const PrescriptionsPage = () => {
       {downloadingPrescription && (
         <div style={{ position: "fixed", left: "-9999px", top: 0, pointerEvents: "none" }} aria-hidden="true">
           <div data-prescription-slip-print-root>
-            <PrescriptionSlipCard profile={profile} prescription={downloadingPrescription} />
+            <PrescriptionSlipCard profile={slipDoctor(profile, byId(downloadingPrescription.practitioner_id))} prescription={downloadingPrescription} />
           </div>
         </div>
       )}

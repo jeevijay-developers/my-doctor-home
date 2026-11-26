@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, useCallback, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Permissions, PermissionKey } from "@/lib/staffPermissions";
@@ -34,7 +34,17 @@ export type ProfileState = {
   // that must address "this specific person" (e.g. support tickets,
   // notifications) rather than "this clinic".
   authUserId: string | null;
+  // Who this login is inside the clinic: the clinic owner (a profiles row), a doctor
+  // login (staff_members.role = 'doctor'), or other staff. A session without access
+  // counts as 'staff' so nothing owner-only ever shows for it.
+  role: ProfileRole;
+  // The practitioner this login sees patients as: the owner's own practitioner row
+  // (practitioners.user_id = auth user), a doctor login's staff_members.practitioner_id,
+  // or null for reception staff.
+  myPractitionerId: string | null;
 };
+
+export type ProfileRole = "owner" | "staff" | "doctor";
 
 // Realtime refetches keep the existing object when nothing changed, so
 // components holding form state keyed on `profile` don't reset under the user.
@@ -53,6 +63,10 @@ function useProfileState(enabled: boolean): ProfileState {
   const [staffPermissions, setStaffPermissions] = useState<Permissions>({});
   const [staffName, setStaffName] = useState<string | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [role, setRole] = useState<ProfileRole>("owner");
+  const [myPractitionerId, setMyPractitionerId] = useState<string | null>(null);
+
+  const ownPractitionerCache = useRef<{ userId: string; id: string } | null>(null);
 
   const fetchProfile = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -61,7 +75,20 @@ function useProfileState(enabled: boolean): ProfileState {
 
     const { data: ownProfile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
     if (ownProfile) {
+      // The owner's own practitioner row (user_id is unique). Resolved once per auth user and
+      // remembered: realtime refetches must not repeat it. A failed lookup is logged and just
+      // leaves it null; it must never stop the profile from loading.
+      let ownPractitionerId = ownPractitionerCache.current?.userId === user.id ? ownPractitionerCache.current.id : null;
+      if (!ownPractitionerId) {
+        const { data, error } = await supabase.from("practitioners").select("id").eq("user_id", user.id).maybeSingle();
+        if (error) console.error("Could not load your practitioner record:", error);
+        ownPractitionerId = data?.id ?? null;
+        // Only a found row is remembered, so a row created later is still picked up.
+        if (ownPractitionerId) ownPractitionerCache.current = { userId: user.id, id: ownPractitionerId };
+      }
       setProfile((prev) => (sameRow(prev, ownProfile) ? prev : ownProfile));
+      setRole("owner");
+      setMyPractitionerId(ownPractitionerId);
       setIsStaff(false);
       setNoAccess(false);
       setStaffPermissions({});
@@ -72,7 +99,7 @@ function useProfileState(enabled: boolean): ProfileState {
 
     const { data: staffRow } = await supabase
       .from("staff_members")
-      .select("doctor_id, staff_name, permissions, status")
+      .select("doctor_id, staff_name, permissions, status, role, practitioner_id")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -81,6 +108,9 @@ function useProfileState(enabled: boolean): ProfileState {
       setNoAccess(false);
       setStaffPermissions((staffRow.permissions as Permissions) || {});
       setStaffName(staffRow.staff_name);
+      const isDoctorLogin = staffRow.role === "doctor";
+      setRole(isDoctorLogin ? "doctor" : "staff");
+      setMyPractitionerId(isDoctorLogin ? (staffRow.practitioner_id ?? null) : null);
       const { data: doctorProfile } = await supabase.from("profiles").select("*").eq("id", staffRow.doctor_id).maybeSingle();
       const next = doctorProfile ?? ({ id: staffRow.doctor_id } as Tables<"profiles">);
       setProfile((prev) => (sameRow(prev, next) ? prev : next));
@@ -90,6 +120,8 @@ function useProfileState(enabled: boolean): ProfileState {
       setNoAccess(true);
       setStaffPermissions({});
       setStaffName(null);
+      setRole("staff");
+      setMyPractitionerId(null);
     }
     setLoading(false);
   }, []);
@@ -122,7 +154,7 @@ function useProfileState(enabled: boolean): ProfileState {
   // exclusively to restrict staff, never the doctor's own account.
   const can = useCallback((key: PermissionKey) => (noAccess ? false : !isStaff || staffPermissions[key] === true), [noAccess, isStaff, staffPermissions]);
 
-  return { profile, loading, setProfile, refetch: fetchProfile, isStaff, noAccess, staffPermissions, staffName, can, authUserId };
+  return { profile, loading, setProfile, refetch: fetchProfile, isStaff, noAccess, staffPermissions, staffName, can, authUserId, role, myPractitionerId };
 }
 
 const ProfileContext = createContext<ProfileState | null>(null);

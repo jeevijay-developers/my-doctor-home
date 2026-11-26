@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
+import { usePractitioners } from "@/hooks/usePractitioners";
 import {
   CalendarCheck, Users, CreditCard, Star, Clock, ArrowRight,
   TrendingUp, Sparkles, ExternalLink, Copy, Eye, FileText,
@@ -35,7 +36,16 @@ const growthTips = [
 ];
 
 const DashboardHome = () => {
-  const { profile, isStaff, can } = useProfile();
+  const { profile, isStaff, can, role, staffName, myPractitionerId } = useProfile();
+  const { isMulti, byId } = usePractitioners();
+  const isDoctorLogin = role === "doctor";
+  // A doctor login in a multi-doctor clinic sees their own appointments here unless they were
+  // granted "all doctors". (Convenience scoping, not a privacy boundary: appointments are
+  // clinic-visible by design.)
+  const ownOnly = isDoctorLogin && !can("appointments.all_doctors") && isMulti && !!myPractitionerId;
+  // The profile is the owner's row for every actor in the clinic; a doctor login must be greeted
+  // (and share the site) under their own name, never the owner's.
+  const ownName = isDoctorLogin ? (staffName || byId(myPractitionerId)?.display_name || null) : null;
   const canSeeRevenue = can("billing.view");
   const { nearCap, appointmentsUsed, appointmentsCap } = usePlanAccess();
   const [stats, setStats] = useState({ appointments: 0, patients: 0, revenue: 0, todayCount: 0, pendingTodayCount: 0, weekRevenue: 0, lastWeekAppts: 0, reviewCount: 0, avgRating: 0 });
@@ -54,17 +64,20 @@ const DashboardHome = () => {
     const thirtyDaysAgoDate = subDays(new Date(), 29);
     const thirtyDaysAgo = format(thirtyDaysAgoDate, "yyyy-MM-dd");
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mine = (q: any) => (ownOnly && myPractitionerId ? q.eq("practitioner_id", myPractitionerId) : q);
+
     Promise.all([
-      supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id),
+      mine(supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id)),
       // Booked-but-never-seen people (auto-created, zero visits) are not patients yet.
       supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id)
         .or("auto_created.eq.false,total_visits.gt.0"),
       // Revenue is now sourced from the persisted invoices table so it survives
       // appointment / patient deletions.
       canSeeRevenue ? (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id) : Promise.resolve({ data: [] }),
-      supabase.from("appointments").select("*").eq("doctor_id", id).eq("date", today).order("time_slot"),
+      mine(supabase.from("appointments").select("*").eq("doctor_id", id).eq("date", today)).order("time_slot"),
       canSeeRevenue ? (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id).gte("created_at", `${weekAgo}T00:00:00`) : Promise.resolve({ data: [] }),
-      supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo),
+      mine(supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id).gte("date", twoWeeksAgo).lt("date", weekAgo)),
       canSeeRevenue ? (supabase.from("invoices" as any) as any).select("amount, created_at").eq("doctor_id", id).gte("created_at", `${thirtyDaysAgo}T00:00:00`) : Promise.resolve({ data: [] }),
       // Overall review stats — every review regardless of visibility, same
       // as ReviewsManagePage's own average, so the two numbers always match.
@@ -109,7 +122,8 @@ const DashboardHome = () => {
     });
   };
 
-  useEffect(() => { loadDashboard(); }, [profile]);
+  useEffect(() => { loadDashboard(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, ownOnly, myPractitionerId]);
 
   // Realtime: refresh dashboard when appointments/patients/invoices change
   useEffect(() => {
@@ -170,7 +184,7 @@ const DashboardHome = () => {
 
   const liveUrl = profile?.slug ? `${window.location.origin}/dr/${profile.slug}` : null;
   const defaultShareMessage = liveUrl
-    ? `🏥 Book your appointment online with ${profile?.full_name || "Dr."}\n\n${liveUrl}`
+    ? `🏥 Book your appointment online with ${ownName || profile?.full_name || "Dr."}\n\n${liveUrl}`
     : "";
   const [shareMessage, setShareMessage] = useState(defaultShareMessage);
   const [lastDefaultShareMessage, setLastDefaultShareMessage] = useState(defaultShareMessage);
@@ -193,7 +207,7 @@ const DashboardHome = () => {
               <span className="text-sm font-medium text-white/85">{format(new Date(), "EEEE, MMMM d, yyyy")}</span>
             </div>
             <h1 className="font-heading font-extrabold text-2xl text-white">
-              Welcome back, {profile?.full_name?.split(" ")[0] || "Doctor"}
+              Welcome back, {isDoctorLogin ? (ownName || "Doctor") : (profile?.full_name?.split(" ")[0] || "Doctor")}
             </h1>
             <p className="text-white/80 mt-0.5 text-sm">Here's what's happening with your practice today.</p>
           </div>

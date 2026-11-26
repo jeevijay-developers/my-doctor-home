@@ -1,8 +1,9 @@
-import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCog, LifeBuoy, Mail } from "lucide-react";
+import { LayoutDashboard, Globe, CalendarCheck, Users, CreditCard, Settings, LogOut, FileText, ClipboardList, MessageSquare, UserCog, LifeBuoy, Mail, Stethoscope } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { usePractitioners } from "@/hooks/usePractitioners";
 import type { PermissionKey } from "@/lib/staffPermissions";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -21,7 +22,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; permission: PermissionKey | null; alwaysVisible?: boolean }[] = [
+const mainItems: {
+  title: string; url: string; icon: typeof LayoutDashboard; permission: PermissionKey | null; alwaysVisible?: boolean;
+  // Shown only when the clinic's plan includes multiple doctors.
+  multiDoctor?: boolean;
+}[] = [
   { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard, permission: "dashboard.view" },
   { title: "My Website", url: "/admin/my-website", icon: Globe, permission: "website.view" },
   { title: "Appointments", url: "/admin/appointments", icon: CalendarCheck, permission: "appointments.view" },
@@ -32,6 +37,7 @@ const mainItems: { title: string; url: string; icon: typeof LayoutDashboard; per
   { title: "Blog", url: "/admin/blog", icon: FileText, permission: "blog.view" },
   { title: "Revenue", url: "/admin/billing", icon: CreditCard, permission: "billing.view" },
   { title: "Staff Management", url: "/admin/staff", icon: UserCog, permission: "staff.view" },
+  { title: "Doctors", url: "/admin/doctors", icon: Stethoscope, permission: "practitioners.view", multiDoctor: true },
   // Not permission-gated (matches the /admin/support route): every doctor and staff member can raise a ticket.
   { title: "Contact Support", url: "/admin/support", icon: LifeBuoy, permission: null, alwaysVisible: true },
   // Profile now lives inside Settings as a tab, so Settings is gated on
@@ -45,6 +51,7 @@ const AdminSidebar = () => {
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
   const { isStaff, can, loading } = useProfile();
+  const { access, isMulti } = usePractitioners();
 
   // On mobile/tablet the sidebar renders as an overlay Sheet (see
   // ui/sidebar.tsx) — picking a section should navigate there AND close the
@@ -57,6 +64,8 @@ const AdminSidebar = () => {
   // window, however briefly, would mean a staff member momentarily sees
   // sections they were never granted. Show nothing until it settles instead.
   const visibleItems = loading ? [] : mainItems.filter((item) => {
+    // A clinic that already has 2+ active doctors keeps the page after a plan lapse.
+    if (item.multiDoctor && !access?.has_feature && !isMulti) return false;
     if (!isStaff || item.alwaysVisible) return true;
     if (item.permission === null) return false;
     return can(item.permission);

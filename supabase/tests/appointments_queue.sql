@@ -116,9 +116,9 @@ BEGIN
   SELECT * INTO rec FROM public.appointments WHERE id = a3;
   IF rec.skipped_at IS NOT NULL OR rec.serving_started_at IS NOT NULL THEN RAISE EXCEPTION 'skip/recall left stale queue state'; END IF;
 
-  r := public.queue_action('mark_paid', a2, NULL, 'upi');
+  r := public.queue_action('mark_paid', a2, NULL, 'upi', _payment_reference => '123456789012');
   IF NOT (r->>'ok')::boolean THEN RAISE EXCEPTION 'mark_paid failed: %', r; END IF;
-  r := public.queue_action('mark_paid', a2, NULL, 'upi');
+  r := public.queue_action('mark_paid', a2, NULL, 'upi', _payment_reference => '123456789012');
   IF (r->>'ok')::boolean THEN RAISE EXCEPTION 'paying twice was accepted'; END IF;
 
   -- ---- 6. Public screens expose numbers only ---------------------------------------------

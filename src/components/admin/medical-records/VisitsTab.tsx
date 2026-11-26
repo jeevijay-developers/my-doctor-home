@@ -22,6 +22,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { dbErrorMessage } from "@/lib/dbErrorMessage";
+import { useProfile } from "@/hooks/useProfile";
+import { usePractitioners } from "@/hooks/usePractitioners";
+import PractitionerSelect from "../PractitionerSelect";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 
 type Visit = {
   id: string; visit_date: string; consultation_type: string | null; reason_for_visit: string | null;
@@ -52,6 +56,12 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
   const [form, setForm] = useState(emptyVisit);
   const [vitalsForm, setVitalsForm] = useState(emptyVitals);
   const [deleting, setDeleting] = useState<Visit | null>(null);
+  const { myPractitionerId } = useProfile();
+  const { isMulti } = usePractitioners();
+  const [visitDoctor, setVisitDoctor] = useState<string | null>(null);
+  // A new visit in a multi-doctor clinic, logged by reception and not tied to an appointment,
+  // names its doctor; otherwise the database takes it from the appointment or the caller.
+  const needsDoctorPick = isMulti && !editingId && !form.appointment_id && !myPractitionerId;
 
   const load = async () => {
     const { data: v } = await supabase.from("patient_visits").select("*").eq("patient_id", patientId).is("deleted_at", null).order("visit_date", { ascending: false });
@@ -75,7 +85,7 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
     return next;
   });
 
-  const openAdd = () => { setEditingId(null); setForm(emptyVisit); setVitalsForm(emptyVitals); setDialogOpen(true); };
+  const openAdd = () => { setEditingId(null); setForm(emptyVisit); setVitalsForm(emptyVitals); setVisitDoctor(null); setDialogOpen(true); };
   const openEdit = (v: Visit) => {
     setEditingId(v.id);
     setForm({
@@ -94,6 +104,7 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
 
   const save = async () => {
     if (!form.visit_date) { toast.error("Visit date is required"); return; }
+    if (needsDoctorPick && !visitDoctor) { toast.error(practitionerErrorMessage("PRACTITIONER_REQUIRED")); return; }
     const visitPayload = {
       appointment_id: form.appointment_id || null, visit_date: form.visit_date,
       consultation_type: form.consultation_type || null, reason_for_visit: form.reason_for_visit || null,
@@ -107,8 +118,14 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
     } else {
       const { data, error } = await supabase.from("patient_visits").insert({
         ...visitPayload, patient_id: patientId, doctor_id: doctorId, created_by: doctorId, updated_by: doctorId,
+        ...(needsDoctorPick && visitDoctor ? { practitioner_id: visitDoctor } : {}),
       }).select("id").single();
-      if (error || !data) { toast.error(error ? dbErrorMessage(error, "patient_visits insert", "Could not save visit") : "Could not save visit"); return; }
+      if (error || !data) {
+        toast.error(error
+          ? practitionerErrorMessage(error.message) ?? dbErrorMessage(error, "patient_visits insert", "Could not save visit")
+          : "Could not save visit");
+        return;
+      }
       visitId = data.id;
     }
 
@@ -253,6 +270,12 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+            {needsDoctorPick && (
+              <div className="space-y-1.5">
+                <Label htmlFor="visit-doctor">Doctor *</Label>
+                <PractitionerSelect id="visit-doctor" aria-label="Doctor" required value={visitDoctor} onChange={setVisitDoctor} />
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

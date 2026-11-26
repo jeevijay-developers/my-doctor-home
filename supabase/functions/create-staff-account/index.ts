@@ -13,6 +13,13 @@
 // Callable by the owning doctor OR by another staff member who was
 // themselves granted "Create Staff" (staff.create) — never by anyone else,
 // and a staff caller can only ever create staff under their OWN doctor.
+//
+// Multi-doctor clinics: `role: "doctor"` + `practitioner_id` creates a login for
+// one of the clinic's doctors. Only the owner may do that, only once the clinic
+// has multiple doctors enabled, and only for an active doctor of this clinic
+// who has no login yet; practitioners.user_id is then linked to the new login.
+// Practitioner refusals answer with the bare error code (e.g. PHONE_OWNS_CLINIC);
+// the client turns codes into text via src/lib/practitioners/errors.ts.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { beginStaffRequest, json, normalizeStaffPhone, sanitizePermissions } from "../_shared/staffPermissions.ts";
 
@@ -23,6 +30,7 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 const PHONE_IN_USE = "This phone number is already registered on Doctylia. Use a different number.";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
   const preflight = beginStaffRequest(req);
@@ -66,6 +74,8 @@ Deno.serve(async (req) => {
   const phone = normalizeStaffPhone(body?.phone);
   const status = body?.status === "inactive" ? "inactive" : "active";
   const permissions = sanitizePermissions(body?.permissions);
+  const role: "staff" | "doctor" = body?.role === "doctor" ? "doctor" : "staff";
+  const practitionerId: string | null = role === "doctor" ? String(body?.practitioner_id || "") : null;
 
   // A staff caller can only hand out permissions they hold themselves, otherwise a
   // staff.create holder could mint an account with billing.manage / staff.edit and sign in as it.
@@ -78,6 +88,44 @@ Deno.serve(async (req) => {
 
   if (!staff_name) return json(400, { error: "Staff name is required" });
   if (!phone) return json(400, { error: "Enter a valid phone number, e.g. +919876543210" });
+  if (role === "doctor") {
+    // Doctor logins are owner-only (trg_guard_doctor_role_staff says the same for direct
+    // writes; this function runs as service role, so it must check itself).
+    if (callerPermissions || !callerProfile) return json(403, { error: "OWNER_ONLY" });
+    const { data: multiEnabled, error: multiErr } = await admin.rpc("clinic_multi_doctor_enabled", { _doctor_id: doctorId });
+    if (multiErr) {
+      console.error("create-staff-account: clinic_multi_doctor_enabled failed", { code: multiErr.code, message: multiErr.message, doctorId });
+      return json(500, { error: "Could not check this clinic's plan. Please try again." });
+    }
+    if (multiEnabled !== true) return json(403, { error: "MULTI_DOCTOR_NOT_ENABLED" });
+    if (!practitionerId || !UUID_RE.test(practitionerId)) return json(404, { error: "PRACTITIONER_NOT_FOUND" });
+
+    const { data: practitioner, error: practitionerErr } = await admin
+      .from("practitioners")
+      .select("id, is_active, user_id")
+      .eq("id", practitionerId)
+      .eq("doctor_id", doctorId)
+      .maybeSingle();
+    if (practitionerErr) {
+      console.error("create-staff-account: practitioner lookup failed", { code: practitionerErr.code, message: practitionerErr.message, doctorId });
+      return json(500, { error: "Could not look up this doctor. Please try again." });
+    }
+    if (!practitioner || practitioner.is_active !== true) return json(404, { error: "PRACTITIONER_NOT_FOUND" });
+    if (practitioner.user_id) return json(409, { error: "PRACTITIONER_HAS_LOGIN" });
+
+    // staff_members.practitioner_id is UNIQUE: a leftover login row for this doctor blocks a new one.
+    const { data: existingLogin, error: existingErr } = await admin
+      .from("staff_members")
+      .select("id")
+      .eq("practitioner_id", practitionerId)
+      .maybeSingle();
+    if (existingErr) {
+      console.error("create-staff-account: existing doctor login lookup failed", { code: existingErr.code, message: existingErr.message, doctorId });
+      return json(500, { error: "Could not look up this doctor. Please try again." });
+    }
+    if (existingLogin) return json(409, { error: "PRACTITIONER_HAS_LOGIN" });
+  }
+
   // staff_members.username is still NOT NULL + unique; it is no longer a login
   // credential, so derive a stable one from the (unique) phone.
   const username = `staff_${phone.slice(1)}`;
@@ -97,7 +145,16 @@ Deno.serve(async (req) => {
   }
   if (dupe) return json(409, { error: PHONE_IN_USE });
 
-  console.log("create-staff-account: creating auth user", { staff_name, status, permissionCount: Object.values(permissions).filter(Boolean).length });
+  // A number that already runs its own clinic (a profiles row) must not become a login in
+  // another clinic. The database compares the last 10 digits across every stored phone format.
+  const { data: ownsClinic, error: ownersErr } = await admin.rpc("phone_owns_clinic", { _digits: phone.replace(/\D/g, "") });
+  if (ownersErr) {
+    console.error("create-staff-account: owner phone lookup failed", { code: ownersErr.code, message: ownersErr.message });
+    return json(500, { error: "Could not verify phone number availability. Please try again." });
+  }
+  if (ownsClinic === true) return json(409, { error: "PHONE_OWNS_CLINIC" });
+
+  console.log("create-staff-account: creating auth user", { staff_name, status, role, permissionCount: Object.values(permissions).filter(Boolean).length });
 
   const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
     email: `staff-${crypto.randomUUID()}@staff.doctylia.internal`,
@@ -122,12 +179,17 @@ Deno.serve(async (req) => {
     status,
     permissions,
     created_by: callerId,
+    role,
+    practitioner_id: practitionerId,
   });
   if (insertErr) {
     console.error("create-staff-account: staff_members insert failed", { code: insertErr.code, message: insertErr.message, details: insertErr.details, hint: insertErr.hint, doctorId, staffAuthId: newUser.user.id });
     const { error: rollbackErr } = await admin.auth.admin.deleteUser(newUser.user.id);
     if (rollbackErr) {
-      console.error("create-staff-account: ROLLBACK FAILED - orphaned auth user", { staffAuthId: newUser.user.id, message: rollbackErr.message });
+      console.error("create-staff-account: ROLLBACK FAILED - orphaned auth user", { staffId: newUser.user.id, authUserId: newUser.user.id, message: rollbackErr.message });
+    }
+    if (insertErr.code === "23505" && role === "doctor" && `${insertErr.message} ${insertErr.details}`.includes("practitioner_id")) {
+      return json(409, { error: "PRACTITIONER_HAS_LOGIN" });
     }
     if (insertErr.code === "23505") return json(409, { error: PHONE_IN_USE });
     if (insertErr.code === "23503") return json(400, { error: "Could not link this staff account to your doctor profile. Please refresh and try again." });
@@ -136,6 +198,37 @@ Deno.serve(async (req) => {
     return json(500, { error: `Could not save the staff account (${insertErr.code || "unknown error"}). Please try again or contact support.` });
   }
 
-  console.log("create-staff-account: success", { staffId: newUser.user.id, doctorId });
-  return json(200, { ok: true, staff: { id: newUser.user.id, staff_name, phone, status, permissions } });
+  if (role === "doctor") {
+    // Link the doctor to the new login. Only a doctor still without a login is linked; if that
+    // fails (or another login won the race), undo both the staff row and the auth user.
+    const { data: linked, error: linkErr } = await admin
+      .from("practitioners")
+      .update({ user_id: newUser.user.id })
+      .eq("id", practitionerId!)
+      .eq("doctor_id", doctorId)
+      .eq("is_active", true)
+      .is("user_id", null)
+      .select("id");
+    if (linkErr || !linked || linked.length !== 1) {
+      // 0 rows without an error means the doctor was deactivated, removed or already linked
+      // since the pre-check; it is answered as PRACTITIONER_HAS_LOGIN (existing mapping).
+      const reason = linkErr ? "link error" : "doctor inactive, missing or already linked";
+      console.error("create-staff-account: practitioner link failed, rolling back", { reason, code: linkErr?.code, message: linkErr?.message, linked: linked?.length ?? 0, practitionerId, doctorId, staffAuthId: newUser.user.id });
+      const { error: rowRollbackErr } = await admin.from("staff_members").delete().eq("id", newUser.user.id);
+      const { error: rollbackErr } = await admin.auth.admin.deleteUser(newUser.user.id);
+      if (rowRollbackErr || rollbackErr) {
+        console.error("create-staff-account: ROLLBACK FAILED", {
+          staffId: newUser.user.id,
+          authUserId: newUser.user.id,
+          staffRowError: rowRollbackErr ? `${rowRollbackErr.code ?? ""} ${rowRollbackErr.message}` : null,
+          authUserError: rollbackErr ? rollbackErr.message : null,
+        });
+      }
+      if (!linkErr || linkErr.code === "23505") return json(409, { error: "PRACTITIONER_HAS_LOGIN" });
+      return json(500, { error: "Could not link the login to this doctor. Please try again." });
+    }
+  }
+
+  console.log("create-staff-account: success", { staffId: newUser.user.id, doctorId, role });
+  return json(200, { ok: true, staff: { id: newUser.user.id, staff_name, phone, status, permissions, role, practitioner_id: practitionerId } });
 });

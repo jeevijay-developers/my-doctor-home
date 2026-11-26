@@ -8,6 +8,7 @@ export const FEATURE_KEYS = {
   BILLING_INVOICES: "billing_invoices",
   PATIENT_RECORDS: "patient_records",
   STAFF_MANAGEMENT: "staff_management",
+  MULTI_DOCTOR: "multi_doctor",
 } as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[keyof typeof FEATURE_KEYS];

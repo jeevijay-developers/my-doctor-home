@@ -8,7 +8,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Pure helpers shared by the Deno edge functions are tested in place.
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "supabase/functions/_shared/**/*.test.ts"],
     // OTP tests exercise MockOtpService; pin it here so they don't depend on
     // whatever VITE_ENABLE_TEST_OTP happens to be in the local .env.
     env: { VITE_ENABLE_TEST_OTP: "true" },

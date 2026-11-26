@@ -3,6 +3,13 @@
 // file only mirrors the ordering so the screen can render it).
 
 import { PAYMENT_DB_ERRORS } from "./paymentDetails";
+import { practitionerErrorMessage } from "./practitioners/errors";
+
+// Practitioner codes queue_action can return; their text lives in practitioners/errors.ts.
+const QUEUE_PRACTITIONER_CODES = [
+  "PRACTITIONER_REQUIRED", "PRACTITIONER_NOT_FOUND", "PRACTITIONER_NOT_BOOKABLE",
+  "PRACTITIONER_IN_SERVICE", "NOT_TRANSFERABLE", "SLOT_TAKEN",
+] as const;
 
 export type QueueAppointment = {
   id: string;
@@ -22,6 +29,8 @@ export type QueueAppointment = {
   priority: number;
   priority_reason: string | null;
   appointment_type: string;
+  // Only loaded for multi-doctor clinics (the doctor seeing this patient).
+  practitioner_id?: string | null;
 };
 
 export type QueueState = "serving" | "waiting" | "skipped" | "done" | "cancelled" | "no_show";
@@ -81,6 +90,19 @@ export function splitQueue(list: QueueAppointment[], from = "", to = ""): SplitQ
   return out;
 }
 
+// One board per doctor (multi-doctor clinics): each doctor has their own line and their
+// own patient in the room. Rows without a doctor are grouped under "".
+export function splitQueueByPractitioner(list: QueueAppointment[], from = "", to = ""): Map<string, SplitQueue> {
+  const groups = new Map<string, QueueAppointment[]>();
+  for (const a of list) {
+    const key = a.practitioner_id ?? "";
+    const group = groups.get(key);
+    if (group) group.push(a);
+    else groups.set(key, [a]);
+  }
+  return new Map([...groups].map(([key, rows]) => [key, splitQueue(rows, from, to)]));
+}
+
 // Average consultation length in minutes from the most recent finished visits.
 export function averageConsultMinutes(done: QueueAppointment[], sample = 10): number | null {
   const lengths = done
@@ -113,7 +135,8 @@ export function isUnpaid(a: Pick<QueueAppointment, "payment_status">): boolean {
 }
 
 export const QUEUE_ERRORS: Record<string, string> = {
-  FORBIDDEN: "You don't have permission to run the queue.",
+  // Either no queue permission, or a doctor login acting on another doctor's line.
+  FORBIDDEN: "You don't have permission for this. Doctor logins can only manage their own queue.",
   NOT_AUTHENTICATED: "Please sign in again.",
   NOT_FOUND: "That appointment is no longer in your queue.",
   NOT_CALLABLE: "Only today's waiting patients can be called.",
@@ -125,6 +148,7 @@ export const QUEUE_ERRORS: Record<string, string> = {
   PAYMENT_METHOD_REQUIRED: "Choose how the patient paid.",
   ALREADY_SETTLED: "This payment is already settled.",
   ...PAYMENT_DB_ERRORS,
+  ...Object.fromEntries(QUEUE_PRACTITIONER_CODES.map((c) => [c, practitionerErrorMessage(c) as string])),
   STALE: "The queue changed on another device. It has been refreshed - please check and try again.",
 };
 

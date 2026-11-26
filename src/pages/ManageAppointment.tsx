@@ -20,6 +20,10 @@ import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { pdfFileName } from "@/lib/pdfFileName";
 import { PUBLIC_PROFILE_COLUMNS } from "@/lib/publicProfileColumns";
 import { paymentSummary, queueWaitMinutes, slotTimeLabel } from "@/lib/manageAppointment";
+import { hoursFor } from "@/lib/practitioners/hours";
+import { slipDoctor } from "@/lib/practitioners/slipDoctor";
+import type { PublicPractitioner } from "@/lib/practitioners/types";
+import { formatDoctorName } from "@/lib/seo/doctorSeo";
 
 type Appt = {
   id: string; doctor_id: string; patient_name: string; patient_phone: string;
@@ -28,6 +32,8 @@ type Appt = {
   chief_complaint: string | null; meeting_link: string | null; created_at: string;
   payment_status?: string | null; payment_method?: string | null; payment_gateway?: string | null;
   gateway_payment_id?: string | null; gateway_order_id?: string | null; paid_at?: string | null;
+  /** The doctor the visit is with (multi-doctor clinics); the primary in a single-doctor clinic. */
+  practitioner_id?: string | null; practitioner_name?: string | null;
 };
 
 const ManageAppointment = () => {
@@ -36,6 +42,7 @@ const ManageAppointment = () => {
   const [doctor, setDoctor] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
   const [workingHours, setWorkingHours] = useState<any[]>([]);
+  const [practitioners, setPractitioners] = useState<PublicPractitioner[]>([]);
   // Links carry the token and phone in the URL fragment (#), which never reaches servers
   // or Referer headers; older links used the query string, which is still accepted.
   const hashParams = useMemo(() => new URLSearchParams(window.location.hash.replace(/^#/, "")), []);
@@ -87,6 +94,18 @@ const ManageAppointment = () => {
   useEffect(() => {
     if (!slug) return;
     setClinicError(null);
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    // One call; supabase-js resolves {error} instead of throwing, so check both.
+    const fetchList = async (clinicId: string): Promise<{ list: PublicPractitioner[]; error: unknown }> => {
+      try {
+        const res = await supabase.rpc("get_public_practitioners", { _doctor_id: clinicId });
+        if (res.error) return { list: [], error: res.error };
+        return { list: (Array.isArray(res.data) ? res.data : []) as unknown as PublicPractitioner[], error: null };
+      } catch (e) {
+        return { list: [], error: e };
+      }
+    };
     (async () => {
       // Explicit public columns (anon cannot read the sensitive ones); the slips use these.
       const { data: profRow, error: profErr } = await supabase.from("profiles").select(PUBLIC_PROFILE_COLUMNS).eq("slug", slug).eq("onboarding_completed", true).single();
@@ -97,10 +116,13 @@ const ManageAppointment = () => {
         return;
       }
       setDoctor(prof);
-      const [s, wh] = await Promise.all([
+      const [s, wh, pr] = await Promise.all([
         supabase.from("website_settings").select("*").eq("doctor_id", prof.id).single(),
         supabase.from("working_hours").select("*").eq("doctor_id", prof.id).order("day_of_week"),
+        // A failed doctor lookup must never break the page: it then works as a single-doctor clinic.
+        fetchList(prof.id),
       ]);
+      if (cancelled) return;
       // No settings row is fine (defaults apply); a failed request must not silently
       // turn into "every day closed" or the wrong cancellation cutoff.
       if ((s.error && s.error.code !== "PGRST116") || wh.error) {
@@ -109,7 +131,21 @@ const ManageAppointment = () => {
       }
       setSettings(s.data);
       setWorkingHours(wh.data || []);
+      setPractitioners(pr.list);
+      // One quiet retry after a second; the page already works as a single-doctor clinic meanwhile.
+      if (pr.error) {
+        retryTimer = setTimeout(async () => {
+          const again = await fetchList(prof.id);
+          if (cancelled) return;
+          if (again.error) console.error("get_public_practitioners failed", again.error);
+          else setPractitioners(again.list);
+        }, 1000);
+      }
     })();
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [slug, clinicReload]);
 
   const lookup = async (e?: React.FormEvent) => {
@@ -202,11 +238,25 @@ const ManageAppointment = () => {
   const advanceDays = settings?.booking_advance_days || 7;
   const days = useMemo(() => Array.from({ length: advanceDays }, (_, i) => addDays(new Date(), i)), [advanceDays]);
   const newDateStr = newDate ? format(newDate, "yyyy-MM-dd") : null;
-  const { isFull } = useSlotAvailability(doctor?.id, newDateStr, (appt?.appointment_type as "clinic" | "online") || "clinic");
+  // Multi-doctor clinics only: the visit's own doctor decides hours, slot length and slot counts.
+  // A single-doctor clinic keeps exactly today's behaviour and requests (no practitioner key).
+  const isMulti = practitioners.length >= 2;
+  const apptPractitionerId = isMulti ? appt?.practitioner_id ?? null : null;
+  const apptPractitioner = apptPractitionerId ? practitioners.find((p) => p.id === apptPractitionerId) ?? null : null;
+  // The slip and receipt name the visit's own doctor (is_owner, not is_primary: a non-owner main doctor is still someone else); the owner's row (or no match) keeps the clinic profile as is.
+  const slipProfile = useMemo(
+    () => (apptPractitioner && !apptPractitioner.is_owner ? slipDoctor(doctor, { ...apptPractitioner, signature_url: null }) : doctor),
+    [doctor, apptPractitioner],
+  );
+  const doctorHours = useMemo(
+    () => (apptPractitionerId ? hoursFor(workingHours, apptPractitionerId) : workingHours),
+    [workingHours, apptPractitionerId],
+  );
+  const { isFull } = useSlotAvailability(doctor?.id, newDateStr, (appt?.appointment_type as "clinic" | "online") || "clinic", apptPractitionerId ?? undefined);
 
   const dow = newDate ? newDate.getDay() : -1;
-  const wh = workingHours.find((h) => h.day_of_week === dow);
-  const slotDuration = settings?.slot_duration_minutes || DEFAULT_SLOT_DURATION_MINUTES;
+  const wh = doctorHours.find((h) => h.day_of_week === dow);
+  const slotDuration = apptPractitioner?.slot_duration_minutes || settings?.slot_duration_minutes || DEFAULT_SLOT_DURATION_MINUTES;
   const rawSlots = wh?.is_open
     ? [...generateTimeSlots(wh.start_time, wh.end_time, slotDuration), ...generateTimeSlots(wh.start_time_2, wh.end_time_2, slotDuration)]
     : [];
@@ -292,7 +342,7 @@ const ManageAppointment = () => {
             </h1>
             <p className="text-sm text-muted-foreground mb-6">
               {appt
-                ? <>With Dr. {doctor?.full_name}{doctor?.clinic_name ? ` · ${doctor.clinic_name}` : ""}</>
+                ? <>With {isMulti && appt.practitioner_name ? formatDoctorName(appt.practitioner_name) : `Dr. ${doctor?.full_name ?? ""}`}{doctor?.clinic_name ? ` · ${doctor.clinic_name}` : ""}</>
                 : "Enter the token number from your booking and your mobile number to see your appointment, follow the live queue and download your slips."}
             </p>
 
@@ -332,6 +382,9 @@ const ManageAppointment = () => {
                     <span className="font-heading font-bold text-primary">#{appt.token_number}</span>
                   </div>
                   <div className="flex justify-between"><span className="text-text-gray">Patient</span><span className="font-medium">{appt.patient_name}</span></div>
+                  {isMulti && appt.practitioner_name && (
+                    <div className="flex justify-between"><span className="text-text-gray">Doctor</span><span className="font-medium">{formatDoctorName(appt.practitioner_name)}</span></div>
+                  )}
                   <div className="flex justify-between"><span className="text-text-gray">Service</span><span className="font-medium">{appt.service_name}</span></div>
                   <div className="flex justify-between"><span className="text-text-gray">Date</span><span className="font-medium">{format(parseISO(appt.date), "EEE, d MMM yyyy")}</span></div>
                   <div className="flex justify-between"><span className="text-text-gray">Time</span><span className="font-medium">{timeLabel || "Walk-in"}</span></div>
@@ -525,7 +578,7 @@ const ManageAppointment = () => {
                   <h3 className="font-heading font-semibold text-base mb-2">Pick a new date</h3>
                   <div className="flex gap-2 overflow-x-auto pb-2">
                     {days.map((d, i) => {
-                      const dwh = workingHours.find((h) => h.day_of_week === d.getDay());
+                      const dwh = doctorHours.find((h) => h.day_of_week === d.getDay());
                       const closed = !dwh?.is_open;
                       const selected = newDate?.toDateString() === d.toDateString();
                       return (
@@ -584,7 +637,7 @@ const ManageAppointment = () => {
         <AppointmentSlip
           open={slipOpen}
           onClose={() => setSlipOpen(false)}
-          profile={doctor}
+          profile={slipProfile}
           settings={settings}
           token={appt.token_number}
           service={{ name: appt.service_name, price: Number(appt.amount) || 0 }}
@@ -602,7 +655,7 @@ const ManageAppointment = () => {
         <PaymentSlip
           open={receiptOpen}
           onClose={() => setReceiptOpen(false)}
-          profile={doctor}
+          profile={slipProfile}
           token={appt.token_number}
           service={{ name: appt.service_name, price: Number(appt.amount) || 0 }}
           type={appt.appointment_type === "online" ? "online" : "clinic"}

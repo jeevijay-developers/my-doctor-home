@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import StaffManagementPage from "./StaffManagementPage";
 import { createTableMock } from "@/test/tableMock";
+import { PERMISSION_MODULES, PERMISSION_PRESETS } from "@/lib/staffPermissions";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 
 const mock = vi.hoisted(() => ({ current: null as any }));
 const h = vi.hoisted(() => ({
@@ -169,5 +171,56 @@ describe("StaffManagementPage", () => {
     const upd = mock.current.queries.find((q: any) => q.ops.some((o: any[]) => o[0] === "update"));
     expect(upd.ops.find((o: any[]) => o[0] === "update")[1]).toEqual({ status: "inactive" });
     expect(mock.current.hasOp(upd, "eq", "id", "s1")).toBe(true);
+  });
+  it("a doctor-role login shows a Doctor badge, 'Managed in Doctors', and no edit or delete", async () => {
+    mock.current.tables.staff_members = {
+      data: [row(), row({ id: "s2", staff_name: "Dr Mehta", role: "doctor", practitioner_id: "p2", phone: "+919800000002" })],
+    };
+    render(<StaffManagementPage />);
+    await screen.findAllByText("Dr Mehta");
+    const tr = screen.getAllByText("Dr Mehta")[0].closest("tr")!;
+    expect(within(tr).getByText("Doctor")).toBeInTheDocument();
+    expect(within(tr).getByText("Managed in Doctors")).toBeInTheDocument();
+    expect(within(tr).queryByLabelText("Edit")).not.toBeInTheDocument();
+    expect(within(tr).queryByLabelText("Delete")).not.toBeInTheDocument();
+    // The ordinary staff row keeps its actions and gets no Doctor badge.
+    const staffTr = screen.getAllByText("Sunita Desk")[0].closest("tr")!;
+    expect(within(staffTr).queryByText("Doctor")).not.toBeInTheDocument();
+    expect(within(staffTr).getByLabelText("Edit")).toBeInTheDocument();
+    expect(within(staffTr).getByLabelText("Delete")).toBeInTheDocument();
+    // Mobile cards: one Edit/Delete per surface for the staff row only.
+    expect(screen.getAllByLabelText("Delete")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Edit")).toHaveLength(2);
+    expect(screen.getAllByText("Managed in Doctors")).toHaveLength(2);
+  });
+
+  it("'Start from: Reception' ticks exactly the reception preset", async () => {
+    await openAdd();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("combobox", { name: /start from/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Reception" }));
+    // One DOM pass (getByRole per box is too slow): label text -> checked state.
+    const checkedByLabel = new Map<string, string | null>();
+    dialog.querySelectorAll('[role="checkbox"]').forEach((box) => {
+      checkedByLabel.set(box.closest("label")!.textContent!.trim(), box.getAttribute("aria-checked"));
+    });
+    const labelToKey = new Map(PERMISSION_MODULES.flatMap((m) => m.permissions.map((p) => [p.label, p.key] as const)));
+    expect(checkedByLabel.size).toBe(labelToKey.size);
+    const ticked = [...checkedByLabel].filter(([, c]) => c === "true").map(([label]) => labelToKey.get(label));
+    expect(ticked.sort()).toEqual([...PERMISSION_PRESETS.reception].sort());
+  });
+
+  it("maps a PHONE_OWNS_CLINIC refusal to the shared message", async () => {
+    mock.current.invoke.mockResolvedValueOnce({
+      data: null,
+      error: { context: { json: async () => ({ error: "PHONE_OWNS_CLINIC" }) } },
+    });
+    const create = await openAdd();
+    fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: "New Person" } });
+    fireEvent.change(screen.getAllByPlaceholderText(/\+91/)[0], { target: { value: "+919876500001" } });
+    fireEvent.change(screen.getByPlaceholderText("Re-enter the number"), { target: { value: "+919876500001" } });
+    fireEvent.click(create);
+    await waitFor(() => expect(h.toastError).toHaveBeenCalledWith(practitionerErrorMessage("PHONE_OWNS_CLINIC")));
+    expect(mock.current.invoke.mock.calls[0][0]).toBe("create-staff-account");
   });
 });

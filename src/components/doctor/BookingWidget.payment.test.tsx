@@ -106,6 +106,14 @@ describe("BookingWidget online payment edge states", () => {
     expect(verifyCalls()).toHaveLength(0);
   });
 
+  it("a single-doctor clinic's order body carries no practitioner_id", async () => {
+    render(<BookingWidget />);
+    await gotoReview();
+    payNow();
+    await waitFor(() => expect(orderCalls()).toHaveLength(1));
+    expect(orderCalls()[0][1].body).not.toHaveProperty("practitioner_id");
+  });
+
   it("dismissing the checkout keeps the review step and reuses the same order on the next Pay Now", async () => {
     render(<BookingWidget />);
     await gotoReview();
@@ -244,5 +252,50 @@ describe("BookingWidget online payment edge states", () => {
     await waitFor(() => expect(h.toastError).toHaveBeenCalledWith(expect.stringMatching(/payment gateway/i)));
     expect(rz.opened).toBe(0);
     expect(screen.getByRole("button", { name: "Pay Now" })).not.toBeDisabled();
+  });
+});
+
+describe("BookingWidget paid booking refused after payment", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    rz.instances = []; rz.failCb = null; rz.opened = 0;
+    (window as any).Razorpay = function (this: any, opts: RzpOpts) {
+      rz.instances.push(opts);
+      this.on = () => {};
+      this.open = () => { rz.opened++; };
+    };
+    h.doctor = {
+      profile: {
+        id: "doc-1", full_name: "Asha Rao", consultation_fee: 750, slug: "asha",
+        razorpay_payment_enabled: true, razorpay_account_status: "active",
+      },
+      services: [],
+      settings: { booking_advance_days: 7, slot_duration_minutes: 30, require_payment: true },
+      workingHours: allDaysOpen,
+      isPremium: false,
+      hasFeature: () => false,
+    };
+    mock.current = createTableMock();
+  });
+
+  const REFUND_TEXT = /Payment received but your booking could not be confirmed\. Reference: pay_rzp_1\. The clinic will contact you to refund or rebook/;
+
+  it.each([
+    ["an error response", () => ({ data: null, error: { context: { status: 409, json: async () => ({ error: "DOCTOR_UNAVAILABLE", refund_pending: true, payment_id: "pay_rzp_1" }) } } })],
+    ["a plain response", () => ({ data: { ok: false, error: "DOCTOR_UNAVAILABLE", refund_pending: true, payment_id: "pay_rzp_1" }, error: null })],
+  ])("refund_pending (%s) tells the patient the clinic will refund or rebook, with no retry", async (_label, verify) => {
+    invokeBy({
+      "create-razorpay-order": () => ({ data: ORDER, error: null }),
+      "verify-razorpay-payment": verify,
+    });
+    render(<BookingWidget />);
+    await gotoReview();
+    payNow();
+    await waitFor(() => expect(rz.opened).toBe(1));
+    await act(async () => { await rz.instances[0].handler(RESPONSE); });
+    expect(await screen.findByText(REFUND_TEXT)).toBeInTheDocument();
+    expect(screen.getByText(/please do not pay again/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check payment status" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry Payment" })).not.toBeInTheDocument();
   });
 });

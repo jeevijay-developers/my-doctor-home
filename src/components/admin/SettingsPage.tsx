@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Settings, Crown, Shield, Trash2, UserCircle, CalendarClock, RotateCcw } from "lucide-react";
+import { Settings, Crown, Shield, Trash2, UserCircle, CalendarClock, RotateCcw, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
@@ -24,9 +26,92 @@ import DeleteAccountDialog from "./DeleteAccountDialog";
 import CustomPlanSection from "./CustomPlanSection";
 import { useCustomPlan } from "@/hooks/useCustomPlan";
 import { applyCustomPlanToBullets } from "@/lib/customPlan";
+import { usePractitioners } from "@/hooks/usePractitioners";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
+
+type ClinicalVisibility = "shared" | "treating";
+
+// Multi-doctor clinics only, owner only: who among the clinic's doctors can open a
+// patient's clinical records. The database refuses anyone but the owner (OWNER_ONLY).
+const ClinicalVisibilityCard = ({ clinicId }: { clinicId: string }) => {
+  const [saved, setSaved] = useState<ClinicalVisibility | null>(null);
+  const [value, setValue] = useState<ClinicalVisibility>("shared");
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("website_settings")
+      .select("clinical_visibility")
+      .eq("doctor_id", clinicId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const v: ClinicalVisibility = (data as { clinical_visibility?: string } | null)?.clinical_visibility === "treating" ? "treating" : "shared";
+        setSaved(v);
+        setValue(v);
+      });
+    return () => { cancelled = true; };
+  }, [clinicId]);
+
+  const save = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("website_settings")
+        .update({ clinical_visibility: value })
+        .eq("doctor_id", clinicId);
+      if (error) {
+        toast.error(practitionerErrorMessage(error.message) ?? "Could not save. Please try again.");
+        return;
+      }
+      setSaved(value);
+      toast.success("Doctors' access to records updated.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="border-border/60 shadow-none">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Stethoscope className="h-5 w-5 text-royal" /> Doctors' access to records</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <RadioGroup value={value} onValueChange={(v) => setValue(v as ClinicalVisibility)} disabled={saved === null || saving} className="space-y-2">
+          <div className="flex items-start gap-2.5">
+            <RadioGroupItem value="shared" id="cv-shared" className="mt-0.5" />
+            <Label htmlFor="cv-shared" className="font-normal leading-snug">
+              <span className="font-medium">Shared:</span> every doctor sees every patient's records (recommended)
+            </Label>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <RadioGroupItem value="treating" id="cv-treating" className="mt-0.5" />
+            <Label htmlFor="cv-treating" className="font-normal leading-snug">
+              <span className="font-medium">Own patients only:</span> doctor logins see prescriptions, visits, documents and medical history only for patients they have treated or authored records for. This limits what doctors see in the app; it is not a security audit log, and appointment lists remain visible to all clinic staff.
+            </Label>
+          </div>
+        </RadioGroup>
+        <p className="text-xs text-muted-foreground">
+          Allergies and history always remain visible to the treating doctor.
+        </p>
+        <div className="flex justify-end">
+          <Button size="sm" onClick={save} disabled={saved === null || saving || value === saved} className="bg-royal hover:bg-royal/90">
+            {saving ? "Saving…" : "Save access"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const SettingsPage = () => {
-  const { profile, isStaff } = useProfile();
+  const { profile, isStaff, role } = useProfile();
+  const { isMulti } = usePractitioners();
   const { proPrice: liveProPrice, premiumPrice: livePremiumPrice } = usePlanPrices();
   const livePrices = planPricesToRecord({ proPrice: liveProPrice, premiumPrice: livePremiumPrice });
   const [searchParams] = useSearchParams();
@@ -303,6 +388,7 @@ const SettingsPage = () => {
 
         <TabsContent value="account">
           <div className="space-y-6">
+            {isMulti && role === "owner" && profile?.id && <ClinicalVisibilityCard clinicId={profile.id} />}
             <Card className="border-destructive/30 shadow-none">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-destructive"><Trash2 className="h-5 w-5" /> Danger Zone</CardTitle>
