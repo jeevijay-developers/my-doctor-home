@@ -164,11 +164,16 @@ describe("BookingWidget (multi-doctor clinic, pay at clinic)", () => {
   });
 
   it("changing doctor clears the chosen date and time and follows the new doctor's hours", async () => {
+    // pickTomorrow() after each choice keeps this deterministic: without it, whether "today"
+    // still has one of Dr B's two slots left (and so which slot is first) depends on the real
+    // wall-clock time the test happens to run at.
     render(<BookingWidget />);
     await chooseDoctor(/Asha Rao/);
+    await pickTomorrow();
     await waitFor(() => expect(timeField()).toHaveTextContent("09:00 AM"));
     fireEvent.click(screen.getByRole("button", { name: "Change doctor" }));
     await chooseDoctor(/Vikram Shah/);
+    await pickTomorrow();
     await waitFor(() => expect(timeField()).toHaveTextContent("03:00 PM"));
   });
 
