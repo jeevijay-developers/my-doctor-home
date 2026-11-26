@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useSuperAdminAccess } from "@/contexts/SuperAdminAccessContext";
 import { formatIstDate, istDayKey } from "@/lib/istDate";
+import { classifyPlan } from "@/lib/subscriptionView";
 
 type MessageTarget = { type: "single"; id: string; name: string } | { type: "broadcast" };
 
@@ -65,6 +66,11 @@ function PlanStatusBadge({ row }: { row: any }) {
     return <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">Suspended</Badge>;
   }
   if (row.plan_status === "active") {
+    // Same rule as the Subscriptions page: "active" with a lapsed end date, or on the free tier
+    // (which only exists during a trial), is not an active plan.
+    if (classifyPlan(row).bucket !== "active_paid") {
+      return <Badge className="bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/15">Expired</Badge>;
+    }
     return <Badge className="bg-success/15 text-success border border-success/30 hover:bg-success/15">Active</Badge>;
   }
   return null;
@@ -147,9 +153,8 @@ const SADoctors = () => {
     setMessageBody("");
   };
 
-  // "Active" matches the same plan_status === "active" definition already
-  // used by the status filter above — not a separately-invented notion.
-  const activeDoctors = rows.filter((r) => r.plan_status === "active");
+  // "Active" = a paid plan that is really running (same rule as the Subscriptions page).
+  const activeDoctors = rows.filter((r) => classifyPlan(r).bucket === "active_paid");
 
   const sendMessage = async () => {
     if (!messageTarget || !messageSubject.trim() || !messageBody.trim()) return;

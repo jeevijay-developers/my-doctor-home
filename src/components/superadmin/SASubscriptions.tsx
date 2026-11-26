@@ -27,7 +27,7 @@ import { formatIstDate } from "@/lib/istDate";
 import { getEffectivePlanPrice } from "@/lib/planPrices";
 export { DEFAULT_PLAN_PRICES, getEffectivePlanPrice } from "@/lib/planPrices";
 
-const tiers = ["free", "pro", "premium"];
+const tiers = ["pro", "premium"];
 
 const VIEW_CARDS: { view: PlanView; label: string; hint: (p: { pro: number; premium: number }) => string; tone: string }[] = [
   { view: "all", label: "All doctors", hint: () => "every account", tone: "text-foreground" },
@@ -35,9 +35,8 @@ const VIEW_CARDS: { view: PlanView; label: string; hint: (p: { pro: number; prem
   { view: "premium", label: "Premium", hint: (p) => `active · default ₹${p.premium}`, tone: "text-primary" },
   { view: "custom", label: "Custom", hint: () => "negotiated price or plan", tone: "text-royal" },
   { view: "trial", label: "Free trial", hint: () => "trial running", tone: "text-warning" },
-  { view: "free", label: "Free", hint: () => "free plan, no trial", tone: "text-muted-foreground" },
   { view: "expiring", label: "Expiring soon", hint: () => "ends within 7 days", tone: "text-warning" },
-  { view: "expired", label: "Expired", hint: () => "plan or trial ended", tone: "text-destructive" },
+  { view: "expired", label: "Expired", hint: () => "plan or trial ended, or no plan", tone: "text-destructive" },
   { view: "suspended", label: "Suspended", hint: () => "account suspended", tone: "text-muted-foreground" },
 ];
 
@@ -50,8 +49,6 @@ function StatusBadge({ c }: { c: ClassifiedPlan }) {
       return <Badge className="bg-success/15 text-success border border-success/30 hover:bg-success/15">Active</Badge>;
     case "trial":
       return <Badge variant="outline" className="border-warning/40 text-warning bg-warning/10">Trial</Badge>;
-    case "free":
-      return <Badge variant="outline" className="border-border text-muted-foreground">Free</Badge>;
     case "expired":
       return <Badge className="bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/15">Expired</Badge>;
     case "suspended":
@@ -362,7 +359,11 @@ const SASubscriptions = () => {
   const tierSelect = (r: any, tier: string) => (
     <Select value={tier} onValueChange={(v) => requestTierChange(r.id, v, tier)} disabled={!canManage}>
       <SelectTrigger className="h-8 w-28" aria-label={`Change tier for ${r.full_name || "doctor"}`}><SelectValue /></SelectTrigger>
-      <SelectContent>{tiers.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+      <SelectContent>
+        {/* "free" is the trial tier, not something to move a doctor to; shown (disabled) only when current. */}
+        {tier === "free" && <SelectItem value="free" disabled>free (trial)</SelectItem>}
+        {tiers.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+      </SelectContent>
     </Select>
   );
 

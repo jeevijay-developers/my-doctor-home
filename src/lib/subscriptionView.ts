@@ -5,8 +5,8 @@ import { customPlanApplication, type CustomPlan } from "./customPlan";
 // the nightly job that flips a lapsed plan to 'expired' can lag, and a doctor
 // whose end date has passed must already read as expired here.
 
-export type PlanBucket = "active_paid" | "trial" | "free" | "expired" | "suspended";
-export type PlanView = "all" | "pro" | "premium" | "custom" | "trial" | "free" | "expiring" | "expired" | "suspended";
+export type PlanBucket = "active_paid" | "trial" | "expired" | "suspended";
+export type PlanView = "all" | "pro" | "premium" | "custom" | "trial" | "expiring" | "expired" | "suspended";
 
 export const EXPIRING_SOON_DAYS = 7;
 const DAY = 86_400_000;
@@ -48,7 +48,9 @@ export function classifyPlan(row: PlanRow, customPlan?: CustomPlan | null, now: 
   if (status === "cancelled") bucket = "suspended";
   else if (status === "expired" || (msLeft != null && msLeft <= 0 && (status === "trial" || status === "active"))) bucket = "expired";
   else if (status === "trial") bucket = "trial";
-  else if (tier === "free") bucket = "free";
+  // Free is only ever the tier of a running trial. A free-tier doctor who is not on a trial
+  // (an admin set the tier to free, or the status is missing) has no plan, so they read as expired.
+  else if (tier === "free") bucket = "expired";
   else bucket = "active_paid";
 
   const isCustom =
@@ -67,7 +69,6 @@ export function matchesView(c: ClassifiedPlan, view: PlanView): boolean {
     case "premium": return c.bucket === "active_paid" && c.tier === "premium";
     case "custom": return c.isCustom;
     case "trial": return c.bucket === "trial";
-    case "free": return c.bucket === "free";
     case "expiring": return c.expiringSoon;
     case "expired": return c.bucket === "expired";
     case "suspended": return c.bucket === "suspended";
@@ -75,7 +76,7 @@ export function matchesView(c: ClassifiedPlan, view: PlanView): boolean {
 }
 
 export function countByView(list: ClassifiedPlan[]): Record<PlanView, number> {
-  const views: PlanView[] = ["all", "pro", "premium", "custom", "trial", "free", "expiring", "expired", "suspended"];
+  const views: PlanView[] = ["all", "pro", "premium", "custom", "trial", "expiring", "expired", "suspended"];
   return Object.fromEntries(views.map((v) => [v, list.filter((c) => matchesView(c, v)).length])) as Record<PlanView, number>;
 }
 

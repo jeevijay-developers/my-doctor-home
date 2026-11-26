@@ -5,6 +5,8 @@ import { SuperAdminAccessProvider, buildSuperAdminAccess } from "@/contexts/Supe
 import type { SAPermissions } from "@/lib/superadminPermissions";
 import { createTableMock } from "@/test/tableMock";
 
+Element.prototype.scrollIntoView = vi.fn();
+
 const mock = vi.hoisted(() => ({ current: null as any }));
 vi.mock("@/integrations/supabase/client", () => ({
   get supabase() {
@@ -193,6 +195,32 @@ describe("SASubscriptions", () => {
     await screen.findAllByText("Dr Asha");
     expect(screen.queryByText("₹777")).not.toBeInTheDocument();
     expect(screen.getAllByText(/not applied/).length).toBeGreaterThan(0);
+  });
+
+  it("has no Free card, and a free-tier doctor with no trial is listed under Expired", async () => {
+    mock.current.tables.profiles = { data: [
+      ...rows,
+      { id: "d7", full_name: "Dr Hari", plan_tier: "free", plan_status: "active", plan_end: null, trial_end: null, created_at: "2026-09-07T00:00:00Z" },
+    ] };
+    renderPage(true);
+    await screen.findAllByText("Dr Asha");
+    expect(screen.queryByRole("button", { name: /^Free:/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Expired:/ })).toHaveTextContent("1");
+    fireEvent.click(screen.getByRole("button", { name: /^Expired:/ }));
+    expect(screen.getAllByText("Dr Hari").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Dr Asha")).toHaveLength(0);
+  });
+
+  it("Change Tier only offers Pro and Premium (free is listed, disabled, only for a doctor who is on it)", async () => {
+    mock.current.tables.profiles = { data: [
+      { id: "d8", full_name: "Dr Ila", plan_tier: "free", plan_status: "trial", trial_end: "2999-01-01T00:00:00Z", created_at: "2026-09-08T00:00:00Z" },
+    ] };
+    renderPage(true);
+    await screen.findAllByText("Dr Ila");
+    fireEvent.click(screen.getAllByLabelText("Change tier for Dr Ila")[0]);
+    expect(await screen.findByRole("option", { name: "pro" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "premium" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "free (trial)" })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("owner and *.manage holders can use the controls", async () => {

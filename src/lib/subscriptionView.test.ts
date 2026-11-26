@@ -44,10 +44,15 @@ describe("classifyPlan", () => {
     expect(later.expiringSoon).toBe(false);
   });
 
-  it("suspended wins over dates; free active is 'free'", () => {
+  it("suspended wins over dates", () => {
     expect(classifyPlan({ plan_tier: "pro", plan_status: "cancelled", plan_end: inDays(-9) }, null, NOW).bucket).toBe("suspended");
-    expect(classifyPlan({ plan_tier: "free", plan_status: "active" }, null, NOW).bucket).toBe("free");
-    expect(classifyPlan({ plan_tier: null, plan_status: null }, null, NOW).bucket).toBe("free");
+  });
+
+  it("free is only a trial tier: a free-tier doctor who is not on a trial has no plan, so reads as expired", () => {
+    expect(classifyPlan({ plan_tier: "free", plan_status: "active" }, null, NOW).bucket).toBe("expired");
+    expect(classifyPlan({ plan_tier: null, plan_status: null }, null, NOW).bucket).toBe("expired");
+    expect(classifyPlan({ plan_tier: "free", plan_status: "active", plan_end: inDays(20) }, null, NOW).bucket).toBe("expired");
+    expect(classifyPlan({ plan_tier: "free", plan_status: "trial", trial_end: inDays(5) }, null, NOW).bucket).toBe("trial");
   });
 
   it("custom: manual price counts; approved plan counts only on its base tier", () => {
@@ -66,7 +71,7 @@ describe("classifyPlan", () => {
       classifyPlan({ plan_tier: "free", plan_status: "expired", trial_end: inDays(-3) }, null, NOW),
     ];
     expect(countByView(list)).toEqual({
-      all: 4, pro: 1, premium: 1, custom: 1, trial: 1, free: 0, expiring: 1, expired: 1, suspended: 0,
+      all: 4, pro: 1, premium: 1, custom: 1, trial: 1, expiring: 1, expired: 1, suspended: 0,
     });
   });
 });

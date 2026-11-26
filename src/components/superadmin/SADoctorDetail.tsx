@@ -205,7 +205,10 @@ const SADoctorDetail = () => {
             <Select value={p.plan_tier || "free"} onValueChange={setPendingTier}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="free">Free</SelectItem>
+                {/* Free is the tier a doctor carries during the 7-day trial, not a plan you can move someone to:
+                    picking it would create an "active" account with no trial and no end date. It is listed only
+                    so a doctor who is currently on it shows correctly. */}
+                {(p.plan_tier || "free") === "free" && <SelectItem value="free" disabled>Free (trial)</SelectItem>}
                 <SelectItem value="pro">Pro</SelectItem>
                 <SelectItem value="premium">Premium</SelectItem>
               </SelectContent>
