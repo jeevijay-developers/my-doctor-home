@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { pickOption } from "@/test/selectHelpers";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import MyWebsite from "./MyWebsite";
@@ -264,7 +265,7 @@ describe("MyWebsite - reviews by doctor", () => {
     expect(await screen.findByText("Pat One")).toBeInTheDocument();
     expect(screen.getByText("Dr. Asha Rao", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("Dr. Vikram Shah", { selector: "span" })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Filter reviews by doctor"), { target: { value: "pr-2" } });
+    await pickOption(screen.getByLabelText("Filter reviews by doctor"), "Dr. Vikram Shah");
     expect(screen.queryByText("Pat One")).not.toBeInTheDocument();
     expect(screen.getByText("Pat Two")).toBeInTheDocument();
   });

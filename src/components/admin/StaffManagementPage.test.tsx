@@ -168,6 +168,9 @@ describe("StaffManagementPage", () => {
     render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Sunita Desk");
     fireEvent.click(screen.getAllByLabelText("Deactivate")[0]);
+    expect(await screen.findByText("Deactivate staff account?")).toBeTruthy();
+    expect(mock.current.queries.some((q: any) => q.ops.some((o: any[]) => o[0] === "update"))).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Deactivate" }));
     await waitFor(() => expect(h.toastSuccess).toHaveBeenCalledWith("Staff account deactivated"));
     const upd = mock.current.queries.find((q: any) => q.ops.some((o: any[]) => o[0] === "update"));
     expect(upd.ops.find((o: any[]) => o[0] === "update")[1]).toEqual({ status: "inactive" });

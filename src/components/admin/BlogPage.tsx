@@ -370,15 +370,15 @@ const BlogPage = () => {
             {isMulti && (
               <div className="space-y-1.5">
                 <Label htmlFor="blog-author">Author</Label>
-                <select
-                  id="blog-author"
-                  value={form.practitioner_id}
-                  onChange={(e) => setForm({ ...form, practitioner_id: e.target.value })}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Clinic</option>
-                  {authorOptions.map((d) => <option key={d.id} value={d.id}>{d.display_name}</option>)}
-                </select>
+                <Select value={form.practitioner_id || "clinic"} onValueChange={(v) => setForm({ ...form, practitioner_id: v === "clinic" ? "" : v })}>
+                  <SelectTrigger id="blog-author" aria-label="Author" className="h-10 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="clinic">Clinic</SelectItem>
+                    {authorOptions.map((d) => <SelectItem key={d.id} value={d.id}>{d.display_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 

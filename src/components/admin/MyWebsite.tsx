@@ -1070,12 +1070,15 @@ const MyWebsite = () => {
                 {isMulti && reviews.length > 0 && (
                   <div>
                     <Label htmlFor="review-doctor-filter" className="text-xs">Doctor</Label>
-                    <select id="review-doctor-filter" aria-label="Filter reviews by doctor" value={reviewDoctor}
-                      onChange={(e) => setReviewDoctor(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm">
-                      <option value="all">All doctors</option>
-                      {(allDoctors ?? []).map((d) => <option key={d.id} value={d.id}>{drName(d.display_name)}</option>)}
-                    </select>
+                    <Select value={reviewDoctor} onValueChange={setReviewDoctor}>
+                      <SelectTrigger id="review-doctor-filter" aria-label="Filter reviews by doctor" className="mt-1 h-9 w-full text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All doctors</SelectItem>
+                        {(allDoctors ?? []).map((d) => <SelectItem key={d.id} value={d.id}>{drName(d.display_name)}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
                 {reviews.length === 0 ? (

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import BillingPage from "./BillingPage";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
@@ -28,13 +28,14 @@ vi.mock("@/hooks/usePlanAccess", () => ({
 vi.mock("@/lib/invoicePdf", () => ({ generateInvoicePDF: vi.fn() }));
 
 vi.mock("@/integrations/supabase/client", () => {
+  const ordered = (resolved: any): any => ({ order: () => ordered(resolved), range: () => Promise.resolve(resolved), then: (f: any, r: any) => Promise.resolve(resolved).then(f, r) });
   const chain = (resolved: any): any => {
     const promise = Promise.resolve(resolved);
     return Object.assign(promise, {
       select: () => chain(resolved),
       insert: (...a: unknown[]) => { (globalThis as any).__invoiceInsert?.(...a); return chain(resolved); },
       eq: () => chain(resolved),
-      order: () => Promise.resolve(resolved),
+      order: () => ordered(resolved),
     });
   };
   return {
@@ -143,5 +144,29 @@ describe("BillingPage - plan gating", () => {
     expect(insert).not.toHaveBeenCalled();
     (globalThis as any).__mockAppointments = undefined;
     (globalThis as any).__invoiceInsert = undefined;
+  });
+
+  it("paginates transactions 10 per page and keeps every row reachable", async () => {
+    vi.mocked(useFeatureAccess).mockReturnValue({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() });
+    const today = new Date().toISOString().slice(0, 10);
+    (globalThis as any).__mockAppointments = Array.from({ length: 25 }, (_, i) => ({
+      id: `p${i}`, patient_name: `Pager ${String(i).padStart(2, "0")}`, service_name: "Consultation", date: today,
+      amount: 100, payment_status: "pending", status: "confirmed",
+    }));
+    render(<MemoryRouter><BillingPage /></MemoryRouter>);
+    await screen.findByText("Pager 00");
+    const shown = () => screen.queryAllByText(/^Pager \d\d$/).length;
+    expect(shown()).toBe(10);
+
+    fireEvent.click(screen.getByRole("link", { name: "2" }));
+    await waitFor(() => expect(shown()).toBe(10));
+    expect(screen.queryByText("Pager 00")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "3" }));
+    await waitFor(() => expect(shown()).toBe(5));
+
+    fireEvent.click(screen.getByRole("link", { name: /previous/i }));
+    await waitFor(() => expect(shown()).toBe(10));
+    (globalThis as any).__mockAppointments = undefined;
   });
 });

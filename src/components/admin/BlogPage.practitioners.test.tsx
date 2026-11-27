@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { optionLabels, pickOption } from "@/test/selectHelpers";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import BlogPage from "./BlogPage";
@@ -74,20 +75,20 @@ const open = async () => {
 describe("BlogPage - author (multi-doctor)", () => {
   it("offers active doctors plus Clinic and defaults to the logged-in doctor", async () => {
     await open();
-    const select = screen.getByLabelText(/author/i) as HTMLSelectElement;
-    expect(select.value).toBe("p-1");
-    expect(Array.from(select.options).map((o) => o.textContent)).toEqual(["Clinic", "Dr. Asha", "Dr. Ravi"]);
+    const select = screen.getByLabelText(/author/i);
+    expect(select).toHaveTextContent("Dr. Asha");
+    expect(await optionLabels(select)).toEqual(["Clinic", "Dr. Asha", "Dr. Ravi"]);
   });
 
   it("defaults to Clinic when the login is not a doctor", async () => {
     h.myPractitionerId = null;
     await open();
-    expect((screen.getByLabelText(/author/i) as HTMLSelectElement).value).toBe("");
+    expect(screen.getByLabelText(/author/i)).toHaveTextContent("Clinic");
   });
 
   it("saves the chosen practitioner_id on insert", async () => {
     await open();
-    fireEvent.change(screen.getByLabelText(/author/i), { target: { value: "p-2" } });
+    await pickOption(screen.getByLabelText(/author/i), "Dr. Ravi");
     fireEvent.change(screen.getByPlaceholderText(/your article title/i), { target: { value: "Hi" } });
     fireEvent.click(screen.getByRole("button", { name: /create post/i }));
     await waitFor(() => expect(insert).toHaveBeenCalled());
@@ -96,7 +97,7 @@ describe("BlogPage - author (multi-doctor)", () => {
 
   it("saves null for Clinic", async () => {
     await open();
-    fireEvent.change(screen.getByLabelText(/author/i), { target: { value: "" } });
+    await pickOption(screen.getByLabelText(/author/i), "Clinic");
     fireEvent.change(screen.getByPlaceholderText(/your article title/i), { target: { value: "Hi" } });
     fireEvent.click(screen.getByRole("button", { name: /create post/i }));
     await waitFor(() => expect(insert).toHaveBeenCalled());
@@ -105,7 +106,7 @@ describe("BlogPage - author (multi-doctor)", () => {
 
   it("sends the selected author's name and specialization to the AI writer", async () => {
     await open();
-    fireEvent.change(screen.getByLabelText(/author/i), { target: { value: "p-2" } });
+    await pickOption(screen.getByLabelText(/author/i), "Dr. Ravi");
     fireEvent.change(screen.getByPlaceholderText(/top 10 tips/i), { target: { value: "Skin" } });
     fireEvent.click(screen.getByRole("button", { name: /generate/i }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
@@ -131,7 +132,7 @@ describe("BlogPage - author (multi-doctor)", () => {
     }];
     render(<MemoryRouter><BlogPage /></MemoryRouter>);
     fireEvent.click(await screen.findByRole("button", { name: /edit/i }));
-    expect((screen.getByLabelText(/author/i) as HTMLSelectElement).value).toBe("p-2");
+    expect(screen.getByLabelText(/author/i)).toHaveTextContent("Dr. Ravi");
     fireEvent.click(screen.getByRole("button", { name: /update post/i }));
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(update.mock.calls[0][0]).toMatchObject({ practitioner_id: "p-2" });

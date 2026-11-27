@@ -87,6 +87,7 @@ describe("AppointmentsPage - amount autofill", () => {
       { column: "date", options: { ascending: true } },
       { column: "sort_time", options: { ascending: true } },
       { column: "created_at", options: { ascending: true } },
+      { column: "id", options: undefined },
     ]));
   });
 

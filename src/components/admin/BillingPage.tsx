@@ -5,9 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
   CreditCard, TrendingUp, Calendar, IndianRupee, PieChart, Download,
-  FileText, Eye, Loader2, ChevronLeft, ChevronRight, X, Percent, Wallet, ArrowDownRight,
+  FileText, Eye, Loader2, ChevronLeft, ChevronRight, X, Wallet, ArrowDownRight,
 } from "lucide-react";
-import StatCard from "@/components/shared/StatCard";
 import StatusBadge from "@/components/admin/StatusBadge";
 import PaymentStatusDonut, { type DonutSegment } from "@/components/shared/PaymentStatusDonut";
 import TestModeBadge from "@/components/shared/TestModeBadge";
@@ -111,23 +110,34 @@ const BillingPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [invoicePage, setInvoicePage] = useState(1);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
 
   const loadData = async () => {
     if (!profile) return;
-    const safeQuery = async (promise: Promise<any>) => {
-      try {
-        const res = await promise;
-        return res?.data || [];
-      } catch {
-        return [];
+    // The API returns at most 1,000 rows per request, so read every table in pages of 1,000;
+    // otherwise totals and the lists silently stop at 1,000 rows. "id" breaks ties so rows cannot
+    // repeat or vanish between pages. A failed table counts as empty, as before.
+    const fetchAll = async (build: () => any) => {
+      const rows: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        try {
+          const res = await build().range(from, from + 999);
+          const chunk = res?.data;
+          if (!Array.isArray(chunk)) break;
+          rows.push(...chunk);
+          if (chunk.length < 1000) break;
+        } catch {
+          break;
+        }
       }
+      return rows;
     };
     const [aData, iData, lData, pData] = await Promise.all([
-      safeQuery(supabase.from("appointments").select("*").eq("doctor_id", profile.id).order("date", { ascending: false }) as any),
-      safeQuery((supabase.from("invoices" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false })),
-      safeQuery((supabase.from("doctor_ledger" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false })),
-      safeQuery((supabase.from("payments" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false })),
+      fetchAll(() => supabase.from("appointments").select("*").eq("doctor_id", profile.id).order("date", { ascending: false }).order("id")),
+      fetchAll(() => (supabase.from("invoices" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }).order("id")),
+      fetchAll(() => (supabase.from("doctor_ledger" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }).order("id")),
+      fetchAll(() => (supabase.from("payments" as any) as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }).order("id")),
     ]);
     setAppointments(aData);
     setInvoices(iData as Invoice[]);
@@ -160,6 +170,7 @@ const BillingPage = () => {
 
   // Reset to page 1 whenever the filtered result set changes shape underneath the pager.
   useEffect(() => { setPage(1); }, [filter, modeFilter, periodMode, periodActive, selectedMonth, selectedDate, activeDoctor]);
+  useEffect(() => { setInvoicePage(1); }, [activeDoctor]);
 
   const today = format(new Date(), "yyyy-MM-dd");
   const selectedMonthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
@@ -372,10 +383,8 @@ const BillingPage = () => {
   const monthRev = periodRevenueEntries.reduce((s, e) => s + e.gross, 0);
 
   const totalGrossRev = revenueEntries.reduce((s, e) => s + e.gross, 0);
-  const totalPlatformCharges = +revenueEntries.reduce((s, e) => s + e.commission_amount, 0).toFixed(2);
   const totalNetCredited = +revenueEntries.reduce((s, e) => s + e.net_amount, 0).toFixed(2);
   const periodNetRev = +periodRevenueEntries.reduce((s, e) => s + e.net_amount, 0).toFixed(2);
-  const periodCommission = +periodRevenueEntries.reduce((s, e) => s + e.commission_amount, 0).toFixed(2);
 
   // Persisted transaction rows are built from the invoices table (which
   // survives appointment/patient deletion via ON DELETE SET NULL). We then
@@ -512,6 +521,16 @@ const BillingPage = () => {
   const totalCount = filtered.length;
   const pageStart = (page - 1) * PAGE_SIZE;
   const paginated = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const invoicePageRows = invoices.slice((invoicePage - 1) * PAGE_SIZE, invoicePage * PAGE_SIZE);
+  // If a refresh leaves fewer rows than the current page needs, step back to the last real page.
+  useEffect(() => {
+    const last = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    if (page > last) setPage(last);
+  }, [totalCount, page]);
+  useEffect(() => {
+    const last = Math.max(1, Math.ceil(invoices.length / PAGE_SIZE));
+    if (invoicePage > last) setInvoicePage(last);
+  }, [invoices.length, invoicePage]);
 
   const paidCount = transactions.filter(t => t.payment_status === "paid").length;
   const pendingCount = transactions.filter(t => t.payment_status === "pending").length;
@@ -527,9 +546,9 @@ const BillingPage = () => {
   };
 
   const revenueCards = [
-    { label: dayCardLabel, value: todayRev, icon: Calendar, gradient: "from-royal to-teal" },
-    { label: weekCardLabel, value: weekRev, icon: TrendingUp, gradient: "from-teal to-success" },
-    { label: monthCardLabel, value: monthRev, icon: IndianRupee, gradient: "from-success to-royal" },
+    { label: dayCardLabel, value: todayRev, icon: Calendar },
+    { label: weekCardLabel, value: weekRev, icon: TrendingUp },
+    { label: monthCardLabel, value: monthRev, icon: IndianRupee },
   ];
 
   const exportTransactionsCSV = () => {
@@ -539,8 +558,6 @@ const BillingPage = () => {
       "Service": a.service_name,
       "Date": a.date,
       "Gross Amount (INR)": a.amount,
-      "Platform Charge %": a.commission_percent,
-      "Platform Charge (INR)": a.commission_amount,
       "Net Credited (INR)": a.net_amount,
       "Settlement Status": a.settlement_label,
       "Payment Status": a.payment_status,
@@ -641,7 +658,7 @@ const BillingPage = () => {
             Showing <strong>{activeDoctor === UNATTRIBUTED ? "unattributed entries" : (byId?.(activeDoctor)?.display_name ?? "this doctor")}</strong> only.
             {" "}These are two different views, so their numbers can differ.
             {" "}<strong>Earnings table above</strong> ({perDoctorLabel}): each visit counts when it was invoiced, a later refund is shown in the month it was made.
-            {" "}<strong>Cards, charts, transactions and invoices below</strong>: this doctor only, refunded invoices left out, each card for the period in its label (the Gross Revenue, Platform Charges and Net Credited totals are all time).
+            {" "}<strong>Cards, charts, transactions and invoices below</strong>: this doctor only, refunded invoices left out, each card for the period in its label (the Gross Revenue and Net Credited totals are all time).
           </span>
           {!ownDoctorOnly && (
             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-royal" onClick={() => setDoctorFilter(ALL_DOCTORS)}>
@@ -653,12 +670,22 @@ const BillingPage = () => {
 
       <div className="grid sm:grid-cols-3 gap-4">
         {revenueCards.map((r) => (
-          <StatCard key={r.label} label={r.label} value={`₹${r.value.toLocaleString("en-IN")}`} icon={r.icon} gradient={r.gradient} />
+          <Card key={r.label} className="border-border/60 shadow-none">
+            <CardContent className="p-5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-muted-foreground">{r.label}</div>
+                <div className="font-heading font-extrabold text-2xl mt-1 text-foreground tabular-nums">{`₹${r.value.toLocaleString("en-IN")}`}</div>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-royal/10 flex items-center justify-center flex-shrink-0">
+                <r.icon className="h-5 w-5 text-royal" aria-hidden="true" />
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {/* Platform Charge & Net Credited Breakdown Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Gross / Net Credited summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="border-border/60 shadow-none">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -670,21 +697,6 @@ const BillingPage = () => {
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
               All time, paid by patients (excl. refunded)
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60 shadow-none">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Platform Charges</span>
-              <Percent className="h-3.5 w-3.5 text-warning" />
-            </div>
-            <div className="font-heading font-bold text-xl text-warning mt-1" data-testid="summary-platform-charges">
-              -₹{totalPlatformCharges.toLocaleString("en-IN")}
-            </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">
-              Period: -₹{periodCommission.toLocaleString("en-IN")} deducted by Doctylia
             </div>
           </CardContent>
         </Card>
@@ -714,7 +726,7 @@ const BillingPage = () => {
               ₹{periodNetRev.toLocaleString("en-IN")}
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              Net after platform charges ({monthCardLabel})
+              Net earnings ({monthCardLabel})
             </div>
           </CardContent>
         </Card>
@@ -879,10 +891,6 @@ const BillingPage = () => {
                                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground pt-0.5">
                                     <span>Gross ₹{a.amount.toLocaleString("en-IN")}</span>
                                     <span>·</span>
-                                    <span className="text-warning font-medium">
-                                      Platform Charge {a.commission_percent}% (-₹{a.commission_amount.toLocaleString("en-IN")})
-                                    </span>
-                                    <span>·</span>
                                     <span className={a.payment_status === "refunded" ? "text-destructive line-through" : "text-success font-semibold"}>
                                       Net Credited ₹{a.net_amount.toLocaleString("en-IN")}
                                     </span>
@@ -995,7 +1003,7 @@ const BillingPage = () => {
             </Card>
           ) : (
             <div className="space-y-2">
-              {invoices.map((inv) => (
+              {invoicePageRows.map((inv) => (
                 <Card key={inv.id} className="border-border/60 shadow-none hover:shadow-sm transition-shadow">
                   <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
@@ -1031,6 +1039,7 @@ const BillingPage = () => {
                   </CardContent>
                 </Card>
               ))}
+              <PaginationBar page={invoicePage} totalCount={invoices.length} onPageChange={setInvoicePage} />
             </div>
           )}
         </TabsContent>

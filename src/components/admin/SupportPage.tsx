@@ -58,6 +58,10 @@ const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(CATEGORY_OPTIO
 // The list itself is the full page, full width. Both "New Request" and
 // viewing an individual ticket's detail are card/dialog overlays on top of
 // it, same as the original ContactSupportDialog.
+// Priority is no longer chosen by the user; every new request starts at
+// "normal" and the Doctylia team can change it from the superadmin side.
+const DEFAULT_PRIORITY = "normal";
+
 const SupportPage = () => {
   const { profile, isStaff, staffName, authUserId } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -72,7 +76,6 @@ const SupportPage = () => {
 
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState("normal");
   const [category, setCategory] = useState("other");
   const [busy, setBusy] = useState(false);
 
@@ -136,12 +139,12 @@ const SupportPage = () => {
       doctor_id: profile.id,
       submitted_by_user_id: authUserId,
       submitted_by_name: (isStaff ? staffName : profile.full_name) || "",
-      subject, description, priority, category,
+      subject, description, priority: DEFAULT_PRIORITY, category,
     });
     setBusy(false);
     if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
     toast({ title: "Support ticket raised", description: "Our team will get back to you soon." });
-    setSubject(""); setDescription(""); setPriority("normal"); setCategory("other");
+    setSubject(""); setDescription(""); setCategory("other");
     setFormOpen(false);
     loadTickets();
   };
@@ -216,25 +219,13 @@ const SupportPage = () => {
               <Label>Subject</Label>
               <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="What do you need help with?" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div>
               <div className="space-y-1.5">
                 <Label>Category</Label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {CATEGORY_OPTIONS.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Priority</Label>
-                <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

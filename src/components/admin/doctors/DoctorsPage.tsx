@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Loader2, Plus, Stethoscope, UserRound } from "lucide-react";
+import { AlertTriangle, Loader2, MoreHorizontal, Plus, Stethoscope, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -13,6 +13,7 @@ import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { normalizePhoneNumber } from "@/lib/auth/otp/productionOtpService";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -181,70 +182,92 @@ const DoctorsPage = () => {
       </p>
     ) : null;
 
+  type MenuEntry = {
+    key: string; label: string; onSelect?: () => void; to?: string;
+    disabled?: boolean; title?: string; destructive?: boolean; separatorBefore?: boolean;
+  };
+
+  // Edit and Hours are the everyday actions and stay as buttons; everything else lives in the "⋯" menu
+  // (destructive ones last, in red, behind a separator) so the row stays tidy on any width.
   const actions = (p: Practitioner) => {
     const name = p.display_name;
     const login = loginOf(p);
     const busy = busyId === p.id;
-    const items: JSX.Element[] = [];
+    const primary: JSX.Element[] = [];
+    const menu: MenuEntry[] = [];
     if (!p.is_active) {
       if (canManage) {
-        items.push(
+        primary.push(
           <Button key="reactivate" size="sm" variant="outline" disabled={busy || !canAdd} title={!canAdd ? addBlockedReason : undefined} aria-label={`Reactivate ${name}`}
             onClick={() => callStatus(p, () => supabase.rpc("set_practitioner_status", { _id: p.id, _is_active: true, _is_bookable: true }), `${name} reactivated`)}>
             Reactivate
           </Button>,
         );
       }
-      return items;
+      return <div className="flex items-center justify-end gap-1.5">{primary}</div>;
     }
     if (canManage) {
-      items.push(
+      primary.push(
         <Button key="edit" size="sm" variant="outline" aria-label={`Edit ${name}`} onClick={() => { setEditing(p); setFormOpen(true); }}>Edit</Button>,
         <Button key="hours" size="sm" variant="outline" aria-label={`Hours for ${name}`} onClick={() => setHoursFor(p)}>Hours</Button>,
       );
     }
+    if (isOwner && !isOwnerRow(p)) {
+      if (login) {
+        menu.push(
+          { key: "perms", label: "Permissions", to: `/admin/staff?edit=${login.id}` },
+          { key: "rmlogin", label: "Remove login", onSelect: () => setRemovingLogin({ doctor: p, login }) },
+        );
+      } else {
+        menu.push({ key: "mklogin", label: "Create login", onSelect: () => setLoginFor(p) });
+      }
+    }
     if (isOwner && !p.is_primary && p.is_bookable) {
-      items.push(
-        <Button key="primary" size="sm" variant="outline" disabled={busy} aria-label={`Make ${name} main doctor`} onClick={() => makePrimary(p)}>
-          Make main doctor
-        </Button>,
-      );
+      menu.push({ key: "primary", label: "Make main doctor", disabled: busy, onSelect: () => makePrimary(p) });
     }
     if (canManage && !p.is_primary) {
-      items.push(
-        p.is_bookable ? (
-          <Button key="stop" size="sm" variant="outline" disabled={busy} aria-label={`Stop bookings for ${name}`} onClick={() => setBookable(p, false)}>
-            Stop bookings
-          </Button>
-        ) : (
-          <Button key="resume" size="sm" variant="outline" disabled={busy || !canAdd} title={!canAdd ? addBlockedReason : undefined} aria-label={`Resume bookings for ${name}`} onClick={() => setBookable(p, true)}>
-            Resume bookings
-          </Button>
-        ),
-        <Button key="deactivate" size="sm" variant="outline" className="text-destructive" aria-label={`Deactivate ${name}`} onClick={() => setDeactivating(p)}>
-          Deactivate
-        </Button>,
+      menu.push(
+        p.is_bookable
+          ? { key: "stop", label: "Stop bookings", disabled: busy, onSelect: () => setBookable(p, false) }
+          : { key: "resume", label: "Resume bookings", disabled: busy || !canAdd, title: !canAdd ? addBlockedReason : undefined, onSelect: () => setBookable(p, true) },
+        { key: "deactivate", label: "Deactivate", destructive: true, separatorBefore: true, onSelect: () => setDeactivating(p) },
       );
     }
-    if (isOwner && !isOwnerRow(p)) {
-      items.push(
-        login ? (
-          <Button key="perms" size="sm" variant="outline" aria-label={`Edit permissions for ${name}`} asChild>
-            <Link to={`/admin/staff?edit=${login.id}`}>Permissions</Link>
-          </Button>
-        ) : null,
-        login ? (
-          <Button key="rmlogin" size="sm" variant="outline" aria-label={`Remove login for ${name}`} onClick={() => setRemovingLogin({ doctor: p, login })}>
-            Remove login
-          </Button>
-        ) : (
-          <Button key="mklogin" size="sm" variant="outline" aria-label={`Create login for ${name}`} onClick={() => setLoginFor(p)}>
-            Create login
-          </Button>
-        ),
-      );
-    }
-    return items;
+    return (
+      <div className="flex items-center justify-end gap-1.5">
+        {primary}
+        {menu.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="h-9 w-9 p-0" aria-label={`More actions for ${name}`}>
+                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[11rem]">
+              {menu.map((m) => (
+                <Fragment key={m.key}>
+                  {m.separatorBefore && <DropdownMenuSeparator />}
+                  {m.to ? (
+                    <DropdownMenuItem asChild>
+                      <Link to={m.to}>{m.label}</Link>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      disabled={m.disabled}
+                      title={m.title}
+                      onSelect={m.onSelect}
+                      className={m.destructive ? "text-destructive focus:text-destructive" : undefined}
+                    >
+                      {m.label}
+                    </DropdownMenuItem>
+                  )}
+                </Fragment>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    );
   };
 
   const photo = (p: Practitioner) =>
@@ -339,7 +362,7 @@ const DoctorsPage = () => {
                       </td>
                       <td className="p-3">{badgeList(p)}</td>
                       <td className="p-3 whitespace-nowrap">{feeText(p)}</td>
-                      <td className="p-3"><div className="flex flex-wrap justify-end gap-1.5">{actions(p)}</div></td>
+                      <td className="p-3">{actions(p)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -361,7 +384,7 @@ const DoctorsPage = () => {
                   </div>
                   {badgeList(p)}
                   {ownerNote(p)}
-                  <div className="flex flex-wrap gap-1.5">{actions(p)}</div>
+                  <div className="pt-1">{actions(p)}</div>
                 </CardContent>
               </Card>
             ))}

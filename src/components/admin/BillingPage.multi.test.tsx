@@ -32,8 +32,9 @@ vi.mock("@/hooks/usePlanAccess", () => ({
 vi.mock("@/lib/invoicePdf", () => ({ generateInvoicePDF: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/integrations/supabase/client", () => {
+  const ordered = (resolved: any): any => ({ order: () => ordered(resolved), range: () => Promise.resolve(resolved), then: (f: any, r: any) => Promise.resolve(resolved).then(f, r) });
   const chain = (resolved: any): any => Object.assign(Promise.resolve(resolved), {
-    select: () => chain(resolved), eq: () => chain(resolved), order: () => Promise.resolve(resolved),
+    select: () => chain(resolved), eq: () => chain(resolved), order: () => ordered(resolved),
   });
   return {
     supabase: {

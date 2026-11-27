@@ -342,8 +342,12 @@ const PrescriptionsPage = () => {
   // Mounted off-screen (not in a dialog) just long enough to rasterize for a direct download.
   const [downloadingPrescription, setDownloadingPrescription] = useState<PrescriptionSlipData | null>(null);
 
+  // A slower, older response (e.g. the page-3 request fired just before a filter reset the
+  // pager to page 1) must never overwrite a newer one.
+  const loadSeq = useRef(0);
   const load = async () => {
     if (!profile) return;
+    const seq = ++loadSeq.current;
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
     let q = supabase.from("prescriptions").select("*", { count: "exact" }).eq("doctor_id", profile.id);
@@ -358,8 +362,11 @@ const PrescriptionsPage = () => {
         `patient_name.ilike.%${term}%,diagnosis.ilike.%${term}%` + (byDoctor.length ? `,practitioner_id.in.(${byDoctor.join(",")})` : ""),
       );
     }
-    q = q.order("date", { ascending: false }).range(from, to);
-    const { data, count } = await q;
+    // created_at/id break ties so rows with the same date cannot repeat or vanish between pages.
+    q = q.order("date", { ascending: false }).order("created_at", { ascending: false }).order("id").range(from, to);
+    const { data, count, error } = await q;
+    if (seq !== loadSeq.current) return;
+    if (error) { console.error("Prescriptions load failed:", error.message); return; }
     setPrescriptions((data || []) as Prescription[]);
     setTotalCount(count ?? 0);
   };

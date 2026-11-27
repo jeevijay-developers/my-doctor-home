@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import ReviewsManagePage from "./ReviewsManagePage";
+import { openSelect, pickOption } from "@/test/selectHelpers";
 
 const m = vi.hoisted(() => ({ isMulti: false, rows: [] as unknown[] }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: () => ({ profile: { id: "doc-1" }, can: () => true }) }));
@@ -47,13 +48,13 @@ describe("ReviewsManagePage", () => {
     expect(screen.getAllByText("Asha Rao").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Clinic").length).toBeGreaterThan(0);
     const filter = screen.getByLabelText(/filter by doctor/i);
-    fireEvent.change(filter, { target: { value: "pb" } });
+    await pickOption(filter, "Vikram Shah");
     await waitFor(() => expect(screen.queryAllByText("Meera")).toHaveLength(0));
     expect(screen.getAllByText("Ravi").length).toBeGreaterThan(0);
     expect(screen.getByText("3.0")).toBeInTheDocument(); // Ravi alone
-    fireEvent.change(filter, { target: { value: "pa" } });
+    await pickOption(filter, "Asha Rao");
     await waitFor(() => expect(screen.getByText("5.0")).toBeInTheDocument());
-    fireEvent.change(filter, { target: { value: "clinic" } });
+    await pickOption(filter, "Clinic-level");
     await waitFor(() => expect(screen.getByText("1.0")).toBeInTheDocument());
     expect(within(document.body).queryAllByText("Meera")).toHaveLength(0);
   });
@@ -64,9 +65,9 @@ describe("ReviewsManagePage", () => {
     render(<ReviewsManagePage />);
     await screen.findAllByText("Meera");
     const filter = screen.getByLabelText(/filter by doctor/i);
-    fireEvent.change(filter, { target: { value: "pb" } });
+    await pickOption(filter, "Vikram Shah");
     expect(await screen.findByText("No reviews for this doctor yet")).toBeInTheDocument();
-    fireEvent.change(filter, { target: { value: "clinic" } });
+    await pickOption(filter, "Clinic-level");
     expect(await screen.findByText("No clinic-level reviews yet")).toBeInTheDocument();
     expect(screen.queryByText("No reviews yet")).not.toBeInTheDocument();
   });
@@ -76,6 +77,7 @@ describe("ReviewsManagePage", () => {
     m.rows = [rv("1", "Meera", 5, "pold")];
     render(<ReviewsManagePage />);
     await screen.findAllByText("Meera");
-    expect(within(screen.getByLabelText(/filter by doctor/i)).getByRole("option", { name: /no longer active/ })).toBeInTheDocument();
+    openSelect(screen.getByLabelText(/filter by doctor/i));
+    expect(await screen.findByRole("option", { name: /no longer active/ })).toBeInTheDocument();
   });
 });

@@ -67,6 +67,8 @@ const StaffManagementPage = () => {
   const [saving, setSaving] = useState(false);
 
   const [deleting, setDeleting] = useState<StaffRow | null>(null);
+  const [statusTarget, setStatusTarget] = useState<StaffRow | null>(null);
+  const [statusBusy, setStatusBusy] = useState(false);
 
   const load = async () => {
     if (!profile) return;
@@ -189,9 +191,12 @@ const StaffManagementPage = () => {
 
   const toggleStatus = async (s: StaffRow) => {
     const nextStatus = s.status === "active" ? "inactive" : "active";
+    setStatusBusy(true);
     const { error } = await supabase.from("staff_members").update({ status: nextStatus }).eq("id", s.id);
+    setStatusBusy(false);
     if (error) { toast.error("Could not update status"); return; }
     toast.success(nextStatus === "active" ? "Staff account activated" : "Staff account deactivated");
+    setStatusTarget(null);
     load();
   };
 
@@ -242,7 +247,7 @@ const StaffManagementPage = () => {
         </div>
         {/* Doctors always pass can(); staff need staff.create (also enforced server-side). */}
         <Button
-          className="bg-royal hover:bg-royal/90"
+          className="bg-royal hover:bg-royal/90 w-full sm:w-auto shrink-0"
           onClick={openAdd}
           disabled={writeDisabled || !can("staff.create")}
           title={!can("staff.create") ? "You don't have permission to add staff" : writeDisabled ? "Upgrade to continue editing" : undefined}
@@ -318,7 +323,7 @@ const StaffManagementPage = () => {
                             </Button>
                           )}
                           {can("staff.disable") && (
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => toggleStatus(s)} aria-label={s.status === "active" ? "Deactivate" : "Activate"}>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setStatusTarget(s)} aria-label={s.status === "active" ? "Deactivate" : "Activate"}>
                               {s.status === "active" ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                             </Button>
                           )}
@@ -382,7 +387,7 @@ const StaffManagementPage = () => {
                       </Button>
                     )}
                     {can("staff.disable") && (
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => toggleStatus(s)} aria-label={s.status === "active" ? "Deactivate" : "Activate"}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setStatusTarget(s)} aria-label={s.status === "active" ? "Deactivate" : "Activate"}>
                         {s.status === "active" ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                       </Button>
                     )}
@@ -402,9 +407,11 @@ const StaffManagementPage = () => {
 
       {/* Add / Edit Staff */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingDoctorLogin ? "Doctor permissions" : editingId ? "Edit Staff" : "Add Staff"}</DialogTitle></DialogHeader>
-          <div className="space-y-5">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-4 pr-12 border-b border-border">
+            <DialogTitle>{editingDoctorLogin ? "Doctor permissions" : editingId ? "Edit Staff" : "Add Staff"}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>{editingDoctorLogin ? "Doctor login name" : "Staff Name *"}</Label>
@@ -462,13 +469,42 @@ const StaffManagementPage = () => {
             </div>
 
           </div>
-          <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-1 bg-background border-t border-border">
-            <Button onClick={save} disabled={saving || writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-4 sm:px-6 py-3 border-t border-border bg-background">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} className="h-10">
+              Cancel
+            </Button>
+            <Button onClick={save} disabled={saving || writeDisabled} className="h-10 bg-royal hover:bg-royal/90 sm:min-w-36">
               {saving ? "Saving…" : editingId ? "Save Changes" : "Create Staff"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Activate / deactivate confirmation */}
+      <AlertDialog open={!!statusTarget} onOpenChange={(o) => !o && !statusBusy && setStatusTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {statusTarget?.status === "active" ? "Deactivate staff account?" : "Activate staff account?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {statusTarget?.status === "active"
+                ? <><strong>{statusTarget?.staff_name}</strong> will no longer be able to log in until you activate the account again.</>
+                : <><strong>{statusTarget?.staff_name}</strong> will be able to log in again with their phone number.</>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={statusBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={statusBusy}
+              onClick={(e) => { e.preventDefault(); if (statusTarget) toggleStatus(statusTarget); }}
+              className={statusTarget?.status === "active" ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" : undefined}
+            >
+              {statusBusy ? "Saving…" : statusTarget?.status === "active" ? "Deactivate" : "Activate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>

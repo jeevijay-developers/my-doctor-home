@@ -221,6 +221,7 @@ const AppointmentsPage = () => {
       .order("date", { ascending: true })
       .order("sort_time", { ascending: true })
       .order("created_at", { ascending: true })
+      .order("id")
       .range(from, to);
     const { data, count, error } = await q;
     // A slower, older response must not overwrite a newer one.
@@ -918,9 +919,6 @@ const AppointmentsPage = () => {
                                 <NameButton onClick={() => setViewing(a)} className="font-medium text-foreground truncate block">
                                   {a.patient_name}
                                 </NameButton>
-                                {a.queue_number != null && (
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold flex-shrink-0" title="Queue number">Q{a.queue_number}</span>
-                                )}
                               </div>
                               <div className="text-xs text-muted-foreground truncate">{a.service_name}</div>
                               {isMulti && byId(a.practitioner_id) && (
@@ -1008,9 +1006,6 @@ const AppointmentsPage = () => {
                             <NameButton onClick={() => setViewing(a)}>
                               {a.patient_name}
                             </NameButton>
-                            {a.queue_number != null && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold" title="Queue number">Q{a.queue_number}</span>
-                            )}
                           </div>
                           <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                             <span>{a.service_name}</span>
@@ -1099,7 +1094,6 @@ const AppointmentsPage = () => {
                         ) : (
                           <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> —</span>
                         )}
-                        {viewing.queue_number != null && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-royal/10 text-royal text-[10px] font-semibold" title="Queue number">Q{viewing.queue_number}</span>}
                       </p>
                     </div>
                   </div>

@@ -78,6 +78,14 @@ const renderPage = () =>
     </MemoryRouter>,
   );
 
+// Row actions beyond Edit/Hours live in a "⋯" menu: open it for a doctor, then pick an item.
+const openMenu = (doctor: string, i = 0) => {
+  const trigger = screen.getAllByRole("button", { name: `More actions for ${doctor}` })[i];
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: "Enter" });
+};
+const menuItem = async (name: RegExp | string) => screen.findByRole("menuitem", { name });
+
 describe("DoctorsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -109,9 +117,14 @@ describe("DoctorsPage", () => {
     expect(screen.queryByText("LOCKED:Multiple Doctors")).not.toBeInTheDocument();
     expect(screen.getByText(/Your plan no longer includes extra doctors/)).toBeInTheDocument();
     screen.getAllByRole("button", { name: /add doctor/i }).forEach((b) => expect(b).toBeDisabled());
-    screen.getAllByRole("button", { name: /resume bookings for dr\. carl/i }).forEach((b) => expect(b).toBeDisabled());
-    screen.getAllByRole("button", { name: /deactivate dr\. bina shah/i }).forEach((b) => expect(b).toBeEnabled());
-    screen.getAllByRole("button", { name: /stop bookings for dr\. bina shah/i }).forEach((b) => expect(b).toBeEnabled());
+    openMenu("Dr. Carl");
+    expect(await menuItem(/resume bookings/i)).toHaveAttribute("aria-disabled", "true");
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menuitem", { name: /resume bookings/i })).not.toBeInTheDocument());
+    openMenu("Dr. Bina Shah");
+    expect(await menuItem("Deactivate")).not.toHaveAttribute("aria-disabled", "true");
+    expect(await menuItem("Stop bookings")).not.toHaveAttribute("aria-disabled", "true");
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     screen.getAllByRole("button", { name: /edit dr\. bina shah/i }).forEach((b) => expect(b).toBeEnabled());
     expect(screen.getAllByText(/Not taking bookings \(over seat limit\)/).length).toBeGreaterThan(0);
     // main doctor is within the single seat
@@ -180,7 +193,8 @@ describe("DoctorsPage", () => {
     mock.current.tables.appointments = { data: [{ id: "ap-1", date: "2026-12-01", time_slot: "10:00:00", patient_name: "Ravi Kumar" }] };
 
     renderPage();
-    fireEvent.click(screen.getAllByRole("button", { name: "Deactivate Dr. Bina Shah" })[0]);
+    openMenu("Dr. Bina Shah");
+    fireEvent.click(await menuItem("Deactivate"));
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: /^deactivate$/i }));
 
@@ -203,7 +217,8 @@ describe("DoctorsPage", () => {
       ok({ ok: true, moved: 0, skipped: ["ap-1"], skipped_reasons: [{ id: "ap-1", reason: "SLOT_TAKEN" }] });
     mock.current.tables.appointments = { data: [{ id: "ap-1", date: "2026-12-01", time_slot: "10:00:00", patient_name: "Ravi Kumar" }] };
     renderPage();
-    fireEvent.click(screen.getAllByRole("button", { name: "Deactivate Dr. Bina Shah" })[0]);
+    openMenu("Dr. Bina Shah");
+    fireEvent.click(await menuItem("Deactivate"));
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: /^deactivate$/i }));
     fireEvent.click(await within(dialog).findByRole("button", { name: /move bookings/i }));
@@ -213,7 +228,8 @@ describe("DoctorsPage", () => {
 
   it("the owner creates a login for a doctor through create-staff-account", async () => {
     renderPage();
-    fireEvent.click(screen.getAllByRole("button", { name: "Create login for Dr. Bina Shah" })[0]);
+    openMenu("Dr. Bina Shah");
+    fireEvent.click(await menuItem("Create login"));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText(/^Phone/), { target: { value: "+919876543210" } });
     fireEvent.change(within(dialog).getByLabelText(/^Confirm phone/), { target: { value: "+919876543210" } });
@@ -230,13 +246,28 @@ describe("DoctorsPage", () => {
     });
   });
 
+  it("the ⋯ menu keeps Edit/Hours visible, lists Permissions and Remove login for a doctor with a login, and puts Deactivate last in red", async () => {
+    mock.current.tables.staff_members = { data: [{ id: "login-bina", practitioner_id: "p-bina", staff_name: "Dr. Bina Shah", status: "active" }] };
+    renderPage();
+    expect(screen.getAllByRole("button", { name: "Edit Dr. Bina Shah" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Hours for Dr. Bina Shah" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /^Deactivate/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("Has login").length).toBeGreaterThan(0));
+    openMenu("Dr. Bina Shah");
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual(["Permissions", "Remove login", "Make main doctor", "Stop bookings", "Deactivate"]);
+    expect(items[0].getAttribute("href")).toBe("/admin/staff?edit=login-bina");
+    expect(items[items.length - 1].className).toMatch(/text-destructive/);
+  });
+
   it("staff without practitioners.manage see the list but no action buttons", () => {
     h.role = "staff";
     h.isStaff = true;
     h.granted = ["practitioners.view"];
     renderPage();
     expect(screen.getAllByText("Dr. Bina Shah").length).toBeGreaterThan(0);
-    for (const name of [/add doctor/i, /^Edit /, /^Hours /, /^Deactivate /, /^Make .* main doctor/, /^Stop bookings/, /^Create login/]) {
+    expect(screen.queryByRole("button", { name: /^More actions for / })).not.toBeInTheDocument();
+    for (const name of [/add doctor/i, /^Edit /, /^Hours /]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
   });

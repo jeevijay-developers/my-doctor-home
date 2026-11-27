@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePractitioners } from "@/hooks/usePractitioners";
 import { Star, Pin, MessageSquare, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -82,19 +83,19 @@ const ReviewsManagePage = () => {
       </div>
 
       {isMulti && (
-        <div className="flex items-center gap-2">
-          <label htmlFor="review-doctor-filter" className="text-sm text-muted-foreground">Filter by doctor</label>
-          <select
-            id="review-doctor-filter"
-            value={doctorFilter}
-            onChange={(e) => setDoctorFilter(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="all">All doctors</option>
-            {active.map((d) => <option key={d.id} value={d.id}>{d.display_name}</option>)}
-            {inactiveReviewed.map((id) => <option key={id} value={id}>{byId(id)?.display_name ?? "Former doctor"} (no longer active)</option>)}
-            <option value="clinic">Clinic-level</option>
-          </select>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+          <label htmlFor="review-doctor-filter" className="text-sm text-muted-foreground whitespace-nowrap">Filter by doctor</label>
+          <Select value={doctorFilter} onValueChange={setDoctorFilter}>
+            <SelectTrigger id="review-doctor-filter" aria-label="Filter by doctor" className="h-10 w-full sm:w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All doctors</SelectItem>
+              {active.map((d) => <SelectItem key={d.id} value={d.id}>{d.display_name}</SelectItem>)}
+              {inactiveReviewed.map((id) => <SelectItem key={id} value={id}>{byId(id)?.display_name ?? "Former doctor"} (no longer active)</SelectItem>)}
+              <SelectItem value="clinic">Clinic-level</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
 
