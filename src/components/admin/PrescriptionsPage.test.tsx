@@ -47,6 +47,8 @@ const openNew = async () => {
 const choosePatient = async (dialog: HTMLElement, label: string) => {
   fireEvent.click(await within(dialog).findByRole("combobox", { name: /patient/i }));
   fireEvent.click(await screen.findByRole("option", { name: label }));
+  // The picker closes and shows the choice.
+  await waitFor(() => expect(within(dialog).getByRole("combobox", { name: "Patient" })).toHaveTextContent(label));
 };
 
 describe("PrescriptionsPage - Add Prescription patient fields", () => {

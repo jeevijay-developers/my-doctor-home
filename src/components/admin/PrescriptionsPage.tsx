@@ -31,7 +31,7 @@ import DateFilter from "@/components/shared/DateFilter";
 import PrescriptionPatientFields from "./PrescriptionPatientFields";
 import BulkSelectionBar from "./BulkSelectionBar";
 import NameButton from "./NameButton";
-import { prescriptionVitalsError, type PatientOption } from "@/lib/prescriptionPatient";
+import { prescriptionVitalsError } from "@/lib/prescriptionPatient";
 import { parseWeight } from "@/lib/patientIntake";
 import { buildShareMessage, buildWhatsAppUrl, prescriptionShareUrl } from "@/lib/prescriptionShare";
 import { usePractitioners } from "@/hooks/usePractitioners";
@@ -323,7 +323,6 @@ const PrescriptionsPage = () => {
   const [dateFilterActive, setDateFilterActive] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [showNew, setShowNew] = useState(false);
-  const [patients, setPatients] = useState<PatientOption[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [formMedicines, setFormMedicines] = useState<MedicineFormItem[]>([]);
 
@@ -371,19 +370,6 @@ const PrescriptionsPage = () => {
     setTotalCount(count ?? 0);
   };
 
-  const loadPatients = async () => {
-    if (!profile) return;
-    // Everyone on the Patients page, including a walk-in who has just been called in and
-    // has no completed visit yet: the prescription is written during the consultation,
-    // before the appointment is completed.
-    const { data } = await supabase
-      .from("patients")
-      .select("id, name, phone, gender, age, weight")
-      .eq("doctor_id", profile.id)
-      .order("name");
-    setPatients((data || []).map(({ id, name, phone, gender, age, weight }) => ({ id, name, phone, gender, age, weight })));
-  };
-
   // Reset to page 1 whenever the search term changes underneath the pager.
   useEffect(() => { setPage(1); }, [debouncedSearch, selectedDate, dateFilterActive, doctorFilter]);
 
@@ -413,7 +399,6 @@ const PrescriptionsPage = () => {
       .subscribe();
     return () => { clearTimeout(timer); supabase.removeChannel(channel); };
   }, [profile]);
-  useEffect(() => { loadPatients(); }, [profile]);
   useEffect(() => { clearSelection(); }, [debouncedSearch, dateFilterActive, selectedDate, page, doctorFilter]);
 
   useEffect(() => {
@@ -527,20 +512,6 @@ const PrescriptionsPage = () => {
     if (tab) tab.location.href = url; else window.location.href = url;
   };
 
-  // Keep patients list in sync with Patients section (add/delete/update)
-  useEffect(() => {
-    if (!profile) return;
-    const channel = supabase
-      .channel(`rx-patients-${profile.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "patients", filter: `doctor_id=eq.${profile.id}` },
-        () => loadPatients()
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [profile]);
-
   // Keep detail view in sync with latest data
   useEffect(() => {
     if (!viewing) return;
@@ -579,7 +550,7 @@ const PrescriptionsPage = () => {
     }
   };
 
-  const suggestDoctor = async (patientId: string) => {
+  const suggestDoctor = async (patientId: string, patientName?: string) => {
     const seq = ++suggestSeq.current;
     if (!needsDoctorPick || !patientId) { setRxDoctorHint(null); return; }
     doctorTouched.current = false;
@@ -587,7 +558,7 @@ const PrescriptionsPage = () => {
     if (seq !== suggestSeq.current || doctorTouched.current) return;
     const doc = found ? byId(found) : undefined;
     if (doc?.is_active) {
-      const name = patients.find((p) => p.id === patientId)?.name ?? "the patient";
+      const name = patientName || "the patient";
       setRxDoctor(doc.id);
       setRxDoctorHint(`Defaulted from ${name}'s last visit`);
     } else {
@@ -718,7 +689,7 @@ const PrescriptionsPage = () => {
           <p className="text-sm text-muted-foreground mt-0.5">{totalCount} total records</p>
         </div>
         {can("prescriptions.create") && (
-        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) { loadPatients(); suggestSeq.current++; doctorTouched.current = false; setRxDoctor(myPractitionerId); setRxDoctorHint(null); } else { setForm(emptyForm); setFormMedicines([]); setRxDoctor(null); setRxDoctorHint(null); } }}>
+        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) { suggestSeq.current++; doctorTouched.current = false; setRxDoctor(myPractitionerId); setRxDoctorHint(null); } else { setForm(emptyForm); setFormMedicines([]); setRxDoctor(null); setRxDoctorHint(null); } }}>
           <DialogTrigger asChild>
             <Button
               className="bg-royal hover:bg-royal/90"
@@ -741,11 +712,12 @@ const PrescriptionsPage = () => {
               <PrescriptionPatientFields
                 idPrefix="new-rx"
                 selectLabel="Select Existing Patient"
-                patients={patients}
+                clinicId={profile?.id ?? ""}
+                practitionerId={needsDoctorPick ? rxDoctor : myPractitionerId}
                 value={form}
                 onChange={(patch) => {
                   setForm((prev) => ({ ...prev, ...patch }));
-                  if ("patient_id" in patch) void suggestDoctor(patch.patient_id ?? "");
+                  if ("patient_id" in patch) void suggestDoctor(patch.patient_id ?? "", patch.patient_name);
                 }}
               />
 
@@ -1041,7 +1013,8 @@ const PrescriptionsPage = () => {
                   <PrescriptionPatientFields
                     idPrefix="edit-rx"
                     selectLabel="Linked Patient"
-                    patients={patients}
+                    clinicId={profile?.id ?? ""}
+                    practitionerId={ownerEditsDoctor ? editDoctor : viewing.practitioner_id}
                     value={editForm}
                     onChange={(patch) => setEditForm((prev) => ({ ...prev, ...patch }))}
                   />

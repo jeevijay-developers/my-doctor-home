@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { Calendar, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DigitsInput } from "@/components/ui/digits-input";
 import { AmountInput } from "@/components/ui/amount-input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import PatientCombobox from "./PatientCombobox";
 import { patientDefaults, type PatientOption } from "@/lib/prescriptionPatient";
 
 export type PatientFieldsValue = {
@@ -18,23 +19,31 @@ export type PatientFieldsValue = {
 type Props = {
   idPrefix: string;
   selectLabel: string;
-  patients: PatientOption[];
+  /** The clinic whose patients can be searched (patients.doctor_id). */
+  clinicId: string;
+  /** The prescribing doctor; patients seen by them are listed first in multi-doctor clinics. */
+  practitionerId?: string | null;
   value: PatientFieldsValue;
   onChange: (patch: Partial<PatientFieldsValue>) => void;
 };
 
 // The patient / date / age / weight block shared by the Add and Edit prescription forms.
-// Choosing a patient fills their name, age and weight, so the name field is hidden; age and
-// weight stay editable because they change between visits. If the prescription is linked to a
-// patient who is not in the loaded list, the name field stays so the name is never lost.
-const PrescriptionPatientFields = ({ idPrefix, selectLabel, patients, value, onChange }: Props) => {
-  const linked = patients.some((p) => p.id === value.patient_id);
+// Patients are found by a server-side search (name or phone). Choosing one fills their name, age
+// and weight, so the name field is hidden; age and weight stay editable because they change
+// between visits. The stored name is shown on the picker, so it is never lost.
+const PrescriptionPatientFields = ({ idPrefix, selectLabel, clinicId, practitionerId, value, onChange }: Props) => {
+  const linked = !!value.patient_id;
+  const [picked, setPicked] = useState<PatientOption | null>(null);
+  const label = picked && picked.id === value.patient_id ? `${picked.name} (${picked.phone})` : value.patient_name;
 
-  const choose = (id: string) => {
-    const p = patients.find((x) => x.id === id);
-    if (p) onChange(patientDefaults(p));
+  const choose = (p: PatientOption) => {
+    setPicked(p);
+    onChange(patientDefaults(p));
   };
-  const clear = () => onChange({ patient_id: "", patient_name: "", patient_age: "", patient_weight: "" });
+  const clear = () => {
+    setPicked(null);
+    onChange({ patient_id: "", patient_name: "", patient_age: "", patient_weight: "" });
+  };
 
   const dateField = (
     <div className="space-y-1.5">
@@ -57,24 +66,24 @@ const PrescriptionPatientFields = ({ idPrefix, selectLabel, patients, value, onC
 
   return (
     <>
-      {patients.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label htmlFor={`${idPrefix}-patient`}>{selectLabel}</Label>
-            {value.patient_id && (
-              <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground" onClick={clear}>
-                <X className="h-3 w-3 mr-1" /> Clear patient
-              </Button>
-            )}
-          </div>
-          <Select value={value.patient_id} onValueChange={choose}>
-            <SelectTrigger id={`${idPrefix}-patient`} aria-label="Patient" className="h-10"><SelectValue placeholder="-- Or type name below --" /></SelectTrigger>
-            <SelectContent className="max-h-[200px]">
-              {patients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} ({p.phone})</SelectItem>)}
-            </SelectContent>
-          </Select>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label htmlFor={`${idPrefix}-patient`}>{selectLabel}</Label>
+          {value.patient_id && (
+            <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground" onClick={clear}>
+              <X className="h-3 w-3 mr-1" /> Clear patient
+            </Button>
+          )}
         </div>
-      )}
+        <PatientCombobox
+          id={`${idPrefix}-patient`}
+          clinicId={clinicId}
+          practitionerId={practitionerId}
+          value={value.patient_id}
+          valueLabel={label}
+          onSelect={choose}
+        />
+      </div>
       {linked ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {dateField}
