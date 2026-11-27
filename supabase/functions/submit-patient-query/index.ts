@@ -1,12 +1,11 @@
 // Public clinic enquiry form. The browser must not insert into patient_queries
-// directly — that path cannot carry a Turnstile check. This function verifies
-// captchaToken, validates the same fields the form enforces, confirms the
+// directly — that path cannot be rate limited by IP. This function rate limits
+// per IP, validates the same fields the form enforces, confirms the
 // doctor exists and is not cancelled, then inserts with the service role.
 // The DB trigger enforce_patient_query_rate_limit remains a second guard.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
 import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";
-import { turnstileError } from "../_shared/turnstile.ts";
 
 const CORS: CorsOptions = {
   allowHeaders: "authorization, x-client-info, apikey, content-type",
@@ -39,7 +38,6 @@ type QueryBody = {
   phone?: unknown;
   email?: unknown;
   message?: unknown;
-  captchaToken?: unknown;
   website?: unknown;
 };
 
@@ -76,9 +74,6 @@ Deno.serve(async (req) => {
   if (typeof body.website === "string" && body.website.trim()) {
     return json(200, { ok: true });
   }
-
-  const captcha = await turnstileError(body.captchaToken, ip, "contact");
-  if (captcha) return json(400, captcha);
 
   if (typeof body.doctor_id !== "string" || !UUID_RE.test(body.doctor_id)) {
     return json(400, { error: "Missing doctor" });

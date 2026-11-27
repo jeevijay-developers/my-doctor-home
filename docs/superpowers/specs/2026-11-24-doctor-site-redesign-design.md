@@ -115,7 +115,7 @@ Mobile-first single column below 640px; editorial asymmetric 12-column grid from
 
 ## 6. Booking — friction removal (visual + UI flow only)
 
-Business logic that does **not** change: slot generation, `useSlotAvailability` polling and re-validation, `createAppointmentRow`, Razorpay order/verify/retry/unconfirmed handling, Turnstile, error code handling, `doctylia:select-service` event, slip generation/download.
+Business logic that does **not** change: slot generation, `useSlotAvailability` polling and re-validation, `createAppointmentRow`, Razorpay order/verify/retry/unconfirmed handling, error code handling, `doctylia:select-service` event, slip generation/download.
 
 UI flow changes:
 1. **One "When" screen** replaces steps 1–3: consultation type as a segmented control (hidden when only clinic is available), service as chips (preselected default or the service the patient tapped), a 2-row date strip with the **first open day with free slots preselected**, and that day's slots shown immediately. Tapping a slot runs the existing `selectTimeSlot` re-validation and advances.

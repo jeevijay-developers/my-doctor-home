@@ -2605,6 +2605,60 @@ export type Database = {
           },
         ]
       }
+      prescription_templates: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          doctor_id: string
+          id: string
+          is_default: boolean
+          name: string
+          practitioner_id: string | null
+          preset: string | null
+          updated_at: string
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          created_by?: string | null
+          doctor_id: string
+          id?: string
+          is_default?: boolean
+          name: string
+          practitioner_id?: string | null
+          preset?: string | null
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          doctor_id?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          practitioner_id?: string | null
+          preset?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prescription_templates_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescription_templates_practitioner_fk"
+            columns: ["practitioner_id", "doctor_id"]
+            isOneToOne: false
+            referencedRelation: "practitioners"
+            referencedColumns: ["id", "doctor_id"]
+          },
+        ]
+      }
       prescriptions: {
         Row: {
           advice: string | null
@@ -2614,6 +2668,7 @@ export type Database = {
           diagnosis: string | null
           diet_advice: string | null
           doctor_id: string
+          extra: Json
           follow_up_date: string | null
           follow_up_instructions: string | null
           id: string
@@ -2626,6 +2681,8 @@ export type Database = {
           patient_name: string
           patient_weight: number | null
           practitioner_id: string
+          template_id: string | null
+          template_snapshot: Json | null
           visit_id: string | null
         }
         Insert: {
@@ -2636,6 +2693,7 @@ export type Database = {
           diagnosis?: string | null
           diet_advice?: string | null
           doctor_id: string
+          extra?: Json
           follow_up_date?: string | null
           follow_up_instructions?: string | null
           id?: string
@@ -2648,6 +2706,8 @@ export type Database = {
           patient_name: string
           patient_weight?: number | null
           practitioner_id?: string
+          template_id?: string | null
+          template_snapshot?: Json | null
           visit_id?: string | null
         }
         Update: {
@@ -2658,6 +2718,7 @@ export type Database = {
           diagnosis?: string | null
           diet_advice?: string | null
           doctor_id?: string
+          extra?: Json
           follow_up_date?: string | null
           follow_up_instructions?: string | null
           id?: string
@@ -2670,6 +2731,8 @@ export type Database = {
           patient_name?: string
           patient_weight?: number | null
           practitioner_id?: string
+          template_id?: string | null
+          template_snapshot?: Json | null
           visit_id?: string | null
         }
         Relationships: [
@@ -2693,6 +2756,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "practitioners"
             referencedColumns: ["id", "doctor_id"]
+          },
+          {
+            foreignKeyName: "prescriptions_template_fk"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "prescription_templates"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "prescriptions_visit_id_fkey"
@@ -4062,6 +4132,10 @@ export type Database = {
       }
       prescription_row_visible: {
         Args: { _prescription_id: string }
+        Returns: boolean
+      }
+      prescription_template_config_valid: {
+        Args: { _c: Json }
         Returns: boolean
       }
       primary_practitioner_id: { Args: { _doctor_id: string }; Returns: string }

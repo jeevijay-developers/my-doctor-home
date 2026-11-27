@@ -9,7 +9,6 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 
 type Step = "confirm" | "otp";
@@ -42,8 +41,6 @@ const DeleteAccountDialog = ({ open, onOpenChange }: Props) => {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [captchaToken, setCaptchaToken] = useState("");
-  const [turnstileReset, setTurnstileReset] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -52,7 +49,6 @@ const DeleteAccountDialog = ({ open, onOpenChange }: Props) => {
     setOtp("");
     setError(null);
     setCooldown(0);
-    setCaptchaToken("");
     supabase.auth.getUser().then(({ data }) => setPhone(data.user?.phone || null));
   }, [open]);
 
@@ -68,19 +64,11 @@ const DeleteAccountDialog = ({ open, onOpenChange }: Props) => {
       setError("No mobile number is registered on this account. Please contact support.");
       return;
     }
-    if (getTurnstileSiteKey() && !captchaToken) {
-      setError("Please complete the verification check.");
-      return;
-    }
     setBusy(true);
     const { error: sendErr } = await supabase.auth.signInWithOtp({
       phone: toE164(phone),
-      options: { shouldCreateUser: false, ...(captchaToken ? { captchaToken } : {}) },
+      options: { shouldCreateUser: false },
     });
-    if (captchaToken) {
-      setCaptchaToken("");
-      setTurnstileReset((n) => n + 1);
-    }
     setBusy(false);
     if (sendErr) {
       setError(sendErr.message || "Could not send the OTP. Please try again.");
@@ -151,7 +139,6 @@ const DeleteAccountDialog = ({ open, onOpenChange }: Props) => {
             <p className="text-sm text-muted-foreground">
               We'll send a 6-digit code to your registered mobile number{phone ? <> (<strong className="text-foreground">{maskPhone(phone)}</strong>)</> : null}.
             </p>
-            <TurnstileWidget action="delete_account" onToken={setCaptchaToken} resetSignal={turnstileReset} />
             {error && <p className="text-xs text-destructive">{error}</p>}
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
@@ -173,7 +160,6 @@ const DeleteAccountDialog = ({ open, onOpenChange }: Props) => {
               </InputOTPGroup>
             </InputOTP>
             {error && <p className="text-xs text-destructive text-center">{error}</p>}
-            <TurnstileWidget action="delete_account" onToken={setCaptchaToken} resetSignal={turnstileReset} />
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
               <Button variant="destructive" onClick={confirmDelete} disabled={busy || otp.length !== 6}>

@@ -190,10 +190,10 @@ describe("ProductionOtpService", () => {
     h.verifyOtp.mockReset();
   });
 
-  it("login: never creates users, normalizes the phone, forwards captcha", async () => {
+  it("login: never creates users, normalizes the phone", async () => {
     h.signInWithOtp.mockResolvedValue({ error: null });
-    expect(await svc.sendOtp({ phone: "98765 43210", mode: "login", captchaToken: "cap", fullName: "ignored" })).toEqual({ success: true });
-    expect(h.signInWithOtp).toHaveBeenCalledWith({ phone: "+919876543210", options: { shouldCreateUser: false, captchaToken: "cap" } });
+    expect(await svc.sendOtp({ phone: "98765 43210", mode: "login", fullName: "ignored" })).toEqual({ success: true });
+    expect(h.signInWithOtp).toHaveBeenCalledWith({ phone: "+919876543210", options: { shouldCreateUser: false } });
   });
 
   it("signup: creates user and passes full_name only when given", async () => {

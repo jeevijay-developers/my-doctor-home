@@ -14,7 +14,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolvePaymentMode, isExplicitMockMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
 import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";
-import { turnstileError } from "../_shared/turnstile.ts";
 import {
   calculateCommissionSplit,
   isAmountMatchingServerPrice,
@@ -30,12 +29,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-// Public booking clients must include `captchaToken` (Cloudflare Turnstile)
-// on this JSON body. The frontend widget must use exactly the field name
-// `captchaToken`.
 type BookingPayload = {
   doctor_id: string;
-  captchaToken?: string;
   patient_name: string;
   patient_phone: string;
   patient_age?: number | null;
@@ -80,9 +75,6 @@ Deno.serve(async (req) => {
   } catch {
     return json(400, { error: "Bad request" });
   }
-
-  const captcha = await turnstileError(booking.captchaToken, ip, "booking");
-  if (captcha) return json(400, captcha);
 
   if (!isValidBooking(booking)) return json(400, { error: "Missing or invalid booking details" });
 
@@ -213,8 +205,6 @@ Deno.serve(async (req) => {
     amount: serverPrice,
     practitioner_id: pick.id,
   };
-  // The captcha token is single-use and has no business being stored with the payment.
-  delete authoritativeBooking.captchaToken;
 
   // ---- COMMISSION RESOLUTION & INTEGER PAISE MATH ----
   const { data: defaultCommSetting } = await admin

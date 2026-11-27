@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
-  FileText, Plus, Search, Pill, Stethoscope, Trash2, Pencil, Download, ClipboardList, Eye, MessageCircle,
+  FileText, Plus, Search, Pill, Stethoscope, Trash2, Pencil, Download, ClipboardList, Eye, MessageCircle, LayoutTemplate,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,17 @@ import PractitionerSelect, { ALL_DOCTORS } from "./PractitionerSelect";
 import { Badge } from "@/components/ui/badge";
 import { slipDoctor } from "@/lib/practitioners/slipDoctor";
 import { practitionerErrorMessage } from "@/lib/practitioners/errors";
+import { usePrescriptionTemplates } from "@/hooks/usePrescriptionTemplates";
+import { blockEnabled, parseTemplateConfig, showsDiagnosis } from "@/lib/prescriptionTemplate/config";
+import { defaultTemplateConfig } from "@/lib/prescriptionTemplate/defaults";
+import { cleanExtra, parseExtra, validateExtra } from "@/lib/prescriptionTemplate/extra";
+import { pickDefaultTemplate, templatesForDoctor } from "@/lib/prescriptionTemplate/resolve";
+import type { TemplateConfig } from "@/lib/prescriptionTemplate/types";
+import TemplateFormFields from "./prescription-template/TemplateFormFields";
+import PrescriptionTemplatesDialog from "./prescription-template/PrescriptionTemplatesDialog";
+
+// Select value for "no custom template" (Radix Select items cannot have an empty value).
+const STANDARD_TEMPLATE = "__standard";
 
 const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
 
@@ -50,11 +61,48 @@ type Prescription = {
   advice: string | null; diet_advice: string | null; lifestyle_advice: string | null;
   follow_up_date: string | null; follow_up_instructions: string | null;
   practitioner_id?: string | null;
+  // Template fields (null/absent on prescriptions written before templates existed).
+  extra?: unknown; template_id?: string | null; template_snapshot?: unknown;
 };
 
 const emptyForm = {
   patient_name: "", patient_id: "", diagnosis: "",
   date: format(new Date(), "yyyy-MM-dd"), patient_age: "", patient_weight: "",
+  advice: "", diet_advice: "", lifestyle_advice: "", follow_up_date: "", follow_up_instructions: "",
+};
+
+// The columns a template's sections write besides patient/date/age/weight, for a prescription
+// being saved. Sections the template has switched off write nothing. On insert an empty value is
+// left out entirely (so a clinic without templates sends exactly what it always did); on update
+// it is sent as null so the doctor can clear it.
+const templateColumns = (
+  config: TemplateConfig,
+  f: typeof emptyForm,
+  mode: "insert" | "update",
+  // The saved row being edited: on update a column is only sent when the doctor changed it, so
+  // an edit never overwrites advice or follow-up written elsewhere in the meantime.
+  prev?: Record<string, unknown>,
+): Record<string, unknown> => {
+  const out: Record<string, unknown> = {};
+  const put = (key: string, value: string) => {
+    if (mode === "update") {
+      const before = typeof prev?.[key] === "string" ? (prev[key] as string) : "";
+      if (value === before) return;
+    }
+    const v = value.trim();
+    if (v) out[key] = v;
+    else if (mode === "update") out[key] = null;
+  };
+  if (blockEnabled(config, "advice")) {
+    put("advice", f.advice);
+    put("diet_advice", f.diet_advice);
+    put("lifestyle_advice", f.lifestyle_advice);
+  }
+  if (blockEnabled(config, "follow_up")) {
+    put("follow_up_date", f.follow_up_date);
+    put("follow_up_instructions", f.follow_up_instructions);
+  }
+  return out;
 };
 
 // Local, form-friendly mirror of MedicineItem — morning/afternoon/evening as
@@ -325,11 +373,39 @@ const PrescriptionsPage = () => {
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formMedicines, setFormMedicines] = useState<MedicineFormItem[]>([]);
+  const [formExtra, setFormExtra] = useState<Record<string, unknown>>({});
 
   const [viewing, setViewing] = useState<Prescription | null>(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(emptyForm);
   const [editFormMedicines, setEditFormMedicines] = useState<MedicineFormItem[]>([]);
+  const [editExtra, setEditExtra] = useState<Record<string, unknown>>({});
+
+  // Prescription templates: which layout and extra fields a new prescription uses. A clinic with
+  // no templates (or whose templates failed to load) always uses the standard slip.
+  const templatesApi = usePrescriptionTemplates(profile?.id);
+  const { templates } = templatesApi;
+  const canManageTemplates = !isStaff || (role === "doctor" && !!myPractitionerId && can("prescriptions.edit"));
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [formTemplateId, setFormTemplateId] = useState<string | null>(null);
+  const templateTouched = useRef(false);
+  const formDoctor = needsDoctorPick ? rxDoctor : myPractitionerId;
+  const availableTemplates = useMemo(() => templatesForDoctor(templates, formDoctor), [templates, formDoctor]);
+  // A template chosen by hand stays in use even if a later change of prescribing doctor takes it out of
+  // that doctor's own list, so answers already typed are not silently discarded.
+  const formTemplate = templates.find((t) => t.id === formTemplateId) ?? null;
+  const pickerTemplates = formTemplate && !availableTemplates.some((t) => t.id === formTemplate.id)
+    ? [...availableTemplates, formTemplate]
+    : availableTemplates;
+  const formConfig = useMemo(() => formTemplate?.config ?? defaultTemplateConfig(), [formTemplate]);
+  // An edited prescription keeps the layout it was issued with.
+  const editConfig = useMemo(() => parseTemplateConfig(viewing?.template_snapshot), [viewing?.template_snapshot]);
+  // Starts on the doctor's default template; re-picked when the prescribing doctor changes unless
+  // the user chose a template by hand.
+  useEffect(() => {
+    if (!showNew || templateTouched.current) return;
+    setFormTemplateId(pickDefaultTemplate(templates, formDoctor)?.id ?? null);
+  }, [showNew, templates, formDoctor]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -448,6 +524,8 @@ const PrescriptionsPage = () => {
         patient_gender: gender,
         visit,
         vitals,
+        extra: parseExtra(rx.extra),
+        template_snapshot: rx.template_snapshot ?? null,
       },
     };
   };
@@ -573,24 +651,34 @@ const PrescriptionsPage = () => {
     if (!profile || !form.patient_name.trim()) { toast.error("Patient name is required"); return; }
     const vitalsError = prescriptionVitalsError(form);
     if (vitalsError) { toast.error(vitalsError); return; }
-    const medError = validateMedicines(formMedicines);
+    const medError = blockEnabled(formConfig, "medicines") ? validateMedicines(formMedicines) : null;
     if (medError) { toast.error(medError); return; }
+    const extraError = validateExtra(formConfig, formExtra);
+    if (extraError) { toast.error(extraError); return; }
     if (needsDoctorPick && !rxDoctor) { toast.error(practitionerErrorMessage("PRACTITIONER_REQUIRED")); return; }
+    const extra = cleanExtra(formConfig, formExtra);
     const { data, error } = await supabase.from("prescriptions").insert({
       doctor_id: profile.id,
       patient_id: form.patient_id || null,
       patient_name: form.patient_name.trim(),
-      diagnosis: form.diagnosis || null,
-      medicines: toMedicineItems(formMedicines),
+      diagnosis: showsDiagnosis(formConfig) ? form.diagnosis || null : null,
+      medicines: blockEnabled(formConfig, "medicines") ? toMedicineItems(formMedicines) : [],
       date: form.date,
       patient_age: form.patient_age ? Number(form.patient_age) : null,
       patient_weight: parseWeight(form.patient_weight),
+      ...templateColumns(formConfig, form, "insert"),
+      // Only sent when used, so a clinic without templates writes exactly what it always did.
+      ...(Object.keys(extra).length > 0 ? { extra } : {}),
+      ...(formTemplate ? { template_id: formTemplate.id, template_snapshot: formTemplate.config } : {}),
       ...(needsDoctorPick && rxDoctor ? { practitioner_id: rxDoctor } : {}),
     }).select().single();
     if (error) { toast.error(practitionerErrorMessage(error.message) ?? "Could not add prescription"); return; }
     setShowNew(false);
     setForm(emptyForm);
     setFormMedicines([]);
+    setFormExtra({});
+    templateTouched.current = false;
+    setFormTemplateId(null);
     setRxDoctor(null);
     setRxDoctorHint(null);
     load();
@@ -603,18 +691,26 @@ const PrescriptionsPage = () => {
     if (!editForm.patient_name.trim()) { toast.error("Patient name is required"); return; }
     const editVitalsError = prescriptionVitalsError(editForm);
     if (editVitalsError) { toast.error(editVitalsError); return; }
-    const medError = validateMedicines(editFormMedicines);
+    const medError = blockEnabled(editConfig, "medicines") ? validateMedicines(editFormMedicines) : null;
     if (medError) { toast.error(medError); return; }
+    const extraError = validateExtra(editConfig, editExtra);
+    if (extraError) { toast.error(extraError); return; }
     const doctorChanged = ownerEditsDoctor && !!editDoctor && editDoctor !== viewing.practitioner_id;
+    const extra = cleanExtra(editConfig, editExtra);
+    // Answers only change when the layout has custom fields (or the row already holds some).
+    const touchesExtra = Object.keys(extra).length > 0 || Object.keys(parseExtra(viewing.extra)).length > 0;
     const { error } = await supabase.from("prescriptions").update({
       ...(doctorChanged ? { practitioner_id: editDoctor } : {}),
       patient_id: editForm.patient_id || null,
       patient_name: editForm.patient_name.trim(),
-      diagnosis: editForm.diagnosis || null,
-      medicines: toMedicineItems(editFormMedicines),
+      // A section the layout has switched off is left as it was, never overwritten.
+      ...(showsDiagnosis(editConfig) ? { diagnosis: editForm.diagnosis || null } : {}),
+      ...(blockEnabled(editConfig, "medicines") ? { medicines: toMedicineItems(editFormMedicines) } : {}),
       date: editForm.date,
       patient_age: editForm.patient_age ? Number(editForm.patient_age) : null,
       patient_weight: parseWeight(editForm.patient_weight),
+      ...templateColumns(editConfig, editForm, "update", viewing as unknown as Record<string, unknown>),
+      ...(touchesExtra ? { extra } : {}),
     }).eq("id", viewing.id);
     if (error) { toast.error(practitionerErrorMessage(error.message) ?? "Could not save changes"); return; }
     toast.success("Prescription updated");
@@ -631,7 +727,13 @@ const PrescriptionsPage = () => {
       date: viewing.date,
       patient_age: viewing.patient_age != null ? String(viewing.patient_age) : "",
       patient_weight: viewing.patient_weight != null ? String(viewing.patient_weight) : "",
+      advice: viewing.advice ?? "",
+      diet_advice: viewing.diet_advice ?? "",
+      lifestyle_advice: viewing.lifestyle_advice ?? "",
+      follow_up_date: viewing.follow_up_date ?? "",
+      follow_up_instructions: viewing.follow_up_instructions ?? "",
     });
+    setEditExtra(parseExtra(viewing.extra));
     setEditFormMedicines(fromMedicineItems(parseMedicineItems(viewing.medicines)));
     setEditDoctor(viewing.practitioner_id ?? null);
     setEditing(true);
@@ -688,8 +790,14 @@ const PrescriptionsPage = () => {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{totalCount} total records</p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {canManageTemplates && (
+          <Button variant="outline" onClick={() => setTemplatesOpen(true)}>
+            <LayoutTemplate className="h-4 w-4 mr-1" /> Templates
+          </Button>
+        )}
         {can("prescriptions.create") && (
-        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) { suggestSeq.current++; doctorTouched.current = false; setRxDoctor(myPractitionerId); setRxDoctorHint(null); } else { setForm(emptyForm); setFormMedicines([]); setRxDoctor(null); setRxDoctorHint(null); } }}>
+        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); templateTouched.current = false; setFormExtra({}); if (o) { suggestSeq.current++; doctorTouched.current = false; setRxDoctor(myPractitionerId); setRxDoctorHint(null); } else { setForm(emptyForm); setFormMedicines([]); setFormTemplateId(null); setRxDoctor(null); setRxDoctorHint(null); } }}>
           <DialogTrigger asChild>
             <Button
               className="bg-royal hover:bg-royal/90"
@@ -709,6 +817,21 @@ const PrescriptionsPage = () => {
                   {rxDoctorHint && <p className="text-xs text-muted-foreground">{rxDoctorHint}</p>}
                 </div>
               )}
+              {pickerTemplates.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-rx-template">Template</Label>
+                  <Select
+                    value={formTemplate?.id ?? STANDARD_TEMPLATE}
+                    onValueChange={(v) => { templateTouched.current = true; setFormTemplateId(v === STANDARD_TEMPLATE ? null : v); }}
+                  >
+                    <SelectTrigger id="new-rx-template" aria-label="Template" className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={STANDARD_TEMPLATE}>Standard</SelectItem>
+                      {pickerTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <PrescriptionPatientFields
                 idPrefix="new-rx"
                 selectLabel="Select Existing Patient"
@@ -721,16 +844,21 @@ const PrescriptionsPage = () => {
                 }}
               />
 
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
-                <Input value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} placeholder="e.g. Acute bronchitis" className="h-10" />
-              </div>
-              <MedicinesEditor items={formMedicines} onChange={setFormMedicines} />
+              <TemplateFormFields
+                config={formConfig}
+                idPrefix="new-rx"
+                values={form}
+                onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+                extra={formExtra}
+                onExtraChange={(id, v) => setFormExtra((prev) => ({ ...prev, [id]: v }))}
+                renderMedicines={() => <MedicinesEditor items={formMedicines} onChange={setFormMedicines} />}
+              />
               <Button onClick={addPrescription} disabled={writeDisabled} className="w-full h-10 bg-royal hover:bg-royal/90">Save Prescription</Button>
             </div>
           </DialogContent>
         </Dialog>
         )}
+        </div>
       </div>
 
       <DateFilter
@@ -1019,11 +1147,15 @@ const PrescriptionsPage = () => {
                     onChange={(patch) => setEditForm((prev) => ({ ...prev, ...patch }))}
                   />
 
-                  <div className="space-y-1.5">
-                    <Label className="flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
-                    <Input value={editForm.diagnosis} onChange={(e) => setEditForm({ ...editForm, diagnosis: e.target.value })} className="h-10" />
-                  </div>
-                  <MedicinesEditor items={editFormMedicines} onChange={setEditFormMedicines} />
+                  <TemplateFormFields
+                    config={editConfig}
+                    idPrefix="edit-rx"
+                    values={editForm}
+                    onChange={(patch) => setEditForm((prev) => ({ ...prev, ...patch }))}
+                    extra={editExtra}
+                    onExtraChange={(id, v) => setEditExtra((prev) => ({ ...prev, [id]: v }))}
+                    renderMedicines={() => <MedicinesEditor items={editFormMedicines} onChange={setEditFormMedicines} />}
+                  />
                   <div className="flex gap-2 pt-2">
                     <Button variant="outline" className="flex-1 h-10" onClick={() => setEditing(false)}>Cancel</Button>
                     <Button onClick={saveEdit} disabled={writeDisabled} className="flex-1 h-10 bg-royal hover:bg-royal/90">Save Changes</Button>
@@ -1103,6 +1235,17 @@ const PrescriptionsPage = () => {
           ) : undefined
         }
       />
+
+      {canManageTemplates && profile && (
+        <PrescriptionTemplatesDialog
+          open={templatesOpen}
+          onOpenChange={setTemplatesOpen}
+          api={templatesApi}
+          profile={slipDoctor(profile, byId(myPractitionerId))}
+          isOwner={!isStaff}
+          myPractitionerId={myPractitionerId}
+        />
+      )}
 
       {/* Off-screen, used only to rasterize a direct "Download" (no visible dialog). */}
       {downloadingPrescription && (

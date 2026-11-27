@@ -276,14 +276,33 @@ const QueueDisplay = () => {
   );
 };
 
+// Layout tiers for a clinic with 2+ doctors: the grid and type scale with the doctor count so the
+// screen is always filled and still readable from across a waiting room.
+//   2-3 doctors: one column each, huge numbers     4: 2x2     5-6: 3 columns     7+: 4 columns, compact
+const panelLayout = (n: number) => {
+  const cols = n <= 3 ? n : n === 4 ? 2 : n <= 6 ? 3 : 4;
+  const tier = n <= 3 ? "large" : n <= 6 ? "medium" : "compact";
+  return { cols, tier } as const;
+};
+
+const TIER = {
+  large:   { number: "text-[8rem] sm:text-[10rem] xl:text-[14rem]", name: "text-3xl xl:text-5xl", sub: "text-lg xl:text-2xl", label: "text-sm xl:text-lg", next: "text-4xl xl:text-6xl", nextMore: "text-2xl xl:text-4xl", servedName: "text-3xl xl:text-5xl", stat: "text-lg xl:text-2xl", avatar: "h-20 w-20 xl:h-28 xl:w-28", pad: "p-6 xl:p-10", moreNext: 4 },
+  medium:  { number: "text-[6rem] sm:text-[7rem] xl:text-[9rem]",   name: "text-2xl xl:text-3xl", sub: "text-base xl:text-lg", label: "text-xs xl:text-base", next: "text-3xl xl:text-5xl", nextMore: "text-xl xl:text-3xl", servedName: "text-2xl xl:text-4xl", stat: "text-base xl:text-xl", avatar: "h-14 w-14 xl:h-20 xl:w-20", pad: "p-5 xl:p-7", moreNext: 3 },
+  compact: { number: "text-[4.5rem] sm:text-[5rem] xl:text-[6.5rem]", name: "text-xl xl:text-2xl", sub: "text-sm xl:text-base", label: "text-xs xl:text-sm", next: "text-2xl xl:text-4xl", nextMore: "text-lg xl:text-2xl", servedName: "text-lg xl:text-2xl", stat: "text-sm xl:text-lg", avatar: "h-12 w-12 xl:h-14 xl:w-14", pad: "p-4 xl:p-5", moreNext: 2 },
+} as const;
+
+const initials = (name: string) =>
+  name.replace(/^dr\.?\s+/i, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
+
 // One panel per doctor for a clinic with 2+ doctors. Same privacy rule: queue numbers plus the
 // masked name of the patient in the room, nothing else.
 const ClinicQueuePanels = ({ doctor, practitioners, now }: { doctor: QueueDoctor; practitioners: PublicPractitioner[]; now: number }) => {
   const clinicName = doctor.clinic_name?.trim();
   const city = doctor.city?.trim();
   const clock = new Date(now).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+  const { cols, tier } = panelLayout(practitioners.length);
   return (
-    <main className="min-h-screen bg-gradient-to-b from-navy to-[#06124a] text-white flex flex-col p-5 sm:p-8 lg:p-12 gap-8">
+    <main className="min-h-screen bg-gradient-to-b from-navy to-[#06124a] text-white flex flex-col p-4 sm:p-6 lg:p-8 gap-4 sm:gap-6">
       <header className="flex items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0 text-left">
           {clinicName && <h1 className="font-heading font-bold text-2xl sm:text-4xl leading-tight truncate">{clinicName}</h1>}
@@ -295,67 +314,97 @@ const ClinicQueuePanels = ({ doctor, practitioners, now }: { doctor: QueueDoctor
         </div>
         <div className="text-right">
           <div className="font-heading font-bold text-2xl sm:text-4xl tabular-nums">{clock}</div>
-          <div className="mt-1 text-xs sm:text-sm text-white/70">Live queue</div>
+          <div className="mt-1 inline-flex items-center gap-2 text-xs sm:text-sm text-white/70">
+            <span className="h-2 w-2 rounded-full bg-success animate-pulse" /> Live queue
+          </div>
         </div>
       </header>
-      <div className="flex-1 grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 content-center">
+      <div
+        data-testid="queue-grid"
+        data-tier={tier}
+        style={{ ["--cols" as string]: cols }}
+        className="flex-1 grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:[grid-template-columns:repeat(var(--cols),minmax(0,1fr))] auto-rows-fr"
+      >
         {practitioners.map((p) => (
-          <DoctorQueuePanel key={p.id} clinicId={doctor.id} practitioner={p} now={now} />
+          <DoctorQueuePanel key={p.id} clinicId={doctor.id} practitioner={p} now={now} tier={tier} />
         ))}
       </div>
     </main>
   );
 };
 
-const DoctorQueuePanel = ({ clinicId, practitioner, now }: { clinicId: string; practitioner: PublicPractitioner; now: number }) => {
+const DoctorQueuePanel = ({ clinicId, practitioner, now, tier }: { clinicId: string; practitioner: PublicPractitioner; now: number; tier: keyof typeof TIER }) => {
   const { queue, lastOkAt } = useQueuePoll(clinicId, practitioner.id);
+  const t = TIER[tier];
   const name = formatDoctorName(practitioner.display_name);
   const headingId = `queue-panel-${practitioner.id}`;
   const stale = queue != null && (lastOkAt == null || now - lastOkAt > STALE_AFTER_MS);
   const [firstNext, ...laterNext] = queue?.next_up ?? [];
+  const serving = queue?.now_serving != null;
+  const est = queue ? estimateWaitMinutes(queue.waiting, queue.avg_minutes, serving) : null;
+  const hasWait = est != null && !!queue && queue.waiting > 0;
   return (
-    <section aria-labelledby={headingId} className="rounded-3xl bg-white/5 ring-1 ring-white/10 p-5 sm:p-6 flex flex-col gap-4 text-center">
-      <div>
-        <h2 id={headingId} className="font-heading font-bold text-xl sm:text-3xl leading-tight break-words">{name}</h2>
-        {practitioner.specialization?.trim() && <p className="text-white/70 text-base sm:text-lg">{practitioner.specialization.trim()}</p>}
+    <section
+      aria-labelledby={headingId}
+      className={`rounded-3xl ring-1 flex flex-col gap-4 text-center min-w-0 transition-colors ${t.pad} ${serving ? "bg-white/10 ring-spark-bright/40" : "bg-white/5 ring-white/10"}`}
+    >
+      <div className="flex items-center justify-center gap-3 min-w-0">
+        {practitioner.photo_url ? (
+          <img src={practitioner.photo_url} alt="" className={`${t.avatar} rounded-full object-cover ring-2 ring-white/20 shrink-0`} />
+        ) : (
+          <span className={`${t.avatar} rounded-full bg-white/10 ring-2 ring-white/20 shrink-0 flex items-center justify-center font-heading font-bold text-white/80`} aria-hidden="true">
+            {initials(name)}
+          </span>
+        )}
+        <div className="min-w-0 text-left">
+          <h2 id={headingId} className={`font-heading font-bold leading-tight break-words ${t.name}`}>{name}</h2>
+          {practitioner.specialization?.trim() && <p className={`text-white/70 truncate ${t.sub}`}>{practitioner.specialization.trim()}</p>}
+        </div>
       </div>
       {queue == null ? (
-        <p className="text-white/60 flex items-center justify-center gap-2" role="status">
+        <p className="flex-1 text-white/60 flex items-center justify-center gap-2" role="status">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Connecting…
         </p>
       ) : (
-        <div className={`flex flex-col gap-4 transition-opacity ${stale ? "opacity-60" : ""}`}>
+        <div className={`flex-1 flex flex-col justify-between gap-4 transition-opacity ${stale ? "opacity-60" : ""}`}>
           {stale && (
             <p role="alert" className="bg-warning text-black rounded-xl py-2 px-3 font-semibold flex items-center justify-center gap-2">
               <WifiOff className="h-4 w-4" aria-hidden="true" /> Updates paused. Please ask at the reception.
             </p>
           )}
-          <div aria-live="polite">
-            <div className="text-white/70 uppercase tracking-[0.2em] text-sm">Now serving</div>
-            <div className="font-heading font-extrabold text-7xl sm:text-8xl leading-none text-spark-bright mt-1">
-              {queue.now_serving != null ? `#${queue.now_serving}` : "—"}
+          <div aria-live="polite" className="flex-1 flex flex-col items-center justify-center">
+            <div className={`text-white/70 uppercase tracking-[0.2em] ${t.label}`}>Now serving</div>
+            <div className={`font-heading font-extrabold leading-none mt-1 ${t.number} ${serving ? "text-spark-bright" : "text-white/25"}`}>
+              {serving ? `#${queue.now_serving}` : "—"}
             </div>
-            {queue.now_serving != null && queue.now_serving_name && (
-              <p className="mt-2 font-heading font-bold text-2xl sm:text-3xl break-words">{queue.now_serving_name}</p>
-            )}
+            {serving && queue.now_serving_name ? (
+              <p className={`mt-2 font-heading font-bold break-words ${t.servedName}`}>{queue.now_serving_name}</p>
+            ) : !serving ? (
+              <p className={`mt-1 text-white/50 ${t.sub}`}>Waiting for the next patient</p>
+            ) : null}
           </div>
           <div className="space-y-2">
-            <div className="text-white/70 uppercase tracking-[0.2em] text-sm">Next</div>
+            <div className={`text-white/70 uppercase tracking-[0.2em] ${t.label}`}>Next</div>
             <div className="flex gap-2 justify-center flex-wrap items-center">
               {firstNext == null ? (
-                <span className="text-white/50">No one is waiting</span>
+                <span className={`text-white/50 ${t.sub}`}>No one is waiting</span>
               ) : (
                 <>
-                  <span className="font-heading font-bold text-3xl sm:text-4xl bg-white/15 ring-2 ring-spark-bright/60 rounded-2xl px-4 py-2">#{firstNext}</span>
-                  {laterNext.slice(0, 3).map((n) => (
-                    <span key={n} className="font-heading font-bold text-xl sm:text-2xl bg-white/10 rounded-2xl px-3 py-2 text-white/90">#{n}</span>
+                  <span className={`font-heading font-bold bg-white/15 ring-2 ring-spark-bright/60 rounded-2xl px-4 py-1.5 ${t.next}`}>#{firstNext}</span>
+                  {laterNext.slice(0, t.moreNext).map((n) => (
+                    <span key={n} className={`font-heading font-bold bg-white/10 rounded-2xl px-3 py-1.5 text-white/90 ${t.nextMore}`}>#{n}</span>
                   ))}
                 </>
               )}
             </div>
           </div>
-          <div aria-label={`${queue.waiting} waiting`} className="text-white/70 text-base flex items-center justify-center gap-1.5">
-            <Users className="h-4 w-4" aria-hidden="true" /> {queue.waiting} waiting
+          <div className={`flex items-center justify-center gap-x-5 gap-y-1 flex-wrap text-white/75 border-t border-white/10 pt-3 ${t.stat}`}>
+            <span aria-label={`${queue.waiting} waiting`} className="inline-flex items-center gap-1.5">
+              <Users className="h-4 w-4" aria-hidden="true" /> {queue.waiting} waiting
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Clock className="h-4 w-4" aria-hidden="true" /> {hasWait ? `~${formatWait(est)}` : "No wait"}
+            </span>
           </div>
         </div>
       )}

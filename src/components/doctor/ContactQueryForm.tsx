@@ -6,7 +6,6 @@ import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
-import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
 import { dsCn as cn } from "./ui/dsCn";
 import DsButton from "./ui/DsButton";
 import SectionHeader from "./ui/SectionHeader";
@@ -41,8 +40,6 @@ const ContactQueryForm = () => {
   const [website, setWebsite] = useState(""); // honeypot
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState("");
-  const [turnstileReset, setTurnstileReset] = useState(0);
 
   const set = (field: Field) => (value: string) => setValues((v) => ({ ...v, [field]: value }));
   const touch = (field: Field) => () => setTouched((t) => ({ ...t, [field]: true }));
@@ -61,8 +58,6 @@ const ContactQueryForm = () => {
     setValues({ name: "", phone: "", email: "", message: "" });
     setTouched({});
     setWebsite("");
-    setCaptchaToken("");
-    setTurnstileReset((n) => n + 1);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -73,10 +68,6 @@ const ContactQueryForm = () => {
       setTouched({ name: true, phone: true, email: true, message: true });
       const first = (["name", "phone", "email", "message"] as Field[]).find((f) => errors[f]);
       if (first) document.getElementById(`query-${first}`)?.focus();
-      return;
-    }
-    if (getTurnstileSiteKey() && !captchaToken) {
-      toast.error("Please complete the verification check.");
       return;
     }
     if (website.trim()) {
@@ -94,23 +85,14 @@ const ContactQueryForm = () => {
         phone: normalizeIndianPhone(values.phone),
         email: values.email.trim() || null,
         message: values.message.trim(),
-        ...(captchaToken ? { captchaToken } : {}),
       },
     });
-    if (captchaToken) {
-      setCaptchaToken("");
-      setTurnstileReset((n) => n + 1);
-    }
     setSubmitting(false);
 
     if (error) {
       const serverMessage = await edgeFunctionErrorMessage(error, "Couldn't send your message. Please try again.");
       if (serverMessage.includes("PATIENT_QUERY_RATE_LIMITED") || serverMessage === "Too many requests") {
         toast.error("Please wait a moment before sending another message.");
-      } else if (serverMessage === "captcha_required") {
-        toast.error("Please complete the verification check.");
-      } else if (serverMessage === "captcha_failed") {
-        toast.error("Verification failed. Please try again.");
       } else {
         toast.error(serverMessage);
       }
@@ -229,8 +211,6 @@ const ContactQueryForm = () => {
                 />
                 {errorText("message")}
               </div>
-
-              <TurnstileWidget action="contact" onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
               <div className="absolute -left-[9999px] top-0 opacity-0" aria-hidden="true">
                 <label htmlFor="query-website">Website</label>

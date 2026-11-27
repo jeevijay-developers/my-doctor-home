@@ -11,7 +11,6 @@ import { FormattedPhoneInput } from "@/components/ui/formatted-phone-input";
 import { CountryCodeSelect } from "@/components/ui/country-code-select";
 import { Label } from "@/components/ui/label";
 import { otpService } from "@/lib/auth/otp/otpService";
-import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
 
 const PRIMARY = "#3C83FC";
 
@@ -33,8 +32,6 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
-  const [captchaToken, setCaptchaToken] = useState("");
-  const [turnstileReset, setTurnstileReset] = useState(0);
   const [agreedToPolicies, setAgreedToPolicies] = useState(false);
 
   useEffect(() => {
@@ -53,22 +50,11 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
 
     setLoading(true);
     try {
-      if (getTurnstileSiteKey() && !captchaToken) {
-        const message = "Please complete the verification check.";
-        if (step === "enter-otp") setOtpError(message);
-        else setPhoneError(message);
-        return;
-      }
       const res = await otpService.sendOtp({
         phone,
         mode,
         fullName: mode === "signup" ? fullName : undefined,
-        ...(captchaToken ? { captchaToken } : {}),
       });
-      if (captchaToken) {
-        setCaptchaToken("");
-        setTurnstileReset((n) => n + 1);
-      }
 
       if (!res.success) {
         setPhoneError(res.message || "Failed to send OTP.");
@@ -181,7 +167,6 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
             </button>
           )}
         </div>
-        <TurnstileWidget action={mode} onToken={setCaptchaToken} resetSignal={turnstileReset} />
         <Button
           type="button"
           onClick={verifyOtp}
@@ -285,7 +270,6 @@ export default function PhoneOtpForm({ mode, onAuthenticated, onRequestSignup }:
           </Label>
         </div>
       )}
-      <TurnstileWidget action={mode} onToken={setCaptchaToken} resetSignal={turnstileReset} />
       <Button
         type="button"
         onClick={sendOtp}

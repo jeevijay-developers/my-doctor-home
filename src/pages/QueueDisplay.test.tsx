@@ -199,6 +199,39 @@ describe("QueueDisplay", () => {
       expect(queueCalls().length).toBe(before + 2);
     });
 
+    it("adapts the grid to the number of doctors", async () => {
+      const mk = (n: number) =>
+        Array.from({ length: n }, (_, i) => ({ id: `p${i}`, display_name: `Doc ${i + 1}`, slug: `d${i}`, specialization: null, is_primary: i === 0, bookable: true }));
+      const expected: Record<number, [string, string]> = { 2: ["2", "large"], 3: ["3", "large"], 4: ["2", "medium"], 6: ["3", "medium"], 8: ["4", "compact"] };
+      for (const [n, [cols, tier]] of Object.entries(expected)) {
+        mock.current = createTableMock();
+        mock.current.tables.profiles = { data: { id: "d1", clinic_name: "Asha Clinic" } };
+        mock.current.rpcs.get_public_queue = () => queue();
+        mock.current.rpcs.get_public_practitioners = () => mk(Number(n));
+        const { unmount } = renderPage();
+        await flush();
+        const grid = screen.getByTestId("queue-grid");
+        expect(grid.style.getPropertyValue("--cols")).toBe(cols);
+        expect(grid).toHaveAttribute("data-tier", tier);
+        expect(screen.getAllByRole("region")).toHaveLength(Number(n));
+        unmount();
+      }
+    });
+
+    it("shows each doctor's wait estimate and an idle doctor's state", async () => {
+      mock.current.rpcs.get_public_practitioners = () => [DR_A, DR_B];
+      mock.current.rpcs.get_public_queue = (args: any) =>
+        args._practitioner_id === "p2" ? queue({ now_serving: null, next_up: [], waiting: 0 }) : queue();
+      renderPage();
+      await flush();
+      const a = screen.getByRole("region", { name: "Dr. Asha Rao" });
+      const b = screen.getByRole("region", { name: "Dr. Meera Shah" });
+      expect(within(a).getByText(/~/)).toBeInTheDocument();
+      expect(within(b).getByText("No wait")).toBeInTheDocument();
+      expect(within(b).getByText("Waiting for the next patient")).toBeInTheDocument();
+      expect(within(b).getByText("No one is waiting")).toBeInTheDocument();
+    });
+
     it("starts polling the queue at once, without waiting for the doctor list (no practitioner key)", async () => {
       mock.current.rpcs.get_public_practitioners = () => new Promise(() => {});
       renderPage();

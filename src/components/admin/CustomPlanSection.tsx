@@ -14,6 +14,7 @@ import {
 } from "@/lib/customPlan";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import AppointmentsLimitControl from "./AppointmentsLimitControl";
+import SocialMarketingCard from "./SocialMarketingCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -28,7 +29,7 @@ const REJECTION_BANNER_DAYS = 7;
 
 const CustomPlanSection = () => {
   const { profile } = useProfile();
-  const { customPlan, pendingRequest, latestDecided, refetch } = useCustomPlan();
+  const { customPlan, pendingRequest, latestDecided, socialMarketing, refetch } = useCustomPlan();
   const { rows } = useFeatureAccess();
   const { appointmentsCap, appointmentsUnlimited, standardCap, loading: accessLoading } = usePlanAccess();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -182,6 +183,8 @@ const CustomPlanSection = () => {
           </div>
         </div>
       )}
+
+      {socialMarketing && <SocialMarketingCard sm={socialMarketing} />}
 
       {pendingRequest && (
         <div className="rounded-xl border border-royal/30 bg-royal/5 p-4 space-y-2">

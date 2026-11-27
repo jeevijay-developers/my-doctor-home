@@ -11,7 +11,6 @@ import { useNearViewport } from "@/hooks/useNearViewport";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
 import { generateBookingToken } from "@/lib/bookingToken";
-import TurnstileWidget, { getTurnstileSiteKey } from "@/components/shared/TurnstileWidget";
 import { downloadPdfFromNode } from "@/lib/downloadPdfFromNode";
 import { pdfFileName } from "@/lib/pdfFileName";
 import { FEATURE_KEYS } from "@/lib/features";
@@ -156,8 +155,6 @@ const BookingWidget = () => {
   const [mockCheckoutOpen, setMockCheckoutOpen] = useState(false);
   // True while the async slot re-validation fires on time-slot selection
   const [checkingSlot, setCheckingSlot] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState("");
-  const [turnstileReset, setTurnstileReset] = useState(0);
 
 
   // Any time the patient steps back before Review (to change date,
@@ -684,10 +681,6 @@ const BookingWidget = () => {
   const ensureOrder = async (): Promise<CachedOrder | null> => {
     if (cachedOrder && cachedOrder.key === bookingKey) return cachedOrder;
     const keyAtStart = bookingKey;
-    if (getTurnstileSiteKey() && !captchaToken) {
-      toast.error("Please complete the verification check.");
-      return null;
-    }
     if (!profile || !selectedDate || !selectedTime) return null;
     if (isFull(selectedTime)) {
       toast.error("Sorry, this slot was just booked by someone else. Please choose another time.");
@@ -714,15 +707,8 @@ const BookingWidget = () => {
     };
 
     const { data: orderData, error: orderErr } = await supabase.functions.invoke("create-razorpay-order", {
-      body: {
-        ...bookingPayload,
-        ...(captchaToken ? { captchaToken } : {}),
-      },
+      body: bookingPayload,
     });
-    if (captchaToken) {
-      setCaptchaToken("");
-      setTurnstileReset((n) => n + 1);
-    }
 
     if (orderErr || !orderData?.order_id) {
       const message = await edgeFunctionErrorMessage(orderErr, "Online payment isn't available right now.");
@@ -1578,8 +1564,6 @@ const BookingWidget = () => {
           <span className="font-ds-display text-[1.75rem] font-medium ds-tabular">₹{selectedService?.price ?? 0}</span>
         </div>
       </div>
-
-      <TurnstileWidget action="booking" onToken={setCaptchaToken} resetSignal={turnstileReset} />
 
       {payError && (
         <div role="alert" className="flex items-start gap-2.5 rounded-ds-md border border-ds-danger/30 bg-ds-danger/[0.06] p-4 text-ds-small text-ds-ink">

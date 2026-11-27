@@ -1,12 +1,6 @@
 import "@testing-library/jest-dom";
 import { vi } from "vitest";
 
-vi.mock("@/components/shared/TurnstileWidget", () => ({
-  TURNSTILE_SITE_KEY: "test-sitekey",
-  getTurnstileSiteKey: () => null,
-  default: () => null,
-}));
-
 // recharts' ResponsiveContainer needs ResizeObserver, which jsdom doesn't implement.
 class ResizeObserverStub {
   observe() {}

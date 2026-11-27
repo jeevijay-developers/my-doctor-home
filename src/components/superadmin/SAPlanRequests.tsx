@@ -23,6 +23,8 @@ import { controlFromLimit, describeAppointmentsLimit, limitFromControl, type Cus
 import AppointmentsLimitControl from "@/components/admin/AppointmentsLimitControl";
 import { formatIstDate } from "@/lib/istDate";
 import SAImportRequests from "./SAImportRequests";
+import SocialMarketingDialog from "./SocialMarketingDialog";
+import { emptyScope, scopeToRpcArgs, type SocialMarketing } from "@/lib/socialMarketing";
 
 type DoctorInfo = { full_name: string | null; clinic_name: string | null; plan_tier: string | null; plan_status: string | null; plan_end: string | null };
 type RequestRow = PlanRequest & { profiles: DoctorInfo | null };
@@ -65,6 +67,9 @@ const SAPlanRequests = () => {
   const [editingPlan, setEditingPlan] = useState<PlanRow | null>(null);
   const [cancelling, setCancelling] = useState<PlanRow | null>(null);
   const [rebasing, setRebasing] = useState<PlanRow | null>(null);
+  // Social media marketing add-on rows by doctor, and the plan whose scope dialog is open.
+  const [smRows, setSmRows] = useState<Record<string, SocialMarketing>>({});
+  const [smPlan, setSmPlan] = useState<PlanRow | null>(null);
   // The Import limits tab mounts only when opened, so its pending count is read here for the tab label.
   const [importPending, setImportPending] = useState(0);
 
@@ -79,15 +84,20 @@ const SAPlanRequests = () => {
   const labelFor = useCallback((key: string) => features.find((f) => f.key === key)?.label ?? key, [features]);
 
   const load = useCallback(async () => {
-    const [reqRes, planRes, featRes] = await Promise.all([
+    const [reqRes, planRes, featRes, smRes] = await Promise.all([
       supabase.from("plan_requests" as any).select(`*, ${DOC_COLS}`).order("created_at", { ascending: false }).limit(200),
       supabase.from("doctor_custom_plans" as any).select(`*, ${DOC_COLS}`).order("updated_at", { ascending: false }),
       supabase.from("features" as any).select("key, label, is_requestable, is_active").order("sort_order"),
+      supabase.from("custom_plan_social_marketing" as any).select("*"),
     ]);
     if (reqRes.error) toast({ title: "Failed to load requests", description: reqRes.error.message, variant: "destructive" });
     setRequests(((reqRes.data as unknown) as RequestRow[]) ?? []);
     setPlans(((planRes.data as unknown) as PlanRow[]) ?? []);
     setFeatures(((featRes.data as unknown) as FeatureRow[]) ?? []);
+    // A failed read must not look like "not included": keep what we had.
+    if (!smRes.error) {
+      setSmRows(Object.fromEntries((((smRes.data as unknown) as SocialMarketing[]) ?? []).map((r) => [r.doctor_id as string, r])));
+    }
     setLoading(false);
   }, []);
 
@@ -100,6 +110,7 @@ const SAPlanRequests = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "plan_requests" }, () => load())
       // A doctor cancelling, or a plan expiring, must drop out of "Active plans" live.
       .on("postgres_changes", { event: "*", schema: "public", table: "doctor_custom_plans" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "custom_plan_social_marketing" }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
@@ -124,6 +135,17 @@ const SAPlanRequests = () => {
       {limit != null && <Badge variant="outline" className="text-[10px]">Appointments: {describeAppointmentsLimit(limit)}</Badge>}
     </div>
   );
+
+  // "Not included" is the explicit answer when there is no live record, so a quote always says which it is.
+  const SocialBadge = ({ doctorId }: { doctorId: string }) => {
+    const st = smRows[doctorId]?.status;
+    if (!st || st === "ended") return <Badge variant="outline" className="text-[10px] text-muted-foreground">Social media marketing: Not included</Badge>;
+    return (
+      <Badge className={`text-[10px] border-0 hover:bg-transparent ${st === "active" ? "bg-success/15 text-success" : "bg-amber-500/15 text-amber-700"}`}>
+        Social media marketing: {st === "active" ? "Included" : "Included (draft, not yet promised)"}
+      </Badge>
+    );
+  };
 
   const cancelPlan = async () => {
     if (!cancelling) return;
@@ -210,12 +232,13 @@ const SAPlanRequests = () => {
                   {activePlans.map((p) => (
                     <TableRow key={p.doctor_id}>
                       <TableCell><DoctorCell d={p.profiles} /></TableCell>
-                      <TableCell><Changes add={p.extra_features} remove={p.removed_features} limit={p.base_tier === "pro" ? p.monthly_appointments_limit : null} /></TableCell>
+                      <TableCell><div className="space-y-1"><Changes add={p.extra_features} remove={p.removed_features} limit={p.base_tier === "pro" ? p.monthly_appointments_limit : null} /><SocialBadge doctorId={p.doctor_id} /></div></TableCell>
                       <TableCell className="text-sm whitespace-nowrap">₹{p.monthly_price}<div className="text-[11px] text-muted-foreground">std ₹{standardPrice(p.base_tier)}</div></TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{fmt(p.valid_from)} → {p.valid_until ? fmt(p.valid_until) : "no end"}
                         {isStuck(p) && <div className="text-warning font-medium whitespace-normal max-w-[220px]">Not applied: built on {p.base_tier}, doctor is on {doctorTier(p)}. The doctor still pays the standard price.</div>}</TableCell>
                       <TableCell className="text-right space-x-1 whitespace-nowrap">
                         {canManage && canRebase(p) && <Button size="sm" onClick={() => setRebasing(p)}>Apply to {doctorTier(p)}</Button>}
+                        <Button size="sm" variant="outline" onClick={() => setSmPlan(p)}>Social marketing</Button>
                         {canManage && <><Button size="sm" variant="outline" onClick={() => setEditingPlan(p)}>Edit</Button>
                         <Button size="sm" variant="outline" className="text-destructive" onClick={() => setCancelling(p)}>End</Button></>}
                       </TableCell>
@@ -228,8 +251,10 @@ const SAPlanRequests = () => {
                   <Card key={p.doctor_id}><CardContent className="p-3 space-y-2">
                     <DoctorCell d={p.profiles} />
                     <Changes add={p.extra_features} remove={p.removed_features} limit={p.base_tier === "pro" ? p.monthly_appointments_limit : null} />
+                    <SocialBadge doctorId={p.doctor_id} />
                     <div className="text-xs text-muted-foreground">₹{p.monthly_price}/month · {fmt(p.valid_from)} → {p.valid_until ? fmt(p.valid_until) : "no end"}</div>
                     {isStuck(p) && <div className="text-xs text-warning font-medium">Not applied: built on {p.base_tier}, doctor is on {doctorTier(p)}.</div>}
+                    <div className="flex justify-end"><Button size="sm" variant="outline" onClick={() => setSmPlan(p)}>Social marketing</Button></div>
                     {canManage && <div className="flex gap-2 justify-end">{canRebase(p) && <Button size="sm" onClick={() => setRebasing(p)}>Apply to {doctorTier(p)}</Button>}<Button size="sm" variant="outline" onClick={() => setEditingPlan(p)}>Edit</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => setCancelling(p)}>End</Button></div>}
                   </CardContent></Card>
                 ))}
@@ -283,8 +308,20 @@ const SAPlanRequests = () => {
           // activePlans = inside its dates only, so an expired or not-yet-started plan never seeds the limit
           currentLimit={activePlans.find((p) => p.doctor_id === reviewing.doctor_id && p.base_tier === "pro")?.monthly_appointments_limit ?? null}
           canManage={canManage}
+          socialStatus={smRows[reviewing.doctor_id]?.status ?? null}
           onClose={() => setReviewing(null)}
           onDone={() => { setReviewing(null); load(); }}
+        />
+      )}
+      {smPlan && (
+        <SocialMarketingDialog
+          key={smPlan.doctor_id}
+          doctorId={smPlan.doctor_id}
+          doctorName={smPlan.profiles?.full_name || "doctor"}
+          row={smRows[smPlan.doctor_id] ?? null}
+          canManage={canManage}
+          onClose={() => setSmPlan(null)}
+          onDone={() => { setSmPlan(null); load(); }}
         />
       )}
       {editingPlan && (
@@ -325,7 +362,7 @@ const SAPlanRequests = () => {
 };
 
 const ReviewDialog = ({
-  request, features, standardPrice, currentLimit, canManage, onClose, onDone,
+  request, features, standardPrice, currentLimit, canManage, socialStatus, onClose, onDone,
 }: {
   request: RequestRow;
   features: FeatureRow[];
@@ -333,9 +370,14 @@ const ReviewDialog = ({
   /** The doctor's live custom appointment limit, if any: the starting point when the request does not ask for one. */
   currentLimit?: number | null;
   canManage: boolean;
+  /** Status of the clinic's social media marketing record, or null when there is none. */
+  socialStatus: "draft" | "active" | "ended" | null;
   onClose: () => void;
   onDone: () => void;
 }) => {
+  // Only offered when there is no live record: starting one again would otherwise wipe an agreed scope.
+  const canStartSocial = socialStatus === null || socialStatus === "ended";
+  const [startSocial, setStartSocial] = useState(false);
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [current, setCurrent] = useState<Set<string>>(new Set());
   const [price, setPrice] = useState(String(standardPrice));
@@ -410,6 +452,15 @@ const ReviewDialog = ({
       return;
     }
     toast({ title: decision === "approve" ? "Approved — live for the doctor now" : "Request rejected" });
+    if (decision === "approve" && startSocial && canStartSocial) {
+      // A draft with an empty scope: nothing is promised until it is filled in and activated.
+      const { error: smError } = await supabase.rpc("save_social_marketing_scope" as any, { _doctor_id: request.doctor_id, ...scopeToRpcArgs(emptyScope()) });
+      if (smError) {
+        toast({ title: "Approved, but social media marketing was not started", description: `${smError.message}. Add it from the Active plans tab.`, variant: "destructive" });
+      } else {
+        toast({ title: "Social media marketing added as a draft", description: "Fill in the scope from the Active plans tab." });
+      }
+    }
     onDone();
   };
 
@@ -467,6 +518,17 @@ const ReviewDialog = ({
             }
           />
         )}
+
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-2.5">
+          <div className="min-w-0 text-sm">
+            <span className="font-medium">Social media marketing</span>
+            <span className="ml-2 text-[11px] text-muted-foreground">
+              {socialStatus === "active" ? "included (active)" : socialStatus === "draft" ? "included (draft, scope not confirmed)" : startSocial ? "included: scope to be agreed after approval" : "not included"}
+            </span>
+            <p className="text-[11px] text-muted-foreground">A service delivered by the team, billed separately. Nothing is promised until the scope is documented and activated.</p>
+          </div>
+          <Switch checked={startSocial || socialStatus === "active" || socialStatus === "draft"} disabled={!canManage || !canStartSocial} onCheckedChange={setStartSocial} aria-label="Include social media marketing" />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1">

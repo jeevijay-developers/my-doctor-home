@@ -115,7 +115,7 @@ export class MockOtpService implements OtpService {
       const isSignup = params.mode === "signup";
       try {
         // Minted server-side (service role) so it never touches the public
-        // password-grant + CAPTCHA endpoint — see mock-otp-login for why.
+        // password-grant endpoint — see mock-otp-login for why.
         const { data, error: fnError } = await supabase.functions.invoke("mock-otp-login", {
           body: { phone, otp: params.otp, fullName, isSignup },
         });

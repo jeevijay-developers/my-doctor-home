@@ -6,7 +6,7 @@ Nothing in the Supabase section is live on the Doctylia project (`atmelijhxsjzji
 
 ## Security checklist
 
-- Production security headers on every response in `vercel.json`: `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Strict-Transport-Security`, `Permissions-Policy`, and a Content-Security-Policy covering Supabase, Razorpay, Google Analytics, and Cloudflare Turnstile. CSP `upgrade-insecure-requests` covers HTTPS.
+- Production security headers on every response in `vercel.json`: `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Strict-Transport-Security`, `Permissions-Policy`, and a Content-Security-Policy covering Supabase, Razorpay, and Google Analytics. CSP `upgrade-insecure-requests` covers HTTPS.
 - `create-e2e-session` returns 403 unless `ENABLE_E2E_AUTH=true`.
 - `bootstrap-admin` returns 403 unless `ENABLE_BOOTSTRAP_ADMIN=true` or the `x-bootstrap-secret` header matches `BOOTSTRAP_ADMIN_SECRET`.
 - PostgREST `.or()` search in `src/lib/mcp/tools/list_patients.ts` strips `,()%_` before interpolation.
@@ -20,8 +20,8 @@ Nothing in the Supabase section is live on the Doctylia project (`atmelijhxsjzji
   - Mock OTP login and the patient enquiry function: 5 requests / 10 min per IP.
   - Over the limit the response is 429 with `Retry-After`. If the migration is not applied, those endpoints return 503 instead of skipping the check.
 - CORS is no longer `*`. `supabase/functions/_shared/cors.ts` allows `https://doctylia.com`, `https://www.doctylia.com`, and local dev origins. Requests with no `Origin` header (the Android app and other native clients) still pass. Other browser origins do not get `Access-Control-Allow-Origin`.
-- Cloudflare Turnstile is verified on the server for staff login, booking orders, and patient enquiries (`supabase/functions/_shared/turnstile.ts`). Missing or invalid tokens return 400. The widget renders only when `VITE_TURNSTILE_SITE_KEY` is set.
-- Patient enquiries no longer insert straight into `patient_queries`. They go through `supabase/functions/submit-patient-query`, which checks the CAPTCHA, rate-limits, validates the payload, and rejects cancelled doctors.
+- Cloudflare Turnstile was removed from the app (login, booking orders, patient enquiries); those public endpoints rely on per-IP rate limits and the enquiry honeypot.
+- Patient enquiries no longer insert straight into `patient_queries`. They go through `supabase/functions/submit-patient-query`, which rate-limits, validates the payload, and rejects cancelled doctors.
 - Superadmin blog preview in `SAModeration.tsx` sanitizes HTML with DOMPurify before `dangerouslySetInnerHTML`. JSON-LD script tags escape `<`.
 
 ## Website performance checklist
@@ -78,7 +78,6 @@ Nothing in the Supabase section is live on the Doctylia project (`atmelijhxsjzji
 ## Still needs you
 
 - Deploy from an account that can see project `atmelijhxsjzjixhdfcu`: `npx supabase db push`, then deploy the updated Edge Functions (including `sitemap` and `submit-patient-query` with `--no-verify-jwt`). Do not deploy `mcp` or `send-sms-hook`.
-- Set `TURNSTILE_SECRET_KEY` on Edge Function secrets and `VITE_TURNSTILE_SITE_KEY` on the frontend host.
 - After the sitemap function is live, point `robots.txt` at it and submit it in Search Console.
 - Directory listings (G2, Capterra, SaaSHub, AlternativeTo, Crunchbase, SoftwareSuggest, Techjockey, LinkedIn product on the existing Jeevijay page) require your login. No listings were submitted.
 - AI citation tests (the 15 prompts) and the GA4 baseline export for 23 July 2026 through 21 October 2026 are manual.

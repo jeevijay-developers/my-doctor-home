@@ -102,6 +102,37 @@ describe("SAPlanRequests", () => {
     expect(screen.getAllByText(/Need blog please/).length).toBeGreaterThan(0);
   });
 
+  it("an active plan says whether social media marketing is included", async () => {
+    seed({ requests: [], plans: [activePlan()] });
+    mock.current.tables.custom_plan_social_marketing = { data: [] };
+    renderPage(true);
+    await screen.findByRole("tab", { name: /Active plans/ });
+    openTab(/Active plans/);
+    expect((await screen.findAllByText("Social media marketing: Not included")).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Social marketing" }).length).toBeGreaterThan(0);
+  });
+
+  it("an active social media marketing record shows as Included", async () => {
+    seed({ requests: [], plans: [activePlan()] });
+    mock.current.tables.custom_plan_social_marketing = { data: [{ doctor_id: "d1", status: "active" }] };
+    renderPage(true);
+    await screen.findByRole("tab", { name: /Active plans/ });
+    openTab(/Active plans/);
+    expect((await screen.findAllByText("Social media marketing: Included")).length).toBeGreaterThan(0);
+  });
+
+  it("approving with the social media marketing switch on starts an empty draft", async () => {
+    mock.current.tables.custom_plan_social_marketing = { data: [] };
+    mock.current.rpcs.save_social_marketing_scope = () => ({ data: "draft", error: null });
+    renderPage(true, {});
+    await openReview();
+    fireEvent.click(screen.getByRole("switch", { name: "Include social media marketing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(mock.current.rpc).toHaveBeenCalledWith("save_social_marketing_scope", expect.objectContaining({ _doctor_id: "d1", _platforms: [], _monthly_fee: null })));
+    const order = mock.current.rpc.mock.calls.map((c: any[]) => c[0]).filter((n: string) => n === "review_plan_request" || n === "save_social_marketing_scope");
+    expect(order).toEqual(["review_plan_request", "save_social_marketing_scope"]);
+  });
+
   it("shows empty state with no pending requests", async () => {
     seed({ requests: [] });
     renderPage(true);

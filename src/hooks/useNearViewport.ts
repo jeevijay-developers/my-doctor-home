@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * True once the referenced element has come within `rootMargin` of the viewport (and
- * stays true afterwards). Used to hold back heavy third-party embeds (Google Maps,
- * Cloudflare Turnstile) until the visitor actually scrolls near them, instead of
+ * stays true afterwards). Used to hold back heavy third-party embeds (Google Maps)
+ * and deferred work until the visitor actually scrolls near them, instead of
  * downloading them during the initial load.
  *
  * Without IntersectionObserver support it resolves to true so the embed still works.

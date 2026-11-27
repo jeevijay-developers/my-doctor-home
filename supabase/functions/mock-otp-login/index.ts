@@ -1,10 +1,8 @@
 // Dev/test-only OTP login. PhoneOtpForm's mock flow used to finish by calling
 // supabase.auth.signInWithPassword() directly from the browser against the
 // synthetic dev.<phone>@doctylia.com account created by get_or_create_dev_user.
-// That endpoint requires CAPTCHA on this project and GoTrue 500s instead of
-// gracefully rejecting the (already-consumed, dev-only) Turnstile token handed
-// to it — so this mints the session server-side via the admin API instead,
-// which isn't behind the public CAPTCHA gate at all.
+// This mints the session server-side via the admin API instead, so the browser
+// never needs the public password-grant endpoint.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { bindCorsRequest, corsHeaders, handleCors, type CorsOptions } from "../_shared/cors.ts";
 import { clientIp, enforceRateLimit } from "../_shared/rateLimit.ts";

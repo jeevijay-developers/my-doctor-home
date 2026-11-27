@@ -77,7 +77,7 @@ const SharedPrescription = () => {
       <div className="min-h-screen bg-secondary/40 py-4 sm:py-8 px-2">
         <div className="mx-auto max-w-[720px]">
           <div data-prescription-slip-print-root className="bg-white shadow-md rounded-lg overflow-hidden">
-            <PrescriptionSlipCard profile={data.doctor} prescription={data.prescription} />
+            <PrescriptionSlipCard profile={data.doctor} prescription={data.prescription} forceLetterhead />
           </div>
           <div className="flex justify-end mt-4">
             <Button onClick={download} className="gap-1.5 bg-royal hover:bg-royal/90 text-white">

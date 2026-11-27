@@ -29,12 +29,10 @@ export class ProductionOtpService implements OtpService {
         params.mode === "signup"
           ? {
               shouldCreateUser: true,
-              captchaToken: params.captchaToken,
               data: params.fullName ? { full_name: params.fullName } : undefined,
             }
           : {
               shouldCreateUser: false,
-              captchaToken: params.captchaToken,
             },
     });
 

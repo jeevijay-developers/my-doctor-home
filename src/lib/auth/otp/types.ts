@@ -4,7 +4,6 @@ export interface SendOtpParams {
   phone: string;
   mode: "login" | "signup";
   fullName?: string;
-  captchaToken?: string;
 }
 
 export interface SendOtpResult {
@@ -18,7 +17,6 @@ export interface VerifyOtpParams {
   phone: string;
   otp: string;
   mode: "login" | "signup";
-  captchaToken?: string;
 }
 
 export interface VerifyOtpResult {

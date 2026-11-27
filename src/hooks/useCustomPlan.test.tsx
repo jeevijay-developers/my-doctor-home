@@ -142,11 +142,12 @@ describe("useCustomPlan", () => {
     expect(result.current.customPlan).toBeNull();
   });
 
-  it("subscribes to this doctor's plan and request rows and unsubscribes on unmount", async () => {
+  it("subscribes to this doctor's plan, request and social marketing rows and unsubscribes on unmount", async () => {
     const { unmount } = renderHook(() => useCustomPlan());
     await waitFor(() => expect(m.channel).toHaveBeenCalled());
     const ch = m.channel.mock.results[0].value;
-    expect(ch.on.mock.calls.map((c: any[]) => c[1].filter)).toEqual(["doctor_id=eq.doc-1", "doctor_id=eq.doc-1"]);
+    expect(ch.on.mock.calls.map((c: any[]) => c[1].table)).toEqual(["doctor_custom_plans", "plan_requests", "custom_plan_social_marketing"]);
+    expect(ch.on.mock.calls.map((c: any[]) => c[1].filter)).toEqual(["doctor_id=eq.doc-1", "doctor_id=eq.doc-1", "doctor_id=eq.doc-1"]);
     unmount();
     expect(m.removeChannel).toHaveBeenCalled();
   });

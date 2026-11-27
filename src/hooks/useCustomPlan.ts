@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "./useProfile";
 import { isCustomPlanActive, type CustomPlan, type PlanRequest } from "@/lib/customPlan";
+import type { SocialMarketing } from "@/lib/socialMarketing";
 
 // Doctor-side view of the Custom Plan Requests feature: the live custom plan
 // (if any) plus the latest requests. Re-fetches over realtime so an approval
@@ -16,6 +17,8 @@ export function useCustomPlan() {
   const [rawPlan, setRawPlan] = useState<CustomPlan | null>(null);
   const [tick, setTick] = useState(0);
   const [requests, setRequests] = useState<PlanRequest[]>([]);
+  // The social media marketing add-on. RLS only returns it while it is active on a live plan.
+  const [socialMarketing, setSocialMarketing] = useState<SocialMarketing | null>(null);
   const [loading, setLoading] = useState(true);
   // Several components (every checkout dialog) mount this hook at once; a shared
   // channel name would make them fight over one realtime subscription.
@@ -23,16 +26,18 @@ export function useCustomPlan() {
 
   const refetch = useCallback(async () => {
     if (!profile?.id) return;
-    const [planRes, reqRes] = await Promise.all([
+    const [planRes, reqRes, smRes] = await Promise.all([
       supabase.from("doctor_custom_plans" as any).select("*").eq("doctor_id", profile.id).maybeSingle(),
       isStaff
         ? Promise.resolve({ data: [] as any[] })
         : supabase.from("plan_requests" as any).select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }).limit(10),
+      supabase.from("custom_plan_social_marketing" as any).select("*").eq("doctor_id", profile.id).maybeSingle(),
     ]);
     // A failed query must not erase what we already know (it would hide an
     // active plan and show the standard price).
     if (!planRes.error) setRawPlan((planRes.data as unknown as CustomPlan | null) ?? null);
     if (!(reqRes as any).error) setRequests(((reqRes.data as unknown) as PlanRequest[]) ?? []);
+    if (!smRes?.error) setSocialMarketing((smRes?.data as unknown as SocialMarketing | null) ?? null);
     setLoading(false);
   }, [profile?.id, isStaff]);
 
@@ -50,6 +55,7 @@ export function useCustomPlan() {
         window.dispatchEvent(new Event("doctylia:custom-plan-changed"));
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "plan_requests", filter: `doctor_id=eq.${profile.id}` }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "custom_plan_social_marketing", filter: `doctor_id=eq.${profile.id}` }, () => refetch())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -78,5 +84,8 @@ export function useCustomPlan() {
   const pendingRequest = requests.find((r) => r.status === "pending") ?? null;
   const latestDecided = requests.find((r) => r.status === "approved" || r.status === "rejected") ?? null;
 
-  return { customPlan, requests, pendingRequest, latestDecided, loading, refetch };
+  // Shown only while the record is active AND the custom plan is live (a draft is never promised to the doctor).
+  const activeSocialMarketing = socialMarketing?.status === "active" && customPlan ? socialMarketing : null;
+
+  return { customPlan, requests, pendingRequest, latestDecided, socialMarketing: activeSocialMarketing, loading, refetch };
 }
