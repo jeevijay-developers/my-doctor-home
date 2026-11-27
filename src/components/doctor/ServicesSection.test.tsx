@@ -123,4 +123,40 @@ describe("ServicesSection", () => {
     expect(within(row).queryByText(/₹/)).not.toBeInTheDocument();
     expect(within(row).queryByText(/min/)).not.toBeInTheDocument();
   });
+
+  describe("Offered by (multi-doctor)", () => {
+    const docs = [
+      { id: "p1", display_name: "Dr Asha", bookable: true },
+      { id: "p2", display_name: "Dr Ravi", bookable: true },
+    ];
+    const multi = (over: Record<string, unknown> = {}) =>
+      mockData({
+        isMultiDoctor: true,
+        practitioners: docs,
+        bookablePractitioners: docs,
+        servicePractitioners: [
+          { service_id: "service-1", practitioner_id: "p1" },
+          { service_id: "service-1", practitioner_id: "p2" },
+        ],
+        ...over,
+      });
+
+    it("lists the doctors a mapped service is offered by", () => {
+      multi();
+      renderSection();
+      expect(screen.getByText("Offered by Dr Asha, Dr Ravi")).toBeInTheDocument();
+    });
+
+    it("says nothing for an unmapped service (offered by every doctor)", () => {
+      multi({ servicePractitioners: [] });
+      renderSection();
+      expect(screen.queryByText(/Offered by/)).not.toBeInTheDocument();
+    });
+
+    it("single-doctor clinics never show it, even with stray mapping rows", () => {
+      multi({ isMultiDoctor: false });
+      renderSection();
+      expect(screen.queryByText(/Offered by/)).not.toBeInTheDocument();
+    });
+  });
 });

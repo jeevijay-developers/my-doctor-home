@@ -7,6 +7,7 @@ import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ratingSummary } from "@/lib/doctorSite/doctorFacts";
+import { formatDoctorName } from "@/lib/seo/doctorSeo";
 import { dsCn as cn } from "./ui/dsCn";
 import { radioKeyDown } from "./ui/radioKeyDown";
 import DsButton from "./ui/DsButton";
@@ -39,7 +40,7 @@ const Stars = ({ rating, size = 16 }: { rating: number; size?: number }) => (
 // characters fit on a line of a card.)
 const CLAMP_CHARS = 140;
 
-const ReviewCard = ({ review, index, onRead }: { review: Review; index: number; onRead: (review: Review) => void }) => {
+const ReviewCard = ({ review, index, onRead, doctorName }: { review: Review; index: number; onRead: (review: Review) => void; doctorName?: string }) => {
   const spotlight = useSpotlight<HTMLElement>();
   const text = (review.review_text ?? "").trim();
   const long = text.length > CLAMP_CHARS;
@@ -72,6 +73,7 @@ const ReviewCard = ({ review, index, onRead }: { review: Review; index: number; 
         <span className="min-w-0">
           <span className="block truncate font-medium text-ds-ink">{review.patient_name}</span>
           <span className="block text-ds-ink-3">{formatReviewDate(review.created_at)}</span>
+          {doctorName && <span className="block truncate text-ds-ink-2">for {doctorName}</span>}
         </span>
         {review.is_verified && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ds-accent-soft px-2.5 py-1 text-ds-label font-medium text-ds-accent-ink">
@@ -99,8 +101,9 @@ const Distribution = ({ rows, total }: { rows: { stars: number; count: number }[
 );
 
 const ReviewsSection = () => {
-  const { reviews, profile } = useDoctorData();
+  const { reviews, profile, practitioners, isMultiDoctor } = useDoctorData();
   const list = (reviews ?? []) as Review[];
+  const doctorNames = new Map((isMultiDoctor ? practitioners ?? [] : []).map((d) => [d.id, formatDoctorName(d.display_name)]));
   const summary = ratingSummary(list);
   const railRef = useRef<HTMLDivElement>(null);
 
@@ -109,6 +112,7 @@ const ReviewsSection = () => {
   const [name, setName] = useState("");
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
+  const [doctorId, setDoctorId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const scrollRail = (direction: 1 | -1) =>
@@ -123,6 +127,8 @@ const ReviewsSection = () => {
       patient_name: name.trim(),
       rating,
       review_text: text.trim() || null,
+      // Only a multi-doctor clinic that was told which doctor sends one; otherwise the payload is unchanged.
+      ...(isMultiDoctor && doctorId ? { practitioner_id: doctorId } : {}),
     });
     if (error) {
       toast.error("Failed to submit review");
@@ -132,6 +138,7 @@ const ReviewsSection = () => {
       setName("");
       setRating(5);
       setText("");
+      setDoctorId("");
     }
     setSubmitting(false);
   };
@@ -175,7 +182,7 @@ const ReviewsSection = () => {
               className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain px-5 pb-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden"
             >
               {list.map((review, index) => (
-                <ReviewCard key={review.id} review={review} index={index} onRead={setReading} />
+                <ReviewCard key={review.id} review={review} index={index} onRead={setReading} doctorName={review.practitioner_id ? doctorNames.get(review.practitioner_id) : undefined} />
               ))}
             </div>
             {list.length > 3 && (
@@ -245,6 +252,25 @@ const ReviewsSection = () => {
                 className="h-12 w-full rounded-ds-sm border border-ds-line bg-ds-surface px-4 text-ds-body outline-none transition-colors focus:border-ds-accent"
               />
             </div>
+
+            {isMultiDoctor && (practitioners ?? []).length > 0 && (
+              <div>
+                <label htmlFor="review-doctor" className="mb-1.5 block text-ds-small font-medium">
+                  Which doctor did you see? <span className="font-normal text-ds-ink-3">(optional)</span>
+                </label>
+                <select
+                  id="review-doctor"
+                  value={doctorId}
+                  onChange={(event) => setDoctorId(event.target.value)}
+                  className="h-12 w-full rounded-ds-sm border border-ds-line bg-ds-surface px-4 text-ds-body outline-none transition-colors focus:border-ds-accent"
+                >
+                  <option value="">The clinic / not sure</option>
+                  {(practitioners ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>{formatDoctorName(d.display_name)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <fieldset>
               <legend className="mb-1.5 text-ds-small font-medium">Your rating</legend>

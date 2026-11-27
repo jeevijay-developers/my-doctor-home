@@ -431,8 +431,8 @@ BEGIN
 
   ---------------------------------------------------------------- 11. public doctor list says which one is the owner
   PERFORM set_config('request.jwt.claims', '', true);
-  IF (SELECT pg_get_function_result('public.get_public_practitioners(uuid)'::regprocedure)) NOT LIKE '%, is_owner boolean)' THEN
-    RAISE EXCEPTION '11: is_owner is not the last column: %', pg_get_function_result('public.get_public_practitioners(uuid)'::regprocedure);
+  IF (SELECT pg_get_function_result('public.get_public_practitioners(uuid)'::regprocedure)) NOT LIKE '%, sort_order integer, is_owner boolean, directory_listed boolean, review_count integer, avg_rating numeric)' THEN
+    RAISE EXCEPTION '11: is_owner moved or the new columns are not appended after it: %', pg_get_function_result('public.get_public_practitioners(uuid)'::regprocedure);
   END IF;
   IF (SELECT is_owner FROM public.get_public_practitioners(d) WHERE id = pa) IS DISTINCT FROM true
      OR (SELECT is_owner FROM public.get_public_practitioners(d) WHERE id = pb) IS DISTINCT FROM false THEN

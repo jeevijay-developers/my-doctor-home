@@ -12,6 +12,8 @@ export interface DirectoryDoctor {
   locality?: string | null;
   clinic_name?: string | null;
   experience_years?: number | null;
+  /** Set on a polyclinic's per-doctor rows: `slug` is then the clinic slug. */
+  practitioner_slug?: string | null;
   avg_rating?: number | string | null;
   review_count?: number | string | null;
 }
@@ -31,6 +33,12 @@ export interface HubContext {
   doctors: DirectoryDoctor[];
   total: number;
   facets: DirectoryFacet[];
+}
+
+/** Clinic page, or the doctor's own page for a polyclinic's per-doctor row. */
+function doctorHref(d: Pick<DirectoryDoctor, "slug" | "practitioner_slug">, encode = false): string {
+  const e = encode ? encodeURIComponent : (s: string) => s;
+  return d.practitioner_slug ? `/dr/${e(d.slug)}/doctor/${e(d.practitioner_slug)}` : `/dr/${e(d.slug)}`;
 }
 
 export function hubPath(citySlug?: string, specialtySlug?: string): string {
@@ -78,7 +86,7 @@ export function buildHubHead(ctx: HubContext): PageHead {
         itemListElement: ctx.doctors.map((d, i) => ({
           "@type": "ListItem",
           position: i + 1,
-          url: `${origin}/dr/${d.slug}`,
+          url: `${origin}${doctorHref(d)}`,
           name: formatDoctorName(d.full_name ?? ""),
         })),
       },
@@ -111,7 +119,7 @@ function buildHubBody(ctx: HubContext, h1: string): string {
         .filter(Boolean)
         .map((s) => escapeHtml(String(s)))
         .join(", ");
-      return `<li><a href="/dr/${encodeURIComponent(d.slug)}">${escapeHtml(formatDoctorName(d.full_name ?? ""))}</a>${bits ? ` - ${bits}` : ""}</li>`;
+      return `<li><a href="${doctorHref(d, true)}">${escapeHtml(formatDoctorName(d.full_name ?? ""))}</a>${bits ? ` - ${bits}` : ""}</li>`;
     })
     .join("");
   const facets = ctx.facets

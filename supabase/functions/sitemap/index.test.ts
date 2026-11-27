@@ -198,4 +198,16 @@ describe("sitemap", () => {
     expect(l).toContain("/dr/dr-asha/doctor/b");
     expect(l.join()).not.toContain("/dr/dr-solo/doctor");
   });
+
+  it("leaves out doctors with directory_listed=false but still needs 2+ active doctors", async () => {
+    const pr = (o: any) => ({ doctor_id: "d1", slug: "a", is_active: true, updated_at: null, directory_listed: true, ...o });
+    const { xml } = await run({
+      profiles: [doc()],
+      blog_posts: [],
+      practitioners: [pr({}), pr({ slug: "b", directory_listed: false })],
+    });
+    const l = locs(xml);
+    expect(l).toContain("/dr/dr-asha/doctor/a");
+    expect(l).not.toContain("/dr/dr-asha/doctor/b");
+  });
 });

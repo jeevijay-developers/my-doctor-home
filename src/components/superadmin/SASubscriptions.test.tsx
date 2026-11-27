@@ -228,4 +228,23 @@ describe("SASubscriptions", () => {
     await screen.findAllByText("Dr Asha");
     for (const b of screen.getAllByTitle("Save custom price")) expect(b).not.toBeDisabled();
   });
+
+  it("labels a seat payment as Doctor seats x N in the self-service payments table", async () => {
+    mock.current.tables.plan_upgrade_payments = { data: [
+      { id: "u1", doctor_id: "d2", from_tier: "premium", target_tier: "premium", amount: 900, status: "captured", is_mock: false,
+        created_at: "2026-11-20T00:00:00Z", kind: "seats", seats_quantity: 3, profiles: { full_name: "Dr Bala", clinic_name: "Bala Care" } },
+    ] };
+    renderPage(true);
+    expect(await screen.findByText("Doctor seats ×3")).toBeInTheDocument();
+  });
+
+  it("badges a payment that needs a refund", async () => {
+    mock.current.tables.plan_upgrade_payments = { data: [
+      { id: "u2", doctor_id: "d2", from_tier: "premium", target_tier: "premium", amount: 900, status: "captured", is_mock: false,
+        created_at: "2026-11-20T00:00:00Z", kind: "seats", seats_quantity: 3, needs_refund: true, needs_refund_reason: "plan_lapsed",
+        profiles: { full_name: "Dr Bala", clinic_name: "Bala Care" } },
+    ] };
+    renderPage(true);
+    expect(await screen.findByText("Needs refund")).toBeInTheDocument();
+  });
 });

@@ -210,4 +210,45 @@ describe("DashboardHome", () => {
       }
     });
   });
+  describe("My earnings (doctor login)", () => {
+    const myRow = {
+      practitioner_id: "pr-2", display_name: "Dr. Meera", is_active: true, visits_completed: 9, paid_amount: 4500, gst_amount: 0,
+      by_mode: { cash: 1, upi: 2, card: 3, online: 4, other: 0, unrecorded: 0 }, refunds_count: 0, refunds_amount: 0,
+      no_shows: 0, paid_no_shows_count: 0, paid_no_shows_amount: 0, platform_charge: 0, net: 4500,
+    };
+
+    it("shows the card to a doctor login without billing.view", async () => {
+      h.role = "doctor"; h.isMulti = true; h.myPractitionerId = "pr-2";
+      h.can = (k) => k !== "billing.view";
+      mock.current.rpcs.get_my_practitioner_revenue = () => ({ ok: true, from: "a", to: "b", row: myRow });
+      renderPage();
+      expect(await screen.findByTestId("my-earnings")).toHaveTextContent("₹4,500");
+    });
+
+    it("shows nothing when the owner has not enabled it", async () => {
+      h.role = "doctor"; h.isMulti = true; h.myPractitionerId = "pr-2";
+      h.can = (k) => k !== "billing.view";
+      mock.current.rpcs.get_my_practitioner_revenue = () => ({ data: { ok: false, error: "NOT_ENABLED" }, error: null });
+      renderPage();
+      await screen.findByText(/Welcome back/);
+      await waitFor(() => expect(mock.current.rpc).toHaveBeenCalledWith("get_my_practitioner_revenue", expect.anything()));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(screen.queryByTestId("my-earnings")).not.toBeInTheDocument();
+    });
+
+    it("never shows it to the owner or to a doctor who holds billing.view", async () => {
+      h.role = "owner";
+      renderPage();
+      await screen.findByLabelText(/Revenue: ₹1,500/);
+      expect(screen.queryByTestId("my-earnings")).not.toBeInTheDocument();
+      expect(mock.current.rpc).not.toHaveBeenCalledWith("get_my_practitioner_revenue", expect.anything());
+    });
+
+    it("keeps the revenue card for a doctor login that has billing.view", async () => {
+      h.role = "doctor"; h.can = () => true;
+      renderPage();
+      await screen.findByLabelText(/Revenue: ₹1,500/);
+      expect(screen.queryByTestId("my-earnings")).not.toBeInTheDocument();
+    });
+  });
 });

@@ -88,8 +88,9 @@ In both settings:
 ### 4.7 Billing & payments
 - **The clinic collects all money**, both online and at the counter, into the clinic's existing payment account. Nothing changes in how payouts reach the clinic.
 - Each doctor can have **their own consultation fee**. The website and the online payment use the right fee automatically.
-- New **"by doctor" reports** show revenue, visits, no-shows and payment modes per doctor. The owner uses these to pay their doctors; many clinics pay visiting doctors a share.
-- A doctor sees billing only if the owner allows it, and then can be limited to **their own** revenue.
+- A **"By doctor" report** on the Billing page shows, for any month or day, each doctor's visits, revenue (cash / UPI / card / online), GST, refunds, the platform charge, net, and online payments for patients who didn't turn up. A **payout sheet (CSV)** can be downloaded for paying doctors. Revenue is shown **as it was invoiced**; a later refund is listed in the month it happened, so a sheet you've already issued never changes.
+- The doctor is **recorded on every invoice**, so moving or deleting an appointment later never moves money between doctors.
+- A doctor who signs in sees **"My earnings"** (their own totals only, no patient names or other doctors' numbers) **only if the owner switches it on** in Settings. It's off by default.
 - *Later:* automatic splitting of each payment straight to each doctor's bank account.
 
 ### 4.8 The clinic website & online booking
@@ -105,10 +106,13 @@ In both settings:
 - Single-doctor clinics' Google pages **don't change at all**, so there's no risk to their current ranking.
 
 ### 4.10 Blog / health articles
-- Each article shows the **doctor who wrote it** (important for Google trust), not just the clinic.
+- When a clinic has several doctors, the editor has an **Author** picker (it defaults to the signed-in doctor), and the AI writer is told the chosen author's name and specialty. Each article shows **"By Dr X"**, linking to that doctor's page, and Google is told the doctor wrote it (important for trust). Posts that name no doctor stay as the clinic's, exactly as today.
 
 ### 4.11 Reviews
-- Patients can review a **specific doctor**, so each doctor's page can show their own rating. The clinic keeps its overall rating.
+- A patient can say **which doctor they saw** (or "the clinic / not sure"). Each doctor's card and page shows their own rating and reviews, and the owner's Reviews page can be filtered by doctor. The clinic keeps its overall rating. (We also closed an old loophole: the public can no longer mark their own review "verified" or "pinned", and review length and volume are limited.)
+
+### 4.11b Services per doctor
+- The owner can say which doctors offer each service (e.g. laser only with Dr B). Patients booking see only the services their chosen doctor offers, the pay-at-clinic and online-payment paths both refuse a service the doctor doesn't offer, and a service with no restriction is offered by every doctor.
 
 ### 4.12 Staff
 - Works as today. The owner adds reception or billing staff with chosen permissions.
@@ -120,7 +124,9 @@ In both settings:
 
 ### 4.14 Plans & pricing
 - **Multi-doctor is a Premium feature.**
-- Premium includes **1 doctor**. Each **extra doctor is a monthly add-on**. The price is a setting our team can change at any time, and it isn't fixed yet.
+- Premium includes **1 doctor**. Each **extra doctor is a monthly add-on** that the owner buys themselves on the Doctors page ("Add seats"): they choose how many, see the exact price and the date the seats last, and pay online. Seats are for **up to 30 days at a time** (never longer than the plan itself) and are **non-refundable**. A renewal can include seats, so doctors keep taking bookings without a gap.
+- The **price per extra doctor is one setting** in the superadmin panel. While it is **not set, nobody can buy seats** and the button doesn't appear.
+- If a seat payment is ever taken but the seats can't be added (for example the plan ended in between), the payment is **flagged "Needs refund"** for our team and the owner is told. It is never silently treated as successful.
 - Staff logins stay free.
 - **Free trial** clinics can try one extra doctor.
 - **If a clinic downgrades or its plan expires:** nothing is deleted. Doctors beyond the plan's limit simply stop taking *new* bookings; existing bookings still happen. The owner chooses which doctors stay bookable.
@@ -155,7 +161,8 @@ In both settings:
 | **0. Foundation** | Behind-the-scenes groundwork. Every clinic is quietly set up with its current doctor as "Doctor 1". | Nobody (by design) |
 | **1. Admin panel** | Doctors page, doctor logins, per-doctor calendar and queues, prescription authorship, privacy setting. Seats are added by our team. | Premium clinics |
 | **2. Website & booking** | Clinic page with doctors, choose-doctor booking, doctor pages, Google/directory listings, multi-doctor TV screen, online payment per doctor | Patients |
-| **3. Money** | Self-service seat purchase, per-doctor reports | Clinic owners |
+| **3. Money** *(built)* | Self-service seat purchase, per-doctor reports and payout sheet, "My earnings" for doctors | Clinic owners |
+| **4. Doctor-aware content** *(built)* | Services, reviews and blog authors per doctor, doctor pages hidden from Google when unlisted, per-doctor directory entries | Patients, Google |
 | **Later** | Automatic payment split per doctor, clinic branches, one doctor across several clinics, government health ID (ABDM) linking | — |
 
 > **Safety rule:** Phases 1 and 2 are switched on **together**, first for a few pilot clinics. Adding doctors in the admin panel only makes sense once patients can choose a doctor when booking and paying online. Launching them together means a patient who pays for one doctor can never end up in another doctor's queue. Phase 0 goes first, on its own, and changes nothing anyone can see.
@@ -165,9 +172,10 @@ In both settings:
 - **One location per clinic** for now (no branches).
 - **A login belongs to one clinic.** A doctor who already runs their own Doctylia clinic can be added to a polyclinic as a doctor *without a login*, or join with a different phone number.
 - **Clinic ownership is tied to the owner's account.** Our support team helps if ownership must change.
-- **Doctors are paid by the clinic outside Doctylia**, using our reports, until automatic splitting arrives.
+- **Doctors are paid by the clinic outside Doctylia**, using the per-doctor report and payout sheet, until automatic splitting arrives.
+- **"Own patients only" mode limits what doctors see in the app. It is not a security audit log:** the record-access log only notes what a doctor opens in the app.
 
 ## 9. Decisions still open
 
-- The **price per extra doctor** (it's a setting, so this can be decided any time before Phase 3).
-- How long to keep the record-access log (proposed: 1 year).
+- The **price per extra doctor** (recommendation ₹999 a month; it is one setting in the superadmin panel, and seats can't be bought until it is set).
+- *(Decided: the record-access log is kept for 1 year and then deleted automatically.)*

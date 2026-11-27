@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { usePractitioners } from "@/hooks/usePractitioners";
 import { Star, Pin, MessageSquare, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,11 +12,22 @@ import { toast } from "sonner";
 type Review = {
   id: string; patient_name: string; rating: number; review_text: string | null;
   is_pinned: boolean; is_verified: boolean; is_visible: boolean; created_at: string;
+  practitioner_id?: string | null;
 };
 
 const ReviewsManagePage = () => {
   const { profile, can } = useProfile();
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const { isMulti, active, byId } = usePractitioners();
+  const [allReviews, setReviews] = useState<Review[]>([]);
+  // "all" | "clinic" (not about one doctor) | a practitioner id. Only multi-doctor clinics ever filter.
+  const [doctorFilter, setDoctorFilter] = useState("all");
+  const reviews = !isMulti || doctorFilter === "all"
+    ? allReviews
+    : allReviews.filter((r) => (doctorFilter === "clinic" ? !r.practitioner_id : r.practitioner_id === doctorFilter));
+  const doctorLabel = (r: Review) => (r.practitioner_id ? byId(r.practitioner_id)?.display_name ?? "Doctor" : "Clinic");
+  // Doctors who are no longer active but still have reviews stay selectable, so those reviews are never unreachable.
+  const inactiveReviewed = Array.from(new Set(allReviews.map((r) => r.practitioner_id).filter((id): id is string => !!id)))
+    .filter((id) => !active.some((d) => d.id === id));
   const [selected, setSelected] = useState<Review | null>(null);
 
   const load = async () => {
@@ -69,11 +81,30 @@ const ReviewsManagePage = () => {
         ))}
       </div>
 
+      {isMulti && (
+        <div className="flex items-center gap-2">
+          <label htmlFor="review-doctor-filter" className="text-sm text-muted-foreground">Filter by doctor</label>
+          <select
+            id="review-doctor-filter"
+            value={doctorFilter}
+            onChange={(e) => setDoctorFilter(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="all">All doctors</option>
+            {active.map((d) => <option key={d.id} value={d.id}>{d.display_name}</option>)}
+            {inactiveReviewed.map((id) => <option key={id} value={id}>{byId(id)?.display_name ?? "Former doctor"} (no longer active)</option>)}
+            <option value="clinic">Clinic-level</option>
+          </select>
+        </div>
+      )}
+
       {reviews.length === 0 ? (
         <Card className="border-border/60 shadow-none">
           <CardContent className="py-16 text-center">
             <MessageSquare className="h-12 w-12 text-warning/20 mx-auto mb-3" />
-            <p className="text-muted-foreground font-medium">No reviews yet</p>
+            <p className="text-muted-foreground font-medium">
+              {isMulti && doctorFilter === "clinic" ? "No clinic-level reviews yet" : isMulti && doctorFilter !== "all" ? "No reviews for this doctor yet" : "No reviews yet"}
+            </p>
             <p className="text-xs text-muted-foreground/60 mt-1">Reviews from patients will appear here</p>
           </CardContent>
         </Card>
@@ -111,6 +142,7 @@ const ReviewsManagePage = () => {
                             <div className="text-[11px] text-muted-foreground lg:hidden">
                               {new Date(r.created_at).toLocaleDateString()}
                             </div>
+                            {isMulti && <div className="text-[11px] text-muted-foreground truncate">{doctorLabel(r)}</div>}
                           </div>
                         </div>
                       </td>
@@ -172,6 +204,7 @@ const ReviewsManagePage = () => {
                       <div className="min-w-0">
                         <div className="font-semibold text-foreground truncate">{r.patient_name}</div>
                         <div className="text-[11px] text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</div>
+                        {isMulti && <div className="text-[11px] text-muted-foreground truncate">{doctorLabel(r)}</div>}
                       </div>
                     </div>
                     {can("reviews.manage") && (
@@ -219,6 +252,7 @@ const ReviewsManagePage = () => {
                   <div className="min-w-0">
                     <DialogTitle className="truncate">{selected.patient_name}</DialogTitle>
                     <p className="text-xs text-muted-foreground">{new Date(selected.created_at).toLocaleDateString()}</p>
+                    {isMulti && <p className="text-xs text-muted-foreground">{doctorLabel(selected)}</p>}
                   </div>
                 </div>
               </DialogHeader>

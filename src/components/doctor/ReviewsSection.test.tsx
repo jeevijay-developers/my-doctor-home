@@ -103,4 +103,59 @@ describe("ReviewsSection", () => {
     fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to submit review"));
   });
+
+  describe("multi-doctor clinic", () => {
+    const DRS = [
+      { id: "pa", display_name: "Asha Rao" },
+      { id: "pb", display_name: "Dr. Vikram Shah" },
+    ];
+    const mockMulti = (reviews: unknown[]) =>
+      vi.mocked(useDoctorData).mockReturnValue({
+        reviews, profile: { id: "doc-1" }, isMultiDoctor: true, practitioners: DRS,
+      } as never);
+
+    it("tags a review with its doctor, but not clinic-level ones", () => {
+      mockMulti([review({ id: "r1", practitioner_id: "pb" }), review({ id: "r2", patient_name: "Ravi S.", practitioner_id: null })]);
+      render(<ReviewsSection />);
+      expect(screen.getAllByText("for Dr. Vikram Shah")).toHaveLength(1);
+    });
+
+    it("does not tag anything for a single-doctor clinic", () => {
+      vi.mocked(useDoctorData).mockReturnValue({
+        reviews: [review({ practitioner_id: "pb" })], profile: { id: "doc-1" }, isMultiDoctor: false, practitioners: DRS,
+      } as never);
+      render(<ReviewsSection />);
+      expect(screen.queryByText(/^for Dr/)).not.toBeInTheDocument();
+    });
+
+    it("offers an optional doctor chooser and sends practitioner_id only when one is chosen", async () => {
+      mockMulti([]);
+      render(<ReviewsSection />);
+      fireEvent.click(screen.getByRole("button", { name: /write a review/i }));
+      const chooser = (await screen.findByLabelText(/which doctor did you see/i)) as HTMLSelectElement;
+      expect(chooser.value).toBe("");
+      expect(screen.getByRole("option", { name: "The clinic / not sure" })).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Sunita" } });
+      fireEvent.change(chooser, { target: { value: "pb" } });
+      fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
+      await waitFor(() => expect(db.insert).toHaveBeenCalledWith({ doctor_id: "doc-1", patient_name: "Sunita", rating: 5, review_text: null, practitioner_id: "pb" }));
+    });
+
+    it("leaves practitioner_id out when the clinic is left selected", async () => {
+      mockMulti([]);
+      render(<ReviewsSection />);
+      fireEvent.click(screen.getByRole("button", { name: /write a review/i }));
+      fireEvent.change(await screen.findByLabelText("Your name"), { target: { value: "Sunita" } });
+      fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
+      await waitFor(() => expect(db.insert).toHaveBeenCalledWith({ doctor_id: "doc-1", patient_name: "Sunita", rating: 5, review_text: null }));
+    });
+
+    it("single-doctor clinics get no chooser", async () => {
+      mockData([]);
+      render(<ReviewsSection />);
+      fireEvent.click(screen.getByRole("button", { name: /write a review/i }));
+      await screen.findByLabelText("Your name");
+      expect(screen.queryByLabelText(/which doctor/i)).not.toBeInTheDocument();
+    });
+  });
 });

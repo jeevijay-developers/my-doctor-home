@@ -1,7 +1,11 @@
 // Doctor sub-page URLs for the sitemap. A clinic gets /dr/:slug/doctor/:doctorSlug entries only
 // when it has at least two active practitioners; a single-doctor clinic's page is the clinic page.
 export interface SitemapClinic { id: string; slug: string }
-export interface SitemapPractitioner { doctor_id: string; slug: string; is_active: boolean; updated_at: string | null }
+export interface SitemapPractitioner {
+  doctor_id: string; slug: string; is_active: boolean; updated_at: string | null;
+  /** false = opted out of the directory; absent/null (column not migrated yet) counts as listed. */
+  directory_listed?: boolean | null;
+}
 
 export function practitionerSitemapEntries(
   clinics: SitemapClinic[],
@@ -19,6 +23,8 @@ export function practitionerSitemapEntries(
   for (const [clinicId, list] of byClinic) {
     if (list.length < 2) continue;
     for (const p of list) {
+      // Unlisted doctors still count toward the 2+ rule (their page exists) but are not advertised.
+      if (p.directory_listed === false) continue;
       out.push({
         path: `/dr/${encodeURIComponent(slugById.get(clinicId)!)}/doctor/${encodeURIComponent(p.slug.trim())}`,
         updated_at: p.updated_at,

@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
   const refundedTotal = alreadyPaise + refundAmountPaise;
 
   const nowIso = new Date().toISOString();
+  let bookkeepingWarning: string | null = null;
 
   // ---- MOCK MODE ----
   if (payment.is_mock && !isFull) {
@@ -95,7 +96,11 @@ Deno.serve(async (req) => {
     await admin.from("doctor_ledger").update({ refunded: true, refunded_at: nowIso, paid: false }).eq("payment_id", payment.id);
     if (payment.appointment_id) {
       await admin.from("appointments").update({ status: "cancelled", payment_status: "refunded" }).eq("id", payment.appointment_id);
-      await admin.from("invoices").update({ status: "refunded", refunded_at: nowIso }).eq("appointment_id", payment.appointment_id);
+      const { error: invErr } = await admin.from("invoices").update({ status: "refunded", refunded_at: nowIso }).eq("appointment_id", payment.appointment_id);
+      if (invErr) {
+        console.error("refund-payment: invoice update failed", { payment_id: payment.id, appointment_id: payment.appointment_id, message: invErr.message });
+        bookkeepingWarning = "The refund succeeded but the invoice could not be marked refunded.";
+      }
     }
     await admin.from("admin_audit_log").insert({
       admin_user_id: uid,
@@ -108,7 +113,7 @@ Deno.serve(async (req) => {
         is_mock: true,
       },
     });
-    return json(200, { ok: true, payment_id: payment.id, status: "refunded", is_mock: true });
+    return json(200, { ok: true, payment_id: payment.id, status: "refunded", is_mock: true, ...(bookkeepingWarning ? { bookkeeping_warning: bookkeepingWarning } : {}) });
   }
 
   // ---- LIVE MODE ----
@@ -178,7 +183,11 @@ Deno.serve(async (req) => {
 
     if (payment.appointment_id) {
       await admin.from("appointments").update({ status: "cancelled", payment_status: "refunded" }).eq("id", payment.appointment_id);
-      await admin.from("invoices").update({ status: "refunded", refunded_at: nowIso }).eq("appointment_id", payment.appointment_id);
+      const { error: invErr } = await admin.from("invoices").update({ status: "refunded", refunded_at: nowIso }).eq("appointment_id", payment.appointment_id);
+      if (invErr) {
+        console.error("refund-payment: invoice update failed", { payment_id: payment.id, appointment_id: payment.appointment_id, message: invErr.message });
+        bookkeepingWarning = "The refund succeeded but the invoice could not be marked refunded.";
+      }
     }
 
     await admin.from("admin_audit_log").insert({
@@ -201,6 +210,7 @@ Deno.serve(async (req) => {
       amount_refunded: rzRefund.amount / 100,
       status: rzRefund.status,
       note: "Route transfer reversal is handled automatically by Razorpay.",
+      ...(bookkeepingWarning ? { bookkeeping_warning: bookkeepingWarning } : {}),
     });
   } catch (e) {
     console.error("refund-payment error:", e);

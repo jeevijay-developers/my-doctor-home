@@ -21,7 +21,7 @@ import {
   resolveAuthoritativePrice,
   type ServiceRecordForPricing,
 } from "../_shared/commissionSplit.ts";
-import { resolveBookingPractitioner } from "../_shared/practitioners.ts";
+import { resolveBookingPractitioner, serviceOfferedBy } from "../_shared/practitioners.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID")?.trim();
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET")?.trim();
@@ -156,6 +156,18 @@ Deno.serve(async (req) => {
       return json(400, {
         error: "INVALID_SERVICE",
         message: "The selected service is not available. Please refresh and try again.",
+      });
+    }
+    // A service mapped to specific doctors cannot be booked (and paid for) with another doctor.
+    const { data: mapped, error: mapErr } = await admin
+      .from("service_practitioners")
+      .select("practitioner_id")
+      .eq("service_id", svc.id);
+    if (mapErr) return json(500, { error: mapErr.message });
+    if (!serviceOfferedBy(mapped, pick.id)) {
+      return json(400, {
+        error: "INVALID_SERVICE",
+        message: "The selected service is not offered by this doctor. Please choose another service or doctor.",
       });
     }
     serviceRow = svc;

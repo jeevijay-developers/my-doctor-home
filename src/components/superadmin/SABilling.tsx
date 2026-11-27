@@ -16,6 +16,8 @@ import {
   bucketPaymentStatus,
   computeRevenueTotals,
   computeEstimatedMRR,
+  paymentKindLabel,
+  type SeatPeriodRow,
   type PaymentTxnStatus,
   type PaymentStatusBucket,
 } from "@/lib/subscriptionRevenue";
@@ -30,6 +32,10 @@ interface UpgradePaymentRow {
   status: PaymentTxnStatus;
   is_mock: boolean;
   created_at: string;
+  kind?: string | null;
+  seats_quantity?: number | null;
+  needs_refund?: boolean | null;
+  needs_refund_reason?: string | null;
   profiles: { full_name: string | null; clinic_name: string | null } | null;
 }
 
@@ -57,12 +63,14 @@ const SABilling = () => {
   const [payments, setPayments] = useState<UpgradePaymentRow[]>([]);
   const [subscribers, setSubscribers] = useState<SubscriberProfileRow[]>([]);
   const [customPlans, setCustomPlans] = useState<Map<string, CustomPlan>>(new Map());
+  const [seatPeriods, setSeatPeriods] = useState<SeatPeriodRow[]>([]);
+  const [seatPeriodsFailed, setSeatPeriodsFailed] = useState(false);
   const [filter, setFilter] = useState<StatusFilter>("all");
 
   const loadPayments = async () => {
     const { data, error } = await supabase
       .from("plan_upgrade_payments")
-      .select("id, doctor_id, from_tier, target_tier, amount, status, is_mock, created_at, profiles(full_name, clinic_name)")
+      .select("id, doctor_id, from_tier, target_tier, amount, status, is_mock, created_at, kind, seats_quantity, needs_refund, needs_refund_reason, profiles(full_name, clinic_name)")
       .order("created_at", { ascending: false });
     if (error) {
       toast({ title: "Failed to load subscription payments", description: error.message, variant: "destructive" });
@@ -80,9 +88,25 @@ const SABilling = () => {
     setCustomPlans(new Map(((plans ?? []) as unknown as CustomPlan[]).map((c) => [c.doctor_id, c])));
   };
 
+  // Seat periods running now add to MRR. A failed read keeps today's MRR and says it may be understated.
+  const loadSeatPeriods = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("clinic_seat_periods")
+        .select("quantity, starts_at, ends_at, plan_upgrade_payments(unit_price, is_mock)")
+        .gt("ends_at", new Date().toISOString());
+      setSeatPeriodsFailed(!!error);
+      setSeatPeriods(error ? [] : ((data ?? []) as unknown as SeatPeriodRow[]));
+    } catch {
+      setSeatPeriodsFailed(true);
+      setSeatPeriods([]);
+    }
+  };
+
   useEffect(() => {
     loadPayments();
     loadSubscribers();
+    loadSeatPeriods();
   }, []);
 
   // Realtime: keep the platform-wide payment list current without a manual refresh.
@@ -98,7 +122,7 @@ const SABilling = () => {
   }, []);
 
   const totals = computeRevenueTotals(payments);
-  const estimatedMRR = computeEstimatedMRR(subscribers, planPricesToRecord({ proPrice, premiumPrice }), customPlans);
+  const estimatedMRR = computeEstimatedMRR(subscribers, planPricesToRecord({ proPrice, premiumPrice }), customPlans, new Date(), seatPeriods);
 
   const statCards = [
     { label: "Today's Subscription Revenue", value: `₹${totals.today.toLocaleString("en-IN")}`, icon: Calendar, gradient: "from-royal to-teal" },
@@ -107,6 +131,7 @@ const SABilling = () => {
     { label: "Estimated MRR", value: `₹${estimatedMRR.toLocaleString("en-IN")}`, icon: Wallet, gradient: "from-spark to-royal" },
   ];
 
+  const needsRefundCount = payments.filter((p) => p.needs_refund).length;
   const bucketed = payments.map((p) => ({ ...p, bucket: bucketPaymentStatus(p.status) }));
   const filtered = filter === "all" ? bucketed : bucketed.filter((p) => p.bucket === filter);
 
@@ -128,6 +153,7 @@ const SABilling = () => {
       Clinic: p.profiles?.clinic_name || "",
       "From Tier": p.from_tier,
       "Target Tier": p.target_tier,
+      Kind: paymentKindLabel(p.kind, p.seats_quantity),
       "Amount (INR)": p.amount,
       Status: p.status,
       Mock: p.is_mock ? "yes" : "no",
@@ -151,11 +177,18 @@ const SABilling = () => {
 
   return (
     <div className="space-y-6">
+      {needsRefundCount > 0 && (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {needsRefundCount} {needsRefundCount === 1 ? "payment needs" : "payments need"} a refund: the money was taken but the purchase could not be applied.
+          They are not counted in revenue.
+        </div>
+      )}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((c) => (
           <StatCard key={c.label} {...c} />
         ))}
       </div>
+      {seatPeriodsFailed && <p className="text-xs text-muted-foreground -mt-4">MRR may be understated: the doctor-seat income could not be loaded.</p>}
 
       <Tabs defaultValue="transactions" className="space-y-5">
         <TabsList className="bg-card border border-border h-11">
@@ -211,7 +244,7 @@ const SABilling = () => {
                           <div>
                             <div className="font-medium text-foreground text-sm">{p.profiles?.full_name || p.doctor_id}</div>
                             <div className="text-xs text-muted-foreground capitalize">
-                              {p.from_tier} → {p.target_tier} · {new Date(p.created_at).toLocaleDateString()}
+                              {p.kind === "seats" ? paymentKindLabel(p.kind, p.seats_quantity) : `${p.from_tier} → ${p.target_tier}${p.seats_quantity ? ` · ${paymentKindLabel(p.kind, p.seats_quantity)}` : ""}`} · {new Date(p.created_at).toLocaleDateString()}
                             </div>
                           </div>
                         </div>
@@ -219,6 +252,11 @@ const SABilling = () => {
                           <Badge variant="outline" className={`text-[10px] ${BADGE_CLASS[p.bucket]}`}>
                             {p.bucket}
                           </Badge>
+                          {p.needs_refund && (
+                            <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive" title={p.needs_refund_reason ?? undefined}>
+                              Needs refund
+                            </Badge>
+                          )}
                           {p.is_mock && <TestModeBadge />}
                           <span className="font-heading font-bold text-foreground">₹{p.amount}</span>
                         </div>

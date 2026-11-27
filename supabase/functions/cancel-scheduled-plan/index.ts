@@ -95,10 +95,23 @@ Deno.serve(async (req) => {
         }
         refunded = true;
       }
-      await admin
-        .from("plan_upgrade_payments")
-        .update({ status: "refunded", updated_at: new Date().toISOString() })
-        .eq("id", payment.id);
+      // The seat-period cleanup is a DB trigger on this update, so a failed
+      // update must not be treated as success.
+      let markErr: { message?: string } | null = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const { error } = await admin
+          .from("plan_upgrade_payments")
+          .update({ status: "refunded", updated_at: new Date().toISOString() })
+          .eq("id", payment.id);
+        markErr = error;
+        if (!error) break;
+      }
+      if (markErr) {
+        console.error("cancel-scheduled-plan: refund issued but recording it failed", {
+          payment_id: payment.id, pending_plan_id: pendingPlan.id, refunded, message: markErr.message,
+        });
+        return json(502, { error: "Refund was issued; recording it failed - contact support." });
+      }
     }
   }
 

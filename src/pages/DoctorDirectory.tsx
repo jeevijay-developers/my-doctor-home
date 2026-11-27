@@ -14,6 +14,7 @@ import { NOINDEX } from "@/lib/seo/injectHead";
 const PAGE_SIZE = 24;
 
 interface Row extends DirectoryDoctor {
+  /** Clinic id, or the practitioner's id on a polyclinic's per-doctor rows. */
   id: string;
   qualifications: string | null;
   state: string | null;
@@ -173,7 +174,7 @@ const DoctorDirectory = () => {
           {rows.map((d) => (
             <li key={d.id}>
               <Link
-                to={`/dr/${d.slug}`}
+                to={d.practitioner_slug ? `/dr/${d.slug}/doctor/${d.practitioner_slug}` : `/dr/${d.slug}`}
                 className="flex gap-3 p-4 rounded-xl border bg-card hover:border-royal hover:shadow-md transition-all h-full"
               >
                 {d.profile_photo_url ? (

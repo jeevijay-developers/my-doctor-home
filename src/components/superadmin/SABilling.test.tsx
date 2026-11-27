@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import SABilling from "./SABilling";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -142,5 +142,74 @@ describe("SABilling", () => {
     await screen.findByText("Dr. Asha");
     fireEvent.click(screen.getByRole("button", { name: /export csv/i }));
     expect(createObjectURL).toHaveBeenCalled();
+  });
+
+  describe("doctor seats", () => {
+    const chainWith = (resolved: any): any => ({
+      select: () => chainWith(resolved),
+      eq: () => Promise.resolve(resolved),
+      gt: () => Promise.resolve(resolved),
+      order: () => Promise.resolve(resolved),
+    });
+    const seatPayment = {
+      id: "p9", doctor_id: "d1", from_tier: "premium", target_tier: "premium", amount: 777, status: "captured",
+      is_mock: false, created_at: "2020-01-01T00:00:00Z", kind: "seats", seats_quantity: 2,
+      profiles: { full_name: "Dr. Seat", clinic_name: "" },
+    };
+    const setup = (periods: any) => {
+      vi.mocked(supabase.from).mockImplementation((table: string) => {
+        if (table === "plan_upgrade_payments") return chainWith({ data: [seatPayment] });
+        if (table === "clinic_seat_periods") return periods instanceof Error ? ({ select: () => ({ gt: () => Promise.reject(periods) }) } as any) : chainWith(periods);
+        return chainWith({ data: [] });
+      });
+    };
+
+    it("shows the payment kind and adds active seat periods to the estimated MRR", async () => {
+      setup({ data: [{ quantity: 2, starts_at: "2020-01-01T00:00:00Z", ends_at: "2099-01-01T00:00:00Z", plan_upgrade_payments: { unit_price: 500 } }] });
+      render(<SABilling />);
+      expect(await screen.findByText(/doctor seats ×2/i)).toBeInTheDocument();
+      const mrr = screen.getByText("Estimated MRR").parentElement as HTMLElement;
+      await waitFor(() => expect(mrr).toHaveTextContent("₹1,000"));
+    });
+
+    it("keeps today's MRR when the seat period query fails, and says it may be understated", async () => {
+      setup(new Error("boom"));
+      render(<SABilling />);
+      expect(await screen.findByText(/doctor seats ×2/i)).toBeInTheDocument();
+      const mrr = screen.getByText("Estimated MRR").parentElement as HTMLElement;
+      expect(mrr).toHaveTextContent("₹0");
+      expect(await screen.findByText(/mrr may be understated/i)).toBeInTheDocument();
+    });
+
+    it("excludes mock payments' seat periods and periods with an unknown unit price from MRR", async () => {
+      setup({ data: [
+        { quantity: 2, starts_at: "2020-01-01T00:00:00Z", ends_at: "2099-01-01T00:00:00Z", plan_upgrade_payments: { unit_price: 500, is_mock: true } },
+        { quantity: 3, starts_at: "2020-01-01T00:00:00Z", ends_at: "2099-01-01T00:00:00Z", plan_upgrade_payments: { unit_price: null, is_mock: false } },
+      ] });
+      render(<SABilling />);
+      await screen.findByText(/doctor seats ×2/i);
+      const mrr = screen.getByText("Estimated MRR").parentElement as HTMLElement;
+      expect(mrr).toHaveTextContent("₹0");
+      expect(screen.queryByText(/mrr may be understated/i)).not.toBeInTheDocument();
+    });
+
+    it("badges needs_refund payments, shows a count banner and leaves them out of the revenue totals", async () => {
+      const now = new Date().toISOString();
+      vi.mocked(supabase.from).mockImplementation((table: string) => {
+        if (table === "plan_upgrade_payments") {
+          return chainWith({ data: [
+            { ...seatPayment, id: "a", amount: 900, created_at: now, needs_refund: true, needs_refund_reason: "plan_lapsed" },
+            { ...seatPayment, id: "b", amount: 100, created_at: now, needs_refund: false },
+          ] });
+        }
+        return chainWith({ data: [] });
+      });
+      render(<SABilling />);
+      expect(await screen.findByText("Needs refund")).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/1 payment needs a refund/i);
+      const today = screen.getByText("Today's Subscription Revenue").parentElement as HTMLElement;
+      expect(today).toHaveTextContent("₹100");
+      expect(today).not.toHaveTextContent("₹1,000");
+    });
   });
 });

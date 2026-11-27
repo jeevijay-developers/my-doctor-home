@@ -22,10 +22,12 @@ type RowProps = {
   type: string | null | undefined;
   duration: number | null | undefined;
   price: number | null;
+  /** Multi-doctor only: names of the doctors this service is limited to (omitted = every doctor). */
+  offeredBy?: string[];
   onBook: () => void;
 };
 
-const ServiceRow = ({ index, name, description, type, duration, price, onBook }: RowProps) => {
+const ServiceRow = ({ index, name, description, type, duration, price, offeredBy, onBook }: RowProps) => {
   const [open, setOpen] = useState(false);
   const descId = useId();
   const kind = serviceType(type);
@@ -58,6 +60,9 @@ const ServiceRow = ({ index, name, description, type, duration, price, onBook }:
           )}
           {price !== null && <span className="font-semibold text-ds-ink ds-tabular">₹{price.toLocaleString("en-IN")}</span>}
         </p>
+        {offeredBy && offeredBy.length > 0 && (
+          <p className="mt-1 text-ds-small text-ds-ink-2">Offered by {offeredBy.join(", ")}</p>
+        )}
         {description && (
           <div className="mt-3 max-w-[62ch]">
             <p id={descId} className={`text-ds-body text-ds-ink-2 ${open || !isLong ? "" : "line-clamp-2"}`}>
@@ -90,7 +95,7 @@ const ServiceRow = ({ index, name, description, type, duration, price, onBook }:
 };
 
 const ServicesSection = () => {
-  const { services, profile, settings, hasFeature } = useDoctorData();
+  const { services, profile, settings, hasFeature, isMultiDoctor, bookablePractitioners, servicePractitioners } = useDoctorData();
   const [showAll, setShowAll] = useState(false);
   // An online-only service can only be booked when the doctor's plan offers online consultation.
   const onlineAllowed = hasFeature?.(FEATURE_KEYS.ONLINE_CONSULTATION) === true;
@@ -99,6 +104,14 @@ const ServicesSection = () => {
 
   const online = Boolean(settings?.show_online_consultation) && hasFeature?.(FEATURE_KEYS.ONLINE_CONSULTATION);
   const onlineFee = Number(settings?.online_fee) > 0 ? Number(settings.online_fee) : null;
+
+  // Multi-doctor clinics only: a service limited to some doctors says which (unmapped = every doctor).
+  const offeredByNames = (serviceId: string): string[] | undefined => {
+    if (!isMultiDoctor) return undefined;
+    const ids = new Set((servicePractitioners ?? []).filter((m) => m.service_id === serviceId).map((m) => m.practitioner_id));
+    if (ids.size === 0) return undefined;
+    return (bookablePractitioners ?? []).filter((p) => ids.has(p.id)).map((p) => p.display_name);
+  };
 
   // Same event as before: BookingWidget preselects the service (and its visit type).
   const book = (service: Partial<Service>) => {
@@ -131,6 +144,7 @@ const ServicesSection = () => {
               type={service.type}
               duration={service.duration}
               price={displayPrice(service, profile?.consultation_fee)}
+              offeredBy={offeredByNames(service.id)}
               onBook={() => book(service)}
             />
           ))}

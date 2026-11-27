@@ -138,3 +138,17 @@ describe("buildDoctorBody", () => {
     expect(none).not.toContain("Services");
   });
 });
+
+describe("practitioner rows", () => {
+  it("link to the doctor's own page; clinic rows keep the clinic link", () => {
+    const head = buildHubHead(ctx({
+      total: 2,
+      doctors: [doc({ slug: "dr-a", full_name: "Ravi Kumar", practitioner_slug: "ravi" }), doc({ slug: "dr-b", full_name: "solo doc" })],
+    }));
+    expect(head.bodyHtml).toContain('<a href="/dr/dr-a/doctor/ravi">Dr. Ravi Kumar</a>');
+    expect(head.bodyHtml).toContain('<a href="/dr/dr-b">Dr. Solo Doc</a>');
+    const items = (head.jsonLd[0] as any)["@graph"][0].itemListElement;
+    expect(items[0].url).toBe("https://doctylia.com/dr/dr-a/doctor/ravi");
+    expect(items[1].url).toBe("https://doctylia.com/dr/dr-b");
+  });
+});

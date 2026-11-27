@@ -9,6 +9,8 @@ import BlogImagePlaceholder from "@/components/doctor/BlogImagePlaceholder";
 import Footer from "@/components/doctor/Footer";
 import type { Tables } from "@/integrations/supabase/types";
 import { jsonLdScript } from "@/lib/jsonLd";
+import { useClinicTeam } from "@/hooks/useClinicTeam";
+import { authorDisplayName, resolveBlogAuthor } from "@/lib/blogAuthor";
 
 type BlogPost = Tables<"blog_posts">;
 type Doctor = Tables<"profiles">;
@@ -59,6 +61,9 @@ const BlogListPage = () => {
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("all");
+  // Per-post author names: only when some post names a doctor and the clinic has 2+ active doctors.
+  const hasAuthoredPosts = posts.some((p) => (p as { practitioner_id?: string | null }).practitioner_id);
+  const team = useClinicTeam(doctor?.id, hasAuthoredPosts);
 
   useEffect(() => {
     if (!slug) {
@@ -310,6 +315,7 @@ const BlogListPage = () => {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredPosts.map((post) => {
               const publishedDate = post.published_at || post.created_at;
+              const author = resolveBlogAuthor(post as { practitioner_id?: string | null }, team);
               return (
                 <Link
                   key={post.id}
@@ -339,6 +345,9 @@ const BlogListPage = () => {
                       {post.title}
                     </h2>
                     {post.excerpt && <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{post.excerpt}</p>}
+                    {author && (
+                      <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">By {authorDisplayName(author.practitioner.display_name)}</p>
+                    )}
                     <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-[#3C83FC]">
                       Read Article <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </span>

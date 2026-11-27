@@ -244,3 +244,48 @@ describe("hostile slugs", () => {
     }
   });
 });
+
+describe("blog author = practitioner (multi-doctor clinic)", () => {
+  const clinic = { slug: "dr-a", full_name: "Anita Sharma", specialization: "Dentist", clinic_name: "Sharma Clinic", city: "Kota", profile_photo_url: "https://img/clinic.png" };
+  const pr = { display_name: "Dr. Ravi Kumar", slug: "ravi-kumar", specialization: "Orthodontist", photo_url: "https://img/ravi.png" };
+  const author = (input: any, ai = false): any => {
+    const ld: any = buildBlogPostJsonLd({ origin, doctor: clinic, post: post({ ai_assisted: ai }), ...input });
+    return ld["@graph"][0];
+  };
+  it("uses the doctor as author when the clinic has 2+ doctors", () => {
+    const a = author({ practitioner: pr, clinicTeamSize: 2 }).author;
+    expect(a).toEqual({
+      "@type": "Person", name: "Ravi Kumar", honorificPrefix: "Dr.", url: "https://doctylia.com/dr/dr-a/doctor/ravi-kumar",
+      jobTitle: "Orthodontist", image: "https://img/ravi.png",
+      worksFor: { "@type": "MedicalBusiness", name: "Sharma Clinic", address: { "@type": "PostalAddress", addressLocality: "Kota", addressCountry: "IN" } },
+    });
+  });
+  it("strips 'Dr ' without a dot and never touches 'Drake'", () => {
+    expect(author({ practitioner: { ...pr, display_name: "Dr Ravi" }, clinicTeamSize: 3 }).author.name).toBe("Ravi");
+    expect(author({ practitioner: { ...pr, display_name: "Drake Mehta" }, clinicTeamSize: 3 }).author.name).toBe("Drake Mehta");
+  });
+  it("reviewedBy follows the doctor when ai_assisted", () => {
+    const g = author({ practitioner: pr, clinicTeamSize: 2 }, true);
+    expect(g.reviewedBy).toMatchObject({ name: "Ravi Kumar", url: "https://doctylia.com/dr/dr-a/doctor/ravi-kumar" });
+    expect(g.reviewedBy.worksFor).toBeUndefined();
+  });
+  it("omits optional fields when absent", () => {
+    const a = author({ practitioner: { display_name: "Ravi", slug: "ravi" }, clinicTeamSize: 2 }).author;
+    expect(a.jobTitle).toBeUndefined();
+    expect(a.image).toBeUndefined();
+  });
+  it("is the clinic author when the team is smaller than 2, unknown, or no practitioner", () => {
+    const plain = JSON.stringify(buildBlogPostJsonLd({ origin, doctor: clinic, post: post() }));
+    for (const extra of [{ practitioner: pr, clinicTeamSize: 1 }, { practitioner: pr }, { practitioner: null, clinicTeamSize: 3 }, { clinicTeamSize: 3 }]) {
+      expect(JSON.stringify(buildBlogPostJsonLd({ origin, doctor: clinic, post: post(), ...extra } as any))).toBe(plain);
+    }
+  });
+  it("keeps meta and breadcrumb unchanged and bylines the doctor in the body", () => {
+    const withP = { origin, doctor: clinic, post: post(), practitioner: pr, clinicTeamSize: 2 };
+    expect(buildBlogPostMeta(withP)).toEqual(buildBlogPostMeta({ origin, doctor: clinic, post: post() }));
+    const crumbs = (x: any) => x["@graph"][1];
+    expect(crumbs(buildBlogPostJsonLd(withP))).toEqual(crumbs(buildBlogPostJsonLd({ origin, doctor: clinic, post: post() })));
+    const body = buildBlogPostHead(withP).bodyHtml;
+    expect(body).toContain('By <a href="/dr/dr-a/doctor/ravi-kumar">Dr. Ravi Kumar</a>, Orthodontist');
+  });
+});

@@ -96,3 +96,15 @@ describe("buildArticlesHead", () => {
     expect(head.bodyHtml).not.toContain("<ul>");
   });
 });
+
+describe("hub 'who' line with a practitioner", () => {
+  it("names the doctor when practitioner_name is present, else the clinic doctor", () => {
+    const html = buildArticlesHead({
+      origin, page: 1, total: 2, facets: [],
+      articles: [art(1, { practitioner_name: "Ravi Kumar", practitioner_slug: "ravi" } as never), art(2)],
+    }).bodyHtml;
+    expect(html).toContain("Dr. Ravi Kumar, Cardiologist, Kota</a>");
+    expect(html).toContain("Dr. Anita Sharma, Cardiologist, Kota</a>");
+    expect(html.match(/Dr\. Anita Sharma/g)?.length).toBe(1);
+  });
+});

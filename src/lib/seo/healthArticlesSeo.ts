@@ -28,6 +28,9 @@ export interface HubArticle {
   doctor_specialization: string | null;
   doctor_city: string | null;
   doctor_photo_url: string | null;
+  /** Set when the post was written by a listed doctor of a multi-doctor clinic. */
+  practitioner_name?: string | null;
+  practitioner_slug?: string | null;
 }
 
 export interface ArticleFacet {
@@ -120,7 +123,7 @@ export function buildArticlesHead(ctx: ArticlesContext): PageHead {
 
   const list = articles
     .map((a) => {
-      const who = [formatDoctorName(a.doctor_name ?? ""), a.doctor_specialization, a.doctor_city]
+      const who = [formatDoctorName(a.practitioner_name || a.doctor_name || ""), a.doctor_specialization, a.doctor_city]
         .filter(Boolean)
         .map((s) => escapeHtml(String(s)))
         .join(", ");

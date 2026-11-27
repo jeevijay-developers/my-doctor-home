@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { Settings, Crown, Shield, Trash2, UserCircle, CalendarClock, RotateCcw, Stethoscope } from "lucide-react";
+import { Settings, Crown, Shield, Trash2, UserCircle, CalendarClock, RotateCcw, Stethoscope, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -104,6 +105,88 @@ const ClinicalVisibilityCard = ({ clinicId }: { clinicId: string }) => {
             {saving ? "Saving…" : "Save access"}
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Multi-doctor clinics, owner only: lets each doctor login see their own aggregate totals on the
+// dashboard. Off by default; the database refuses anyone but the owner (OWNER_ONLY).
+const DoctorEarningsCard = ({ clinicId }: { clinicId: string }) => {
+  const [value, setValue] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  // The current value could not be read: show that, never a guessed OFF the owner might then act on.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const savingRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadFailed(false);
+    supabase
+      .from("website_settings")
+      .select("show_doctor_earnings")
+      .eq("doctor_id", clinicId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data) { setLoadFailed(true); return; }
+        setValue((data as { show_doctor_earnings?: boolean }).show_doctor_earnings === true);
+      }, () => { if (!cancelled) setLoadFailed(true); });
+    return () => { cancelled = true; };
+  }, [clinicId]);
+
+  const change = async (next: boolean) => {
+    if (savingRef.current || value === null) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const { data: written, error } = await supabase
+        .from("website_settings")
+        .update({ show_doctor_earnings: next })
+        .eq("doctor_id", clinicId)
+        .select("doctor_id");
+      if (error) {
+        toast.error(practitionerErrorMessage(error.message) ?? "Could not save. Please try again.");
+        return;
+      }
+      // Row-level security can turn a refused write into zero changed rows with no error.
+      if (!written || written.length === 0) {
+        toast.error("Could not save. Please try again.");
+        return;
+      }
+      setValue(next);
+      toast.success(next ? "Doctors can now see their own earnings." : "Doctors can no longer see earnings.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="border-border/60 shadow-none">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><IndianRupee className="h-5 w-5 text-royal" /> Doctors' earnings</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-start gap-3">
+          <Switch
+            id="show-doctor-earnings"
+            checked={value === true}
+            disabled={value === null || saving || loadFailed}
+            onCheckedChange={change}
+            aria-label="Let each doctor see their own earnings"
+            className="mt-0.5"
+          />
+          <Label htmlFor="show-doctor-earnings" className="font-normal leading-snug">
+            Let each doctor see their own earnings
+          </Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Doctors see only their own totals — no patient names or other doctors' numbers.
+        </p>
+        {loadFailed && (
+          <p role="alert" className="text-xs text-destructive">Couldn't load this setting. Reload the page to try again.</p>
+        )}
       </CardContent>
     </Card>
   );
@@ -389,6 +472,7 @@ const SettingsPage = () => {
         <TabsContent value="account">
           <div className="space-y-6">
             {isMulti && role === "owner" && profile?.id && <ClinicalVisibilityCard clinicId={profile.id} />}
+            {isMulti && role === "owner" && profile?.id && <DoctorEarningsCard clinicId={profile.id} />}
             <Card className="border-destructive/30 shadow-none">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-destructive"><Trash2 className="h-5 w-5" /> Danger Zone</CardTitle>

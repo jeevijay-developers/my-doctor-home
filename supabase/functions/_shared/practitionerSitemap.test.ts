@@ -21,4 +21,18 @@ describe("practitionerSitemapEntries", () => {
     ];
     expect(practitionerSitemapEntries(docs, rows)).toEqual([]);
   });
+  it("skips doctors with directory_listed=false but still counts them toward the 2+ rule", () => {
+    const rows = [
+      { doctor_id: "d1", slug: "a", is_active: true, updated_at: null, directory_listed: true },
+      { doctor_id: "d1", slug: "b", is_active: true, updated_at: null, directory_listed: false },
+    ];
+    expect(practitionerSitemapEntries(docs, rows).map((e) => e.path)).toEqual(["/dr/dr-a/doctor/a"]);
+  });
+  it("treats a missing or null directory_listed (column not migrated yet) as listed", () => {
+    const rows = [
+      { doctor_id: "d1", slug: "a", is_active: true, updated_at: null },
+      { doctor_id: "d1", slug: "b", is_active: true, updated_at: null, directory_listed: null },
+    ];
+    expect(practitionerSitemapEntries(docs, rows)).toHaveLength(2);
+  });
 });

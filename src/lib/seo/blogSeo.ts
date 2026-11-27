@@ -3,7 +3,7 @@
 //
 // NOTE: relative imports only - Vercel's bundler does not resolve "@/".
 import { renderArticleBody } from "./articleHtml";
-import { doctorDisplayName } from "./doctorSeo";
+import { doctorDisplayName, formatDoctorName } from "./doctorSeo";
 import { escapeHtml, INDEXABLE, type PageHead } from "./injectHead";
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -40,6 +40,11 @@ export function blogPostPath(doctorSlug: string, post: Pick<BlogPostLike, "id" |
   return `${doctorPath(doctorSlug)}/blog/${encodePathSegment(post.slug || post.id)}`;
 }
 
+/** Percent-encoded `/dr/:clinicSlug/doctor/:doctorSlug` path. */
+export function practitionerPagePath(clinicSlug: string, doctorSlug: string): string {
+  return `${doctorPath(clinicSlug)}/doctor/${encodePathSegment(doctorSlug)}`;
+}
+
 export function stripMarkup(raw: string | null | undefined): string {
   if (!raw) return "";
   return raw
@@ -50,10 +55,27 @@ export function stripMarkup(raw: string | null | undefined): string {
     .trim();
 }
 
+/** The doctor who wrote a post (public columns of get_public_practitioners). */
+export interface BlogPractitioner {
+  display_name: string;
+  slug: string;
+  specialization?: string | null;
+  photo_url?: string | null;
+}
+
 interface PostInput {
   origin: string;
   doctor: any;
   post: BlogPostLike;
+  /** Author of the post when it was written by one doctor of a multi-doctor clinic. */
+  practitioner?: BlogPractitioner | null;
+  /** Active doctors in the clinic; the doctor is credited as author only when this is 2 or more. */
+  clinicTeamSize?: number;
+}
+
+/** The doctor to credit, or null (single-doctor clinics and clinic-authored posts stay as they are). */
+function authorPractitioner({ practitioner, clinicTeamSize }: PostInput): BlogPractitioner | null {
+  return practitioner?.slug && practitioner.display_name && (clinicTeamSize ?? 0) >= 2 ? practitioner : null;
 }
 
 export function buildBlogPostMeta({ origin, doctor, post }: PostInput) {
@@ -78,13 +100,23 @@ export function buildBlogPostJsonLd(input: PostInput) {
   const datePublished = post.published_at || post.created_at || undefined;
   const dateModified = post.updated_at || datePublished;
   const bareName = name.replace(/^dr\.?\s+/i, "").trim();
-  const person = {
-    "@type": "Person",
-    name: bareName,
-    honorificPrefix: "Dr.",
-    url: doctorUrl,
-    ...(doctor.specialization ? { jobTitle: doctor.specialization } : {}),
-  };
+  const author = authorPractitioner(input);
+  const person = author
+    ? {
+        "@type": "Person",
+        name: formatDoctorName(author.display_name).replace(/^dr\.?\s+/i, "").trim(),
+        honorificPrefix: "Dr.",
+        url: `${origin}${practitionerPagePath(doctor.slug, author.slug)}`,
+        ...(author.specialization ? { jobTitle: author.specialization } : {}),
+      }
+    : {
+        "@type": "Person",
+        name: bareName,
+        honorificPrefix: "Dr.",
+        url: doctorUrl,
+        ...(doctor.specialization ? { jobTitle: doctor.specialization } : {}),
+      };
+  const authorImage = author ? author.photo_url : doctor.profile_photo_url;
   const worksFor = doctor.clinic_name
     ? {
         worksFor: {
@@ -111,7 +143,7 @@ export function buildBlogPostJsonLd(input: PostInput) {
         ...(meta.image ? { image: [meta.image] } : {}),
         inLanguage: "en-IN",
         isPartOf: { "@type": "Blog", "@id": `${doctorUrl}/blog#blog`, url: `${doctorUrl}/blog` },
-        author: { ...person, ...(doctor.profile_photo_url ? { image: doctor.profile_photo_url } : {}), ...worksFor },
+        author: { ...person, ...(authorImage ? { image: authorImage } : {}), ...worksFor },
         ...(post.ai_assisted ? { reviewedBy: person } : {}),
         publisher: { "@type": "Organization", name: "Doctylia", url: "https://doctylia.com/" },
       },
@@ -134,6 +166,10 @@ export function buildBlogPostHead(input: PostInput): PageHead {
   const when = post.published_at || post.created_at || "";
   const summary = post.excerpt?.trim();
   const base = doctorPath(doctor.slug);
+  const author = authorPractitioner(input);
+  const byline = author
+    ? `<a href="${practitionerPagePath(doctor.slug, author.slug)}">${escapeHtml(formatDoctorName(author.display_name))}</a>${author.specialization ? `, ${escapeHtml(author.specialization)}` : ""}`
+    : `<a href="${base}">${escapeHtml(name)}</a>${doctor.specialization ? `, ${escapeHtml(doctor.specialization)}` : ""}`;
   return {
     title: meta.title,
     description: meta.description,
@@ -146,7 +182,7 @@ export function buildBlogPostHead(input: PostInput): PageHead {
       `<main><nav aria-label="Breadcrumb"><a href="${base}">${escapeHtml(name)}</a> / ` +
       `<a href="${base}/blog">Health Articles</a></nav>` +
       `<article><h1>${escapeHtml(post.title)}</h1>` +
-      `<p>By <a href="${base}">${escapeHtml(name)}</a>${doctor.specialization ? `, ${escapeHtml(doctor.specialization)}` : ""}` +
+      `<p>By ${byline}` +
       `${when ? ` &middot; <time datetime="${escapeHtml(when)}">${escapeHtml(when.slice(0, 10))}</time>` : ""}</p>` +
       `${summary ? `<p>${escapeHtml(summary)}</p>` : ""}` +
       `${renderArticleBody(post.content)}</article></main>`,

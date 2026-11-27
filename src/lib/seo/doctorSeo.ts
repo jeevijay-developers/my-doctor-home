@@ -23,6 +23,7 @@ export interface DoctorSeoInput {
 
 /** The public columns of get_public_practitioners that SEO uses. */
 export interface PractitionerSeo {
+  id?: string;
   slug: string;
   display_name: string;
   specialization?: string | null;
@@ -33,6 +34,11 @@ export interface PractitionerSeo {
   registration_number?: string | null;
   is_active?: boolean;
   is_primary?: boolean;
+  /** false = the doctor opted out of the directory: their page is served noindex. */
+  directory_listed?: boolean | null;
+  /** Visible reviews written for this doctor (get_public_practitioners). */
+  review_count?: number | string | null;
+  avg_rating?: number | string | null;
 }
 
 /** Active doctors with a slug, in the order given. */
@@ -250,6 +256,18 @@ export function buildPractitionerJsonLd(input: PractitionerSeoInput) {
     ...(meta.image ? { image: meta.image } : {}),
     worksFor: { "@id": `${clinicUrl}#clinic` },
   };
+  // Per-doctor rating, only when this doctor has reviews of their own (never the clinic aggregate).
+  const reviewCount = Number(practitioner.review_count);
+  const avg = practitioner.avg_rating == null ? NaN : Number(practitioner.avg_rating);
+  if (Number.isFinite(reviewCount) && reviewCount > 0 && Number.isFinite(avg)) {
+    physician.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: avg.toFixed(1),
+      reviewCount: String(reviewCount),
+      bestRating: "5",
+      worstRating: "1",
+    };
+  }
 
   return {
     "@context": "https://schema.org",

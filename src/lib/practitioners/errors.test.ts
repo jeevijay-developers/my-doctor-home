@@ -22,6 +22,12 @@ describe("practitionerErrorMessage", () => {
     expect(practitionerErrorMessage("FORBIDDEN")).toBe("You can only manage your own queue.");
     expect(practitionerErrorMessage("DOCTOR_UNAVAILABLE")).toBe("This doctor is no longer taking bookings.");
   });
+  it("maps the service-not-offered codes, also inside a Postgres message", () => {
+    const msg = "This doctor doesn't offer that service. Please choose another service or doctor.";
+    expect(practitionerErrorMessage("INVALID_SERVICE")).toBe(msg);
+    expect(practitionerErrorMessage("P0001: SERVICE_NOT_OFFERED")).toBe(msg);
+    expect(practitionerErrorMessage("NOT_INVALID_SERVICES")).toBeNull();
+  });
   it("matches codes as whole words only", () => {
     expect(practitionerErrorMessage("ERROR: DOCTOR_LOGIN_FORBIDDEN raised")).toMatch(/Doctor logins/);
     expect(practitionerErrorMessage("UNFORBIDDEN")).toBeNull();

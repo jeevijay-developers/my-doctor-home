@@ -71,7 +71,7 @@ const Notice = ({ title, children }: { title: string; children?: ReactNode }) =>
 const PractitionerContent = () => {
   const { slug = "", doctorSlug = "" } = useParams<{ slug: string; doctorSlug: string }>();
   const navigate = useNavigate();
-  const { profile, practitioners, allWorkingHours, rawWorkingHours, loading } = useDoctorData();
+  const { profile, practitioners, allWorkingHours, rawWorkingHours, reviews, loading } = useDoctorData();
 
   const doctor = useMemo(() => (practitioners ?? []).find((p) => p.slug === doctorSlug) ?? null, [practitioners, doctorSlug]);
 
@@ -125,6 +125,12 @@ const PractitionerContent = () => {
     return groupWorkingHours(rows);
   }, [rawWorkingHours, allWorkingHours, doctor]);
 
+  // This doctor's own visible reviews (the clinic-level ones belong to the clinic page).
+  const ownReviews = useMemo(
+    () => (doctor ? ((reviews ?? []) as Array<Record<string, any>>).filter((r) => r.practitioner_id === doctor.id) : []),
+    [reviews, doctor],
+  );
+
   if (loading) {
     return (
       <Shell>
@@ -177,6 +183,12 @@ const PractitionerContent = () => {
           <div className="min-w-0">
             <h1 className="font-ds-display text-ds-h1 font-medium leading-tight text-ds-ink">{name}</h1>
             {doctor.specialization && <p className="mt-2 text-ds-body text-ds-ink-2">{doctor.specialization}</p>}
+            {doctor.review_count > 0 && doctor.avg_rating != null && (
+              <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-ds-body text-ds-ink-2">
+                <span className="font-medium text-ds-ink ds-tabular">★ {Number(doctor.avg_rating).toFixed(1)}</span>
+                <span>{doctor.review_count} review{doctor.review_count === 1 ? "" : "s"}</span>
+              </p>
+            )}
           </div>
         </header>
 
@@ -221,6 +233,26 @@ const PractitionerContent = () => {
                     );
                   })}
                 </dl>
+              </section>
+            )}
+
+            {ownReviews.length > 0 && (
+              <section aria-labelledby="doctor-reviews" className="mt-10">
+                <h2 id="doctor-reviews" className="font-ds-display text-ds-h3 font-medium">What patients say about {name}</h2>
+                <ul className="mt-4 space-y-4">
+                  {ownReviews.map((r) => (
+                    <li key={r.id} className="rounded-ds-md border border-ds-line bg-ds-surface p-5 shadow-ds-1">
+                      <p className="text-ds-small font-medium text-ds-ink ds-tabular">
+                        <span aria-hidden="true">★ {r.rating}</span>
+                        <span className="sr-only">{r.rating} out of 5 stars</span>
+                      </p>
+                      {r.review_text?.trim() && (
+                        <p className="mt-2 whitespace-pre-line text-[1.0625rem] leading-relaxed text-ds-ink-2 sm:text-ds-body">“{r.review_text.trim()}”</p>
+                      )}
+                      <p className="mt-2 text-ds-small text-ds-ink-3">{r.patient_name}</p>
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
           </div>

@@ -26,6 +26,9 @@ import LockedFeatureCard from "./LockedFeatureCard";
 import DateFilter from "@/components/shared/DateFilter";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import { paymentMethodLabel } from "@/lib/paymentDetails";
+import { usePractitioners } from "@/hooks/usePractitioners";
+import DoctorRevenuePanel from "./DoctorRevenuePanel";
+import { istMonthRange } from "@/lib/practitioners/revenue";
 
 type Invoice = {
   id: string;
@@ -77,7 +80,8 @@ type PaymentRow = {
 };
 
 const BillingPage = () => {
-  const { profile } = useProfile();
+  const { profile, can } = useProfile();
+  const { isMulti } = usePractitioners();
   // Effective access (plan default + any active Superadmin override), not
   // raw plan tier — see FEATURE_KEYS.BILLING_INVOICES.
   const { hasFeature, loading: planLoading } = useFeatureAccess();
@@ -180,6 +184,14 @@ const BillingPage = () => {
     : dateModeActive && !isTodaySelected
     ? format(selectedDate, "MMMM yyyy")
     : "This Month";
+
+  // "By doctor" report period (multi-doctor clinics): follows the same period filter as the
+  // transactions list; with the filter cleared it falls back to the current month.
+  // The fallback month is the IST month (the report's calendar), not the browser's local month.
+  const istNowRange = istMonthRange(new Date());
+  const perDoctorFrom = dateModeActive ? selectedDateStr : monthModeActive ? selectedMonthStart : istNowRange.from;
+  const perDoctorTo = dateModeActive ? selectedDateStr : monthModeActive ? selectedMonthEnd : istNowRange.to;
+  const perDoctorLabel = dateModeActive ? format(selectedDate, "d MMM yyyy") : monthModeActive ? format(selectedMonth, "MMMM yyyy") : format(new Date(`${istNowRange.from}T12:00:00`), "MMMM yyyy");
 
   // Lookup maps for resolving platform commission split & Route settlement status
   const apptById = new Map(appointments.map(a => [a.id, a]));
@@ -903,6 +915,13 @@ const BillingPage = () => {
             </Card>
             </div>
           </div>
+          {isMulti && can?.("billing.view") && (
+            <DoctorRevenuePanel
+              from={perDoctorFrom}
+              to={perDoctorTo}
+              periodLabel={perDoctorLabel}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="invoices" className="space-y-3">

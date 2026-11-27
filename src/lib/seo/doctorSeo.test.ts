@@ -3,6 +3,7 @@ import {
   DEFAULT_DESCRIPTION,
   buildDoctorJsonLd,
   buildDoctorMeta,
+  buildPractitionerJsonLd,
   doctorDisplayName,
   doctorHubPaths,
   formatDoctorName,
@@ -270,5 +271,20 @@ describe("multi-doctor SEO", async () => {
   it("inactive practitioners do not make a clinic multi-doctor", () => {
     const ld: any = buildDoctorJsonLd({ origin, profile, practitioners: [pA, { ...pB, is_active: false }] } as any);
     expect(ld["@graph"][0]["@type"]).toEqual(["Physician", "MedicalBusiness"]);
+  });
+});
+
+describe("practitioner aggregateRating", () => {
+  const prof = { slug: "dr-a", full_name: "A Sharma", city: "Kota" };
+  const base = { slug: "ravi", display_name: "Ravi Kumar" };
+  const rating = (p: any): any => (buildPractitionerJsonLd({ origin: "https://doctylia.com", profile: prof, practitioner: p }) as any)["@graph"][0].aggregateRating;
+  it("is added only when the doctor has reviews", () => {
+    expect(rating(base)).toBeUndefined();
+    expect(rating({ ...base, review_count: 0, avg_rating: null })).toBeUndefined();
+    expect(rating({ ...base, review_count: 3, avg_rating: null })).toBeUndefined();
+    expect(rating({ ...base, review_count: 3, avg_rating: 4.66 })).toMatchObject({
+      "@type": "AggregateRating", ratingValue: "4.7", reviewCount: "3",
+    });
+    expect(rating({ ...base, review_count: "2", avg_rating: "4" })).toMatchObject({ ratingValue: "4.0", reviewCount: "2" });
   });
 });

@@ -90,7 +90,7 @@ const STEP_LABELS = ["When", "Your details", "Review & pay"];
 const MULTI_STEP_LABELS = ["Doctor", ...STEP_LABELS];
 
 const BookingWidget = () => {
-  const { profile, services, settings, workingHours, allWorkingHours, bookablePractitioners, soleBookable, refreshPractitioners, isMultiDoctor, isPremium, hasFeature } = useDoctorData();
+  const { profile, services, settings, workingHours, allWorkingHours, bookablePractitioners, soleBookable, refreshPractitioners, isMultiDoctor, isPremium, hasFeature, servicePractitioners } = useDoctorData();
   const { isMock: paymentModeIsMock } = usePaymentMode();
   const [step, setStep] = useState(isMultiDoctor ? 0 : 1);
   // Multi-doctor clinics only: the doctor being booked. A single-doctor clinic never sets it,
@@ -105,6 +105,18 @@ const BookingWidget = () => {
   );
   const sel = isMultiDoctor ? doctors.find((d) => d.id === practitionerId) ?? null : doctors[0] ?? null;
   const needsDoctor = isMultiDoctor && !sel;
+  // Services limited to some doctors (multi / sole-bookable clinics only; a single-doctor clinic is untouched).
+  // A service with no mapping rows is offered by everyone. With a doctor chosen it must be offered by that
+  // doctor; a service whose mapped doctors are all unavailable for booking is hidden for everyone.
+  const serviceOffered = (serviceId: string | null | undefined, doctorId: string | null | undefined) => {
+    if (!serviceId || !(isMultiDoctor || soleBookable)) return true;
+    const mapped = (servicePractitioners ?? []).filter((m) => m.service_id === serviceId);
+    if (mapped.length === 0) return true;
+    if (!mapped.some((m) => doctors.some((d) => d.id === m.practitioner_id))) return false;
+    return !doctorId || mapped.some((m) => m.practitioner_id === doctorId);
+  };
+  const serviceOfferedRef = useRef(serviceOffered);
+  serviceOfferedRef.current = serviceOffered;
   // The hours slots are made from: the chosen doctor's own, else the clinic's.
   const bookingHours = useMemo(
     () => (sel ? hoursFor(allWorkingHours ?? [], sel.id) : workingHours),
@@ -112,6 +124,8 @@ const BookingWidget = () => {
   );
   const [type, setType] = useState<"clinic" | "online">("clinic");
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  // Set when a service picked on the page is not offered by the chosen doctor; clears on doctor change.
+  const [serviceHint, setServiceHint] = useState<{ name: string; doctorId: string | null } | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
   const [name, setName] = useState("");
@@ -185,6 +199,12 @@ const BookingWidget = () => {
       const customEvent = event as CustomEvent<any>;
       const svc = customEvent.detail;
       if (!svc) return;
+      // A doctor-limited service the chosen doctor does not offer is not selected; say why, near the service picker.
+      if (svc.id && !serviceOfferedRef.current(svc.id, live.current.practitionerId)) {
+        setServiceHint({ name: String(svc.name ?? "That service"), doctorId: live.current.practitionerId ?? null });
+        return;
+      }
+      setServiceHint(null);
       // Never rewrite a booking that is being paid for or whose payment failed (the retry must
       // match what the patient saw); after a confirmation, start a fresh booking instead.
       if (live.current.submitting || live.current.paymentFailed) return;
@@ -209,6 +229,8 @@ const BookingWidget = () => {
     live.current.practitionerId = id;
     setPayError("");
     setPractitionerId(id);
+    if (selectedServiceId && !serviceOffered(selectedServiceId, id)) setSelectedServiceId(null);
+    setServiceHint(null);
     setSelectedDate(null);
     setSelectedTime("");
     setCachedOrder(null);
@@ -289,7 +311,7 @@ const BookingWidget = () => {
 
   const compatibleServices = useMemo(() => {
     const activeServices = (services || []).filter(
-      (s: any) => s && s.active !== false && (s.type === type || s.type === "both")
+      (s: any) => s && s.active !== false && (s.type === type || s.type === "both") && serviceOffered(s.id, sel?.id)
     );
     return [
       defaultServiceOption,
@@ -301,7 +323,15 @@ const BookingWidget = () => {
         type: s.type as string,
       })),
     ];
-  }, [services, type, defaultServiceOption, defaultFee]);
+    // serviceOffered is derived from exactly these inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, type, defaultServiceOption, defaultFee, servicePractitioners, doctors, sel?.id, isMultiDoctor, soleBookable]);
+
+  // The chosen service stopped being offered (doctor list reloaded, doctor rejected): fall back to the default option.
+  useEffect(() => {
+    if (selectedServiceId && !serviceOffered(selectedServiceId, sel?.id)) setSelectedServiceId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedServiceId, servicePractitioners, doctors, sel?.id]);
 
   const selectedService = useMemo(() => {
     if (selectedServiceId) {
@@ -381,6 +411,13 @@ const BookingWidget = () => {
     const refused = /PRACTITIONER_NOT_BOOKABLE|SEAT_LIMIT|PRACTITIONER_REQUIRED|PRACTITIONER_MISMATCH/.test(raw);
     const mapped = practitionerErrorMessage(raw);
     if (!mapped) return null;
+    if (/(?<![A-Z0-9_])(INVALID_SERVICE|SERVICE_NOT_OFFERED)(?![A-Z0-9_])/.test(raw)) {
+      // The service is not offered by this doctor (stale page or changed mapping): drop it and reload the mappings.
+      setSelectedServiceId(null);
+      setCachedOrder(null);
+      void refreshPractitioners?.();
+      return mapped;
+    }
     if (!refused) return mapped;
     const hadDoctor = sel?.id ?? null;
     if (hadDoctor) setRejectedIds((ids) => (ids.includes(hadDoctor) ? ids : [...ids, hadDoctor]));
@@ -1232,6 +1269,12 @@ const BookingWidget = () => {
             </button>
           ))}
         </div>
+      )}
+
+      {!noOpenDays && serviceHint && serviceHint.doctorId === (sel?.id ?? null) && (
+        <p role="status" className="rounded-ds-md border border-ds-line bg-ds-paper-2 px-4 py-2 text-ds-small text-ds-ink-2">
+          {serviceHint.name} isn't offered by {doctorLabel}. Choose another doctor to book it.
+        </p>
       )}
 
       {!noOpenDays && compatibleServices.length > 1 && (

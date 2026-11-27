@@ -37,6 +37,7 @@ vi.mock("@/hooks/useProfile", () => {
 });
 vi.mock("@/hooks/usePractitioners", () => ({ usePractitioners: () => h.state }));
 vi.mock("sonner", () => ({ toast: { error: h.toastError, success: h.toastSuccess } }));
+vi.mock("./BuyDoctorSeatsDialog", () => ({ default: ({ open }: any) => (open ? <div>SEATS-DIALOG</div> : null) }));
 vi.mock("../LockedFeatureCard", () => ({ default: ({ featureName }: any) => <div>LOCKED:{featureName}</div> }));
 
 const doc = (id: string, display_name: string, over: Record<string, unknown> = {}) => ({
@@ -238,5 +239,68 @@ describe("DoctorsPage", () => {
     for (const name of [/add doctor/i, /^Edit /, /^Hours /, /^Deactivate /, /^Make .* main doctor/, /^Stop bookings/, /^Create login/]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
+  });
+
+  describe("buying seats", () => {
+    const access = (over: Record<string, unknown> = {}) => ({
+      enabled: true, has_feature: true, seat_limit: 3, seats_used: 2, extra_seats: 0, seat_max: 10, seat_price: 499,
+      purchased_seats: 0, seats_valid_until: null, can_buy_seats: true, ...over,
+    });
+
+    it("shows Add seats when seats can be bought, and opens the dialog", async () => {
+      setState({ access: access() });
+      renderPage();
+      fireEvent.click(await screen.findByRole("button", { name: /add seats/i }));
+      expect(screen.getByText("SEATS-DIALOG")).toBeInTheDocument();
+    });
+
+    it("keeps the seats dialog mounted when a refetch turns can_buy_seats off while it is open", async () => {
+      setState({ access: access() });
+      const { rerender } = renderPage();
+      fireEvent.click(await screen.findByRole("button", { name: /add seats/i }));
+      expect(screen.getByText("SEATS-DIALOG")).toBeInTheDocument();
+      setState({ access: access({ can_buy_seats: false }) });
+      rerender(<MemoryRouter><DoctorsPage /></MemoryRouter>);
+      expect(screen.getByText("SEATS-DIALOG")).toBeInTheDocument();
+    });
+
+    it("hides every mention of buying while the seat price is unset", async () => {
+      setState({ access: access({ seat_price: null, can_buy_seats: false }) });
+      renderPage();
+      await screen.findAllByText("Dr. Bina Shah");
+      expect(screen.queryByRole("button", { name: /add seats/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/bought/i)).not.toBeInTheDocument();
+    });
+
+    it("hides Add seats when the plan is not eligible even with a price set", async () => {
+      setState({ access: access({ can_buy_seats: false }) });
+      renderPage();
+      await screen.findAllByText("Dr. Bina Shah");
+      expect(screen.queryByRole("button", { name: /add seats/i })).not.toBeInTheDocument();
+    });
+
+    it("hides Add seats from staff without billing permission", async () => {
+      h.role = "staff"; h.isStaff = true; h.granted = ["practitioners.manage"];
+      setState({ access: access() });
+      renderPage();
+      await screen.findAllByText("Dr. Bina Shah");
+      expect(screen.queryByRole("button", { name: /add seats/i })).not.toBeInTheDocument();
+    });
+
+    it("shows bought seats and their end date in the header, no banner when far away", async () => {
+      const far = new Date(Date.now() + 20 * 86400000).toISOString();
+      setState({ access: access({ purchased_seats: 2, seats_valid_until: far }) });
+      renderPage();
+      expect(await screen.findByText(/2 bought, valid until/i)).toBeInTheDocument();
+      expect(screen.queryByText(/renew your plan with seats/i)).not.toBeInTheDocument();
+    });
+
+    it("warns within 7 days of the seats ending", async () => {
+      const soon = new Date(Date.now() + 3 * 86400000).toISOString();
+      setState({ access: access({ purchased_seats: 1, seats_valid_until: soon }) });
+      renderPage();
+      expect(await screen.findByText(/your extra seats end on/i)).toBeInTheDocument();
+      expect(screen.getByText(/renew your plan with seats to keep them/i)).toBeInTheDocument();
+    });
   });
 });
