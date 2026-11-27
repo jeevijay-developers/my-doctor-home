@@ -14,7 +14,8 @@
 // is eligible (listed doctor, not hub_hidden); /health-articles/:category needs
 // >= DIRECTORY_MIN_INDEXABLE eligible posts. Pagination URLs are not listed.
 //
-// Doctor sub-pages: /dr/:slug/doctor/:doctorSlug only for clinics with >= 2 active practitioners.
+// Doctor sub-pages: /dr/:slug/doctor/:doctorSlug only for clinics with >= 2 active practitioners,
+// and never for a doctor with directory_listed = false (that page is served noindex).
 //
 // Marketing URLs have no content timestamp, so they omit <lastmod>.
 // Doctor and post URLs include <lastmod> from updated_at.
@@ -283,13 +284,22 @@ async function fetchPosts(admin: SupabaseClient): Promise<PostRow[]> {
 
 async function fetchPractitioners(admin: SupabaseClient): Promise<SitemapPractitioner[]> {
   const rows: SitemapPractitioner[] = [];
+  // directory_listed ships in a later migration: fall back to the original columns until it is
+  // applied (every doctor then counts as listed), same pattern as fetchDoctors.
+  let columns = "doctor_id, slug, is_active, updated_at, directory_listed";
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await admin
-      .from("practitioners")
-      .select("doctor_id, slug, is_active, updated_at")
-      .eq("is_active", true)
-      .order("id", { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
+    const run = (cols: string) =>
+      admin
+        .from("practitioners")
+        .select(cols)
+        .eq("is_active", true)
+        .order("id", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+    let { data, error } = await run(columns);
+    if (error && columns.includes("directory_listed")) {
+      columns = "doctor_id, slug, is_active, updated_at";
+      ({ data, error } = await run(columns));
+    }
     // Before the practitioners migration is applied the sitemap simply has no doctor sub-pages.
     if (error) return [];
     const batch = (data ?? []) as unknown as SitemapPractitioner[];

@@ -6,6 +6,7 @@
 // (a patient paying a doctor).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolvePaymentMode, isExplicitMockMode, mockId, beginPaymentRequest, json } from "../_shared/paymentMode.ts";
+import { parseRenewalSeats, quoteErrorResponse, renewalTotalRupees, seatPriceFromSetting } from "../_shared/seatOrder.ts";
 
 const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
 const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
@@ -17,6 +18,13 @@ const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { pe
 
 // Fallback prices in case platform_settings does not have keys seeded yet.
 const FALLBACK_TIER_PRICES: Record<string, number> = { pro: 1499, premium: 3999 };
+
+// doctor_seat_max (default 15) bounds the optional renewal `seats` field.
+async function seatMaxSetting(): Promise<number> {
+  const { data } = await admin.from("platform_settings").select("value").eq("key", "doctor_seat_max").maybeSingle();
+  const n = Number(data?.value);
+  return Number.isInteger(n) && n >= 1 ? n : 15;
+}
 
 Deno.serve(async (req) => {
   const preflight = beginPaymentRequest(req);
@@ -40,6 +48,15 @@ Deno.serve(async (req) => {
   if (targetTier !== "pro" && targetTier !== "premium") {
     return json(400, { error: "target_tier must be 'pro' or 'premium'" });
   }
+
+  // Optional extra-doctor seats bundled into a Premium renewal. Absent / 0 =
+  // exactly the plan-only order below; the range is checked here, the price is
+  // read server-side further down.
+  const seatsRequested = body?.seats !== undefined && body?.seats !== null && body?.seats !== 0;
+  const seatsParsed = parseRenewalSeats(body?.seats, seatsRequested ? await seatMaxSetting() : 15);
+  if (!seatsParsed.ok) return json(400, { error: seatsParsed.error });
+  const seats = seatsParsed.seats;
+  if (seats > 0 && targetTier !== "premium") return json(400, { error: "SEATS_NEED_PREMIUM" });
 
   // Fetch dynamic default prices from platform_settings
   const { data: pricingRows } = await admin
@@ -125,6 +142,28 @@ Deno.serve(async (req) => {
     console.error("create-plan-upgrade-order: invalid price", { doctorId, targetTier, amountRupees });
     return json(500, { error: "Pricing is not configured correctly. Please contact support." });
   }
+  // Extra doctor seats ride on the Premium renewal at the platform seat price,
+  // read here at order time (never from the client).
+  let seatUnitPrice: number | null = null;
+  if (seats > 0) {
+    // Entitlement + range gate in SQL (same rules as the apply step). Never
+    // proceed on a failed or malformed answer.
+    const { data: chk, error: chkErr } = await admin.rpc("renewal_seats_check", { _doctor_id: doctorId, _qty: seats });
+    if (chkErr || !chk || typeof chk !== "object") {
+      console.error("create-plan-upgrade-order: renewal_seats_check failed", { doctorId, message: chkErr?.message });
+      return json(500, { error: "Could not check your seats. Please try again." });
+    }
+    const c = chk as { ok?: boolean; error?: string };
+    if (c.ok !== true) {
+      const r = quoteErrorResponse(c.error);
+      return json(r.status, { error: r.error });
+    }
+    const { data: priceRow } = await admin.from("platform_settings").select("value").eq("key", "doctor_seat_price").maybeSingle();
+    seatUnitPrice = seatPriceFromSetting(priceRow?.value);
+    if (seatUnitPrice == null) return json(409, { error: "PRICE_NOT_SET" });
+    amountRupees = renewalTotalRupees(amountRupees, seats, seatUnitPrice);
+  }
+  const seatColumns = seats > 0 ? { seats_quantity: seats, unit_price: seatUnitPrice } : {};
   const amountPaise = Math.round(amountRupees * 100);
   const hasLiveKeys = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
   const mode = resolvePaymentMode(hasLiveKeys);
@@ -146,6 +185,7 @@ Deno.serve(async (req) => {
       razorpay_order_id: orderId,
       raw_response: { mock: true, order_id: orderId, amount: amountPaise },
       is_mock: true,
+      ...seatColumns,
     }).select("id").single();
     if (insErr) return json(500, { error: insErr.message });
 
@@ -171,7 +211,9 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         amount: amountPaise,
         currency: "INR",
-        notes: { doctor_id: doctorId, target_tier: targetTier },
+        notes: seats > 0
+          ? { doctor_id: doctorId, target_tier: targetTier, seats: String(seats) }
+          : { doctor_id: doctorId, target_tier: targetTier },
       }),
     });
     const order = await res.json();
@@ -187,6 +229,7 @@ Deno.serve(async (req) => {
       razorpay_order_id: order.id,
       raw_response: order,
       is_mock: false,
+      ...seatColumns,
     }).select("id").single();
     if (insErr) return json(500, { error: insErr.message });
 

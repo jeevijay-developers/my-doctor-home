@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { phoneOwnsClinic, pickBookingPractitioner, staffMayEditStaffRow, type PractitionerRow } from "./practitioners.ts";
+import { phoneOwnsClinic, pickBookingPractitioner, serviceOfferedBy, staffMayEditStaffRow, type PractitionerRow } from "./practitioners.ts";
 
 describe("staffMayEditStaffRow", () => {
   it("lets the clinic owner edit any row, including doctor logins", () => {
@@ -121,5 +121,17 @@ describe("phoneOwnsClinic", () => {
 
   it("finds the owner among several rows", () => {
     expect(phoneOwnsClinic("919876543210", [{ phone: "+919800000000" }, { phone: "+919876543210" }])).toBe(true);
+  });
+});
+
+describe("serviceOfferedBy", () => {
+  it("offers an unmapped service to every doctor", () => {
+    expect(serviceOfferedBy([], "p1")).toBe(true);
+    expect(serviceOfferedBy(null, "p1")).toBe(true);
+  });
+  it("offers a mapped service only to the mapped doctors", () => {
+    const rows = [{ practitioner_id: "p1" }, { practitioner_id: "p2" }];
+    expect(serviceOfferedBy(rows, "p2")).toBe(true);
+    expect(serviceOfferedBy(rows, "p3")).toBe(false);
   });
 });

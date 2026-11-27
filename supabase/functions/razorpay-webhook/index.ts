@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
             paymentEntity?.status === "captured" &&
             Number(paymentEntity?.amount) === Math.round(Number(planPay.amount) * 100)
           ) {
-            const { error: applyErr } = await admin.rpc("apply_plan_upgrade_payment", {
+            const { data: applyRes, error: applyErr } = await admin.rpc("apply_plan_upgrade_payment", {
               _payment_id: planPay.id,
               _razorpay_payment_id: paymentId,
             });
@@ -143,6 +143,18 @@ Deno.serve(async (req) => {
               console.error("razorpay-webhook: apply_plan_upgrade_payment failed", applyErr);
               // Non-2xx so Razorpay retries; the event stays 'received', not 'processed'.
               return json(500, { error: "plan_apply_failed" });
+            }
+            const ar = applyRes as any;
+            if (ar && ar.ok === false) {
+              // Retrying cannot help (the DB has recorded the outcome, e.g. a seats payment
+              // parked as needs_refund), so do not 500; make it loud for support.
+              console.error("razorpay-webhook: PLAN PAYMENT NOT APPLIED", {
+                payment_id: planPay.id,
+                razorpay_payment_id: paymentId,
+                code: ar.code,
+                kind: ar.kind,
+                needs_refund: Boolean(ar.needs_refund),
+              });
             }
           }
         }

@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
 
   const { data: payment, error: payErr } = await admin
     .from("plan_upgrade_payments")
-    .select("id, doctor_id, target_tier, status, razorpay_order_id, is_mock, amount")
+    .select("id, doctor_id, target_tier, status, razorpay_order_id, is_mock, amount, kind")
     .eq("id", payment_id)
     .eq("razorpay_order_id", razorpay_order_id)
     .maybeSingle();
@@ -45,7 +45,10 @@ Deno.serve(async (req) => {
   if (!payment) return json(404, { error: "No matching order found" });
 
   // Idempotent: a retry after we already applied this upgrade.
-  if (payment.status === "captured") {
+  // A captured SEATS row is not "done": a payment that could not be applied is
+  // also 'captured' (+ needs_refund), so those always go through apply, which is
+  // idempotent for applied rows and reports the not-applied shape for the rest.
+  if (payment.status === "captured" && payment.kind !== "seats") {
     const { data: profile } = await admin.from("profiles").select("plan_tier").eq("id", payment.doctor_id).maybeSingle();
     return json(200, { ok: true, already_verified: true, plan_tier: profile?.plan_tier ?? payment.target_tier });
   }
@@ -110,6 +113,12 @@ Deno.serve(async (req) => {
   }
 
   const r = result as any;
+  if (!r?.ok && r?.needs_refund) {
+    // Money was taken but the seats could not be added. HTTP 200 with ok:false
+    // so the client shows "payment received, seats not added" (never ok:true).
+    console.error("verify-plan-upgrade-payment: seats not applied, needs refund", { payment_id: payment.id, code: r.code });
+    return json(200, { ok: false, code: r.code, needs_refund: true, payment_id: payment.id, kind: r.kind ?? "seats" });
+  }
   if (!r?.ok) {
     if (r?.code === "suspended") {
       return json(403, { error: "Your account is suspended. Your payment has been recorded; please contact support." });
@@ -124,5 +133,7 @@ Deno.serve(async (req) => {
     scheduled: Boolean(r.scheduled),
     ...(r.activation_date ? { activation_date: r.activation_date } : {}),
     ...(r.already_verified ? { already_verified: true } : {}),
+    ...(r.kind === "seats" ? { kind: "seats", seat_limit: r.seat_limit } : {}),
+    ...(r.seats_clamped ? { seats_clamped: true } : {}),
   });
 });

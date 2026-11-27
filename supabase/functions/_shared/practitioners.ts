@@ -65,3 +65,11 @@ export function phoneOwnsClinic(phoneDigits: string, profileRows: { phone: strin
     return digits.length >= 10 && digits.slice(-10) === last10;
   });
 }
+
+/** `rows` = the service's `service_practitioners` rows. No rows = offered by every doctor;
+ *  otherwise only the mapped doctors offer it. Used by create-razorpay-order only (never by
+ *  verify-razorpay-payment: a paid booking is never refused after payment). */
+export function serviceOfferedBy(rows: { practitioner_id: string }[] | null | undefined, practitionerId: string): boolean {
+  if (!rows || rows.length === 0) return true;
+  return rows.some((r) => r.practitioner_id === practitionerId);
+}
