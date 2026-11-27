@@ -226,7 +226,7 @@ BEGIN
   IF r->>'error' IS DISTINCT FROM 'FORBIDDEN' THEN RAISE EXCEPTION 'staff without billing.view: %', r; END IF;
   PERFORM pg_temp.as_user(s_doc);
   r := public.get_practitioner_revenue(today, today);
-  IF r->>'error' IS DISTINCT FROM 'FORBIDDEN' THEN RAISE EXCEPTION 'doctor login read the clinic report: %', r; END IF;
+  IF r->>'error' IS DISTINCT FROM 'DOCTOR_LOGIN' THEN RAISE EXCEPTION 'doctor login read the clinic report: %', r; END IF;
   PERFORM pg_temp.as_user(stranger);
   r := public.get_practitioner_revenue(today, today);
   IF r->>'error' IS DISTINCT FROM 'FORBIDDEN' THEN RAISE EXCEPTION 'stranger read the clinic report: %', r; END IF;
