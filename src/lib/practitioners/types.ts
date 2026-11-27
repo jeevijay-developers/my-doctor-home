@@ -10,12 +10,22 @@ export interface PublicPractitioner {
   experience_years: number | null; bio: string | null; photo_url: string | null; registration_number: string | null;
   consultation_fee: number | null; slot_duration_minutes: number | null; online_booking: boolean; bookable: boolean;
   is_primary: boolean; is_owner: boolean; sort_order: number;
+  /** Listed in the directory. */
+  directory_listed: boolean;
+  /** Visible reviews written for this doctor (reviews for the clinic as a whole are not counted). */
+  review_count: number; avg_rating: number | null;
 }
 
 /** Shape of the jsonb returned by get_clinic_doctor_access(_doctor_id). */
 export interface ClinicDoctorAccess {
   enabled: boolean; has_feature: boolean; seat_limit: number | null; seats_used: number;
   extra_seats: number; seat_max: number; seat_price: number | null;
+  /** Seats bought and valid right now (on top of the ones superadmin granted). */
+  purchased_seats?: number;
+  /** When the soonest-ending purchased seats stop, or null. */
+  seats_valid_until?: string | null;
+  /** Price is set and the plan is an active Premium plan with time left. */
+  can_buy_seats?: boolean;
 }
 
 type GeneratedPublicPractitioner = Database["public"]["Functions"]["get_public_practitioners"]["Returns"][number];

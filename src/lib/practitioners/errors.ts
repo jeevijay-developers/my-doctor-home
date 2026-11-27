@@ -6,6 +6,7 @@ export const PRACTITIONER_ERROR_CODES = [
   "SEAT_LIMIT", "MULTI_DOCTOR_NOT_ENABLED", "HAS_FUTURE_APPOINTMENTS", "OWNER_ONLY", "PHONE_OWNS_CLINIC",
   "PRACTITIONER_HAS_LOGIN", "NAME_REQUIRED",
   "DOCTOR_LOGIN_FORBIDDEN", "APPOINTMENT_CLOSED", "NOT_ALLOWED", "FORBIDDEN", "DOCTOR_UNAVAILABLE",
+  "INVALID_SERVICE", "SERVICE_NOT_OFFERED",
 ] as const;
 export type PractitionerErrorCode = (typeof PRACTITIONER_ERROR_CODES)[number];
 
@@ -31,6 +32,8 @@ const MESSAGES: Record<PractitionerErrorCode, string> = {
   NOT_ALLOWED: "You don't have access to this prescription.",
   FORBIDDEN: "You can only manage your own queue.",
   DOCTOR_UNAVAILABLE: "This doctor is no longer taking bookings.",
+  INVALID_SERVICE: "This doctor doesn't offer that service. Please choose another service or doctor.",
+  SERVICE_NOT_OFFERED: "This doctor doesn't offer that service. Please choose another service or doctor.",
 };
 
 // Longest first, so a code that contains another one (PRIMARY_PRACTITIONER_REQUIRED

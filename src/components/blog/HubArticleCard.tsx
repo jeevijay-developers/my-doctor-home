@@ -6,9 +6,12 @@ import { articlePath, type HubArticle } from "@/lib/seo/healthArticlesSeo";
 import { formatDoctorName } from "@/lib/seo/doctorSeo";
 
 /** One article on the hub / homepage strip. The article itself lives on the doctor's site. */
-const HubArticleCard = ({ article, priority = false }: { article: HubArticle; priority?: boolean }) => {
+// `practitioner_name` is set by search_blog_posts only for an active, listed author at a clinic with 2+ doctors.
+type HubCardArticle = HubArticle & { practitioner_name?: string | null };
+
+const HubArticleCard = ({ article, priority = false }: { article: HubCardArticle; priority?: boolean }) => {
   const date = article.published_at ?? article.updated_at;
-  const doctor = formatDoctorName(article.doctor_name ?? "");
+  const doctor = formatDoctorName(article.practitioner_name || article.doctor_name || "");
   const where = [article.doctor_specialization, article.doctor_city].filter(Boolean).join(" · ");
 
   return (

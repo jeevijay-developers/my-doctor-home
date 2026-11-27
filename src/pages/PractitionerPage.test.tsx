@@ -112,4 +112,27 @@ describe("PractitionerPage", () => {
     window.removeEventListener("doctylia:select-doctor", on);
     expect(seen).toEqual([{ id: "pb" }]);
   });
+
+  it("shows the doctor's own rating and only their own visible reviews", () => {
+    const rev = (id: string, practitioner_id: string | null, text: string) => ({
+      id, practitioner_id, patient_name: "P " + id, rating: 5, review_text: text, created_at: "2026-10-01T10:00:00Z",
+    });
+    mockData({
+      practitioners: [DR_A, { ...DR_B, review_count: 2, avg_rating: 4.5 }],
+      reviews: [rev("1", "pb", "Great with my father"), rev("2", "pa", "Asha was kind"), rev("3", null, "Lovely clinic")],
+    });
+    renderAt("/dr/dr-a/doctor/vikram-shah");
+    expect(screen.getByText("★ 4.5")).toBeInTheDocument();
+    expect(screen.getAllByText("2 reviews").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Great with my father/)).toBeInTheDocument();
+    expect(screen.queryByText(/Asha was kind/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Lovely clinic/)).not.toBeInTheDocument();
+  });
+
+  it("shows no rating for a doctor without reviews", () => {
+    mockData();
+    renderAt("/dr/dr-a/doctor/vikram-shah");
+    expect(screen.queryByText(/★/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/reviews?$/)).not.toBeInTheDocument();
+  });
 });

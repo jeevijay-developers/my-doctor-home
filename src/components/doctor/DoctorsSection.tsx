@@ -60,6 +60,12 @@ const DoctorCard = ({ doctor, index, clinicFee }: { doctor: PublicPractitioner; 
         <div className="min-w-0">
           <h3 className="font-ds-display text-ds-h3 font-medium leading-tight text-ds-ink">{name}</h3>
           {doctor.specialization && <p className="mt-1 text-ds-body text-ds-ink-2">{doctor.specialization}</p>}
+          {doctor.review_count > 0 && doctor.avg_rating != null && (
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-ds-small text-ds-ink-2">
+              <span className="font-medium text-ds-ink ds-tabular">★ {Number(doctor.avg_rating).toFixed(1)}</span>
+              <span>{doctor.review_count} review{doctor.review_count === 1 ? "" : "s"}</span>
+            </p>
+          )}
         </div>
       </div>
 

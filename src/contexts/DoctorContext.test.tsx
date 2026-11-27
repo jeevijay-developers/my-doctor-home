@@ -57,6 +57,7 @@ const Probe = () => {
       <span data-testid="all-hours">{JSON.stringify(d.allWorkingHours)}</span>
       <span data-testid="raw-hours">{JSON.stringify(d.rawWorkingHours)}</span>
       <span>sole={d.soleBookable?.id ?? "none"}</span>
+      <span data-testid="svc-prac">{JSON.stringify(d.servicePractitioners)}</span>
       <span>pracError={String(d.practitionersError)}</span>
       <button onClick={() => d.refreshPractitioners()}>refresh</button>
     </div>
@@ -297,6 +298,70 @@ describe("DoctorContext", () => {
       expect(screen.getByText("services=1")).toBeInTheDocument();
       expect(screen.getByText("practitioners=0")).toBeInTheDocument();
       expect(hours()).toEqual(rows);
+    });
+
+    describe("servicePractitioners", () => {
+      const svcPrac = () => JSON.parse(screen.getByTestId("svc-prac").textContent || "null");
+      const pr = (id: string) => ({ id, bookable: true, full_name: id });
+      const rpcWith = (svc: () => unknown, practitioners: unknown[] = [pr("p1"), pr("p2")]) =>
+        m.rpc.mockImplementation(async (fn: string) => {
+          if (fn === "get_public_service_practitioners") return svc();
+          if (fn === "get_public_practitioners") return { data: practitioners };
+          if (fn === "doctor_has_premium_access") return { data: true };
+          return { data: [] };
+        });
+      const svcCalls = () => m.rpc.mock.calls.filter((c) => c[0] === "get_public_service_practitioners");
+
+      it("loads the mappings after the doctor list when the clinic has 2+ doctors", async () => {
+        m.tables.profiles = { data: { id: "d1" } };
+        rpcWith(() => ({ data: [{ service_id: "s1", practitioner_id: "p1" }] }));
+        renderAt("/dr/dr-one");
+        await waitFor(() => expect(svcPrac()).toEqual([{ service_id: "s1", practitioner_id: "p1" }]));
+        expect(m.rpc).toHaveBeenCalledWith("get_public_service_practitioners", { _doctor_id: "d1" });
+      });
+
+      it("never calls the mappings RPC for a single-doctor clinic", async () => {
+        m.tables.profiles = { data: { id: "d1" } };
+        rpcWith(() => ({ data: [{ service_id: "s1", practitioner_id: "p1" }] }), [pr("p1")]);
+        renderAt("/dr/dr-one");
+        await waitFor(() => expect(screen.getByText("loading=false")).toBeInTheDocument());
+        await new Promise((r) => setTimeout(r, 20));
+        expect(svcCalls()).toHaveLength(0);
+        expect(svcPrac()).toEqual([]);
+      });
+
+      it("does not hold back first paint while the mappings are slow", async () => {
+        m.tables.profiles = { data: { id: "d1" } };
+        rpcWith(() => new Promise(() => {}));
+        renderAt("/dr/dr-one");
+        await waitFor(() => expect(screen.getByText("loading=false")).toBeInTheDocument());
+        expect(svcPrac()).toEqual([]);
+      });
+
+      it("an error result means no filtering, is logged once and never blocks the page", async () => {
+        const err = vi.spyOn(console, "error").mockImplementation(() => {});
+        m.tables.profiles = { data: { id: "d1" } };
+        m.tables.services = { data: [{ id: 1 }] };
+        rpcWith(() => ({ data: null, error: { message: "nope" } }));
+        renderAt("/dr/dr-one");
+        await waitFor(() => expect(screen.getByText("loading=false")).toBeInTheDocument());
+        await waitFor(() => expect(svcCalls()).toHaveLength(1));
+        expect(screen.getByText("services=1")).toBeInTheDocument();
+        expect(svcPrac()).toEqual([]);
+        await waitFor(() => expect(err.mock.calls.filter((c) => String(c[0]).includes("get_public_service_practitioners"))).toHaveLength(1));
+        err.mockRestore();
+      });
+
+      it("a thrown lookup is swallowed as an empty list", async () => {
+        const err = vi.spyOn(console, "error").mockImplementation(() => {});
+        m.tables.profiles = { data: { id: "d1" } };
+        rpcWith(() => { throw new Error("network"); });
+        renderAt("/dr/dr-one");
+        await waitFor(() => expect(screen.getByText("loading=false")).toBeInTheDocument());
+        await waitFor(() => expect(svcCalls()).toHaveLength(1));
+        expect(svcPrac()).toEqual([]);
+        err.mockRestore();
+      });
     });
   });
 });

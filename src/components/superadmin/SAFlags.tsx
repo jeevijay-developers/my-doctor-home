@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { IndianRupee, Percent } from "lucide-react";
 import { FALLBACK_PLAN_PRICES } from "@/hooks/usePlanPrices";
+import SAMultiDoctorCard from "./SAMultiDoctorCard";
 
 const DEFAULT_PLATFORM_COMMISSION = 10;
 
@@ -309,6 +310,8 @@ const SAFlags = () => {
           </Button>
         </CardContent>
       </Card>
+
+      <SAMultiDoctorCard />
 
       {/* ── Pricing confirmation dialog ───────────────────────────────────────── */}
       <AlertDialog open={pricingConfirmOpen} onOpenChange={(o) => !savingPricing && setPricingConfirmOpen(o)}>

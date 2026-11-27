@@ -23,6 +23,7 @@ import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import StatCard, { type StatTone } from "./StatCard";
 import StatusBadge from "./StatusBadge";
 import PlanCard from "./PlanCard";
+import MyEarningsCard from "./MyEarningsCard";
 import GettingStartedCard from "./GettingStartedCard";
 import { clinicToday } from "@/lib/queue";
 import { summarizePlan } from "@/lib/planSummary";
@@ -261,6 +262,9 @@ const DashboardHome = () => {
       <div className={`grid grid-cols-2 gap-3 ${statCards.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         {statCards.map((s) => <StatCard key={s.label} {...s} />)}
       </div>
+
+      {/* A doctor login without billing access sees only their own totals, if the owner switched it on. */}
+      {isDoctorLogin && !canSeeRevenue && <MyEarningsCard />}
 
       {/* Growth Tip Banner */}
       {/* Lime is a fill/accent; `text-spark` resolves to its readable ink tone (raw lime on white is ~1.5:1) */}

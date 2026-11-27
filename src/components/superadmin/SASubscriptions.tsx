@@ -22,6 +22,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { customPlanApplication, isCustomPlanActive, type CustomPlan } from "@/lib/customPlan";
 import { classifyPlan, countByView, describeExpiry, matchesView, type ClassifiedPlan, type PlanView } from "@/lib/subscriptionView";
 import { formatIstDate } from "@/lib/istDate";
+import { paymentKindLabel } from "@/lib/subscriptionRevenue";
 
 // Single source of truth lives in lib/planPrices; re-exported for existing importers.
 import { getEffectivePlanPrice } from "@/lib/planPrices";
@@ -106,7 +107,7 @@ const SASubscriptions = () => {
   const loadUpgradePayments = () =>
     supabase
       .from("plan_upgrade_payments")
-      .select("id, doctor_id, from_tier, target_tier, amount, status, is_mock, created_at, profiles(full_name, clinic_name)")
+      .select("id, doctor_id, from_tier, target_tier, amount, status, is_mock, created_at, kind, seats_quantity, needs_refund, needs_refund_reason, profiles(full_name, clinic_name)")
       .order("created_at", { ascending: false })
       .limit(50)
       .then(({ data, error }) => {
@@ -629,12 +630,15 @@ const SASubscriptions = () => {
                       <div className="font-medium">{p.profiles?.full_name || "—"}</div>
                       <div className="text-xs text-muted-foreground">{p.profiles?.clinic_name || ""}</div>
                     </td>
-                    <td className="p-2 text-xs whitespace-nowrap">{p.from_tier} → {p.target_tier}</td>
+                    <td className="p-2 text-xs whitespace-nowrap">
+                      {p.kind === "seats" ? paymentKindLabel(p.kind, p.seats_quantity) : `${p.from_tier} → ${p.target_tier}${p.seats_quantity ? ` · ${paymentKindLabel(p.kind, p.seats_quantity)}` : ""}`}
+                    </td>
                     <td className="p-2">₹{p.amount}</td>
                     <td className="p-2 whitespace-nowrap">
                       <Badge variant={p.status === "captured" ? "default" : p.status === "failed" ? "destructive" : "secondary"}>
                         {p.status}
                       </Badge>
+                      {p.needs_refund && <Badge variant="destructive" className="ml-1 text-[10px]" title={p.needs_refund_reason ?? undefined}>Needs refund</Badge>}
                       {p.is_mock && <Badge variant="outline" className="ml-1 text-[10px]">mock</Badge>}
                     </td>
                     <td className="p-2 text-xs whitespace-nowrap">{formatIstDate(p.created_at)}</td>

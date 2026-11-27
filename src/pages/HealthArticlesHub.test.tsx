@@ -45,6 +45,17 @@ describe("HealthArticlesHub", () => {
     expect(document.title).toBe("Health Articles Written by Doctors in India | Doctylia");
   });
 
+  it("credits the practitioner when present, keeping the canonical article link", async () => {
+    rpc.mockImplementation(async (fn: string) => ({
+      data: fn === "search_blog_posts" ? [art(1, { practitioner_name: "Ravi Menon", practitioner_slug: "ravi" }), art(2)] : facets,
+      error: null,
+    }));
+    renderAt("/health-articles");
+    expect(await screen.findAllByText(/Dr\. Ravi Menon/)).not.toHaveLength(0);
+    expect(screen.getByRole("link", { name: /Post 1/ })).toHaveAttribute("href", "/dr/dr-a/blog/post-1");
+    expect(screen.getAllByText(/Dr\. Anita Sharma/).length).toBeGreaterThan(0);
+  });
+
   it("uses the category and page from the URL", async () => {
     renderAt("/health-articles/heart-health?page=2");
     expect(await screen.findByRole("heading", { level: 1, name: "Heart Health Articles by Doctors" })).toBeInTheDocument();

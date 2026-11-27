@@ -7,6 +7,8 @@ import { readPreviewMessage } from "@/lib/doctorSite/heroSettings";
 import type { PublicPractitioner } from "@/lib/practitioners/types";
 import { clinicHoursUnion } from "@/lib/practitioners/hours";
 
+export type ServicePractitionerRow = { service_id: string; practitioner_id: string };
+
 type DoctorData = {
   profile: any;
   services: any[];
@@ -25,6 +27,9 @@ type DoctorData = {
   bookablePractitioners: PublicPractitioner[];
   /** The one bookable doctor of a clinic that lists two or more doctors; otherwise null. */
   soleBookable: PublicPractitioner | null;
+  /** Which doctors offer which service. A service with no row here is offered by every doctor;
+   *  [] when the lookup is unavailable (no filtering). */
+  servicePractitioners: ServicePractitionerRow[];
   /** The doctor list could not be loaded (the page then works as a single-doctor site). */
   practitionersError: boolean;
   /** Reload the doctor list and working hours (e.g. after a booking was refused). */
@@ -42,7 +47,7 @@ type DoctorData = {
 const DoctorContext = createContext<DoctorData>({
   profile: null, services: [], packages: [], reviews: [], gallery: [],
   settings: {}, workingHours: [], allWorkingHours: [], rawWorkingHours: [], practitioners: [], bookablePractitioners: [],
-  soleBookable: null, practitionersError: false, refreshPractitioners: async () => {},
+  servicePractitioners: [], soleBookable: null, practitionersError: false, refreshPractitioners: async () => {},
   isMultiDoctor: false, isPremium: false, hasFeature: () => false, loading: true,
 });
 
@@ -79,6 +84,21 @@ async function fetchPractitioners(doctorId: string): Promise<{ list: PublicPract
   }
 }
 
+/** Best-effort: any failure means "no filtering" (every doctor offers every service); never blocks the page. */
+async function fetchServicePractitioners(doctorId: string): Promise<ServicePractitionerRow[]> {
+  try {
+    const res = await supabase.rpc("get_public_service_practitioners" as any, { _doctor_id: doctorId } as any);
+    if (res?.error) {
+      console.error("get_public_service_practitioners failed", res.error);
+      return [];
+    }
+    return (Array.isArray(res?.data) ? res.data : []) as ServicePractitionerRow[];
+  } catch (e) {
+    console.error("get_public_service_practitioners failed", e);
+    return [];
+  }
+}
+
 export const useDoctorData = () => useContext(DoctorContext);
 
 export const DoctorProvider = ({ children }: { children: ReactNode }) => {
@@ -88,7 +108,7 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
   const [data, setData] = useState<Omit<DoctorData, "hasFeature" | "refreshPractitioners">>({
     profile: null, services: [], packages: [], reviews: [], gallery: [],
     settings: {}, workingHours: [], allWorkingHours: [], rawWorkingHours: [], practitioners: [], bookablePractitioners: [],
-    soleBookable: null, practitionersError: false,
+    servicePractitioners: [], soleBookable: null, practitionersError: false,
     isMultiDoctor: false, isPremium: false, loading: true,
   });
   const clinicIdRef = useRef<string | null>(null);
@@ -118,6 +138,11 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
     if (pr.error) console.error("get_public_practitioners failed", pr.error);
     rawHoursRef.current = wh.data || [];
     setData((d) => ({ ...d, ...deriveClinic(pr.list, rawHoursRef.current), practitionersError: !!pr.error }));
+    // Service mappings go with the doctor list (only meaningful with 2+ doctors).
+    if (pr.list.length >= 2) {
+      const rows = await fetchServicePractitioners(id);
+      if (clinicIdRef.current === id) setData((d) => ({ ...d, servicePractitioners: rows }));
+    }
   }, []);
 
   const hasFeature = useCallback((key: string) => featureFlags[key] ?? false, [featureFlags]);
@@ -132,6 +157,14 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
       const { data: flags } = await supabase.rpc("get_public_feature_flags", { _doctor_id: doctorId });
       if (cancelled) return;
       setFeatureFlags(Object.fromEntries((flags || []).map((f: any) => [f.feature_key, f.effective_enabled === true])));
+    };
+
+    const loadServiceMappings = (doctorId: string, list: PublicPractitioner[]) => {
+      if (list.length < 2) return;
+      fetchServicePractitioners(doctorId).then((rows) => {
+        if (cancelled) return;
+        setData((d) => ({ ...d, servicePractitioners: rows }));
+      });
     };
 
     const load = async () => {
@@ -188,10 +221,14 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
         gallery: galRes.data || [],
         settings: setRes.data || {},
         ...deriveClinic(practRes.list, whRes.data || []),
+        servicePractitioners: [],
         practitionersError: false,
         isPremium: premiumRes.data === true,
         loading: false,
       });
+
+      // Per-service doctor mappings only matter with 2+ doctors; loaded after first paint, never gating it.
+      loadServiceMappings(id, practRes.list);
 
       // One quiet retry after a second; the page already works as a single-doctor site meanwhile.
       if (practRes.error) {
@@ -203,6 +240,7 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
             setData((d) => ({ ...d, practitionersError: true }));
           } else {
             setData((d) => ({ ...d, ...deriveClinic(again.list, rawHoursRef.current), practitionersError: false }));
+            loadServiceMappings(id, again.list);
           }
         }, 1000);
       }

@@ -12,6 +12,8 @@ const ws = vi.hoisted(() => ({
   updates: [] as { values: unknown; eq: unknown[] }[],
   next: { error: null } as { error: { message: string } | null },
   row: { clinical_visibility: "shared" } as Record<string, unknown> | null,
+  readError: null as { message: string } | null,
+  written: [{ doctor_id: "doctor-1" }] as unknown[],
 }));
 
 // Settings now defaults to the Profile tab unless ?tab= says otherwise (see
@@ -50,12 +52,14 @@ vi.mock("@/integrations/supabase/client", () => {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "doctor-1" } } }) },
       from: vi.fn((table: string) => {
         if (table !== "website_settings") return chain();
-        const row = { data: ws.row, error: null };
+        const row = { data: ws.readError ? null : ws.row, error: ws.readError };
         return Object.assign(chain(row), {
           update: (values: unknown) => ({
             eq: (...eq: unknown[]) => {
               ws.updates.push({ values, eq });
-              return Promise.resolve(ws.next);
+              return Object.assign(Promise.resolve(ws.next), {
+                select: () => Promise.resolve(ws.next.error ? ws.next : { data: ws.written, error: null }),
+              });
             },
           }),
         });
@@ -157,5 +161,80 @@ describe("SettingsPage clinical visibility (multi-doctor)", () => {
     fireEvent.click(screen.getByRole("radio", { name: /own patients only/i }));
     fireEvent.click(screen.getByRole("button", { name: /save access/i }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Only the clinic owner can do this."));
+  });
+});
+
+describe("SettingsPage doctors' earnings switch (multi-doctor)", () => {
+  const renderAccount = () => render(<SettingsPage />, {
+    wrapper: ({ children }) => <MemoryRouter initialEntries={["/admin/settings?tab=account"]}>{children}</MemoryRouter>,
+  });
+  const asOwner = (extra: Record<string, unknown> = {}) =>
+    vi.mocked(useProfile).mockReturnValue({ profile: { ...baseProfile, plan_status: "active", plan_tier: "premium" }, loading: false, isStaff: false, role: "owner", can: () => false, ...extra } as any);
+  const multi = (isMulti: boolean) => vi.mocked(usePractitioners).mockReturnValue({ isMulti, primary: { id: "pr-1" } } as any);
+
+  beforeEach(() => {
+    ws.updates.length = 0;
+    ws.next = { error: null };
+    ws.readError = null;
+    ws.written = [{ doctor_id: "doctor-1" }];
+    ws.row = { clinical_visibility: "shared", show_doctor_earnings: false };
+    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: true, appointmentsCap: 0, appointmentsUsed: 0, nearCap: false, loading: false });
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+  });
+
+  it("is hidden in a single-doctor clinic", () => {
+    asOwner(); multi(false); renderAccount();
+    expect(screen.queryByText(/doctors' earnings/i)).not.toBeInTheDocument();
+  });
+
+  it("is hidden for staff and doctor logins", () => {
+    asOwner({ isStaff: true, role: "doctor" }); multi(true); renderAccount();
+    expect(screen.queryByText(/doctors' earnings/i)).not.toBeInTheDocument();
+  });
+
+  it("owner can turn it on and the change is saved", async () => {
+    asOwner(); multi(true); renderAccount();
+    expect(await screen.findByText(/doctors' earnings/i)).toBeInTheDocument();
+    expect(screen.getByText(/no patient names or other doctors' numbers/i)).toBeInTheDocument();
+    const sw = screen.getByRole("switch", { name: /let each doctor see their own earnings/i });
+    await waitFor(() => expect(sw).toBeEnabled());
+    expect(sw).not.toBeChecked();
+    fireEvent.click(sw);
+    await waitFor(() => expect(ws.updates).toHaveLength(1));
+    expect(ws.updates[0]).toEqual({ values: { show_doctor_earnings: true }, eq: ["doctor_id", "doctor-1"] });
+    await waitFor(() => expect(sw).toBeChecked());
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+  });
+
+  it("a failed first read is an error state, not OFF: the switch stays disabled", async () => {
+    asOwner(); multi(true);
+    ws.readError = { message: "boom" };
+    renderAccount();
+    expect(await screen.findByText(/couldn't load this setting/i)).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: /let each doctor see their own earnings/i })).toBeDisabled();
+  });
+
+  it("a write that changes no row is a failure: switch reverts and an error shows", async () => {
+    asOwner(); multi(true);
+    ws.written = [];
+    renderAccount();
+    const sw = await screen.findByRole("switch", { name: /let each doctor see their own earnings/i });
+    await waitFor(() => expect(sw).toBeEnabled());
+    fireEvent.click(sw);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not save. Please try again."));
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(sw).not.toBeChecked();
+  });
+
+  it("reverts and shows the owner-only message when the database refuses", async () => {
+    asOwner(); multi(true);
+    ws.next = { error: { message: "OWNER_ONLY: only the clinic owner can change show_doctor_earnings" } };
+    renderAccount();
+    const sw = await screen.findByRole("switch", { name: /let each doctor see their own earnings/i });
+    await waitFor(() => expect(sw).toBeEnabled());
+    fireEvent.click(sw);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Only the clinic owner can do this."));
+    expect(sw).not.toBeChecked();
   });
 });

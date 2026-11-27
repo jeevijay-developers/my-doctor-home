@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { usePractitioners } from "@/hooks/usePractitioners";
 import { FileText, Plus, Search, Pencil, Trash2, Eye, EyeOff, Sparkles, Loader2, Image as ImageIcon, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ type BlogPost = {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  practitioner_id?: string | null;
 };
 
 const categories = [
@@ -41,7 +43,8 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp
 const MAX_IMAGE_MB = 5;
 
 const BlogPage = () => {
-  const { profile, can } = useProfile();
+  const { profile, can, myPractitionerId } = useProfile();
+  const { isMulti, active: activeDoctors, practitioners: allDoctors } = usePractitioners();
   const { hasFeature, sourceOf, loading: featuresLoading } = useFeatureAccess();
   const isPremium = hasFeature(FEATURE_KEYS.AI_BLOG_WRITER);
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -57,6 +60,8 @@ const BlogPage = () => {
     title: "", excerpt: "", content: "", category: "", is_published: false,
     featured_image_url: "" as string | null,
     ai_assisted: false,
+    // Author: a practitioner id, or "" for the clinic. Only used by multi-doctor clinics.
+    practitioner_id: "",
   });
 
   const load = async () => {
@@ -73,7 +78,8 @@ const BlogPage = () => {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ title: "", excerpt: "", content: "", category: "", is_published: false, featured_image_url: "", ai_assisted: false });
+    const mine = myPractitionerId && activeDoctors.some((d) => d.id === myPractitionerId) ? myPractitionerId : "";
+    setForm({ title: "", excerpt: "", content: "", category: "", is_published: false, featured_image_url: "", ai_assisted: false, practitioner_id: isMulti ? mine : "" });
     setShowEditor(true);
   };
 
@@ -87,6 +93,7 @@ const BlogPage = () => {
       is_published: post.is_published,
       featured_image_url: post.featured_image_url || "",
       ai_assisted: Boolean((post as { ai_assisted?: boolean }).ai_assisted),
+      practitioner_id: post.practitioner_id ?? "",
     });
     setShowEditor(true);
   };
@@ -137,6 +144,8 @@ const BlogPage = () => {
       published_at: nextPublishedAt(editing, form.is_published),
       // Set when the AI Blog Writer drafted the post; the article then discloses it.
       ai_assisted: form.ai_assisted,
+      // Multi-doctor clinics only; a single-doctor payload never carries the key.
+      ...(isMulti ? { practitioner_id: form.practitioner_id || null } : {}),
     };
 
     const { error } = editing
@@ -177,6 +186,21 @@ const BlogPage = () => {
     load();
   };
 
+  // Author options: active doctors, plus the post's current author if they were deactivated since.
+  const authorOptions = (() => {
+    const list = [...activeDoctors];
+    const cur = form.practitioner_id;
+    if (cur && !list.some((d) => d.id === cur)) {
+      const gone = allDoctors.find((d) => d.id === cur);
+      if (gone) list.push(gone);
+    }
+    return list;
+  })();
+  const selectedAuthor = isMulti ? authorOptions.find((d) => d.id === form.practitioner_id) : undefined;
+  const author = selectedAuthor
+    ? { name: selectedAuthor.display_name, specialization: selectedAuthor.specialization }
+    : { name: profile?.full_name, specialization: profile?.specialization };
+
   const generateWithAI = async () => {
     if (!aiTopic.trim()) return;
     setAiLoading(true);
@@ -190,7 +214,7 @@ const BlogPage = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionData.session?.access_token}`,
         },
-        body: JSON.stringify({ topic: aiTopic, doctorName: profile?.full_name, specialization: profile?.specialization }),
+        body: JSON.stringify({ topic: aiTopic, doctorName: author.name, specialization: author.specialization }),
         signal: controller.signal,
       });
 
@@ -343,6 +367,21 @@ const BlogPage = () => {
             <DialogTitle>{editing ? "Edit Post" : "New Blog Post"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-5">
+            {isMulti && (
+              <div className="space-y-1.5">
+                <Label htmlFor="blog-author">Author</Label>
+                <select
+                  id="blog-author"
+                  value={form.practitioner_id}
+                  onChange={(e) => setForm({ ...form, practitioner_id: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Clinic</option>
+                  {authorOptions.map((d) => <option key={d.id} value={d.id}>{d.display_name}</option>)}
+                </select>
+              </div>
+            )}
+
             {/* AI Writer */}
             {isPremium ? (
               <div className="p-4 rounded-xl bg-ai-purple/5 border border-ai-purple/20 space-y-3">

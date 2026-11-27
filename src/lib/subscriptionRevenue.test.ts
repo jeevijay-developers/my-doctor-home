@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bucketPaymentStatus, computeRevenueTotals, computeEstimatedMRR } from "./subscriptionRevenue";
+import { bucketPaymentStatus, computeRevenueTotals, computeEstimatedMRR, paymentKindLabel, seatPeriodsMonthly } from "./subscriptionRevenue";
 
 describe("bucketPaymentStatus", () => {
   it("maps each raw payment_txn_status value to its UI bucket", () => {
@@ -79,5 +79,61 @@ describe("computeEstimatedMRR with custom plans and lapsed plans", () => {
   it("does not count a doctor whose paid period has already ended", () => {
     const profiles = [{ id: "d1", plan_status: "active", plan_tier: "pro", custom_plan_price: null, plan_end: "2026-05-01T00:00:00Z" }];
     expect(computeEstimatedMRR(profiles, undefined, new Map(), now)).toBe(0);
+  });
+});
+
+describe("paymentKindLabel", () => {
+  it("labels plan and seat payments", () => {
+    expect(paymentKindLabel(undefined, null)).toBe("Plan");
+    expect(paymentKindLabel("plan", null)).toBe("Plan");
+    expect(paymentKindLabel("plan", 2)).toBe("Plan + 2 seats");
+    expect(paymentKindLabel("plan", 1)).toBe("Plan + 1 seat");
+    expect(paymentKindLabel("seats", 3)).toBe("Doctor seats ×3");
+    expect(paymentKindLabel("seats", null)).toBe("Doctor seats");
+  });
+});
+
+describe("seat periods in estimated MRR", () => {
+  const now = new Date("2026-06-01T00:00:00Z");
+  const premium = [{ id: "d1", plan_status: "active", plan_tier: "premium", custom_plan_price: null, plan_end: null }];
+  const period = (over: Record<string, unknown> = {}) => ({
+    quantity: 2, starts_at: "2026-05-20T00:00:00Z", ends_at: "2026-06-20T00:00:00Z", plan_upgrade_payments: { unit_price: 500 }, ...over,
+  });
+
+  it("sums only periods active now, quantity x unit price", () => {
+    const periods = [
+      period(),
+      period({ starts_at: "2026-06-10T00:00:00Z" }), // future
+      period({ ends_at: "2026-05-30T00:00:00Z" }), // ended
+    ];
+    expect(seatPeriodsMonthly(periods, now)).toBe(1000);
+    expect(computeEstimatedMRR(premium, undefined, new Map(), now, periods)).toBe(3999 + 1000);
+  });
+
+  it("reads an embedded payment given as an array and ignores a missing price", () => {
+    expect(seatPeriodsMonthly([period({ plan_upgrade_payments: [{ unit_price: 300 }] }), period({ plan_upgrade_payments: null })], now)).toBe(600);
+  });
+
+  it("skips mock payments and an unknown (NULL) unit price", () => {
+    const periods = [
+      period({ plan_upgrade_payments: { unit_price: 500, is_mock: true } }),
+      period({ plan_upgrade_payments: { unit_price: null } }),
+      period(),
+    ];
+    expect(seatPeriodsMonthly(periods, now)).toBe(1000);
+  });
+
+  it("excludes needs_refund captured payments from the revenue totals", () => {
+    const at = new Date("2026-06-01T10:00:00Z");
+    const t = computeRevenueTotals([
+      { amount: 100, status: "captured", created_at: at.toISOString() },
+      { amount: 900, status: "captured", created_at: at.toISOString(), needs_refund: true },
+    ], at);
+    expect(t.today).toBe(100);
+  });
+
+  it("keeps today's MRR when no periods are given", () => {
+    expect(computeEstimatedMRR(premium, undefined, new Map(), now)).toBe(3999);
+    expect(computeEstimatedMRR(premium, undefined, new Map(), now, [])).toBe(3999);
   });
 });

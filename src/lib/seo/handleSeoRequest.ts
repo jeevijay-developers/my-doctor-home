@@ -237,7 +237,8 @@ async function practitionerPage(up: Upstream, template: string, origin: string, 
       title: meta.title,
       description: meta.description,
       canonical: meta.canonical,
-      robots: INDEXABLE,
+      // A doctor who opted out of the directory is still served, but not indexed.
+      robots: practitioner.directory_listed === false ? NOINDEX : INDEXABLE,
       ogType: "profile",
       image: meta.image,
       preconnect: up.origin ? [up.origin] : [],
@@ -273,7 +274,26 @@ async function blogPage(up: Upstream, template: string, origin: string, slug: st
       headers: { Location: `${origin}${blogPostPath(doctor.slug, post)}`, "Cache-Control": "public, max-age=0, s-maxage=3600" },
     });
   }
-  return htmlResponse(renderPage(template, buildBlogPostHead({ origin, doctor, post })), 200, SITE_CACHE);
+
+  // Doctor-aware byline: only for a post that names a doctor, best-effort (failure = clinic author as before).
+  let byline: { practitioner: PractitionerSeo; clinicTeamSize: number } | null = null;
+  let lookupFailed = false;
+  if (post.practitioner_id) {
+    try {
+      const team = activePractitioners(await up.rpc("get_public_practitioners", { _doctor_id: doctor.id }));
+      const author = team.find((p) => p.id === post.practitioner_id);
+      if (author && author.directory_listed !== false) byline = { practitioner: author, clinicTeamSize: team.length };
+    } catch {
+      byline = null;
+      lookupFailed = true;
+    }
+  }
+  return htmlResponse(
+    renderPage(template, buildBlogPostHead({ origin, doctor, post, ...(byline ?? {}) })),
+    200,
+    // A failed lookup means the clinic is shown as author by mistake: do not let that sit in the CDN for hours.
+    lookupFailed ? "public, max-age=0, s-maxage=60, stale-while-revalidate=300" : SITE_CACHE,
+  );
 }
 
 async function articlesPage(up: Upstream, template: string, origin: string, categorySlug: string | undefined, page: number, searching = false): Promise<Response> {

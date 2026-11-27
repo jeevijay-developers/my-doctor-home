@@ -188,6 +188,17 @@ describe("BookingWidget (multi-doctor clinic, pay at clinic)", () => {
     expect(h.toastError).not.toHaveBeenCalledWith("Booking failed. Please try again.");
     expect(await screen.findByRole("radiogroup", { name: "Doctor" })).toBeInTheDocument(); // back to choose another
   });
+
+  it("SERVICE_NOT_OFFERED from the database shows the service message", async () => {
+    mock.current.tables.appointments = { data: null, error: { message: "P0001: SERVICE_NOT_OFFERED" } };
+    render(<BookingWidget />);
+    await chooseDoctor(/Vikram Shah/);
+    await gotoDetails("03:00 PM");
+    fillDetails();
+    fireEvent.click(screen.getByRole("button", { name: /Confirm booking/ }));
+    await waitFor(() => expect(h.toastError).toHaveBeenCalledWith("This doctor doesn't offer that service. Please choose another service or doctor."));
+    expect(h.toastError).not.toHaveBeenCalledWith("Booking failed. Please try again.");
+  });
 });
 
 describe("BookingWidget (multi-doctor clinic, online payment)", () => {
@@ -238,6 +249,18 @@ describe("BookingWidget (multi-doctor clinic, online payment)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Pay Now" }));
     await waitFor(() =>
       expect(h.toastError).toHaveBeenCalledWith("Booking not completed", { description: "This doctor is not taking bookings right now." }));
+    expect(rz.opened).toBe(0);
+  });
+
+  it("INVALID_SERVICE from the order shows the service message", async () => {
+    mock.current.invoke.mockImplementation(async () => ({
+      data: null, error: { context: { status: 400, json: async () => ({ error: "INVALID_SERVICE" }) } },
+    }));
+    render(<BookingWidget />);
+    await gotoReview();
+    fireEvent.click(screen.getByRole("button", { name: "Pay Now" }));
+    await waitFor(() =>
+      expect(h.toastError).toHaveBeenCalledWith("Booking not completed", { description: "This doctor doesn't offer that service. Please choose another service or doctor." }));
     expect(rz.opened).toBe(0);
   });
 

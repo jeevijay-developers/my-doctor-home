@@ -26,6 +26,10 @@ import LockedFeatureCard from "../LockedFeatureCard";
 import DoctorFormDialog from "./DoctorFormDialog";
 import DoctorHoursEditor from "./DoctorHoursEditor";
 import DeactivateDoctorDialog from "./DeactivateDoctorDialog";
+import BuyDoctorSeatsDialog from "./BuyDoctorSeatsDialog";
+import { formatIstDate } from "@/lib/istDate";
+
+const SEATS_ENDING_SOON_MS = 7 * 24 * 60 * 60 * 1000;
 
 type DoctorLogin = { id: string; practitioner_id: string | null; staff_name: string; status: string };
 type RpcResult = { ok?: boolean; error?: string } | null;
@@ -56,6 +60,7 @@ const DoctorsPage = () => {
   const [loginFor, setLoginFor] = useState<Practitioner | null>(null);
   const [removingLogin, setRemovingLogin] = useState<{ doctor: Practitioner; login: DoctorLogin } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [seatsOpen, setSeatsOpen] = useState(false);
 
   // Doctor logins are staff_members rows with role 'doctor'. RLS decides who may read them;
   // anyone who can't simply sees no "Has login" badges.
@@ -145,6 +150,13 @@ const DoctorsPage = () => {
       </div>
     );
   }
+
+  // Seat purchase UI exists only while a seat price is set AND the server says this clinic may buy.
+  const sellsSeats = access?.seat_price != null;
+  const canBuySeats = sellsSeats && !!access?.can_buy_seats && (isOwner || can("billing.manage"));
+  const purchased = sellsSeats ? access?.purchased_seats ?? 0 : 0;
+  const seatsEnd = sellsSeats && purchased > 0 && access?.seats_valid_until ? new Date(access.seats_valid_until) : null;
+  const seatsEndingSoon = !!seatsEnd && seatsEnd.getTime() > Date.now() && seatsEnd.getTime() - Date.now() <= SEATS_ENDING_SOON_MS;
 
   const clinicFee = profile?.consultation_fee ?? null;
   const feeText = (p: Practitioner) =>
@@ -256,15 +268,30 @@ const DoctorsPage = () => {
             {access && (
               <>Doctor seats used: <span className="font-semibold text-foreground">{access.seats_used} / {access.seat_limit}</span>{" · "}</>
             )}
-            Need more seats? <Link to="/admin/support" className="text-royal font-medium hover:underline">Contact support</Link>
+            {purchased > 0 && seatsEnd && <>{purchased} bought, valid until {formatIstDate(seatsEnd)}{" · "}</>}
+            {!sellsSeats && <>Need more seats? <Link to="/admin/support" className="text-royal font-medium hover:underline">Contact support</Link></>}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {canBuySeats && (
+          <Button variant="outline" onClick={() => setSeatsOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Add seats
+          </Button>
+        )}
         {canManage && (
           <Button className="bg-royal hover:bg-royal/90" disabled={!canAdd} title={!canAdd ? addBlockedReason : undefined} onClick={() => { setEditing(null); setFormOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" /> Add doctor
           </Button>
         )}
+        </div>
       </div>
+
+      {seatsEndingSoon && seatsEnd && (
+        <div role="status" className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-warning" aria-hidden="true" />
+          <p>Your extra seats end on {formatIstDate(seatsEnd)}. Renew your plan with seats to keep them.</p>
+        </div>
+      )}
 
       {!canAdd && (
         <div role="alert" className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
@@ -351,6 +378,7 @@ const DoctorsPage = () => {
           <DeactivateDoctorDialog practitioner={deactivating} clinicId={clinicId} onClose={() => setDeactivating(null)} onDone={refetch} />
         </>
       )}
+      {(canBuySeats || seatsOpen) && <BuyDoctorSeatsDialog open={seatsOpen} onOpenChange={setSeatsOpen} />}
       <DoctorLoginDialog doctor={loginFor} onClose={() => setLoginFor(null)} onCreated={loadLogins} />
 
       <AlertDialog open={!!removingLogin} onOpenChange={(o) => !o && setRemovingLogin(null)}>

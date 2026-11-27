@@ -41,8 +41,9 @@ const formatDate = (d?: string | null) => {
   return Number.isNaN(date.getTime()) ? null : format(date, "MMM d, yyyy");
 };
 
-const authorOf = (a: HubArticle) => ({
-  name: formatDoctorName(a.doctor_name ?? ""),
+// search_blog_posts sets `practitioner_name` only for an active, listed author at a clinic with 2+ doctors.
+const authorOf = (a: HubArticle & { practitioner_name?: string | null }) => ({
+  name: formatDoctorName(a.practitioner_name || a.doctor_name || ""),
   where: [a.doctor_specialization, a.doctor_city].filter(Boolean).join(" · "),
 });
 

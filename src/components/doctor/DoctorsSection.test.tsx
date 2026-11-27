@@ -87,4 +87,20 @@ describe("DoctorsSection", () => {
     expect(filter.getByRole("button", { name: "Cardiologist" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
+
+  it("shows a doctor's own rating only when they have reviews", () => {
+    mockData({ practitioners: [{ ...DR_A, review_count: 12, avg_rating: 4.64 }, { ...DR_B, review_count: 0, avg_rating: null }] });
+    render(<DoctorsSection />);
+    const cards = screen.getAllByRole("listitem");
+    expect(within(cards[0]).getByText("★ 4.6")).toBeInTheDocument();
+    expect(within(cards[0]).getByText("12 reviews")).toBeInTheDocument();
+    expect(within(cards[1]).queryByText(/★/)).not.toBeInTheDocument();
+    expect(within(cards[1]).queryByText(/review/i)).not.toBeInTheDocument();
+  });
+
+  it("says '1 review' in the singular", () => {
+    mockData({ practitioners: [{ ...DR_A, review_count: 1, avg_rating: 5 }, DR_B] });
+    render(<DoctorsSection />);
+    expect(screen.getByText("1 review")).toBeInTheDocument();
+  });
 });

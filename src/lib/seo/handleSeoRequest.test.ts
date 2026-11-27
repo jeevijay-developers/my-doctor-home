@@ -406,3 +406,58 @@ describe("handleSeoRequest - practitioner", () => {
     expect(failed).not.toContain("MedicalClinic");
   });
 });
+
+describe("handleSeoRequest - P3 doctor-aware content", () => {
+  const profile = { id: "d1", slug: "dr-a", full_name: "A Sharma", specialization: "ENT", city: "Kota", clinic_name: "Sharma Clinic", plan_status: "active" };
+  const team = [
+    { id: "p1", slug: "a-sharma", display_name: "A Sharma", specialization: "ENT", is_primary: true, is_active: true, directory_listed: true, review_count: 0, avg_rating: null },
+    { id: "p2", slug: "ravi-kumar", display_name: "Ravi Kumar", specialization: "Orthodontist", is_primary: false, is_active: true, directory_listed: true, review_count: 3, avg_rating: 4.66 },
+  ];
+  const post = { id: "11111111-1111-1111-1111-111111111111", slug: "braces", title: "Braces", content: "Wear them.", is_published: true, practitioner_id: "p2" };
+  const run = async (qs: string, routes: Record<string, Route>) => (await fresh())(req(qs), env, fakeFetch(routes));
+
+  it("practitioner page carries that doctor's aggregateRating", async () => {
+    const html = await (await run("kind=practitioner&slug=dr-a&doctor=ravi-kumar", { "/profiles": () => [profile], "/get_public_practitioners": () => team })).text();
+    expect(html).toContain('"ratingValue":"4.7"');
+    expect(html).toContain('"reviewCount":"3"');
+  });
+
+  it("practitioner page is noindex (still 200) when not directory_listed, indexable otherwise", async () => {
+    const hidden = team.map((p) => (p.id === "p2" ? { ...p, directory_listed: false } : p));
+    const res = await run("kind=practitioner&slug=dr-a&doctor=ravi-kumar", { "/profiles": () => [profile], "/get_public_practitioners": () => hidden });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('<meta name="robots" content="noindex, follow"');
+    const ok = await (await run("kind=practitioner&slug=dr-a&doctor=ravi-kumar", { "/profiles": () => [profile], "/get_public_practitioners": () => team })).text();
+    expect(ok).toContain('<meta name="robots" content="index, follow');
+  });
+
+  it("blog post by a practitioner in a 2+ doctor clinic is authored by that doctor", async () => {
+    const html = await (await run("kind=post&slug=dr-a&post=braces", { "/profiles": () => [profile], "/blog_posts": () => [post], "/get_public_practitioners": () => team })).text();
+    expect(html).toContain('"author":{"@type":"Person","name":"Ravi Kumar","honorificPrefix":"Dr."');
+    expect(html).toContain("/dr/dr-a/doctor/ravi-kumar");
+  });
+
+  it("serves a short cache when the practitioner lookup fails, the long cache otherwise", async () => {
+    const handler = await fresh();
+    const mk = (pract: () => unknown) => fakeFetch({ "/profiles": () => [profile], "/blog_posts": () => [post], "/get_public_practitioners": pract });
+    const failed = await handler(req("kind=post&slug=dr-a&post=braces"), env, mk(() => new Response("x", { status: 500 })));
+    expect(failed.status).toBe(200);
+    expect(failed.headers.get("Cache-Control")).toBe("public, max-age=0, s-maxage=60, stale-while-revalidate=300");
+    const ok = await handler(req("kind=post&slug=dr-a&post=braces"), env, mk(() => team));
+    expect(ok.headers.get("Cache-Control")).toContain("s-maxage=3600");
+    const noDoctor = await handler(req("kind=post&slug=dr-a&post=braces"), env, fakeFetch({ "/profiles": () => [profile], "/blog_posts": () => [{ ...post, practitioner_id: null }] }));
+    expect(noDoctor.headers.get("Cache-Control")).toContain("s-maxage=3600");
+  });
+
+  it("falls back to the clinic author when the fetch fails, the post has no doctor, or the clinic is single-doctor", async () => {
+    const clinicAuthor = '"author":{"@type":"Person","name":"A Sharma"';
+    const failed = await (await run("kind=post&slug=dr-a&post=braces", { "/profiles": () => [profile], "/blog_posts": () => [post], "/get_public_practitioners": () => new Response("x", { status: 500 }) })).text();
+    expect(failed).toContain(clinicAuthor);
+    const calls: string[] = [];
+    const none = await (await run("kind=post&slug=dr-a&post=braces", { "/profiles": () => [profile], "/blog_posts": () => [{ ...post, practitioner_id: null }], "/get_public_practitioners": (u) => { calls.push(u.pathname); return team; } })).text();
+    expect(none).toContain(clinicAuthor);
+    expect(calls).toEqual([]);
+    const solo = await (await run("kind=post&slug=dr-a&post=braces", { "/profiles": () => [profile], "/blog_posts": () => [post], "/get_public_practitioners": () => [team[1]] })).text();
+    expect(solo).toContain(clinicAuthor);
+  });
+});

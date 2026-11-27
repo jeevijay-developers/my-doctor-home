@@ -25,12 +25,23 @@ import { DEFAULT_QUICK_STATS, AVAILABLE_STAT_ICONS, QuickStatItem } from "@/lib/
 import { buildDoctorMeta } from "@/lib/seo/doctorSeo";
 import { SLOT_DURATION_OPTIONS, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
 import { PREVIEW_SETTINGS_MESSAGE, withoutPlatformDefaults } from "@/lib/doctorSite/heroSettings";
+import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 
-type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number };
+// `offeredBy` (multi-doctor clinics only): the doctors this service is limited to; [] = every doctor,
+// undefined = not loaded (never written back).
+type Service = { id?: string; name: string; description: string; price: number; type: string; duration: number; active: boolean; sort_order: number; offeredBy?: string[] };
 
 type WorkingHour = { id?: string; day_of_week: number; is_open: boolean; start_time: string | null; end_time: string | null; start_time_2: string | null; end_time_2: string | null };
-type Review = { id: string; patient_name: string; rating: number; review_text: string | null; is_visible: boolean; is_pinned: boolean; created_at: string };
+type Review = { id: string; patient_name: string; rating: number; review_text: string | null; is_visible: boolean; is_pinned: boolean; created_at: string; practitioner_id?: string | null };
 type WebSettings = Record<string, any>;
+
+const drName = (name: string) => `Dr. ${name.replace(/^dr\.?\s+/i, "")}`;
+const idsKey = (ids: string[]) => [...ids].sort().join(",");
+const SERVICE_MAPPING_ERRORS: Record<string, string> = {
+  FORBIDDEN: "You don't have permission to change which doctors offer a service.",
+  NOT_FOUND: "That service could not be found. Refresh and try again.",
+  INVALID_PRACTITIONER: "One of the chosen doctors is not active in this clinic.",
+};
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -43,7 +54,14 @@ const MyWebsite = () => {
   // in a multi-doctor clinic each doctor's hours live on the Doctors page instead.
   // Until the main doctor is known, hours load by clinic as they always did (in a
   // single-doctor clinic those are the same rows), so the grid never shows up empty.
-  const { primary, isMulti } = usePractitioners();
+  const { primary, isMulti, practitioners: allDoctors, active: activeDoctors } = usePractitioners();
+  const activeList = activeDoctors ?? [];
+  const isMultiRef = useRef(isMulti);
+  isMultiRef.current = isMulti;
+  // Saved "Offered by" per service id (as loaded / last saved), so only real changes are written.
+  const savedOfferedRef = useRef<Record<string, string>>({});
+  const mappingsLoadedRef = useRef(false);
+  const [reviewDoctor, setReviewDoctor] = useState("all");
   const primaryId = primary?.id ?? null;
   const primaryIdRef = useRef(primaryId);
   primaryIdRef.current = primaryId;
@@ -86,13 +104,25 @@ const MyWebsite = () => {
     return q.order("day_of_week");
   }, []);
 
+  const offeredMap = (rows: { service_id: string; practitioner_id: string }[]) => {
+    const m: Record<string, string[]> = {};
+    for (const row of rows) (m[row.service_id] ??= []).push(row.practitioner_id);
+    return m;
+  };
+  const recordSaved = (m: Record<string, string[]>) => {
+    // A service absent from the map is "all doctors" (empty key).
+    savedOfferedRef.current = Object.fromEntries(Object.entries(m).map(([id, ids]) => [id, idsKey(ids)]));
+  };
+
   const load = useCallback(async () => {
     if (!profile) return;
-    const [settingsRes, servicesRes, hoursRes, reviewsRes] = await Promise.all([
+    const multiNow = isMultiRef.current;
+    const [settingsRes, servicesRes, hoursRes, reviewsRes, mappingRes] = await Promise.all([
       supabase.from("website_settings").select("*").eq("doctor_id", profile.id).single(),
       supabase.from("services").select("*").eq("doctor_id", profile.id).order("sort_order"),
       fetchHours(profile.id),
       supabase.from("reviews").select("*").eq("doctor_id", profile.id).order("created_at", { ascending: false }),
+      multiNow ? supabase.from("service_practitioners").select("service_id, practitioner_id").eq("doctor_id", profile.id) : Promise.resolve(null),
     ]);
     if (settingsRes.data) {
       let parsedStats = null;
@@ -118,7 +148,12 @@ const MyWebsite = () => {
         quick_stats: parsedStats || DEFAULT_QUICK_STATS,
       }));
     }
-    setServices((servicesRes.data || []).map((s: any) => ({ ...s, description: s.description || "" })));
+    const mapping = mappingRes && !mappingRes.error ? offeredMap((mappingRes.data || []) as any[]) : null;
+    if (mapping) { mappingsLoadedRef.current = true; recordSaved(mapping); }
+    setServices((servicesRes.data || []).map((s: any) => ({
+      ...s, description: s.description || "",
+      ...(mapping ? { offeredBy: mapping[s.id] ?? [] } : {}),
+    })));
     setWorkingHours((hoursRes.data || []) as WorkingHour[]);
     setReviews((reviewsRes.data || []) as Review[]);
   }, [profile, fetchHours]);
@@ -139,6 +174,24 @@ const MyWebsite = () => {
     return () => { cancelled = true; };
   }, [profile, primaryId, isMulti, fetchHours]);
 
+  // The doctor list arrived after the page loaded: fetch the service mappings once and fill them in.
+  useEffect(() => {
+    if (!profile || !isMulti || mappingsLoadedRef.current) return;
+    let cancelled = false;
+    (async () => {
+      const res = await supabase.from("service_practitioners").select("service_id, practitioner_id").eq("doctor_id", profile.id);
+      if (cancelled || res.error) return;
+      const m = offeredMap((res.data || []) as any[]);
+      mappingsLoadedRef.current = true;
+      recordSaved(m);
+      setServices((prev) => prev.map((s) => (s.offeredBy === undefined ? { ...s, offeredBy: s.id ? m[s.id] ?? [] : [] } : s)));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, isMulti]);
+
+  const lastFailureRef = useRef("");
+
   const saveAllRef = useCallback(() => {
     if (profile && settings.id) saveAll(true);
   }, [profile, settings, services, workingHours, isMulti]);
@@ -147,6 +200,26 @@ const MyWebsite = () => {
     const interval = setInterval(saveAllRef, 30000);
     return () => clearInterval(interval);
   }, [saveAllRef]);
+
+  // Writes "Offered by" through the RPC, only when it differs from what was loaded or last saved.
+  // Returns the reason it failed, or null when saved (or nothing to save).
+  const saveOfferedBy = async (s: Service, serviceId: string | undefined): Promise<string | null> => {
+    if (!serviceId || !s.offeredBy) return null;
+    const key = idsKey(s.offeredBy);
+    if ((savedOfferedRef.current[serviceId] ?? "") === key) return null;
+    const active = activeList.map((d) => d.id);
+    const chosen = s.offeredBy.filter((id) => active.includes(id));
+    // Every active doctor selected is the same as "all doctors", which also covers doctors added later.
+    const payload = chosen.length === active.length ? [] : chosen;
+    const { data, error } = await supabase.rpc("set_service_practitioners" as any, { _service_id: serviceId, _practitioner_ids: payload } as any);
+    const res = data as { ok?: boolean; error?: string } | null;
+    if (error || !res?.ok) {
+      const code = res?.error ?? error?.message;
+      return (code && (SERVICE_MAPPING_ERRORS[code] ?? practitionerErrorMessage(code))) || "Please try again.";
+    }
+    savedOfferedRef.current[serviceId] = key;
+    return null;
+  };
 
   const saveAll = async (silent = false) => {
     if (!profile || !canEditWebsite) return;
@@ -180,13 +253,48 @@ const MyWebsite = () => {
     const { error: settingsError } = await supabase.from("website_settings").update(settingsData as any).eq("doctor_id", profile.id);
     if (settingsError) { toast({ title: "Save failed", description: settingsError.message, variant: "destructive" }); return; }
 
-    for (const s of services) {
+    // Every write below is checked. Anything that fails is reported once, the unsaved rows stay as the
+    // owner left them, and the reload is skipped so a restriction or new service is never silently reverted.
+    const failures: { what: string; detail: string }[] = [];
+    const insertedIds = new Map<number, string>();
+    for (const [idx, s] of services.entries()) {
+      const label = s.name?.trim() || "a service";
+      let newServiceId: string | undefined;
       if (s.id) {
-        await supabase.from("services").update({ name: s.name, description: s.description, price: s.price, type: s.type, duration: s.duration, active: s.active, sort_order: s.sort_order }).eq("id", s.id);
+        const { error } = await supabase.from("services").update({ name: s.name, description: s.description, price: s.price, type: s.type, duration: s.duration, active: s.active, sort_order: s.sort_order }).eq("id", s.id);
+        if (error) { failures.push({ what: `"${label}"`, detail: error.message || "Please try again." }); continue; }
       } else {
-        await supabase.from("services").insert({ doctor_id: profile.id, name: s.name, description: s.description, price: s.price, type: s.type, duration: s.duration, active: s.active, sort_order: s.sort_order });
+        const row = { doctor_id: profile.id, name: s.name, description: s.description, price: s.price, type: s.type, duration: s.duration, active: s.active, sort_order: s.sort_order };
+        if (isMulti) {
+          // A multi-doctor clinic needs the new id to save which doctors offer the service.
+          const ins: any = await supabase.from("services").insert(row).select("id").single();
+          if (ins?.error || !ins?.data?.id) { failures.push({ what: `"${label}"`, detail: ins?.error?.message || "Please try again." }); continue; }
+          newServiceId = ins.data.id;
+          insertedIds.set(idx, ins.data.id);
+        } else {
+          const { error } = await supabase.from("services").insert(row);
+          if (error) { failures.push({ what: `"${label}"`, detail: error.message || "Please try again." }); continue; }
+        }
+      }
+      if (isMulti && s.offeredBy) {
+        const mappingError = await saveOfferedBy(s, s.id ?? newServiceId);
+        if (mappingError) failures.push({ what: `which doctors offer "${label}"`, detail: mappingError });
       }
     }
+    if (insertedIds.size) {
+      // Remember the ids of services that were created, so the next save updates them instead of adding copies.
+      setServices((prev) => prev.map((row, i) => (!row.id && insertedIds.has(i) ? { ...row, id: insertedIds.get(i) } : row)));
+    }
+    if (failures.length) {
+      const detail = Array.from(new Set(failures.map((f) => f.detail))).join(" ");
+      const text = `${failures.map((f) => f.what).join(", ")}|${detail}`;
+      if (!silent || text !== lastFailureRef.current) {
+        toast({ title: `Could not save ${failures.map((f) => f.what).join(", ")}`, description: detail, variant: "destructive" });
+      }
+      lastFailureRef.current = text;
+      return;
+    }
+    lastFailureRef.current = "";
 
     // In a multi-doctor clinic the grid is hidden and hours are edited on the Doctors
     // page; writing these (possibly stale) rows back on autosave would undo those edits.
@@ -240,7 +348,7 @@ const MyWebsite = () => {
 
   const addService = () => {
     if (!canEditWebsite) return;
-    setServices([...services, { name: "", description: "", price: 500, type: "clinic", duration: 30, active: true, sort_order: services.length }]);
+    setServices([...services, { name: "", description: "", price: 500, type: "clinic", duration: 30, active: true, sort_order: services.length, ...(isMulti ? { offeredBy: [] } : {}) }]);
   };
   const removeService = async (idx: number) => {
     if (!canEditWebsite) return;
@@ -687,6 +795,41 @@ const MyWebsite = () => {
                     </div>
                     <Input placeholder="Service name" value={s.name} onChange={(e) => updateService(i, "name", e.target.value)} />
                     <Input placeholder="Description" value={s.description} onChange={(e) => updateService(i, "description", e.target.value)} />
+                    {isMulti && s.offeredBy && (
+                      <div role="group" aria-label="Offered by" className="space-y-1">
+                        <Label className="text-xs">Offered by</Label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(() => {
+                            const chip = "rounded-full border px-3 py-1 text-xs transition-colors disabled:opacity-60";
+                            const on = "border-primary bg-primary text-primary-foreground";
+                            const off = "border-input bg-background text-foreground hover:bg-accent";
+                            const picked = s.offeredBy.filter((id) => activeList.some((d) => d.id === id));
+                            // Mapped, but only to doctors who are no longer active: not the same as "all doctors".
+                            const onlyInactive = s.offeredBy.length > 0 && picked.length === 0;
+                            return (
+                              <>
+                                <button type="button" aria-pressed={picked.length === 0 && !onlyInactive} disabled={!canEditWebsite}
+                                  className={`${chip} ${picked.length === 0 && !onlyInactive ? on : off}`}
+                                  onClick={() => updateService(i, "offeredBy", [])}>All doctors</button>
+                                {activeList.map((d) => {
+                                  const sel = picked.includes(d.id);
+                                  return (
+                                    <button key={d.id} type="button" aria-pressed={sel} disabled={!canEditWebsite}
+                                      className={`${chip} ${sel ? on : off}`}
+                                      onClick={() => updateService(i, "offeredBy", sel ? picked.filter((x) => x !== d.id) : [...picked, d.id])}>
+                                      {d.display_name}
+                                    </button>
+                                  );
+                                })}
+                              </>
+                            );
+                          })()}
+                        </div>
+                        {s.offeredBy.length > 0 && !s.offeredBy.some((id) => activeList.some((d) => d.id === id)) && (
+                          <p role="alert" className="text-xs text-warning">Only offered by doctors who are no longer active — patients can't book it.</p>
+                        )}
+                      </div>
+                    )}
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <Label className="text-xs">Type</Label>
@@ -924,13 +1067,29 @@ const MyWebsite = () => {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
+                {isMulti && reviews.length > 0 && (
+                  <div>
+                    <Label htmlFor="review-doctor-filter" className="text-xs">Doctor</Label>
+                    <select id="review-doctor-filter" aria-label="Filter reviews by doctor" value={reviewDoctor}
+                      onChange={(e) => setReviewDoctor(e.target.value)}
+                      className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm">
+                      <option value="all">All doctors</option>
+                      {(allDoctors ?? []).map((d) => <option key={d.id} value={d.id}>{drName(d.display_name)}</option>)}
+                    </select>
+                  </div>
+                )}
                 {reviews.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No reviews yet. Reviews will appear here once patients submit them.</p>
-                ) : reviews.map((r) => (
+                ) : reviews.filter((r) => !isMulti || reviewDoctor === "all" || r.practitioner_id === reviewDoctor).map((r) => (
                   <div key={r.id} className={`p-3 rounded-lg space-y-2 ${r.is_visible ? "bg-secondary" : "bg-destructive/5 border border-destructive/20"}`}>
                     <div className="flex items-start justify-between gap-2 flex-wrap sm:flex-nowrap">
                       <div className="min-w-0 flex-1">
                         <span className="text-sm font-medium text-primary block break-words">{r.patient_name}</span>
+                        {isMulti && r.practitioner_id && (allDoctors ?? []).find((d) => d.id === r.practitioner_id) && (
+                          <span className="mt-0.5 inline-block rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+                            {drName((allDoctors ?? []).find((d) => d.id === r.practitioner_id)!.display_name)}
+                          </span>
+                        )}
                         <div className="flex items-center gap-0.5 mt-0.5">
                           {[...Array(r.rating)].map((_, i) => <Star key={i} size={12} className="text-warning fill-warning" />)}
                         </div>

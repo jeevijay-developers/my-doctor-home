@@ -13,6 +13,8 @@ import { addHeadingIds } from "@/lib/articleToc";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { UUID_RE, blogPostPath, buildBlogPostJsonLd, buildBlogPostMeta } from "@/lib/seo/blogSeo";
 import { markdownToHtml } from "@/lib/markdown";
+import { useClinicTeam } from "@/hooks/useClinicTeam";
+import { authorDisplayName, authorHref, resolveBlogAuthor } from "@/lib/blogAuthor";
 import type { Tables } from "@/integrations/supabase/types";
 
 type BlogPost = Tables<"blog_posts">;
@@ -180,10 +182,31 @@ const BlogPostPage = () => {
   // Headings get ids after sanitising so the contents list can link to every section.
   const { html: contentHtml, headings } = useMemo(() => addHeadingIds(sanitizedContent), [sanitizedContent]);
 
+  // Per-doctor byline: only for a post that names a doctor, at a clinic with 2+ active doctors.
+  // The team is fetched lazily and best-effort; any failure keeps the clinic byline.
+  const postPractitionerId = (post as { practitioner_id?: string | null } | null)?.practitioner_id ?? null;
+  const team = useClinicTeam(doctor?.id, !!postPractitionerId);
+  const author = useMemo(() => (post ? resolveBlogAuthor({ practitioner_id: postPractitionerId }, team) : null), [post, postPractitionerId, team]);
+
   const structuredData = useMemo(() => {
     if (!post || !doctor) return null;
-    return buildBlogPostJsonLd({ origin: window.location.origin, doctor, post });
-  }, [post, doctor]);
+    return buildBlogPostJsonLd({
+      origin: window.location.origin,
+      doctor,
+      post,
+      ...(author
+        ? {
+            practitioner: {
+              display_name: author.practitioner.display_name,
+              slug: author.practitioner.slug,
+              specialization: author.practitioner.specialization,
+              photo_url: author.practitioner.photo_url,
+            },
+            clinicTeamSize: author.clinicTeamSize,
+          }
+        : {}),
+    });
+  }, [post, doctor, author]);
 
   // "More from this doctor" is a nicety: any failure just hides the row.
   useEffect(() => {
@@ -261,6 +284,9 @@ const BlogPostPage = () => {
     [doctor.specialization, (doctor as { qualifications?: string | null }).qualifications].filter(Boolean).join(" · ") ||
     "Medical professional";
   const publishedDate = post.published_at || post.created_at;
+  const authorName = author ? authorDisplayName(author.practitioner.display_name) : null;
+  const authorLink = author ? authorHref(slug!, author.practitioner) : null;
+  const bylineCredentials = author?.practitioner.specialization || credentials;
   const bookingHref = `/dr/${slug}#booking`;
 
   const bookingCard = (
@@ -334,10 +360,20 @@ const BlogPostPage = () => {
             <div className="mt-6 flex min-w-0 items-center gap-3">
               <Avatar doctor={doctor} name={doctorName} size={44} />
               <div className="min-w-0">
-                <Link to={`/dr/${slug}`} className="block hover:underline">
-                  <p className="truncate text-sm font-bold text-navy">Written by {doctorName}</p>
-                </Link>
-                <p className="truncate text-xs text-muted-foreground">{credentials}</p>
+                {authorName ? (
+                  authorLink ? (
+                    <Link to={authorLink} className="block hover:underline">
+                      <p className="truncate text-sm font-bold text-navy">By {authorName}</p>
+                    </Link>
+                  ) : (
+                    <p className="truncate text-sm font-bold text-navy">By {authorName}</p>
+                  )
+                ) : (
+                  <Link to={`/dr/${slug}`} className="block hover:underline">
+                    <p className="truncate text-sm font-bold text-navy">Written by {doctorName}</p>
+                  </Link>
+                )}
+                <p className="truncate text-xs text-muted-foreground">{bylineCredentials}</p>
                 <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{format(new Date(publishedDate), "d MMMM yyyy")}</span>
                   <span aria-hidden="true">•</span>
@@ -378,7 +414,7 @@ const BlogPostPage = () => {
                 {(post as { ai_assisted?: boolean | null }).ai_assisted && (
                   <p className="flex items-start gap-2 rounded-xl bg-secondary px-4 py-3 text-xs leading-5 text-muted-foreground">
                     <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                    <span>Drafted with AI assistance, reviewed and published by {doctorName}.</span>
+                    <span>Drafted with AI assistance, reviewed and published by {authorName ?? doctorName}.</span>
                   </p>
                 )}
                 <p className="flex items-start gap-2 rounded-xl border border-border px-4 py-3 text-xs leading-5 text-muted-foreground">

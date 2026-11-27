@@ -52,6 +52,17 @@ describe("DoctorDirectory", () => {
     expect(screen.getByRole("button", { name: "Show more doctors" })).toBeInTheDocument();
   });
 
+  it("links a polyclinic doctor row to that doctor's own page", async () => {
+    rpc.mockImplementation(async (fn: string) =>
+      fn === "search_doctors"
+        ? { data: [doc(1, { id: "prac-1", practitioner_slug: "ravi-kumar", full_name: "Ravi Kumar" }), doc(2, { total_count: 2 })], error: null }
+        : { data: [], error: null },
+    );
+    renderAt("/doctors/kota");
+    expect(await screen.findByRole("link", { name: /Dr\. Ravi Kumar/ })).toHaveAttribute("href", "/dr/doc-1/doctor/ravi-kumar");
+    expect(screen.getByRole("link", { name: /Dr\. Asha 2/ })).toHaveAttribute("href", "/dr/doc-2");
+  });
+
   it("noindexes free-text searches and passes the query through", async () => {
     rpc.mockResolvedValue({ data: [doc(1, { total_count: 1 })], error: null });
     renderAt("/doctors?q=asha");
