@@ -3,6 +3,7 @@
 // path and the worker's in-process path). Kept as a fully separate function
 // rather than a shared handler so each channel's future live-provider
 // wiring stays independently deployable.
+import { resolveReminderDoctorName } from "../_shared/checkupDoctor.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { enforceRateLimit } from "../_shared/rateLimit.ts";
 import { sendSms, beginNotificationRequest, json } from "../_shared/notificationProviders.ts";
@@ -60,7 +61,7 @@ Deno.serve(async (req) => {
     : "your next visit";
   // Templates only: caller-supplied free text is never forwarded to a patient's phone.
   const message = renderTemplate(SMS_CHECKUP_TEMPLATE, {
-    patient_name: patient.name, doctor_name: doctor?.full_name || "your doctor", checkup_date: checkupDate,
+    patient_name: patient.name, doctor_name: (await resolveReminderDoctorName(admin, patient.doctor_id, patient.id, doctor?.full_name)) || "your doctor", checkup_date: checkupDate,
   });
 
   const { data: log, error: insertErr } = await admin.from("notification_logs").insert({

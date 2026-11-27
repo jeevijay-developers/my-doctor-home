@@ -5,6 +5,7 @@
 // in-process (see _shared/notificationProviders.ts) rather than making an
 // HTTP hop to this function, but both paths produce identical
 // notification_logs rows either way.
+import { resolveReminderDoctorName } from "../_shared/checkupDoctor.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { enforceRateLimit } from "../_shared/rateLimit.ts";
 import { sendWhatsApp, beginNotificationRequest, json } from "../_shared/notificationProviders.ts";
@@ -62,7 +63,7 @@ Deno.serve(async (req) => {
     : "your next visit";
   // Templates only: caller-supplied free text is never forwarded to a patient's phone.
   const message = renderTemplate(WHATSAPP_CHECKUP_TEMPLATE, {
-    patient_name: patient.name, doctor_name: doctor?.full_name || "your doctor", checkup_date: checkupDate,
+    patient_name: patient.name, doctor_name: (await resolveReminderDoctorName(admin, patient.doctor_id, patient.id, doctor?.full_name)) || "your doctor", checkup_date: checkupDate,
   });
 
   const { data: log, error: insertErr } = await admin.from("notification_logs").insert({
