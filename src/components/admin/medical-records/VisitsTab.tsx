@@ -56,12 +56,15 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
   const [form, setForm] = useState(emptyVisit);
   const [vitalsForm, setVitalsForm] = useState(emptyVitals);
   const [deleting, setDeleting] = useState<Visit | null>(null);
-  const { myPractitionerId } = useProfile();
+  const { myPractitionerId, role } = useProfile();
   const { isMulti } = usePractitioners();
   const [visitDoctor, setVisitDoctor] = useState<string | null>(null);
-  // A new visit in a multi-doctor clinic, logged by reception and not tied to an appointment,
-  // names its doctor; otherwise the database takes it from the appointment or the caller.
-  const needsDoctorPick = isMulti && !editingId && !form.appointment_id && !myPractitionerId;
+  // A new visit in a multi-doctor clinic, logged by the owner or reception and not tied to an
+  // appointment, names its doctor (the owner has their own doctor row, so "the caller" would be
+  // wrong for another doctor's patient). A doctor login is always themselves; with an appointment
+  // the database takes the doctor from it.
+  const isDoctorLogin = role === "doctor" && !!myPractitionerId;
+  const needsDoctorPick = isMulti && !editingId && !form.appointment_id && !isDoctorLogin;
 
   const load = async () => {
     const { data: v } = await supabase.from("patient_visits").select("*").eq("patient_id", patientId).is("deleted_at", null).order("visit_date", { ascending: false });
@@ -85,7 +88,7 @@ const VisitsTab = ({ patientId, doctorId, patientPhone, onChange }: {
     return next;
   });
 
-  const openAdd = () => { setEditingId(null); setForm(emptyVisit); setVitalsForm(emptyVitals); setVisitDoctor(null); setDialogOpen(true); };
+  const openAdd = () => { setEditingId(null); setForm(emptyVisit); setVitalsForm(emptyVitals); setVisitDoctor(myPractitionerId); setDialogOpen(true); };
   const openEdit = (v: Visit) => {
     setEditingId(v.id);
     setForm({

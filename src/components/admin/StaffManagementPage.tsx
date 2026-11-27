@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -34,7 +35,7 @@ type StaffRow = {
   role?: "staff" | "doctor" | null; practitioner_id?: string | null;
 };
 
-type PresetChoice = "custom" | "reception";
+type PresetChoice = "custom" | "reception" | "doctor";
 const isDoctorLogin = (s: StaffRow) => s.role === "doctor";
 const presetPermissions = (keys: PermissionKey[]): Permissions => Object.fromEntries(keys.map((k) => [k, true]));
 // Edge functions answer practitioner refusals with a bare code (e.g. PHONE_OWNS_CLINIC).
@@ -78,6 +79,24 @@ const StaffManagementPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [profile]);
 
+  // The Doctors page links here with ?edit=<login id> to open that doctor login's permissions.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editParam = searchParams.get("edit");
+  useEffect(() => {
+    if (!editParam || loading) return;
+    const row = staff.find((x) => x.id === editParam);
+    if (row && !isStaff && isDoctorLogin(row)) openEdit(row);
+    const next = new URLSearchParams(searchParams);
+    next.delete("edit");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editParam, loading, staff]);
+
+  const editingRow = editingId ? staff.find((x) => x.id === editingId) : undefined;
+  // A doctor login is edited here for its permissions only: its name follows the doctor and its
+  // phone is changed on the Doctors page, so those fields are read-only for it.
+  const editingDoctorLogin = !!editingRow && isDoctorLogin(editingRow);
+
   const openAdd = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -90,6 +109,7 @@ const StaffManagementPage = () => {
     setEditingId(s.id);
     setForm({ staff_name: s.staff_name, phone: s.phone, confirm_phone: s.phone, status: s.status as "active" | "inactive" });
     setPermissions(s.permissions || {});
+    setPreset("custom");
     setDialogOpen(true);
   };
 
@@ -99,12 +119,23 @@ const StaffManagementPage = () => {
   };
 
   const choosePreset = (value: string) => {
-    const next = value === "reception" ? "reception" : "custom";
+    const next: PresetChoice = value === "reception" ? "reception" : value === "doctor" ? "doctor" : "custom";
     setPreset(next);
     if (next === "reception") setPermissions(presetPermissions(PERMISSION_PRESETS.reception));
+    if (next === "doctor") setPermissions(presetPermissions(PERMISSION_PRESETS.doctor));
   };
 
   const save = async () => {
+    if (editingId && editingDoctorLogin) {
+      setSaving(true);
+      const { error } = await supabase.from("staff_members").update({ permissions }).eq("id", editingId);
+      setSaving(false);
+      if (error) { toast.error(practitionerErrorMessage(error.message) ?? "Could not save permissions"); return; }
+      toast.success("Doctor permissions updated. They apply the next time the doctor opens or reloads the app.");
+      setDialogOpen(false);
+      load();
+      return;
+    }
     if (!form.staff_name.trim()) { toast.error("Staff name is required"); return; }
     const phone = normalizePhoneNumber(form.phone);
     if (!PHONE_REGEX.test(phone)) { toast.error("Enter a valid phone number, e.g. +919876543210"); return; }
@@ -272,7 +303,13 @@ const StaffManagementPage = () => {
                       </td>
                       <td className="px-4 py-3">
                         {isDoctorLogin(s) ? (
-                          <span className="text-xs text-muted-foreground">Managed in Doctors</span>
+                          !isStaff ? (
+                            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openEdit(s)} aria-label={`Edit permissions for ${s.staff_name}`}>
+                              <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Permissions
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Managed by the owner</span>
+                          )
                         ) : (
                         <div className="flex items-center gap-1">
                           {can("staff.edit") && (
@@ -328,7 +365,15 @@ const StaffManagementPage = () => {
                     <ShieldCheck className="h-3 w-3" /> {grantedCount(s.permissions)} permission{grantedCount(s.permissions) === 1 ? "" : "s"}
                   </Badge>
                   {isDoctorLogin(s) ? (
-                    <div className="pt-2 border-t border-border text-xs text-muted-foreground">Managed in Doctors</div>
+                    !isStaff ? (
+                      <div className="pt-2 border-t border-border">
+                        <Button variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => openEdit(s)} aria-label={`Edit permissions for ${s.staff_name}`}>
+                          <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Permissions
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="pt-2 border-t border-border text-xs text-muted-foreground">Managed by the owner</div>
+                    )
                   ) : (
                   <div className="flex items-center gap-1 pt-1 border-t border-border">
                     {can("staff.edit") && (
@@ -358,18 +403,21 @@ const StaffManagementPage = () => {
       {/* Add / Edit Staff */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingId ? "Edit Staff" : "Add Staff"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingDoctorLogin ? "Doctor permissions" : editingId ? "Edit Staff" : "Add Staff"}</DialogTitle></DialogHeader>
           <div className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Staff Name *</Label>
-                <Input value={form.staff_name} onChange={(e) => setForm({ ...form, staff_name: e.target.value })} className="h-10" />
+                <Label>{editingDoctorLogin ? "Doctor login name" : "Staff Name *"}</Label>
+                <Input value={form.staff_name} onChange={(e) => setForm({ ...form, staff_name: e.target.value })} className="h-10" disabled={editingDoctorLogin} />
               </div>
               <div className="space-y-1.5">
                 <Label>Phone Number *</Label>
-                <FormattedPhoneInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91 98765 43210" className="h-10" />
+                <FormattedPhoneInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91 98765 43210" className="h-10" disabled={editingDoctorLogin} />
               </div>
-              <div className="space-y-1.5 sm:col-span-2">
+              {editingDoctorLogin && (
+                <p className="sm:col-span-2 text-xs text-muted-foreground">This is a doctor's login. Only its permissions can be changed here; the name follows the doctor and the phone number is changed from the Doctors page.</p>
+              )}
+              <div className={`space-y-1.5 sm:col-span-2 ${editingDoctorLogin ? "hidden" : ""}`}>
                 <Label>Confirm Phone Number *</Label>
                 <FormattedPhoneInput value={form.confirm_phone} onChange={(e) => setForm({ ...form, confirm_phone: e.target.value })} placeholder="Re-enter the number" className="h-10" />
                 <p className="text-xs text-muted-foreground">Staff log in at Doctylia's login page with this number and a one-time code. Double-check it — anyone holding this number gets this staff access.</p>
@@ -379,7 +427,7 @@ const StaffManagementPage = () => {
             <div>
               <h3 className="font-heading font-semibold text-sm text-foreground mb-1">Permissions</h3>
               <p className="text-xs text-muted-foreground mb-3">Only checked items will be accessible to this staff member — everything else stays hidden and blocked.</p>
-              {!editingId && (
+              {(!editingId || editingDoctorLogin) && (
                 <div className="flex items-center gap-2 mb-3">
                   <Label htmlFor="staff-preset" className="text-xs text-muted-foreground">Start from</Label>
                   <Select value={preset} onValueChange={choosePreset}>
@@ -387,7 +435,8 @@ const StaffManagementPage = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="reception">Reception</SelectItem>
+                      {editingDoctorLogin && <SelectItem value="doctor">Doctor (default)</SelectItem>}
+                      {!editingDoctorLogin && <SelectItem value="reception">Reception</SelectItem>}
                       <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>

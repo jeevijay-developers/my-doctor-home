@@ -374,6 +374,31 @@ describe("handleSeoRequest - practitioner", () => {
     expect(res.headers.get("Cache-Control")).toContain("s-maxage=3600");
   });
 
+  it("treats a hostile bio as plain text: escaped in meta and body, '<' escaped in JSON-LD, newlines collapsed", async () => {
+    const handler = await fresh();
+    const bio = `</script><script>alert(1)</script>"><img src=x onerror=alert(2)>\nline two & 'quote'`;
+    const team = [practitioners[0], { ...practitioners[1], bio }];
+    const f = fakeFetch({ "/profiles": () => [profile], "/get_public_practitioners": () => team });
+    const html = await (await handler(req("kind=practitioner&slug=dr-a&doctor=ravi-kumar"), env, f)).text();
+    // No raw markup from the bio anywhere in the page.
+    expect(html).not.toContain("<script>alert(1)");
+    expect(html).not.toContain("<img src=x");
+    expect(html).not.toContain("<img");
+    // Exactly the one JSON-LD script block the page itself writes (open + close), none opened by the bio.
+    expect(html.match(/<script/g)?.length ?? 0).toBe(1);
+    expect(html.match(/<\/script>/g)?.length ?? 0).toBe(1);
+    // Meta description is one escaped line.
+    const meta = html.match(/<meta name="description" content="([^"]*)" \/>/);
+    expect(meta).not.toBeNull();
+    expect(meta![1]).toContain("&lt;/script&gt;");
+    expect(meta![1]).toContain("line two &amp; &#39;quote&#39;");
+    expect(meta![1]).not.toMatch(/\n/);
+    // JSON-LD keeps the text but never a literal "<".
+    const ld = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1];
+    expect(ld).not.toContain("<");
+    expect(JSON.parse(ld)["@graph"][0].description).toContain("</script>");
+  });
+
   it("301s an unknown doctor to the clinic page", async () => {
     const handler = await fresh();
     const f = fakeFetch({ "/profiles": () => [profile], "/get_public_practitioners": () => practitioners });

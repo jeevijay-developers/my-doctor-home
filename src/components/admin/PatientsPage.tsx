@@ -25,6 +25,9 @@ import DateFilter from "@/components/shared/DateFilter";
 import PatientVitalsFields from "./PatientVitalsFields";
 import BulkSelectionBar from "./BulkSelectionBar";
 import NameButton from "./NameButton";
+import { usePractitioners } from "@/hooks/usePractitioners";
+import PractitionerSelect, { ALL_DOCTORS } from "./PractitionerSelect";
+import PatientDoctorChips from "./PatientDoctorChips";
 import { emailError, nameError, parseWeight, vitalsErrors } from "@/lib/patientIntake";
 
 const sanitizeSearchTerm = (term: string) => term.replace(/[,()%_]/g, " ").trim();
@@ -34,12 +37,20 @@ type Patient = {
   age: number | null; gender: string | null; weight?: number | null; first_visit: string | null;
   last_visit: string | null; total_visits: number; notes: string | null;
   patient_since?: string | null; created_at?: string | null;
+  // Only on rows read from patients_with_doctors (multi-doctor clinics).
+  practitioner_ids?: string[] | null; last_practitioner_id?: string | null;
 };
 
 const blankNewPatient = () => ({ name: "", phone: "", email: "", age: "", gender: "", weight: "" });
 
 const PatientsPage = () => {
-  const { profile, isStaff, can } = useProfile();
+  const { profile, isStaff, can, role, myPractitionerId } = useProfile();
+  const { isMulti, byId } = usePractitioners();
+  // Multi-doctor clinics only: a doctor login starts on their own patients, everyone else on all
+  // doctors. Single-doctor clinics get no filter and read the plain patients table, as before.
+  const [doctorFilterState, setDoctorFilter] = useState<string | null>(null);
+  const doctorFilter = doctorFilterState ?? (role === "doctor" && myPractitionerId ? myPractitionerId : ALL_DOCTORS);
+  const practitionerFilter = isMulti && doctorFilter !== ALL_DOCTORS ? doctorFilter : null;
   const navigate = useNavigate();
   const { accessLevel: trialAccessLevel } = useTrialStatus();
   const writeDisabled = trialAccessLevel === "grace";
@@ -107,7 +118,8 @@ const PatientsPage = () => {
     setLoading(true);
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-    let q = supabase.from("patients").select("*", { count: "exact" }).eq("doctor_id", profile.id);
+    // The view adds practitioner_ids; security_invoker keeps the patients and clinical-visibility RLS in force.
+    let q = (isMulti ? supabase.from("patients_with_doctors") : supabase.from("patients")).select("*", { count: "exact" }).eq("doctor_id", profile.id);
     if (dateFilterActive) {
       // The clinic day runs on IST whatever the browser's time zone is.
       const dayKey = format(selectedDate, "yyyy-MM-dd");
@@ -115,13 +127,14 @@ const PatientsPage = () => {
       const end = new Date(start.getTime() + 86400000);
       q = q.gte("created_at", start.toISOString()).lt("created_at", end.toISOString());
     }
+    if (practitionerFilter) q = q.contains("practitioner_ids", [practitionerFilter]);
     const term = sanitizeSearchTerm(debouncedSearch);
     if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%`);
     q = q.order("last_visit", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).order("id").range(from, to);
     const { data, count, error } = await q;
     if (seq !== loadSeq.current) return;
     if (error) { console.error("Patients load failed:", error.message); setLoading(false); return; }
-    setPatients((data || []) as Patient[]);
+    setPatients((data || []) as unknown as Patient[]);
     setTotalCount(count ?? 0);
     setLoading(false);
   };
@@ -149,10 +162,10 @@ const PatientsPage = () => {
   loadDatesRef.current = loadDatesWithVisits;
 
   // Reset to page 1 whenever the result set changes shape underneath the pager.
-  useEffect(() => { setPage(1); }, [selectedDate, dateFilterActive, debouncedSearch]);
+  useEffect(() => { setPage(1); }, [selectedDate, dateFilterActive, debouncedSearch, practitionerFilter]);
 
-  useEffect(() => { load(); }, [profile, selectedDate, dateFilterActive, debouncedSearch, page]);
-  useEffect(() => { clearSelection(); }, [debouncedSearch, dateFilterActive, selectedDate, page]);
+  useEffect(() => { load(); }, [profile, selectedDate, dateFilterActive, debouncedSearch, page, isMulti, practitionerFilter]);
+  useEffect(() => { clearSelection(); }, [debouncedSearch, dateFilterActive, selectedDate, page, practitionerFilter]);
   useEffect(() => { loadDatesWithVisits(); }, [profile]);
 
   useEffect(() => {
@@ -167,6 +180,31 @@ const PatientsPage = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
+
+  // Multi-doctor: the doctor chips come from appointments, visits and prescriptions, so a change there
+  // (a new booking, a saved visit or slip) must refresh the list too. Debounced so a burst of events is
+  // one reload; only the page is reloaded (the calendar dots only depend on patients). Window focus
+  // also refreshes, because only some of these tables publish realtime events.
+  useEffect(() => {
+    if (!profile || !isMulti) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { loadRef.current(); }, 1500);
+    };
+    const channel = supabase.channel(`patients-doctors-${profile.id}`);
+    for (const table of ["appointments", "patient_visits", "prescriptions"]) {
+      channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `doctor_id=eq.${profile.id}` }, refresh);
+    }
+    channel.subscribe();
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      supabase.removeChannel(channel);
+    };
+  }, [profile, isMulti]);
 
   const addPatient = async () => {
     if (!profile) return;
@@ -212,16 +250,21 @@ const PatientsPage = () => {
     // Page through everything: one select stops at 1000 rows and would silently truncate.
     const rows: Patient[] = [];
     for (let start = 0; ; start += 1000) {
-      const { data, error } = await supabase
-        .from("patients").select("*").eq("doctor_id", profile.id)
+      // Multi-doctor: the view adds who has seen each patient, for the "Seen by" column.
+      const { data, error } = await (isMulti ? supabase.from("patients_with_doctors") : supabase.from("patients"))
+        .select("*").eq("doctor_id", profile.id)
         .order("last_visit", { ascending: false, nullsFirst: false }).order("id").range(start, start + 999);
       if (error) { toast.error("Could not export patients"); return; }
-      rows.push(...((data || []) as Patient[]));
+      rows.push(...((data || []) as unknown as Patient[]));
       if (!data || data.length < 1000) break;
     }
     if (!rows.length) { toast.info("No patients to export"); return; }
     // Built by the shared exporter so the columns always match what the importer reads.
-    const blob = new Blob([patientsToCsv(rows)], { type: "text/csv;charset=utf-8;" });
+    const seenBy = (p: Patient) => (p.practitioner_ids ?? []).map((id) => byId(id)?.display_name).filter(Boolean).join("; ");
+    const csv = isMulti
+      ? patientsToCsv(rows.map((p) => ({ ...p, seen_by: seenBy(p) })), { includeSeenBy: true })
+      : patientsToCsv(rows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = `patients-${clinicToday()}.csv`;
@@ -250,7 +293,7 @@ const PatientsPage = () => {
           <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
             <Users className="h-6 w-6 text-teal" /> Patients
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{search || dateFilterActive ? `${totalCount} patient${totalCount === 1 ? "" : "s"} match your filters` : `${totalCount} patient${totalCount === 1 ? "" : "s"}`}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{search || dateFilterActive || practitionerFilter ? `${totalCount} patient${totalCount === 1 ? "" : "s"} match your filters` : `${totalCount} patient${totalCount === 1 ? "" : "s"}`}</p>
         </div>
         <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:flex-wrap">
           <Button variant="outline" onClick={() => exportPatients()} className="h-10"><Download className="h-4 w-4 mr-1.5" /> Export CSV</Button>
@@ -347,6 +390,9 @@ const PatientsPage = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9 h-10" placeholder="Search by name or phone..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
+        {isMulti && (
+          <PractitionerSelect allowAll value={doctorFilter} onChange={setDoctorFilter} className="w-full sm:w-52" aria-label="Doctor filter" />
+        )}
       </div>
 
       {filtered.length > 0 && (
@@ -373,10 +419,10 @@ const PatientsPage = () => {
           <CardContent className="py-16 text-center">
             <Users className="h-12 w-12 text-teal/20 mx-auto mb-3" />
             <p className="text-muted-foreground font-medium">
-              {search || dateFilterActive ? "No patients match your filters" : "No patients yet"}
+              {search || dateFilterActive || practitionerFilter ? "No patients match your filters" : "No patients yet"}
             </p>
             <p className="text-xs text-muted-foreground/60 mt-1">
-              {search || dateFilterActive ? "Try a different search or date" : "Add your first patient to get started"}
+              {search || dateFilterActive || practitionerFilter ? "Try a different search, date or doctor" : "Add your first patient to get started"}
             </p>
           </CardContent>
         </Card>
@@ -400,6 +446,7 @@ const PatientsPage = () => {
                     )}
                     <th className="px-4 py-3">Patient</th>
                     <th className="px-4 py-3">Phone</th>
+                    {isMulti && <th className="px-4 py-3">Doctor</th>}
                     <th className="px-4 py-3 hidden md:table-cell">Age / Gender</th>
                     <th className="px-4 py-3 hidden lg:table-cell">Last Visit</th>
                     <th className="px-4 py-3">Visits</th>
@@ -439,6 +486,9 @@ const PatientsPage = () => {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-foreground whitespace-nowrap">{p.phone}</td>
+                        {isMulti && (
+                          <td className="px-4 py-3"><PatientDoctorChips ids={p.practitioner_ids} lastId={p.last_practitioner_id} /></td>
+                        )}
                         <td className="px-4 py-3 text-muted-foreground hidden md:table-cell whitespace-nowrap">
                           {p.age || p.gender ? `${p.age ?? "—"}${p.gender ? `, ${p.gender}` : ""}` : "—"}
                         </td>
@@ -488,6 +538,7 @@ const PatientsPage = () => {
                         {p.age || p.gender ? `${p.age ?? "—"}${p.gender ? `, ${p.gender}` : ""} · ` : ""}
                         {p.total_visits} visit{p.total_visits === 1 ? "" : "s"}{p.last_visit ? ` · last ${p.last_visit}` : ""}
                       </div>
+                      <PatientDoctorChips ids={p.practitioner_ids} lastId={p.last_practitioner_id} className="mt-1.5" />
                     </div>
                   </CardContent>
                 </Card>
@@ -559,6 +610,13 @@ const PatientsPage = () => {
                     </div>
                   ))}
                 </div>
+
+                {isMulti && (selected.practitioner_ids?.length ?? 0) > 0 && (
+                  <div className="bg-secondary rounded-xl p-3">
+                    <div className="text-[11px] text-muted-foreground mb-1">Seen by</div>
+                    <PatientDoctorChips ids={selected.practitioner_ids} lastId={selected.last_practitioner_id} max={6} />
+                  </div>
+                )}
 
                 {!isStaff && (
                 <div className="pt-4 border-t border-border">

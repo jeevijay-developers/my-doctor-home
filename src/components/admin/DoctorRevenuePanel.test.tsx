@@ -60,6 +60,12 @@ describe("DoctorRevenuePanel", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/366/);
   });
 
+  it("tells a doctor login the clinic report is not theirs", async () => {
+    h.rpc.mockResolvedValue({ data: { ok: false, error: "DOCTOR_LOGIN" }, error: null });
+    render(<DoctorRevenuePanel from="2025-01-01" to="2026-11-30" periodLabel="x" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/own earnings/);
+  });
+
   it("shows an error state when the call fails", async () => {
     h.rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
     render(<DoctorRevenuePanel from="2026-11-01" to="2026-11-30" periodLabel="x" />);
@@ -76,5 +82,21 @@ describe("DoctorRevenuePanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /download payout csv/i }));
     expect(blob).not.toBeNull();
     expect((blob as unknown as Blob).size).toBeGreaterThan(50);
+  });
+
+  it("renders a clickable card per doctor (inactive only with activity) and reports the selection", async () => {
+    h.rpc.mockResolvedValue({ data: payload(nums({ paid_amount: 200, net: 200 })), error: null });
+    const onSelect = vi.fn();
+    render(<DoctorRevenuePanel from="2026-11-01" to="2026-11-30" periodLabel="x" selectedId="p1" onSelect={onSelect} />);
+    const strip = await screen.findByTestId("doctor-earnings-strip");
+    expect(strip).toHaveTextContent("Dr. Meera");
+    expect(strip).toHaveTextContent("Unattributed");
+    expect(screen.getByRole("button", { name: "Show only Dr. Asha" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Show only Dr. Meera" }));
+    expect(onSelect).toHaveBeenLastCalledWith("p2");
+    fireEvent.click(screen.getByRole("button", { name: "Show only Dr. Asha" }));
+    expect(onSelect).toHaveBeenLastCalledWith(null);
+    fireEvent.click(screen.getByRole("button", { name: "Show all doctors" }));
+    expect(onSelect).toHaveBeenLastCalledWith(null);
   });
 });

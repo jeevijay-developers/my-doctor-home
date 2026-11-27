@@ -42,6 +42,7 @@ describe("revenueErrorMessage", () => {
   it("maps known codes and falls back", () => {
     expect(revenueErrorMessage("RANGE_TOO_LARGE")).toMatch(/366|year/i);
     expect(revenueErrorMessage("INVALID_RANGE")).toBeTruthy();
+    expect(revenueErrorMessage("DOCTOR_LOGIN")).toMatch(/own earnings/);
     expect(revenueErrorMessage("WHATEVER")).toMatch(/could not/i);
   });
 });

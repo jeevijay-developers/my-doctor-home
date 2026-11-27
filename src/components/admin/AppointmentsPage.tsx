@@ -39,6 +39,8 @@ import { appointmentSerialNumber } from "@/lib/appointmentList";
 import { usePractitioners } from "@/hooks/usePractitioners";
 import PractitionerSelect, { ALL_DOCTORS } from "./PractitionerSelect";
 import { practitionerErrorMessage } from "@/lib/practitioners/errors";
+import { staffSlotsFor } from "@/lib/practitioners/staffSlots";
+import type { HoursRow } from "@/lib/practitioners/hours";
 
 const WALK_IN_TIME = "walk-in";
 
@@ -100,7 +102,7 @@ const AppointmentsPage = () => {
   const { profile, isStaff, can, role, myPractitionerId } = useProfile();
   // Multi-doctor clinics only: everything below that reads `isMulti` is invisible to a
   // single-doctor clinic, which renders and requests exactly what it did before.
-  const { isMulti, bookable, byId } = usePractitioners();
+  const { isMulti, bookable, byId, primary } = usePractitioners();
   const [searchParams] = useSearchParams();
   const [doctorFilterState, setDoctorFilter] = useState<string>(ALL_DOCTORS);
   // A doctor login without "see all doctors" is locked to their own appointments: no "All doctors"
@@ -560,20 +562,56 @@ const AppointmentsPage = () => {
     else setSelectedIds(new Set(filtered.map((a) => a.id)));
   };
 
-  const allTimeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
+  // Clinic hours and slot length for the booking dialog (loaded when it opens).
+  const clinicId = profile?.id;
+  const [hoursState, setHoursState] = useState<{ status: "loading" | "ready" | "failed"; rows: HoursRow[]; slotMinutes: number | null }>(
+    { status: "loading", rows: [], slotMinutes: null },
+  );
+  useEffect(() => {
+    if (!showNew || !clinicId) return;
+    let cancelled = false;
+    setHoursState({ status: "loading", rows: [], slotMinutes: null });
+    (async () => {
+      try {
+        const [hours, settings] = await Promise.all([
+          supabase.from("working_hours").select("*").eq("doctor_id", clinicId),
+          supabase.from("website_settings").select("slot_duration_minutes").eq("doctor_id", clinicId),
+        ]);
+        if (cancelled) return;
+        if (hours.error) { setHoursState({ status: "failed", rows: [], slotMinutes: null }); return; }
+        const s = Array.isArray(settings.data) ? settings.data[0] : settings.data;
+        const mins = Number((s as { slot_duration_minutes?: number | null } | null | undefined)?.slot_duration_minutes);
+        setHoursState({ status: "ready", rows: (hours.data ?? []) as unknown as HoursRow[], slotMinutes: mins > 0 ? mins : null });
+      } catch {
+        if (!cancelled) setHoursState({ status: "failed", rows: [], slotMinutes: null });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showNew, clinicId]);
+
   const todayStr = clinicToday();
+  const slotPlan = hoursState.status === "loading"
+    ? { slots: [] as string[], mode: "loading" as const }
+    : staffSlotsFor({
+        // A failed load behaves as "no hours configured": the old list, nothing regresses.
+        rows: hoursState.rows,
+        date: newAppt.date,
+        isMulti,
+        practitionerId: newPractitionerId,
+        primaryId: primary?.id ?? null,
+        durationMinutes: (isMulti && newPractitionerId ? byId(newPractitionerId)?.slot_duration_minutes : null) || hoursState.slotMinutes,
+      });
   const timeSlots = [
     ...(newAppt.date === todayStr
-      ? allTimeSlots.filter((t) => new Date(`${todayStr}T${t}:00+05:30`).getTime() > Date.now())
-      : allTimeSlots),
+      ? slotPlan.slots.filter((t) => new Date(`${todayStr}T${t}:00+05:30`).getTime() > Date.now())
+      : slotPlan.slots),
     WALK_IN_TIME,
   ];
 
-  // Auto-select first available slot when dialog opens or slot list changes
+  // Keep the chosen time valid: when the slot list changes (doctor, date, hours) a time that is
+  // no longer offered falls back to the first available one.
   useEffect(() => {
     if (!showNew) return;
-    if (timeSlots.length === 0) return;
     if (!timeSlots.includes(newAppt.time_slot)) {
       setNewAppt((prev) => ({ ...prev, time_slot: timeSlots[0] }));
     }
@@ -640,7 +678,11 @@ const AppointmentsPage = () => {
               {isMulti && (
                 <div className="space-y-1.5">
                   <Label htmlFor="new-appt-doctor">Doctor *</Label>
-                  <PractitionerSelect id="new-appt-doctor" options="bookable" required value={newPractitionerId} onChange={setNewPractitionerId} />
+                  <PractitionerSelect id="new-appt-doctor" options="bookable" required value={newPractitionerId} onChange={(id) => {
+                    setNewPractitionerId(id);
+                    // A different doctor means different hours: start the time over (not for the legacy list).
+                    if (slotPlan.mode !== "default") setNewAppt((prev) => ({ ...prev, time_slot: WALK_IN_TIME }));
+                  }} />
                   {submitAttempted && !newPractitionerId && (
                     <p className="text-[11px] text-destructive">{practitionerErrorMessage("PRACTITIONER_REQUIRED")}</p>
                   )}
@@ -656,7 +698,7 @@ const AppointmentsPage = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="new-appt-date">Date</Label>
-                  <Input id="new-appt-date" type="date" min={todayStr} value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value })} className="h-10" />
+                  <Input id="new-appt-date" type="date" min={todayStr} value={newAppt.date} onChange={(e) => setNewAppt({ ...newAppt, date: e.target.value, ...(slotPlan.mode !== "default" ? { time_slot: WALK_IN_TIME } : {}) })} className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Time Slot</Label>
@@ -666,6 +708,12 @@ const AppointmentsPage = () => {
                       {timeSlots.map(t => <SelectItem key={t} value={t}>{t === WALK_IN_TIME ? "Walk-in" : t}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {slotPlan.mode === "closed" && (
+                    <p className="text-[11px] text-muted-foreground" data-testid="slot-closed-hint">Closed on this day, so only a walk-in can be added.</p>
+                  )}
+                  {slotPlan.mode === "no_doctor" && (
+                    <p className="text-[11px] text-muted-foreground">Choose a doctor to see their times.</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

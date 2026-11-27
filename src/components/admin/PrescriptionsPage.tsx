@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import {
@@ -293,15 +293,25 @@ const MedicineSummaryLine = ({ rx }: { rx: Prescription }) => {
 
 const PrescriptionsPage = () => {
   const { profile, isStaff, can, role, myPractitionerId } = useProfile();
-  const { isMulti, byId } = usePractitioners();
-  // Reception in a multi-doctor clinic names the prescribing doctor; a doctor login (or the
-  // owner with their own doctor row) writes as themselves and the database fills it in.
-  const needsDoctorPick = isMulti && !myPractitionerId;
+  const { isMulti, byId, practitioners } = usePractitioners();
+  // A doctor login writes as themselves only (RLS enforces it; the database fills the author in).
+  // Everyone else who may write a prescription (the owner, reception) names the prescribing doctor
+  // explicitly: the owner has their own doctor row too, so "the caller" is NOT a safe default.
+  const isDoctorLogin = role === "doctor" && !!myPractitionerId;
+  const needsDoctorPick = isMulti && !isDoctorLogin;
+  const drName = (name: string) => `Dr. ${name.trim().replace(/^dr\.?\s+/i, "")}`;
   // RLS is the real guard: in a multi-doctor clinic only the author or the owner may change a prescription.
+  // Only the owner may re-assign a prescription to another doctor (RLS refuses a doctor login).
+  const ownerEditsDoctor = isMulti && role === "owner";
   const canChangeRx = (rx: Prescription) =>
     !isMulti || role === "owner" || (!!myPractitionerId && rx.practitioner_id === myPractitionerId);
   const [doctorFilter, setDoctorFilter] = useState<string>(ALL_DOCTORS);
   const [rxDoctor, setRxDoctor] = useState<string | null>(null);
+  const [rxDoctorHint, setRxDoctorHint] = useState<string | null>(null);
+  const [editDoctor, setEditDoctor] = useState<string | null>(null);
+  // A doctor chosen by hand is never overwritten by a late "last visit" suggestion.
+  const doctorTouched = useRef(false);
+  const suggestSeq = useRef(0);
   const { accessLevel: trialAccessLevel } = useTrialStatus();
   const writeDisabled = trialAccessLevel === "grace";
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
@@ -340,7 +350,14 @@ const PrescriptionsPage = () => {
     if (dateFilterActive) q = q.eq("date", format(selectedDate, "yyyy-MM-dd"));
     if (isMulti && doctorFilter !== ALL_DOCTORS) q = q.eq("practitioner_id", doctorFilter);
     const term = sanitizeSearchTerm(debouncedSearch);
-    if (term) q = q.or(`patient_name.ilike.%${term}%,diagnosis.ilike.%${term}%`);
+    if (term) {
+      const byDoctor = isMulti
+        ? practitioners.filter((p) => p.display_name.toLowerCase().includes(term.toLowerCase())).map((p) => p.id)
+        : [];
+      q = q.or(
+        `patient_name.ilike.%${term}%,diagnosis.ilike.%${term}%` + (byDoctor.length ? `,practitioner_id.in.(${byDoctor.join(",")})` : ""),
+      );
+    }
     q = q.order("date", { ascending: false }).range(from, to);
     const { data, count } = await q;
     setPrescriptions((data || []) as Prescription[]);
@@ -364,6 +381,31 @@ const PrescriptionsPage = () => {
   useEffect(() => { setPage(1); }, [debouncedSearch, selectedDate, dateFilterActive, doctorFilter]);
 
   useEffect(() => { load(); }, [profile, debouncedSearch, selectedDate, dateFilterActive, page, isMulti, doctorFilter]);
+
+  // A doctor login opens on their own prescriptions (they can still switch to "All doctors").
+  const ownFilterApplied = useRef(false);
+  useEffect(() => {
+    if (ownFilterApplied.current || !isMulti || !isDoctorLogin || !myPractitionerId) return;
+    ownFilterApplied.current = true;
+    setDoctorFilter(myPractitionerId);
+  }, [isMulti, isDoctorLogin, myPractitionerId]);
+
+  // Prescriptions written, corrected or removed on another device show up here.
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useEffect(() => {
+    if (!profile) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const channel = supabase
+      .channel(`rx-list-${profile.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "prescriptions", filter: `doctor_id=eq.${profile.id}` },
+        () => { clearTimeout(timer); timer = setTimeout(() => loadRef.current(), 300); },
+      )
+      .subscribe();
+    return () => { clearTimeout(timer); supabase.removeChannel(channel); };
+  }, [profile]);
   useEffect(() => { loadPatients(); }, [profile]);
   useEffect(() => { clearSelection(); }, [debouncedSearch, dateFilterActive, selectedDate, page, doctorFilter]);
 
@@ -499,6 +541,56 @@ const PrescriptionsPage = () => {
     if (fresh && fresh !== viewing) setViewing(fresh);
   }, [prescriptions]);
 
+  // The doctor this patient was last seen by: most recent non-cancelled appointment, then the
+  // most recent visit. Null when neither names a doctor.
+  const lastPatientDoctor = async (patientId: string): Promise<string | null> => {
+    if (!profile) return null;
+    try {
+      const { data: appts } = await supabase
+        .from("appointments")
+        .select("practitioner_id")
+        .eq("doctor_id", profile.id)
+        .eq("patient_id", patientId)
+        .neq("status", "cancelled")
+        .not("practitioner_id", "is", null)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const fromAppt = (appts as { practitioner_id: string | null }[] | null)?.[0]?.practitioner_id;
+      if (fromAppt) return fromAppt;
+      const { data: visits } = await supabase
+        .from("patient_visits")
+        .select("practitioner_id")
+        .eq("doctor_id", profile.id)
+        .eq("patient_id", patientId)
+        .is("deleted_at", null)
+        .order("visit_date", { ascending: false })
+        .limit(1);
+      return (visits as { practitioner_id: string | null }[] | null)?.[0]?.practitioner_id ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  const suggestDoctor = async (patientId: string) => {
+    const seq = ++suggestSeq.current;
+    if (!needsDoctorPick || !patientId) { setRxDoctorHint(null); return; }
+    doctorTouched.current = false;
+    const found = await lastPatientDoctor(patientId);
+    if (seq !== suggestSeq.current || doctorTouched.current) return;
+    const doc = found ? byId(found) : undefined;
+    if (doc?.is_active) {
+      const name = patients.find((p) => p.id === patientId)?.name ?? "the patient";
+      setRxDoctor(doc.id);
+      setRxDoctorHint(`Defaulted from ${name}'s last visit`);
+    } else {
+      setRxDoctor(myPractitionerId);
+      setRxDoctorHint(null);
+    }
+  };
+
+  const chooseNewDoctor = (id: string) => { doctorTouched.current = true; setRxDoctor(id); setRxDoctorHint(null); };
+
   const addPrescription = async () => {
     if (!profile || !form.patient_name.trim()) { toast.error("Patient name is required"); return; }
     const vitalsError = prescriptionVitalsError(form);
@@ -522,6 +614,7 @@ const PrescriptionsPage = () => {
     setForm(emptyForm);
     setFormMedicines([]);
     setRxDoctor(null);
+    setRxDoctorHint(null);
     load();
     toast.success("Prescription added");
     if (data) openSlip(data as Prescription);
@@ -534,7 +627,9 @@ const PrescriptionsPage = () => {
     if (editVitalsError) { toast.error(editVitalsError); return; }
     const medError = validateMedicines(editFormMedicines);
     if (medError) { toast.error(medError); return; }
+    const doctorChanged = ownerEditsDoctor && !!editDoctor && editDoctor !== viewing.practitioner_id;
     const { error } = await supabase.from("prescriptions").update({
+      ...(doctorChanged ? { practitioner_id: editDoctor } : {}),
       patient_id: editForm.patient_id || null,
       patient_name: editForm.patient_name.trim(),
       diagnosis: editForm.diagnosis || null,
@@ -543,7 +638,7 @@ const PrescriptionsPage = () => {
       patient_age: editForm.patient_age ? Number(editForm.patient_age) : null,
       patient_weight: parseWeight(editForm.patient_weight),
     }).eq("id", viewing.id);
-    if (error) { toast.error("Could not save changes"); return; }
+    if (error) { toast.error(practitionerErrorMessage(error.message) ?? "Could not save changes"); return; }
     toast.success("Prescription updated");
     setEditing(false);
     load();
@@ -560,6 +655,7 @@ const PrescriptionsPage = () => {
       patient_weight: viewing.patient_weight != null ? String(viewing.patient_weight) : "",
     });
     setEditFormMedicines(fromMedicineItems(parseMedicineItems(viewing.medicines)));
+    setEditDoctor(viewing.practitioner_id ?? null);
     setEditing(true);
   };
 
@@ -574,6 +670,7 @@ const PrescriptionsPage = () => {
   const bulkDelete = async () => {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
+    if (writeDisabled) { toast.error("Upgrade to continue editing"); return; }
     const { error } = await supabase.from("prescriptions").delete().in("id", ids);
     if (error) { toast.error("Could not delete prescriptions"); return; }
     toast.success(`${ids.length} prescription${ids.length === 1 ? "" : "s"} deleted`);
@@ -592,7 +689,7 @@ const PrescriptionsPage = () => {
   const authorBadge = (rx: Prescription) => {
     const author = isMulti ? byId(rx.practitioner_id) : undefined;
     return author ? (
-      <Badge variant="secondary" className="mt-1 text-[10px] font-medium">{author.display_name}</Badge>
+      <Badge variant="secondary" className="mt-1 text-[10px] font-medium">{drName(author.display_name)}</Badge>
     ) : null;
   };
   const selectAllOnPage = () => {
@@ -614,7 +711,7 @@ const PrescriptionsPage = () => {
           <p className="text-sm text-muted-foreground mt-0.5">{totalCount} total records</p>
         </div>
         {can("prescriptions.create") && (
-        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) loadPatients(); else { setForm(emptyForm); setFormMedicines([]); setRxDoctor(null); } }}>
+        <Dialog open={showNew} onOpenChange={(o) => { setShowNew(o); if (o) { loadPatients(); suggestSeq.current++; doctorTouched.current = false; setRxDoctor(myPractitionerId); setRxDoctorHint(null); } else { setForm(emptyForm); setFormMedicines([]); setRxDoctor(null); setRxDoctorHint(null); } }}>
           <DialogTrigger asChild>
             <Button
               className="bg-royal hover:bg-royal/90"
@@ -630,7 +727,8 @@ const PrescriptionsPage = () => {
               {needsDoctorPick && (
                 <div className="space-y-1.5">
                   <Label htmlFor="new-rx-doctor">Prescribing doctor *</Label>
-                  <PractitionerSelect id="new-rx-doctor" aria-label="Prescribing doctor" required value={rxDoctor} onChange={setRxDoctor} />
+                  <PractitionerSelect id="new-rx-doctor" aria-label="Prescribing doctor" required value={rxDoctor} onChange={chooseNewDoctor} />
+                  {rxDoctorHint && <p className="text-xs text-muted-foreground">{rxDoctorHint}</p>}
                 </div>
               )}
               <PrescriptionPatientFields
@@ -638,7 +736,10 @@ const PrescriptionsPage = () => {
                 selectLabel="Select Existing Patient"
                 patients={patients}
                 value={form}
-                onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+                onChange={(patch) => {
+                  setForm((prev) => ({ ...prev, ...patch }));
+                  if ("patient_id" in patch) void suggestDoctor(patch.patient_id ?? "");
+                }}
               />
 
               <div className="space-y-1.5">
@@ -841,7 +942,10 @@ const PrescriptionsPage = () => {
                   </div>
                   <div className="min-w-0">
                     <SheetTitle className="text-primary text-lg truncate">{viewing.patient_name}</SheetTitle>
-                    <div className="text-xs text-muted-foreground mt-0.5">Issued {viewing.date}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Issued {viewing.date}
+                      {isMulti && byId(viewing.practitioner_id) ? ` · ${drName(byId(viewing.practitioner_id)!.display_name)}` : ""}
+                    </div>
                   </div>
                 </div>
               </SheetHeader>
@@ -918,6 +1022,15 @@ const PrescriptionsPage = () => {
                 </div>
               ) : (
                 <div className="mt-6 space-y-4">
+                  {ownerEditsDoctor && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-rx-doctor">Prescribing doctor</Label>
+                      <PractitionerSelect
+                        id="edit-rx-doctor" aria-label="Prescribing doctor" required
+                        value={editDoctor} onChange={setEditDoctor} includeIds={viewing.practitioner_id ? [viewing.practitioner_id] : undefined}
+                      />
+                    </div>
+                  )}
                   <PrescriptionPatientFields
                     idPrefix="edit-rx"
                     selectLabel="Linked Patient"

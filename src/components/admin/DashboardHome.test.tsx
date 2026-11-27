@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { format } from "date-fns";
 import DashboardHome from "./DashboardHome";
@@ -25,7 +25,7 @@ vi.mock("@/hooks/useProfile", () => ({
   useProfile: () => ({ profile: h.profile, isStaff: h.isStaff, can: h.can, role: h.role, staffName: h.staffName, myPractitionerId: h.myPractitionerId }),
 }));
 vi.mock("@/hooks/usePractitioners", () => ({
-  usePractitioners: () => ({ isMulti: h.isMulti, byId: (id: string) => (id === "pr-2" ? { id, display_name: "Dr. Meera" } : undefined) }),
+  usePractitioners: () => ({ isMulti: h.isMulti, byId: (id: string) => (id === "pr-2" ? { id, display_name: "Dr. Meera", slug: "meera", is_active: true } : undefined) }),
 }));
 vi.mock("@/hooks/usePlanAccess", () => ({
   usePlanAccess: () => ({ nearCap: false, appointmentsUsed: 0, appointmentsCap: 30 }),
@@ -199,6 +199,50 @@ describe("DashboardHome", () => {
       }
       expect(screen.queryByLabelText(/^Revenue/)).not.toBeInTheDocument();
       expect(mock.current.opsOf("invoices").length).toBe(0);
+    });
+
+    it("shows their own patients and reviews, not the clinic's", async () => {
+      renderPage();
+      await screen.findByText(/Welcome back/);
+      await waitFor(() => expect(mock.current.opsOf("patients_with_doctors").length).toBe(1));
+      const q = mock.current.opsOf("patients_with_doctors")[0];
+      expect(q.ops.find((o: any[]) => o[0] === "contains")?.slice(1)).toEqual(["practitioner_ids", ["pr-2"]]);
+      expect(mock.current.opsOf("patients")).toHaveLength(0);
+      const rev = mock.current.opsOf("reviews")[0];
+      expect(mock.current.hasOp(rev, "eq", "practitioner_id", "pr-2")).toBe(true);
+      expect(screen.getByText("Your patients")).toBeInTheDocument();
+    });
+
+    it("the owner and reception keep clinic-wide patients and reviews", async () => {
+      h.role = undefined; h.isStaff = false; h.can = () => true; h.myPractitionerId = null;
+      renderPage();
+      await screen.findByLabelText(/Appointments: 12/);
+      expect(mock.current.opsOf("patients_with_doctors")).toHaveLength(0);
+      expect(mock.current.hasOp(mock.current.opsOf("reviews")[0], "eq", "practitioner_id", "pr-2")).toBe(false);
+    });
+
+    it("shares their own doctor page, not the clinic link", async () => {
+      renderPage();
+      const box = (await screen.findByDisplayValue(/Book your appointment online with/)) as HTMLTextAreaElement;
+      expect(box.value).toContain("/dr/asha/doctor/meera");
+      expect(box.value).toContain("Dr. Meera");
+    });
+
+    it("never shows a growth tip the login cannot act on (no website or blog access)", async () => {
+      // The 'doctor' permission preset: no website.*, no blog.*; only profile.view of the tips' pages.
+      const preset = new Set(["dashboard.view", "appointments.view", "appointments.edit", "patients.view", "profile.view"]);
+      h.can = (k) => preset.has(k);
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderPage();
+      await screen.findByText(/Welcome back/);
+      const seen = new Set<string>();
+      for (let i = 0; i < 6; i++) {
+        const el = screen.queryByText(/Growth tip/)?.nextElementSibling;
+        if (el?.textContent) seen.add(el.textContent);
+        await act(async () => { vi.advanceTimersByTime(8000); });
+      }
+      expect([...seen].some((t) => /services|photos|blog/i.test(t))).toBe(false);
+      expect(seen.size).toBeGreaterThan(0); // still shows the tips it can act on
     });
 
     it("with appointments.all_doctors the queries are not narrowed", async () => {

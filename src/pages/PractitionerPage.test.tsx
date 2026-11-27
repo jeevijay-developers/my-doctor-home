@@ -61,6 +61,17 @@ describe("PractitionerPage", () => {
     expect(screen.getByTestId("booking-widget")).toBeInTheDocument();
   });
 
+  it("renders a hostile bio as plain text, never as markup", () => {
+    const bio = `<img src=x onerror="window.__pwned=1"><script>window.__pwned=2</script> **bold**`;
+    mockData({ practitioners: [DR_A, { ...DR_B, bio }], bookablePractitioners: [DR_A, { ...DR_B, bio }] });
+    const { container } = renderAt("/dr/dr-a/doctor/vikram-shah");
+    expect(screen.getByText(bio.trim())).toBeInTheDocument();
+    expect(container.querySelector("img[src='x']")).toBeNull();
+    // Only the page's own JSON-LD script may exist; the bio opened none.
+    expect(Array.from(container.querySelectorAll("script")).every((s) => s.type === "application/ld+json")).toBe(true);
+    expect((window as unknown as { __pwned?: number }).__pwned).toBeUndefined();
+  });
+
   it("falls back to the clinic fee when the doctor has none", () => {
     mockData();
     renderAt("/dr/dr-a/doctor/asha-rao");

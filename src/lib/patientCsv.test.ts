@@ -182,6 +182,18 @@ describe("export -> import round trip", () => {
     );
   });
 
+  it("an export with the Seen by column (multi-doctor clinics) still re-imports and leaves the plain export unchanged", () => {
+    const original = [exportRow({ seen_by: "Dr Asha Rao; Dr Bee" }), exportRow({ name: "Meena", phone: "9876543211", seen_by: null })];
+    const csv = patientsToCsv(original, { includeSeenBy: true });
+    expect(csv.split(String.fromCharCode(10))[0]).toBe(String.fromCharCode(0xfeff) + PATIENT_EXPORT_HEADERS.join(",") + ",Seen by");
+    expect(csv).toContain("Dr Asha Rao; Dr Bee");
+    const parsed = parsePatientCsv(csv);
+    expect(parsed.fileError).toBeNull();
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.rows.map((r) => r.name)).toEqual(original.map((o) => o.name));
+    expect(patientsToCsv(original)).not.toContain("Seen by");
+  });
+
   it("reports (rather than silently dropping) patients whose age or gender was never recorded", () => {
     const parsed = parsePatientCsv(patientsToCsv([exportRow({ age: null, gender: null })]));
     expect(parsed.rows).toEqual([]);

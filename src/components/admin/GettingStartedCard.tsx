@@ -3,11 +3,15 @@ import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useGettingStarted } from "@/hooks/useGettingStarted";
+import { useProfile } from "@/hooks/useProfile";
 
 // Shown until every step is done — shared between the Dashboard and Settings.
 const GettingStartedCard = () => {
   const { checklist, completedSteps, ready } = useGettingStarted();
-  if (!ready || completedSteps >= checklist.length) return null;
+  const { isStaff } = useProfile();
+  // The checklist is the clinic owner's setup list (profile, website, blog). Staff and doctor
+  // logins would be sent to pages they cannot open, so they never see it.
+  if (isStaff || !ready || completedSteps >= checklist.length) return null;
 
   return (
     <Card className="border-0 rounded-2xl shadow-sm bg-card">

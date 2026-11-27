@@ -281,6 +281,8 @@ export type PatientExportRow = {
   last_visit: string | null;
   total_visits: number;
   notes: string | null;
+  /** Doctors who have seen the patient, as display text. Only written when the export asks for it. */
+  seen_by?: string | null;
 };
 
 // Forces a spreadsheet to keep the value as text (no 9.87E+09 phone numbers, no #### dates).
@@ -307,9 +309,12 @@ export function patientSinceDate(p: { patient_since?: string | null; first_visit
   return p.created_at ? clinicToday(new Date(p.created_at)) : null;
 }
 
-export function patientsToCsv(patients: PatientExportRow[]): string {
+// `includeSeenBy` (multi-doctor clinics) appends a "Seen by" column AFTER the importable ones. The
+// importer matches columns by name and ignores unknown ones, so such a file still re-imports cleanly.
+export function patientsToCsv(patients: PatientExportRow[], options: { includeSeenBy?: boolean } = {}): string {
+  const seenBy = !!options.includeSeenBy;
   return toCsv(
-    PATIENT_EXPORT_HEADERS,
+    seenBy ? [...PATIENT_EXPORT_HEADERS, "Seen by"] : PATIENT_EXPORT_HEADERS,
     patients.map((p) => [
       csvCell(p.name),
       asText(p.phone),
@@ -322,6 +327,7 @@ export function patientsToCsv(patients: PatientExportRow[]): string {
       asText(formatDate(p.last_visit)),
       String(p.total_visits),
       csvCell(p.notes),
+      ...(seenBy ? [csvCell(p.seen_by)] : []),
     ]),
   );
 }

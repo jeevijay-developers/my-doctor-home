@@ -28,6 +28,7 @@ import CustomPlanSection from "./CustomPlanSection";
 import { useCustomPlan } from "@/hooks/useCustomPlan";
 import { applyCustomPlanToBullets } from "@/lib/customPlan";
 import { usePractitioners } from "@/hooks/usePractitioners";
+import MyDoctorDetailsCard from "./MyDoctorDetailsCard";
 import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 
 type ClinicalVisibility = "shared" | "treating";
@@ -247,6 +248,17 @@ const SettingsPage = () => {
   const { customPlan } = useCustomPlan();
   const basicFeatures = applyCustomPlanToBullets(getTierFeatures("pro", standardCap || appointmentsCap || DEFAULT_APPOINTMENT_CAP), customPlan, "pro");
   const premiumFeatures = applyCustomPlanToBullets(getTierFeatures("premium", standardCap || appointmentsCap || DEFAULT_APPOINTMENT_CAP), customPlan, "premium");
+
+  if (isStaff && role === "doctor") {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
+          <Settings className="h-6 w-6 text-muted-foreground" /> Settings
+        </h1>
+        <MyDoctorDetailsCard />
+      </div>
+    );
+  }
 
   if (isStaff) {
     return (

@@ -224,6 +224,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "appointments_practitioner_fk"
             columns: ["practitioner_id", "doctor_id"]
             isOneToOne: false
@@ -944,6 +951,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "notification_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "notification_logs_reminder_id_fkey"
             columns: ["reminder_id"]
             isOneToOne: false
@@ -1129,6 +1143,13 @@ export type Database = {
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "patient_allergies_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
+            referencedColumns: ["id"]
+          },
         ]
       }
       patient_checkup_reminders: {
@@ -1217,6 +1238,13 @@ export type Database = {
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "patient_checkup_reminders_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
+            referencedColumns: ["id"]
+          },
         ]
       }
       patient_conditions: {
@@ -1278,6 +1306,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_conditions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
             referencedColumns: ["id"]
           },
         ]
@@ -1344,6 +1379,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
             referencedColumns: ["id"]
           },
           {
@@ -1418,6 +1460,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_family_history_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
             referencedColumns: ["id"]
           },
         ]
@@ -1662,6 +1711,13 @@ export type Database = {
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "patient_medications_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
+            referencedColumns: ["id"]
+          },
         ]
       }
       patient_queries: {
@@ -1769,6 +1825,13 @@ export type Database = {
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "patient_surgeries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
+            referencedColumns: ["id"]
+          },
         ]
       }
       patient_visits: {
@@ -1852,6 +1915,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "patient_visits_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "patient_visits_practitioner_fk"
             columns: ["practitioner_id", "doctor_id"]
             isOneToOne: false
@@ -1925,6 +1995,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_vitals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
             referencedColumns: ["id"]
           },
           {
@@ -2601,6 +2678,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescriptions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_with_doctors"
             referencedColumns: ["id"]
           },
           {
@@ -3594,6 +3678,37 @@ export type Database = {
         }
         Relationships: []
       }
+      patients_with_doctors: {
+        Row: {
+          age: number | null
+          auto_created: boolean | null
+          created_at: string | null
+          doctor_id: string | null
+          email: string | null
+          first_visit: string | null
+          gender: string | null
+          id: string | null
+          last_practitioner_id: string | null
+          last_visit: string | null
+          name: string | null
+          notes: string | null
+          patient_since: string | null
+          phone: string | null
+          practitioner_ids: string[] | null
+          total_visits: number | null
+          updated_at: string | null
+          weight: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patients_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       activate_scheduled_plans: { Args: never; Returns: undefined }
@@ -3903,6 +4018,10 @@ export type Database = {
         Args: { _file_name?: string; _rows: Json }
         Returns: Json
       }
+      invoice_row_visible: {
+        Args: { _doctor_id: string; _practitioner_id: string }
+        Returns: boolean
+      }
       is_active_team_member: { Args: { _user_id: string }; Returns: boolean }
       is_doctor_login: { Args: { _doctor_id: string }; Returns: boolean }
       log_clinical_access: { Args: { _patient_id: string }; Returns: undefined }
@@ -3911,6 +4030,10 @@ export type Database = {
         Returns: boolean
       }
       my_practitioner_id: { Args: { _doctor_id: string }; Returns: string }
+      own_practitioner_upload_path: {
+        Args: { _name: string }
+        Returns: boolean
+      }
       patient_import_cap: { Args: { _doctor_id: string }; Returns: number }
       patient_import_clinic: { Args: never; Returns: string }
       patient_import_eligible: {
@@ -4170,6 +4293,10 @@ export type Database = {
       update_custom_plan_terms: {
         Args: { _doctor_id: string; _price: number; _valid_until: string }
         Returns: undefined
+      }
+      update_my_practitioner_profile: {
+        Args: { _bio?: string; _photo_url?: string; _signature_url?: string }
+        Returns: Json
       }
       upsert_practitioner: { Args: { _data: Json; _id: string }; Returns: Json }
       withdraw_plan_request: {
