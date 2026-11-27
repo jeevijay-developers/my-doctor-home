@@ -91,16 +91,16 @@ AS $$
 DECLARE
   m text[] := '{}';
 BEGIN
-  IF cardinality(r.platforms) = 0 THEN m := m || 'platforms'; END IF;
-  IF r.posts_per_month IS NULL THEN m := m || 'posts_per_month'; END IF;
-  IF cardinality(r.post_types) = 0 THEN m := m || 'post_types'; END IF;
-  IF r.publishing_by IS NULL THEN m := m || 'publishing_by'; END IF;
-  IF r.reporting_frequency IS NULL THEN m := m || 'reporting_frequency'; END IF;
-  IF r.approval_process IS NULL THEN m := m || 'approval_process'; END IF;
-  IF r.monthly_fee IS NULL THEN m := m || 'monthly_fee'; END IF;
-  IF r.paid_ads AND r.ad_spend_monthly IS NULL THEN m := m || 'ad_spend_monthly'; END IF;
-  IF NOT r.access_confirmed THEN m := m || 'access_confirmed'; END IF;
-  IF NOT r.agreed OR r.agreed_on IS NULL OR btrim(COALESCE(r.agreement_ref, '')) = '' THEN m := m || 'agreement'; END IF;
+  IF cardinality(r.platforms) = 0 THEN m := array_append(m, 'platforms'); END IF;
+  IF r.posts_per_month IS NULL THEN m := array_append(m, 'posts_per_month'); END IF;
+  IF cardinality(r.post_types) = 0 THEN m := array_append(m, 'post_types'); END IF;
+  IF r.publishing_by IS NULL THEN m := array_append(m, 'publishing_by'); END IF;
+  IF r.reporting_frequency IS NULL THEN m := array_append(m, 'reporting_frequency'); END IF;
+  IF r.approval_process IS NULL THEN m := array_append(m, 'approval_process'); END IF;
+  IF r.monthly_fee IS NULL THEN m := array_append(m, 'monthly_fee'); END IF;
+  IF r.paid_ads AND r.ad_spend_monthly IS NULL THEN m := array_append(m, 'ad_spend_monthly'); END IF;
+  IF NOT r.access_confirmed THEN m := array_append(m, 'access_confirmed'); END IF;
+  IF NOT r.agreed OR r.agreed_on IS NULL OR btrim(COALESCE(r.agreement_ref, '')) = '' THEN m := array_append(m, 'agreement'); END IF;
   RETURN m;
 END;
 $$;

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import type { ComponentProps } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Copy, Pencil, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,10 @@ import { TEMPLATE_PRESETS, defaultTemplateConfig, presetLabel } from "@/lib/pres
 import { LIMITS, type TemplateConfig } from "@/lib/prescriptionTemplate/types";
 import type { PrescriptionTemplate } from "@/lib/prescriptionTemplate/resolve";
 import TemplateEditor from "./TemplateEditor";
+import { PrescriptionSlipCard } from "../PrescriptionSlip";
+
+/** The clinic (or author doctor) profile the slip prints, as PrescriptionSlipCard takes it. */
+type SlipProfile = ComponentProps<typeof PrescriptionSlipCard>["profile"];
 
 type Api = ReturnType<typeof usePrescriptionTemplates>;
 
@@ -22,7 +27,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   api: Api;
   /** The clinic profile (letterhead shown in the preview). */
-  profile: any;
+  profile: SlipProfile;
   /** The clinic owner may manage every template; a doctor login only their own. */
   isOwner: boolean;
   myPractitionerId: string | null;
@@ -38,6 +43,15 @@ const PrescriptionTemplatesDialog = ({ open, onOpenChange, api, profile, isOwner
   const { isMulti, active, byId } = usePractitioners();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<PrescriptionTemplate | null>(null);
+  // Unsaved builder changes: leaving (Cancel, Escape, the close button, clicking outside) asks first.
+  const dirty = useRef(false);
+  const [confirmLeave, setConfirmLeave] = useState<(() => void) | null>(null);
+  const onDirtyChange = useCallback((d: boolean) => { dirty.current = d; }, []);
+  const leave = (action: () => void) => {
+    if (editing && dirty.current) setConfirmLeave(() => action);
+    else action();
+  };
+  const closeEditor = () => { dirty.current = false; setEditing(null); };
 
   const canEdit = (t: PrescriptionTemplate) => isOwner || (t.practitioner_id !== null && t.practitioner_id === myPractitionerId);
   // A doctor login's new templates are always their own; the owner of a multi-doctor clinic picks.
@@ -77,7 +91,13 @@ const PrescriptionTemplatesDialog = ({ open, onOpenChange, api, profile, isOwner
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setEditing(null); }}>
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          if (o) onOpenChange(true);
+          else leave(() => { closeEditor(); onOpenChange(false); });
+        }}
+      >
         <DialogContent className={`${editing ? "sm:max-w-6xl" : "sm:max-w-2xl"} max-h-[92vh] overflow-y-auto`}>
           <DialogHeader>
             <DialogTitle>{editing ? (editing.id ? "Edit template" : "New template") : "Prescription templates"}</DialogTitle>
@@ -97,10 +117,11 @@ const PrescriptionTemplatesDialog = ({ open, onOpenChange, api, profile, isOwner
               scopeLocked={!isOwner}
               onSave={async (input) => {
                 const err = await save(input);
-                if (!err) setEditing(null);
+                if (!err) closeEditor();
                 return err;
               }}
-              onCancel={() => setEditing(null)}
+              onCancel={() => leave(closeEditor)}
+              onDirtyChange={onDirtyChange}
             />
           ) : (
             <div className="space-y-6">
@@ -173,6 +194,24 @@ const PrescriptionTemplatesDialog = ({ open, onOpenChange, api, profile, isOwner
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!confirmLeave} onOpenChange={(o) => { if (!o) setConfirmLeave(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+            <AlertDialogDescription>The changes you made to this template have not been saved.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={() => { const go = confirmLeave; setConfirmLeave(null); go?.(); }}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleting} onOpenChange={(o) => { if (!o) setDeleting(null); }}>
         <AlertDialogContent>

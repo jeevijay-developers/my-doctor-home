@@ -28,8 +28,8 @@ const custom = (
   id: string,
   label: string,
   fieldType: CustomFieldType,
-  extra: Partial<Pick<CustomBlock, "options" | "required">> = {},
-): CustomBlock => ({ id, type: "custom", enabled: true, label, fieldType, options: [], required: false, ...extra });
+  extra: Partial<Pick<CustomBlock, "options" | "required" | "carryForward">> = {},
+): CustomBlock => ({ id, type: "custom", enabled: true, label, fieldType, options: [], required: false, carryForward: false, ...extra });
 
 // A dental case sheet: OPD number, MLC, histories, tooth chart, pain scale, investigations, plan.
 const dentalTemplateConfig = (): TemplateConfig => {
@@ -42,9 +42,9 @@ const dentalTemplateConfig = (): TemplateConfig => {
       custom("cf_opd_no", "OPD No.", "text"),
       custom("cf_mlc", "MLC", "select", { options: ["No", "Yes"] }),
       custom("cf_complaint", "Chief complaint", "textarea"),
-      custom("cf_history", "Past medical / dental / drug history", "textarea"),
-      custom("cf_personal", "Personal history", "text"),
-      custom("cf_allergies", "Allergies", "text"),
+      custom("cf_history", "Past medical / dental / drug history", "textarea", { carryForward: true }),
+      custom("cf_personal", "Personal history", "text", { carryForward: true }),
+      custom("cf_allergies", "Allergies", "text", { carryForward: true }),
       custom("cf_teeth", "Clinical findings", "tooth_chart"),
       custom("cf_extra_oral", "Extra-oral & soft tissue examination", "textarea"),
       custom("cf_pain", "Pain scale", "pain_scale"),

@@ -158,7 +158,37 @@ describe("TemplateEditor", () => {
     expect(screen.queryByRole("combobox", { name: "Used by" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save template" }));
     await waitFor(() => expect(onSave).toHaveBeenCalled());
-    expect((onSave.mock.calls[0] as any[])[0].practitioner_id).toBe("pr-me");
+    expect((onSave.mock.calls[0] as unknown as [{ practitioner_id: string }])[0].practitioner_id).toBe("pr-me");
+  });
+
+  it("warns about a too-light accent colour and refuses to save it", async () => {
+    const { onSave } = setup();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.input(screen.getByLabelText("Custom accent colour"), { target: { value: "#ffff00" } });
+    expect(screen.getByRole("alert")).toHaveTextContent(/too light/i);
+    fireEvent.click(screen.getByRole("button", { name: "Save template" }));
+    await waitFor(() => expect(h.error).toHaveBeenCalledWith(expect.stringMatching(/too light/i)));
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("reports unsaved changes, and none after an undo", () => {
+    const onDirtyChange = vi.fn();
+    setup({ onDirtyChange });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+    fireEvent.change(screen.getByLabelText("Template name"), { target: { value: "Changed" } });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    fireEvent.change(screen.getByLabelText("Template name"), { target: { value: "Standard copy" } });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("a field can be set to carry forward from the patient's last prescription", async () => {
+    const { onSave } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+    fireEvent.change(screen.getByLabelText("Field name"), { target: { value: "Allergies" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /last prescription/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Save template" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(saved(onSave).config.blocks.filter(isCustomBlock)[0]).toMatchObject({ label: "Allergies", carryForward: true });
   });
 
   it("cancel does not save", () => {

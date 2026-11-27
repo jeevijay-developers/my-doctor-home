@@ -115,3 +115,33 @@ export function sampleValue(block: CustomBlock): ExtraValue {
     case "tooth_chart": return { "16": "decayed", "26": "restored", "36": "missing", "46": "root_stump" };
   }
 }
+
+// Answers to copy from the patient's previous prescription into a new one: only fields marked
+// "carry forward", only when the new form has no answer yet. A field is matched by id first (templates
+// made from the same preset share ids), then by the same name and type in the earlier layout.
+export function carryForwardValues(
+  config: TemplateConfig,
+  current: Record<string, unknown>,
+  previousConfig: TemplateConfig,
+  previousExtra: unknown,
+): ExtraValues {
+  const prev = parseExtra(previousExtra);
+  const out: ExtraValues = {};
+  for (const b of config.blocks) {
+    if (!isCustomBlock(b) || !b.enabled || !b.carryForward || !isEmptyValue(current[b.id])) continue;
+    let value: unknown = prev[b.id];
+    if (isEmptyValue(value)) {
+      const same = previousConfig.blocks.find(
+        (p): p is CustomBlock => isCustomBlock(p) && p.fieldType === b.fieldType && p.label.trim().toLowerCase() === b.label.trim().toLowerCase(),
+      );
+      value = same ? prev[same.id] : undefined;
+    }
+    const v = isEmptyValue(value) ? undefined : coerce(b, value);
+    if (v !== undefined) out[b.id] = v;
+  }
+  return out;
+}
+
+export const hasCarryForward = (config: TemplateConfig) =>
+  config.blocks.some((b) => isCustomBlock(b) && b.enabled && b.carryForward);
+

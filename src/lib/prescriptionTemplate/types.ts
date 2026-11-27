@@ -79,6 +79,8 @@ export type CustomBlock = {
   fieldType: CustomFieldType;
   options: string[];
   required: boolean;
+  /** Pre-fill from the patient's last prescription (histories, allergies: things that rarely change). */
+  carryForward: boolean;
 };
 export type Block = PatientInfoBlock | SimpleBlock | CustomBlock;
 

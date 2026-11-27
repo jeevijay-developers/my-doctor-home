@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanExtra, formatExtraValue, isEmptyValue, parseExtra, validateExtra } from "./extra";
+import { carryForwardValues, cleanExtra, formatExtraValue, hasCarryForward, isEmptyValue, parseExtra, validateExtra } from "./extra";
 import { newCustomBlock } from "./config";
 import { defaultTemplateConfig } from "./defaults";
 import { parseToothMap } from "./teeth";
@@ -7,7 +7,7 @@ import type { CustomBlock, TemplateConfig } from "./types";
 
 const withFields = (...fields: Array<Partial<CustomBlock> & Pick<CustomBlock, "id" | "label" | "fieldType">>): TemplateConfig => {
   const c = defaultTemplateConfig();
-  for (const f of fields) c.blocks.push({ type: "custom", enabled: true, options: [], required: false, ...f });
+  for (const f of fields) c.blocks.push({ type: "custom", enabled: true, options: [], required: false, carryForward: false, ...f });
   return c;
 };
 
@@ -94,5 +94,31 @@ describe("formatExtraValue", () => {
     expect(formatExtraValue(check, false)).toBe("No");
     expect(formatExtraValue(newCustomBlock([], "multiselect", "X"), ["A", "B"])).toBe("A, B");
     expect(formatExtraValue(newCustomBlock([], "number", "N"), 12)).toBe("12");
+  });
+});
+
+describe("carryForwardValues", () => {
+  const cfg = withFields(
+    { id: "cf_hist", label: "Medical history", fieldType: "textarea", carryForward: true },
+    { id: "cf_all", label: "Allergies", fieldType: "text", carryForward: true },
+    { id: "cf_opd", label: "OPD No.", fieldType: "text" },
+  );
+
+  it("copies only carry-forward fields that are still empty, matched by id", () => {
+    const out = carryForwardValues(cfg, { cf_all: "Penicillin (typed today)" }, cfg, { cf_hist: "Diabetic", cf_all: "None", cf_opd: "99" });
+    expect(out).toEqual({ cf_hist: "Diabetic" });
+  });
+
+  it("falls back to a field with the same name and type in the earlier layout", () => {
+    const older = withFields({ id: "cf_old", label: "  allergies ", fieldType: "text" }, { id: "cf_x", label: "Medical history", fieldType: "number" });
+    const out = carryForwardValues(cfg, {}, older, { cf_old: "Sulpha", cf_x: 5 });
+    expect(out).toEqual({ cf_all: "Sulpha" }); // a same-named field of another type is not reused
+  });
+
+  it("returns nothing for a template without carry-forward fields or an earlier prescription without answers", () => {
+    expect(carryForwardValues(defaultTemplateConfig(), {}, cfg, { cf_hist: "x" })).toEqual({});
+    expect(carryForwardValues(cfg, {}, cfg, null)).toEqual({});
+    expect(hasCarryForward(cfg)).toBe(true);
+    expect(hasCarryForward(defaultTemplateConfig())).toBe(false);
   });
 });

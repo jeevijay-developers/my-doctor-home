@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import type { ComponentProps } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -6,25 +7,30 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { isHexColor, validateTemplateConfig, validateTemplateName } from "@/lib/prescriptionTemplate/config";
+import { MIN_ACCENT_CONTRAST, contrastOnWhite, isHexColor, validateTemplateConfig, validateTemplateName } from "@/lib/prescriptionTemplate/config";
 import { sampleSlip } from "@/lib/prescriptionTemplate/sample";
 import { LIMITS, type Letterhead, type TemplateConfig } from "@/lib/prescriptionTemplate/types";
 import type { TemplateInput } from "@/hooks/usePrescriptionTemplates";
 import { PrescriptionSlipCard } from "../PrescriptionSlip";
 import TemplateBlocksEditor from "./TemplateBlocksEditor";
 
+/** The clinic (or author doctor) profile the slip prints, as PrescriptionSlipCard takes it. */
+type SlipProfile = ComponentProps<typeof PrescriptionSlipCard>["profile"];
+
 export type EditorDoctor = { id: string; name: string };
 
 type Props = {
   initial: { id?: string; name: string; preset: string | null; config: TemplateConfig; practitioner_id: string | null; is_default: boolean };
   /** The clinic profile, so the preview shows the real letterhead. */
-  profile: any;
+  profile: SlipProfile;
   /** Doctors the template can be scoped to (the owner of a multi-doctor clinic). Empty = no choice. */
   doctors: EditorDoctor[];
   /** A doctor login's template is always their own: the scope cannot be changed. */
   scopeLocked: boolean;
   onSave: (input: TemplateInput) => Promise<string | null>;
   onCancel: () => void;
+  /** Told whether there are unsaved changes, so closing can ask before discarding them. */
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 const SWATCHES = ["#1d4ed8", "#0f766e", "#7c3aed", "#b91c1c", "#c2410c", "#334155"];
@@ -39,7 +45,7 @@ const Toggle = ({ id, checked, onChange, children }: { id: string; checked: bool
 
 // Builds one template: name and scope, look (colour, title, letterhead), and the sections with a
 // live preview that updates as you change anything.
-const TemplateEditor = ({ initial, profile, doctors, scopeLocked, onSave, onCancel }: Props) => {
+const TemplateEditor = ({ initial, profile, doctors, scopeLocked, onSave, onCancel, onDirtyChange }: Props) => {
   const [name, setName] = useState(initial.name);
   const [scope, setScope] = useState<string | null>(initial.practitioner_id);
   const [isDefault, setIsDefault] = useState(initial.is_default);
@@ -49,6 +55,14 @@ const TemplateEditor = ({ initial, profile, doctors, scopeLocked, onSave, onCanc
   const preview = useMemo(() => sampleSlip(config, today), [config, today]);
 
   const set = (p: Partial<TemplateConfig>) => setConfig((c) => ({ ...c, ...p }));
+
+  const initialState = useRef(JSON.stringify({ name: initial.name, scope: initial.practitioner_id, isDefault: initial.is_default, config: initial.config }));
+  const dirty = useMemo(
+    () => JSON.stringify({ name, scope, isDefault, config }) !== initialState.current,
+    [name, scope, isDefault, config],
+  );
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  const tooLight = isHexColor(config.accent) && contrastOnWhite(config.accent) < MIN_ACCENT_CONTRAST;
 
   const save = async () => {
     const problem = validateTemplateName(name) ?? validateTemplateConfig(config);
@@ -118,6 +132,11 @@ const TemplateEditor = ({ initial, profile, doctors, scopeLocked, onSave, onCanc
                 onChange={(e) => set({ accent: e.target.value })} className="h-8 w-10 cursor-pointer rounded border bg-transparent p-0.5"
               />
             </div>
+            {tooLight && (
+              <p role="alert" className="text-xs text-destructive">
+                This colour is too light to read on white paper, and the QR code may not scan. Choose a darker one.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Letterhead</Label>

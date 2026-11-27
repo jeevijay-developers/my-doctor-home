@@ -417,6 +417,95 @@ export type Database = {
           },
         ]
       }
+      custom_plan_social_marketing: {
+        Row: {
+          access_confirmed: boolean
+          activated_at: string | null
+          activated_by: string | null
+          ad_spend_monthly: number | null
+          agreed: boolean
+          agreed_on: string | null
+          agreement_ref: string | null
+          approval_process: string | null
+          calendar_included: boolean
+          community_management: boolean
+          created_at: string
+          creative_included: boolean
+          doctor_id: string
+          ended_at: string | null
+          monthly_fee: number | null
+          notes: string | null
+          paid_ads: boolean
+          platforms: string[]
+          post_types: string[]
+          posts_per_month: number | null
+          publishing_by: string | null
+          reporting_frequency: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          access_confirmed?: boolean
+          activated_at?: string | null
+          activated_by?: string | null
+          ad_spend_monthly?: number | null
+          agreed?: boolean
+          agreed_on?: string | null
+          agreement_ref?: string | null
+          approval_process?: string | null
+          calendar_included?: boolean
+          community_management?: boolean
+          created_at?: string
+          creative_included?: boolean
+          doctor_id: string
+          ended_at?: string | null
+          monthly_fee?: number | null
+          notes?: string | null
+          paid_ads?: boolean
+          platforms?: string[]
+          post_types?: string[]
+          posts_per_month?: number | null
+          publishing_by?: string | null
+          reporting_frequency?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          access_confirmed?: boolean
+          activated_at?: string | null
+          activated_by?: string | null
+          ad_spend_monthly?: number | null
+          agreed?: boolean
+          agreed_on?: string | null
+          agreement_ref?: string | null
+          approval_process?: string | null
+          calendar_included?: boolean
+          community_management?: boolean
+          created_at?: string
+          creative_included?: boolean
+          doctor_id?: string
+          ended_at?: string | null
+          monthly_fee?: number | null
+          notes?: string | null
+          paid_ads?: boolean
+          platforms?: string[]
+          post_types?: string[]
+          posts_per_month?: number | null
+          publishing_by?: string | null
+          reporting_frequency?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_plan_social_marketing_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: true
+            referencedRelation: "doctor_custom_plans"
+            referencedColumns: ["doctor_id"]
+          },
+        ]
+      }
       doctor_bank_accounts: {
         Row: {
           account_holder_name: string | null
@@ -3782,6 +3871,10 @@ export type Database = {
     }
     Functions: {
       activate_scheduled_plans: { Args: never; Returns: undefined }
+      activate_social_marketing: {
+        Args: { _doctor_id: string }
+        Returns: undefined
+      }
       admin_delete_auth_user: { Args: { _user_id: string }; Returns: undefined }
       admin_verify_password: {
         Args: { _password: string; _user_id: string }
@@ -3883,6 +3976,7 @@ export type Database = {
         Args: { _doctor_id: string; _feature_key: string }
         Returns: boolean
       }
+      end_social_marketing: { Args: { _doctor_id: string }; Returns: undefined }
       ensure_invoice_for_appointment: {
         Args: { _appointment_id: string }
         Returns: undefined
@@ -4232,6 +4326,29 @@ export type Database = {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
       }
+      save_social_marketing_scope: {
+        Args: {
+          _access_confirmed: boolean
+          _ad_spend_monthly: number
+          _agreed: boolean
+          _agreed_on: string
+          _agreement_ref: string
+          _approval_process: string
+          _calendar_included: boolean
+          _community_management: boolean
+          _creative_included: boolean
+          _doctor_id: string
+          _monthly_fee: number
+          _notes: string
+          _paid_ads: boolean
+          _platforms: string[]
+          _post_types: string[]
+          _posts_per_month: number
+          _publishing_by: string
+          _reporting_frequency: string
+        }
+        Returns: string
+      }
       search_blog_posts: {
         Args: {
           p_category?: string
@@ -4327,6 +4444,16 @@ export type Database = {
           _type: string
         }
         Returns: number
+      }
+      social_marketing_missing: {
+        Args: {
+          r: Database["public"]["Tables"]["custom_plan_social_marketing"]["Row"]
+        }
+        Returns: string[]
+      }
+      social_marketing_plan_live: {
+        Args: { _doctor_id: string }
+        Returns: boolean
       }
       staff_doctor_id: { Args: { _user_id: string }; Returns: string }
       staff_has_permission: {

@@ -101,7 +101,7 @@ describe("TemplateFormFields", () => {
 
   it("a required field is starred in its label", () => {
     const cfg = defaultTemplateConfig();
-    cfg.blocks.push({ id: "cf_x", type: "custom", enabled: true, label: "OPD No.", fieldType: "text", options: [], required: true });
+    cfg.blocks.push({ id: "cf_x", type: "custom", enabled: true, label: "OPD No.", fieldType: "text", options: [], required: true, carryForward: false });
     render(<Harness config={cfg} />);
     expect(screen.getByText("OPD No. *")).toBeInTheDocument();
   });

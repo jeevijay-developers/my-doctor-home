@@ -53,6 +53,10 @@ const CustomFieldEditor = ({ block, onChange }: { block: CustomBlock; onChange: 
         <Checkbox checked={block.required} onCheckedChange={(c) => onChange({ required: !!c })} />
         Must be filled in before saving
       </label>
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <Checkbox checked={block.carryForward} onCheckedChange={(c) => onChange({ carryForward: !!c })} />
+        Fill in from the patient's last prescription (for histories, allergies)
+      </label>
     </div>
   );
 };
@@ -105,7 +109,7 @@ const TemplateBlocksEditor = ({ blocks, onChange }: Props) => {
                 <Switch checked={b.enabled} onCheckedChange={(c) => patch(b.id, { enabled: c })} aria-label={`Show ${name}`} />
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-medium truncate ${b.enabled ? "" : "text-muted-foreground line-through"}`}>{name}</p>
-                  {isCustomBlock(b) && <p className="text-[11px] text-muted-foreground">{CUSTOM_FIELD_TYPE_LABELS[b.fieldType]}{b.required ? " · required" : ""}</p>}
+                  {isCustomBlock(b) && <p className="text-[11px] text-muted-foreground">{CUSTOM_FIELD_TYPE_LABELS[b.fieldType]}{b.required ? " · required" : ""}{b.carryForward ? " · carried forward" : ""}</p>}
                 </div>
                 <div className="flex items-center">
                   {hasSettings && (

@@ -9,6 +9,19 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 
 export const isHexColor = (v: unknown): v is string => typeof v === "string" && HEX.test(v);
 
+// WCAG contrast of a colour against white paper. The accent colours the doctor's name, headings and
+// the QR code, so it must stay readable and scannable when printed.
+export function contrastOnWhite(hex: string): number {
+  const channel = (i: number) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const l = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  return 1.05 / (l + 0.05);
+}
+/** Minimum contrast for the accent (WCAG 3:1, the level for large text and graphics such as the QR code). */
+export const MIN_ACCENT_CONTRAST = 3;
+
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -43,6 +56,7 @@ export const newCustomBlock = (blocks: Block[], fieldType: CustomFieldType = "te
   fieldType,
   options: [],
   required: false,
+  carryForward: false,
 });
 
 // Tolerant read: anything malformed (older rows, hand-edited JSON) falls back to a safe value, so
@@ -91,6 +105,7 @@ export function parseTemplateConfig(value: unknown): TemplateConfig {
           fieldType,
           options: cleanOptions(raw.options),
           required: bool(raw.required, false),
+          carryForward: bool(raw.carryForward, false),
         });
       }
     }
@@ -117,6 +132,7 @@ export function parseTemplateConfig(value: unknown): TemplateConfig {
 export function validateTemplateConfig(config: TemplateConfig): string | null {
   if (config.title.length > LIMITS.title) return `The title can be at most ${LIMITS.title} characters.`;
   if (!isHexColor(config.accent)) return "Choose a valid accent colour.";
+  if (contrastOnWhite(config.accent) < MIN_ACCENT_CONTRAST) return "That accent colour is too light to read on white paper. Choose a darker one.";
   if (config.blocks.length > LIMITS.blocks) return `A template can have at most ${LIMITS.blocks} sections.`;
   if (!config.blocks.some((b) => b.enabled)) return "Turn on at least one section.";
   const customs = config.blocks.filter((b): b is CustomBlock => b.type === "custom");

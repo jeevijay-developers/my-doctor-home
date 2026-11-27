@@ -30,6 +30,7 @@ export function usePrescriptionTemplates(clinicId: string | null | undefined) {
   const reload = useCallback(async () => {
     const mine = ++seq.current;
     if (!clinicId) { setTemplates(EMPTY); setLoading(false); return; }
+    setLoading(true);
     const { data, error } = await table().select("*").eq("doctor_id", clinicId).order("created_at");
     if (mine !== seq.current) return;
     if (error || !Array.isArray(data)) {

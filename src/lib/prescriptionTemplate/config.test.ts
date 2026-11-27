@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { blockEnabled, newCustomBlock, parseTemplateConfig, showsDiagnosis, validateTemplateConfig, validateTemplateName } from "./config";
+import { blockEnabled, contrastOnWhite, newCustomBlock, parseTemplateConfig, showsDiagnosis, validateTemplateConfig, validateTemplateName } from "./config";
 import { DEFAULT_ACCENT, TEMPLATE_PRESETS, defaultTemplateConfig } from "./defaults";
 import { INFO_FIELD_KEYS, LIMITS, isCustomBlock, type TemplateConfig } from "./types";
 
@@ -132,3 +132,24 @@ describe("section helpers", () => {
     expect(showsDiagnosis(off)).toBe(false);
   });
 });
+
+describe("accent contrast", () => {
+  it("accepts the swatches and rejects colours too light to read on white", () => {
+    for (const c of ["#1d4ed8", "#0f766e", "#7c3aed", "#b91c1c", "#c2410c", "#334155"]) {
+      expect(contrastOnWhite(c)).toBeGreaterThanOrEqual(3);
+      expect(validateTemplateConfig({ ...defaultTemplateConfig(), accent: c })).toBeNull();
+    }
+    expect(contrastOnWhite("#ffffff")).toBeCloseTo(1, 5);
+    expect(contrastOnWhite("#000000")).toBeCloseTo(21, 0);
+    expect(validateTemplateConfig({ ...defaultTemplateConfig(), accent: "#ffff00" })).toMatch(/too light/i);
+  });
+
+  it("carryForward survives parsing and defaults to off", () => {
+    const cfg = parseTemplateConfig({ version: 1, blocks: [
+      { id: "cf_a", type: "custom", enabled: true, label: "A", fieldType: "text", carryForward: true },
+      { id: "cf_b", type: "custom", enabled: true, label: "B", fieldType: "text" },
+    ] });
+    expect(cfg.blocks.map((b) => b.type === "custom" && b.carryForward)).toEqual([true, false]);
+  });
+});
+

@@ -331,3 +331,134 @@ describe("PrescriptionsPage - who can open the template builder", () => {
     });
   });
 });
+
+describe("PrescriptionsPage - inspection fixes", () => {
+  const ISSUED = {
+    id: "rx-i", doctor_id: "doc-1", practitioner_id: null, patient_id: null, patient_name: "Harshit",
+    diagnosis: "Pulpitis", medications: null, notes: null, date: "2026-11-27", created_at: "2026-11-27T10:00:00Z",
+    patient_age: 23, patient_weight: null, visit_id: null, medicines: [], advice: null, diet_advice: null,
+    lifestyle_advice: null, follow_up_date: null, follow_up_instructions: null,
+    template_id: "t-dental", template_snapshot: dentalConfig(), extra: { cf_opd_no: "14023", cf_teeth: { "16": "decayed" }, cf_pain: 3 },
+  };
+
+  it("the side panel shows the answers to the template's own fields", async () => {
+    mock.current.tables.prescriptions = () => ({ data: [ISSUED], count: 1, error: null });
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    fireEvent.click((await screen.findAllByRole("button", { name: "Harshit" }))[0]);
+    const sheet = await screen.findByRole("dialog");
+    const answers = within(sheet).getByTestId("template-answers");
+    expect(within(answers).getByText("OPD No.")).toBeInTheDocument();
+    expect(within(answers).getByText("14023")).toBeInTheDocument();
+    expect(answers.querySelector('[data-tooth="16"]')).toHaveTextContent("D");
+    expect(answers.querySelector('[data-pain-level="3"]')).toHaveAttribute("data-selected", "true");
+    expect(within(answers).queryByText("Allergies")).not.toBeInTheDocument(); // unanswered
+  });
+
+  it("a prescription without template answers shows no answers section", async () => {
+    mock.current.tables.prescriptions = () => ({ data: [{ ...ISSUED, template_snapshot: null, extra: {} }], count: 1, error: null });
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    fireEvent.click((await screen.findAllByRole("button", { name: "Harshit" }))[0]);
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).queryByTestId("template-answers")).not.toBeInTheDocument();
+  });
+
+  it("carries histories and allergies forward from the patient's last prescription, without overwriting typed answers", async () => {
+    mock.current.tables.prescription_templates = { data: [templateRow()], error: null };
+    const LAST = { extra: { cf_history: "Diabetic", cf_allergies: "Penicillin", cf_opd_no: "old-opd" }, template_snapshot: dentalConfig(), date: "2026-11-01" };
+    mock.current.tables.prescriptions = (ops: any[]) =>
+      ops.some((o) => o[0] === "insert")
+        ? { data: { id: "rx1", patient_id: "p1", patient_name: "Aaryan", date: "2026-11-18", medicines: [] }, error: null }
+        : ops.some((o) => o[0] === "eq" && o[1] === "patient_id")
+          ? { data: [LAST], error: null }
+          : { data: [], count: 0, error: null };
+    const dialog = await openNew();
+    fireEvent.change(await within(dialog).findByLabelText("Allergies"), { target: { value: "Sulpha (today)" } });
+    await choosePatient(dialog, "Aaryan (8871876376)");
+
+    await waitFor(() => expect(within(dialog).getByLabelText("Past medical / dental / drug history")).toHaveValue("Diabetic"));
+    expect(within(dialog).getByLabelText("Allergies")).toHaveValue("Sulpha (today)"); // typed answer kept
+    expect(within(dialog).getByLabelText("OPD No.")).toHaveValue(""); // not a carry-forward field
+    expect(within(dialog).getByText(/filled in from the prescription of 2026-11-01/i)).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+    await waitFor(() => expect(savedRows()).toHaveLength(1));
+    expect(savedRows()[0].extra).toMatchObject({ cf_history: "Diabetic", cf_allergies: "Sulpha (today)" });
+  });
+
+  it("widens the form for a template with its own fields", async () => {
+    mock.current.tables.prescription_templates = { data: [templateRow()], error: null };
+    const dialog = await openNew();
+    await within(dialog).findByLabelText("OPD No.");
+    expect(dialog.className).toMatch(/sm:max-w-2xl/);
+  });
+
+  it("asks before discarding unsaved changes in the template builder", async () => {
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: /templates/i }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /General/ }));
+    fireEvent.change(await within(dialog).findByLabelText("Template name"), { target: { value: "Half done" } });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("Discard your changes?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    await waitFor(() => expect(screen.queryByText("Discard your changes?")).not.toBeInTheDocument());
+    expect(within(dialog).getByLabelText("Template name")).toHaveValue("Half done");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discard" }));
+    expect(await within(dialog).findByText("Your templates")).toBeInTheDocument();
+  });
+
+  it("an untouched builder closes without asking", async () => {
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: /templates/i }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /General/ }));
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Cancel" }));
+    expect(await within(dialog).findByText("Your templates")).toBeInTheDocument();
+    expect(screen.queryByText("Discard your changes?")).not.toBeInTheDocument();
+  });
+});
+
+describe("PrescriptionsPage - template stays put once answers are typed (multi-doctor)", () => {
+  const OWNER_PR = { id: "pr-own", user_id: "doc-1", display_name: "Test", qualifications: null, specialization: null, registration_number: null, signature_url: null, is_active: true, is_bookable: true, is_primary: true };
+  const VIK = { id: "pr-vik", user_id: "u-vik", display_name: "Vikram Mehta", qualifications: null, specialization: null, registration_number: null, signature_url: null, is_active: true, is_bookable: true, is_primary: false };
+  const vikCfg = () => {
+    const c = defaultTemplateConfig();
+    c.blocks.push({ id: "cf_vik", type: "custom", enabled: true, label: "Vik field", fieldType: "text", options: [], required: false, carryForward: false });
+    return c;
+  };
+  beforeEach(() => {
+    who.current = { isStaff: false, role: "owner", myPractitionerId: "pr-own" };
+    const all = [OWNER_PR, VIK];
+    const map = new Map(all.map((p) => [p.id, p]));
+    prac.current = { practitioners: all, active: all, bookable: all, primary: OWNER_PR, access: { enabled: true }, isMulti: true, loading: false, refetch: vi.fn(), byId: (id: string | null | undefined) => (id ? map.get(id) : undefined) };
+    mock.current.tables.prescription_templates = {
+      data: [templateRow(), templateRow({ id: "t-vik", name: "Vikram slip", practitioner_id: "pr-vik", config: vikCfg(), is_default: true })],
+      error: null,
+    };
+  });
+
+  const pickDoctor = async (dialog: HTMLElement) => {
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "Prescribing doctor" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Vikram Mehta/ }));
+  };
+
+  it("without answers, choosing another doctor switches to that doctor's default template", async () => {
+    const dialog = await openNew();
+    await within(dialog).findByLabelText("OPD No.");
+    await pickDoctor(dialog);
+    expect(await within(dialog).findByLabelText("Vik field")).toBeInTheDocument();
+    expect(within(dialog).getByRole("combobox", { name: "Template" })).toHaveTextContent("Vikram slip");
+  });
+
+  it("with answers typed, the template and the answers stay", async () => {
+    const dialog = await openNew();
+    fireEvent.change(await within(dialog).findByLabelText("OPD No."), { target: { value: "14023" } });
+    await pickDoctor(dialog);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(within(dialog).getByRole("combobox", { name: "Template" })).toHaveTextContent("Dental case sheet");
+    expect(within(dialog).getByLabelText("OPD No.")).toHaveValue("14023");
+  });
+});

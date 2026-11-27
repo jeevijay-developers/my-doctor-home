@@ -42,10 +42,11 @@ import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 import { usePrescriptionTemplates } from "@/hooks/usePrescriptionTemplates";
 import { blockEnabled, parseTemplateConfig, showsDiagnosis } from "@/lib/prescriptionTemplate/config";
 import { defaultTemplateConfig } from "@/lib/prescriptionTemplate/defaults";
-import { cleanExtra, parseExtra, validateExtra } from "@/lib/prescriptionTemplate/extra";
+import { carryForwardValues, cleanExtra, hasCarryForward, isEmptyValue, parseExtra, validateExtra } from "@/lib/prescriptionTemplate/extra";
 import { pickDefaultTemplate, templatesForDoctor } from "@/lib/prescriptionTemplate/resolve";
 import type { TemplateConfig } from "@/lib/prescriptionTemplate/types";
 import TemplateFormFields from "./prescription-template/TemplateFormFields";
+import TemplateAnswersView from "./prescription-template/TemplateAnswersView";
 import PrescriptionTemplatesDialog from "./prescription-template/PrescriptionTemplatesDialog";
 
 // Select value for "no custom template" (Radix Select items cannot have an empty value).
@@ -402,10 +403,42 @@ const PrescriptionsPage = () => {
   const editConfig = useMemo(() => parseTemplateConfig(viewing?.template_snapshot), [viewing?.template_snapshot]);
   // Starts on the doctor's default template; re-picked when the prescribing doctor changes unless
   // the user chose a template by hand.
+  // Once answers have been typed the template is never switched automatically (they would be lost).
+  const formExtraRef = useRef(formExtra);
+  formExtraRef.current = formExtra;
   useEffect(() => {
     if (!showNew || templateTouched.current) return;
+    if (Object.values(formExtraRef.current).some((v) => !isEmptyValue(v))) return;
     setFormTemplateId(pickDefaultTemplate(templates, formDoctor)?.id ?? null);
   }, [showNew, templates, formDoctor]);
+
+  // Fields marked "carry forward" (histories, allergies) start from the patient's last prescription.
+  // Only empty fields are filled, so nothing the doctor typed is overwritten.
+  const [carryHint, setCarryHint] = useState<string | null>(null);
+  const carrySeq = useRef(0);
+  useEffect(() => {
+    const seq = ++carrySeq.current;
+    setCarryHint(null);
+    const patientId = form.patient_id;
+    if (!showNew || !profile || !patientId || !hasCarryForward(formConfig)) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("prescriptions")
+        .select("extra, template_snapshot, date")
+        .eq("doctor_id", profile.id)
+        .eq("patient_id", patientId)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (seq !== carrySeq.current || !Array.isArray(data)) return;
+      const source = data.find((r) =>
+        Object.keys(carryForwardValues(formConfig, {}, parseTemplateConfig(r.template_snapshot), r.extra)).length > 0);
+      if (!source) return;
+      const prevConfig = parseTemplateConfig(source.template_snapshot);
+      setFormExtra((prev) => ({ ...prev, ...carryForwardValues(formConfig, prev, prevConfig, source.extra) }));
+      setCarryHint(`Histories and allergies filled in from the prescription of ${source.date}. Check them before saving.`);
+    })();
+  }, [showNew, profile, form.patient_id, formConfig]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -807,7 +840,7 @@ const PrescriptionsPage = () => {
               <Plus className="h-4 w-4 mr-1" /> New Prescription
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className={`${formConfig.blocks.some((b) => b.type === "custom" && b.enabled) ? "sm:max-w-2xl" : "sm:max-w-lg"} max-h-[90vh] overflow-y-auto`}>
             <DialogHeader><DialogTitle>Add Prescription</DialogTitle></DialogHeader>
             <div className="space-y-4">
               {needsDoctorPick && (
@@ -844,6 +877,7 @@ const PrescriptionsPage = () => {
                 }}
               />
 
+              {carryHint && <p className="text-xs text-muted-foreground rounded-md bg-secondary/60 px-3 py-2">{carryHint}</p>}
               <TemplateFormFields
                 config={formConfig}
                 idPrefix="new-rx"
@@ -1063,6 +1097,7 @@ const PrescriptionsPage = () => {
                     <Label className="text-xs text-muted-foreground flex items-center gap-1.5"><Stethoscope className="h-3.5 w-3.5" /> Diagnosis</Label>
                     <p className="text-sm text-foreground mt-1">{viewing.diagnosis || <span className="text-muted-foreground italic">Not specified</span>}</p>
                   </div>
+                  <TemplateAnswersView config={editConfig} extra={viewing.extra} />
                   <div>
                     <Label className="text-xs text-muted-foreground flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medicines</Label>
                     {parseMedicineItems(viewing.medicines).length > 0 ? (
