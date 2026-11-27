@@ -1,19 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { istMonthRange } from "@/lib/practitioners/revenue";
 import BillingPage from "./BillingPage";
 
-const h = vi.hoisted(() => ({ isMulti: true, canBilling: true, rpc: vi.fn() }));
+const h = vi.hoisted(() => ({ isMulti: true, canBilling: true, role: "owner" as string, myPid: null as string | null, tables: {} as Record<string, unknown[]>, rpc: vi.fn() }));
 const profile = { id: "doctor-1", full_name: "Dr. Test" };
 
 vi.mock("@/hooks/useCustomPlan", () => ({
   useCustomPlan: () => ({ customPlan: null, requests: [], pendingRequest: null, latestDecided: null, loading: false, refetch: () => {} }),
 }));
 vi.mock("@/hooks/useProfile", () => ({
-  useProfile: () => ({ profile, loading: false, can: (k: string) => (k === "billing.view" ? h.canBilling : false) }),
+  useProfile: () => ({ profile, loading: false, role: h.role, myPractitionerId: h.myPid, can: (k: string) => (k === "billing.view" ? h.canBilling : false) }),
 }));
-vi.mock("@/hooks/usePractitioners", () => ({ usePractitioners: () => ({ isMulti: h.isMulti }) }));
+const PRACT = [
+  { id: "p1", display_name: "Dr. Asha", is_active: true, is_primary: true, specialization: null },
+  { id: "p2", display_name: "Dr. Meera", is_active: true, is_primary: false, specialization: null },
+];
+vi.mock("@/hooks/usePractitioners", () => ({
+  usePractitioners: () => ({
+    isMulti: h.isMulti, practitioners: PRACT, active: PRACT, bookable: PRACT,
+    byId: (id: string) => PRACT.find((p) => p.id === id),
+  }),
+}));
 vi.mock("@/hooks/useFeatureAccess", () => ({
   useFeatureAccess: () => ({ hasFeature: () => true, sourceOf: () => undefined, loading: false, rows: [], refetch: vi.fn() }),
 }));
@@ -28,7 +37,7 @@ vi.mock("@/integrations/supabase/client", () => {
   });
   return {
     supabase: {
-      from: vi.fn(() => chain({ data: [] })),
+      from: vi.fn((t: string) => chain({ data: h.tables[t] ?? [] })),
       rpc: (...a: unknown[]) => h.rpc(...a),
       channel: vi.fn(() => ({ on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() })),
       removeChannel: vi.fn(),
@@ -41,10 +50,13 @@ const z = { visits_completed: 0, paid_amount: 0, gst_amount: 0, by_mode: { cash:
 
 describe("BillingPage - By doctor (multi-doctor)", () => {
   beforeEach(() => {
-    h.isMulti = true; h.canBilling = true;
+    h.isMulti = true; h.canBilling = true; h.role = "owner"; h.myPid = null; h.tables = {};
     h.rpc.mockReset();
     h.rpc.mockResolvedValue({
-      data: { ok: true, from: "x", to: "y", rows: [{ practitioner_id: "p1", display_name: "Dr. Asha", is_active: true, ...z, visits_completed: 3 }], unattributed: z, totals: z },
+      data: { ok: true, from: "x", to: "y", rows: [
+        { practitioner_id: "p1", display_name: "Dr. Asha", is_active: true, ...z, visits_completed: 3, paid_amount: 1000, net: 900 },
+        { practitioner_id: "p2", display_name: "Dr. Meera", is_active: true, ...z, visits_completed: 1, paid_amount: 500, net: 450 },
+      ], unattributed: z, totals: { ...z, visits_completed: 4, paid_amount: 1500, net: 1350 } },
       error: null,
     });
   });
@@ -81,5 +93,66 @@ describe("BillingPage - By doctor (multi-doctor)", () => {
     await screen.findByRole("heading", { level: 1, name: /^revenue$/i });
     expect(screen.queryByTestId("doctor-revenue")).not.toBeInTheDocument();
     expect(h.rpc).not.toHaveBeenCalled();
+  });
+
+  const seedInvoices = () => {
+    const now = new Date().toISOString();
+    const inv = (id: string, patient: string, pid: string | null) => ({
+      id, invoice_number: `INV-${id}`, patient_name: patient, service_name: "Consult", amount: 500, gst_rate: 0, gst_amount: 0,
+      total_amount: 500, clinic_gstin: null, status: "paid", created_at: now, appointment_id: `a-${id}`, practitioner_id: pid,
+    });
+    h.tables = { invoices: [inv("1", "Pat One", "p1"), inv("2", "Pat Two", "p2")] };
+  };
+
+  it("shows each doctor's earnings strip at the top, above the transactions", async () => {
+    render(<MemoryRouter><BillingPage /></MemoryRouter>);
+    const strip = await screen.findByTestId("doctor-earnings-strip");
+    expect(within(strip).getByText("Dr. Asha")).toBeInTheDocument();
+    expect(within(strip).getByText("Main")).toBeInTheDocument();
+    expect(within(strip).getByText("Dr. Meera")).toBeInTheDocument();
+    expect(within(strip).getByText("₹1,000")).toBeInTheDocument();
+    expect(within(strip).getByText("₹500")).toBeInTheDocument();
+    const heading = screen.getByRole("heading", { name: "Transactions" });
+    expect(strip.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("clicking a doctor filters the whole page, clicking All doctors clears it", async () => {
+    seedInvoices();
+    render(<MemoryRouter><BillingPage /></MemoryRouter>);
+    expect(await screen.findByText("Pat One")).toBeInTheDocument();
+    expect(screen.getByText("Pat Two")).toBeInTheDocument();
+    const strip = await screen.findByTestId("doctor-earnings-strip");
+    fireEvent.click(within(strip).getByRole("button", { name: "Show only Dr. Meera" }));
+    await waitFor(() => expect(screen.queryByText("Pat One")).not.toBeInTheDocument());
+    expect(screen.getByText("Pat Two")).toBeInTheDocument();
+    expect(screen.getByTestId("doctor-filter-banner")).toHaveTextContent("Dr. Meera");
+    // The banner names both views so a doctor's card figure is never mistaken for the strip's figure.
+    expect(screen.getByTestId("doctor-filter-banner")).toHaveTextContent(/Earnings table above/);
+    expect(screen.getByTestId("doctor-filter-banner")).toHaveTextContent(/refunded invoices left out/);
+    expect(screen.getByTestId("doctor-filter-banner")).toHaveTextContent(/month it was made/);
+    expect(screen.getByText(/All time, paid by patients/)).toBeInTheDocument();
+    expect(screen.getByTestId("summary-gross-revenue")).toHaveTextContent("₹500");
+    fireEvent.click(within(strip).getByRole("button", { name: "Show all doctors" }));
+    expect(await screen.findByText("Pat One")).toBeInTheDocument();
+    expect(screen.queryByTestId("doctor-filter-banner")).not.toBeInTheDocument();
+    expect(screen.getByTestId("summary-gross-revenue")).toHaveTextContent("₹1,000");
+  });
+
+  it("a doctor login sees no earnings strip, no picker, no report call, and only their own invoices", async () => {
+    seedInvoices();
+    h.role = "doctor"; h.myPid = "p2"; h.canBilling = true;
+    render(<MemoryRouter><BillingPage /></MemoryRouter>);
+    expect(await screen.findByText("Pat Two")).toBeInTheDocument();
+    expect(screen.queryByText("Pat One")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("doctor-earnings-strip")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("doctor-revenue")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Filter revenue by doctor")).not.toBeInTheDocument();
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+
+  it("adds a Doctor column name to transaction rows in a multi-doctor clinic", async () => {
+    seedInvoices();
+    render(<MemoryRouter><BillingPage /></MemoryRouter>);
+    expect(await screen.findByText(/Consult · \d{4}-\d{2}-\d{2} · Dr\. Meera/)).toBeInTheDocument();
   });
 });

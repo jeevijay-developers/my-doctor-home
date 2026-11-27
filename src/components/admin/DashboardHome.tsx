@@ -27,13 +27,16 @@ import MyEarningsCard from "./MyEarningsCard";
 import GettingStartedCard from "./GettingStartedCard";
 import { clinicToday } from "@/lib/queue";
 import { summarizePlan } from "@/lib/planSummary";
+import { permissionForPath, type PermissionKey } from "@/lib/staffPermissions";
 
-const growthTips = [
-  { tip: "Add your services to get more bookings", icon: Stethoscope, action: "/admin/my-website" },
-  { tip: "Write a blog post to boost your SEO ranking", icon: FileText, action: "/admin/blog" },
-  { tip: "Upload clinic photos to build patient trust", icon: Eye, action: "/admin/my-website" },
+// `needs` is what the login must be allowed to DO for the tip to be actionable (on top of being able to
+// open the page, which comes from the route's own permission). A tip nobody here can act on is not shown.
+const growthTips: { tip: string; icon: typeof Stethoscope; action: string | null; needs?: PermissionKey }[] = [
+  { tip: "Add your services to get more bookings", icon: Stethoscope, action: "/admin/my-website", needs: "website.edit" },
+  { tip: "Write a blog post to boost your SEO ranking", icon: FileText, action: "/admin/blog", needs: "blog.create" },
+  { tip: "Upload clinic photos to build patient trust", icon: Eye, action: "/admin/my-website", needs: "website.edit" },
   { tip: "Share your website link on WhatsApp groups", icon: Send, action: null },
-  { tip: "Add your qualifications to increase credibility", icon: Sparkles, action: "/admin/settings" },
+  { tip: "Add your qualifications to increase credibility", icon: Sparkles, action: "/admin/settings", needs: "profile.edit" },
 ];
 
 const DashboardHome = () => {
@@ -70,9 +73,13 @@ const DashboardHome = () => {
 
     Promise.all([
       mine(supabase.from("appointments").select("id", { count: "exact", head: true }).eq("doctor_id", id)),
-      // Booked-but-never-seen people (auto-created, zero visits) are not patients yet.
-      supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id)
-        .or("auto_created.eq.false,total_visits.gt.0"),
+      // Booked-but-never-seen people (auto-created, zero visits) are not patients yet. A doctor login
+      // (own-numbers mode) counts the patients their doctor has seen, via the doctors-per-patient view.
+      (ownOnly && myPractitionerId
+        ? supabase.from("patients_with_doctors").select("id", { count: "exact", head: true }).eq("doctor_id", id)
+            .or("auto_created.eq.false,total_visits.gt.0").contains("practitioner_ids", [myPractitionerId])
+        : supabase.from("patients").select("id", { count: "exact", head: true }).eq("doctor_id", id)
+            .or("auto_created.eq.false,total_visits.gt.0")),
       // Revenue is now sourced from the persisted invoices table so it survives
       // appointment / patient deletions.
       canSeeRevenue ? (supabase.from("invoices" as any) as any).select("amount").eq("doctor_id", id) : Promise.resolve({ data: [] }),
@@ -82,7 +89,8 @@ const DashboardHome = () => {
       canSeeRevenue ? (supabase.from("invoices" as any) as any).select("amount, created_at").eq("doctor_id", id).gte("created_at", `${thirtyDaysAgo}T00:00:00`) : Promise.resolve({ data: [] }),
       // Overall review stats — every review regardless of visibility, same
       // as ReviewsManagePage's own average, so the two numbers always match.
-      supabase.from("reviews").select("rating").eq("doctor_id", id),
+      // A doctor login sees the reviews written for them (reviews for the clinic as a whole stay with the owner).
+      mine(supabase.from("reviews").select("rating").eq("doctor_id", id)),
     ]).then(([apptRes, patRes, revRes, todayRes, weekRevRes, lastWeekRes, monthRevRes, reviewsRes]) => {
       const revenue = (revRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const weekRevenue = (weekRevRes.data || []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
@@ -139,11 +147,18 @@ const DashboardHome = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
+  // Only tips this login can act on: it must be allowed to open the page the button goes to, and to do
+  // the thing the tip suggests (a doctor login has neither website nor blog access, so never sees those).
+  const visibleTips = growthTips.filter((t) =>
+    (!t.action || !permissionForPath(t.action) || can(permissionForPath(t.action) as PermissionKey))
+    && (!t.needs || can(t.needs)));
+
   // Rotate tips
   useEffect(() => {
-    const timer = setInterval(() => setTipIndex((i) => (i + 1) % growthTips.length), 8000);
+    if (visibleTips.length < 2) return;
+    const timer = setInterval(() => setTipIndex((i) => (i + 1) % visibleTips.length), 8000);
     return () => clearInterval(timer);
-  }, []);
+  }, [visibleTips.length]);
 
 
 
@@ -172,8 +187,8 @@ const DashboardHome = () => {
   };
 
   const statCards: { icon: typeof CalendarCheck; label: string; value: string; sub: string; to: string; tone: StatTone }[] = [
-    { icon: CalendarCheck, label: "Appointments", value: String(stats.appointments), sub: `${stats.todayCount} today`, to: "/admin/appointments", tone: "primary" },
-    { icon: Users, label: "Patients", value: String(stats.patients), sub: "All time", to: "/admin/patients", tone: "navy" },
+    { icon: CalendarCheck, label: "Appointments", value: String(stats.appointments), sub: `${stats.todayCount} today${ownOnly ? " (yours)" : ""}`, to: "/admin/appointments", tone: "primary" },
+    { icon: Users, label: "Patients", value: String(stats.patients), sub: ownOnly ? "Your patients" : "All time", to: "/admin/patients", tone: "navy" },
     ...(canSeeRevenue ? [{ icon: CreditCard, label: "Revenue", value: `₹${stats.revenue.toLocaleString("en-IN")}`, sub: "Paid appointments", to: "/admin/billing", tone: "teal" as StatTone }] : []),
     {
       icon: Star, label: "Reviews",
@@ -183,7 +198,12 @@ const DashboardHome = () => {
     },
   ];
 
-  const liveUrl = profile?.slug ? `${window.location.origin}/dr/${profile.slug}` : null;
+  // A doctor login shares THEIR own doctor page when the clinic has one for them; otherwise the clinic link
+  // (still under their name). The owner and reception keep the clinic link.
+  const myDoctor = isDoctorLogin && isMulti && myPractitionerId ? byId(myPractitionerId) : undefined;
+  const myDoctorPath = profile?.slug && myDoctor?.slug && myDoctor.is_active !== false
+    ? `/dr/${profile.slug}/doctor/${myDoctor.slug}` : null;
+  const liveUrl = profile?.slug ? `${window.location.origin}${myDoctorPath ?? `/dr/${profile.slug}`}` : null;
   const defaultShareMessage = liveUrl
     ? `🏥 Book your appointment online with ${ownName || profile?.full_name || "Dr."}\n\n${liveUrl}`
     : "";
@@ -195,7 +215,7 @@ const DashboardHome = () => {
   }
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const barHeights = [35, 55, 40, 70, 85, 60, 45];
-  const currentTip = growthTips[tipIndex];
+  const currentTip = visibleTips.length > 0 ? visibleTips[tipIndex % visibleTips.length] : null;
 
   return (
     <div className="max-w-7xl mx-auto w-full flex flex-col gap-2 lg:gap-2.5 xl:gap-3">
@@ -268,7 +288,7 @@ const DashboardHome = () => {
 
       {/* Growth Tip Banner */}
       {/* Lime is a fill/accent; `text-spark` resolves to its readable ink tone (raw lime on white is ~1.5:1) */}
-      <Card className="border-spark/40 bg-spark/10 shadow-none">
+      {currentTip && <Card className="border-spark/40 bg-spark/10 shadow-none">
         <CardContent className="p-3 pt-3 flex flex-row items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-spark/30 flex items-center justify-center flex-shrink-0">
             <Lightbulb className="h-[18px] w-[18px] text-spark" aria-hidden="true" />
@@ -285,7 +305,7 @@ const DashboardHome = () => {
             </Link>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Main two-column layout:
           LEFT  = Today's Schedule (spans full height of right column)
@@ -413,7 +433,9 @@ const DashboardHome = () => {
             <CardContent>
               {liveUrl ? (
                 <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">Share your website with patients via WhatsApp to get more bookings!</p>
+                  <p className="text-sm text-muted-foreground">
+                    {myDoctorPath ? "Share your own page with patients via WhatsApp to get more bookings!" : "Share your website with patients via WhatsApp to get more bookings!"}
+                  </p>
                   <Textarea
                     value={shareMessage}
                     onChange={(e) => setShareMessage(e.target.value)}

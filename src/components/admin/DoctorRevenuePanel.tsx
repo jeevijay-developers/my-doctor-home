@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Loader2, Stethoscope } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, Loader2, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePractitioners } from "@/hooks/usePractitioners";
 import {
-  formatInr, hasActivity, payoutCsv, revenueErrorMessage,
+  UNATTRIBUTED, formatInr, hasActivity, payoutCsv, revenueErrorMessage,
   type RevenueNumbers, type RevenueResult, type RevenueRow,
 } from "@/lib/practitioners/revenue";
 
@@ -18,7 +19,17 @@ type Ok = Extract<RevenueResult, { ok: true }>;
 
 // Multi-doctor clinics only (Billing mounts it when isMulti && billing.view). Figures come from the
 // database report for the period, never from the page's own invoice arrays.
-const DoctorRevenuePanel = ({ from, to, periodLabel }: { from: string; to: string; periodLabel: string }) => {
+interface PanelProps {
+  from: string; to: string; periodLabel: string;
+  /** Doctor currently filtering the page: a practitioner id, UNATTRIBUTED or null (all). */
+  selectedId?: string | null;
+  /** Click on a doctor card; null clears the filter. Omit to make the cards read-only. */
+  onSelect?: (id: string | null) => void;
+}
+
+const DoctorRevenuePanel = ({ from, to, periodLabel, selectedId = null, onSelect }: PanelProps) => {
+  const { byId } = usePractitioners();
+  const [showDetails, setShowDetails] = useState(true);
   const [state, setState] = useState<{ loading: boolean; error: string | null; data: Ok | null }>({ loading: true, error: null, data: null });
 
   useEffect(() => {
@@ -48,6 +59,19 @@ const DoctorRevenuePanel = ({ from, to, periodLabel }: { from: string; to: strin
     return out;
   }, [state.data]);
 
+  // One card per active doctor, inactive doctors only when they have numbers in the period.
+  const cards = useMemo(() => {
+    const d = state.data;
+    if (!d) return [];
+    const out: Array<{ key: string; id: string; name: string; main: boolean; inactive: boolean; n: RevenueNumbers }> = [];
+    for (const r of d.rows) {
+      if (!r.is_active && !hasActivity(r)) continue;
+      out.push({ key: r.practitioner_id, id: r.practitioner_id, name: r.display_name, main: !!byId?.(r.practitioner_id)?.is_primary, inactive: !r.is_active, n: r });
+    }
+    if (hasActivity(d.unattributed)) out.push({ key: UNATTRIBUTED, id: UNATTRIBUTED, name: "Unattributed", main: false, inactive: false, n: d.unattributed });
+    return out;
+  }, [state.data, byId]);
+
   const download = () => {
     const d = state.data;
     if (!d) return;
@@ -70,12 +94,18 @@ const DoctorRevenuePanel = ({ from, to, periodLabel }: { from: string; to: strin
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-base flex items-center gap-2">
-            <Stethoscope className="h-4 w-4 text-royal" aria-hidden="true" /> By doctor
+            <Stethoscope className="h-4 w-4 text-royal" aria-hidden="true" /> Doctor earnings
             <span className="text-xs font-normal text-muted-foreground">{periodLabel}</span>
           </CardTitle>
-          <Button size="sm" variant="outline" className="h-9" onClick={download} disabled={!state.data}>
-            <Download className="h-3.5 w-3.5 mr-1" /> Download payout CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={() => setShowDetails((v) => !v)} disabled={!state.data} aria-expanded={showDetails}>
+              {showDetails ? <ChevronUp className="h-3.5 w-3.5 mr-1" /> : <ChevronDown className="h-3.5 w-3.5 mr-1" />}
+              {showDetails ? "Hide details" : "Show details"}
+            </Button>
+            <Button size="sm" variant="outline" className="h-9" onClick={download} disabled={!state.data}>
+              <Download className="h-3.5 w-3.5 mr-1" /> Download payout CSV
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -85,6 +115,23 @@ const DoctorRevenuePanel = ({ from, to, periodLabel }: { from: string; to: strin
         {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
         {state.data && (
           <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="doctor-earnings-strip">
+              <EarningsCard
+                name="All doctors" n={state.data.totals} selected={selectedId === null}
+                onClick={onSelect ? () => onSelect(null) : undefined} ariaLabel="Show all doctors"
+              />
+              {cards.map((c) => (
+                <EarningsCard
+                  key={c.key} name={c.name} main={c.main} inactive={c.inactive} n={c.n} selected={selectedId === c.id}
+                  onClick={onSelect ? () => onSelect(selectedId === c.id ? null : c.id) : undefined}
+                  ariaLabel={`Show only ${c.name}`}
+                />
+              ))}
+            </div>
+            {!hasActivity(state.data.totals) && (
+              <p className="text-sm text-muted-foreground">No earnings recorded in this period.</p>
+            )}
+            {showDetails && (<>
             <Card className="hidden md:block border-border/60 shadow-none overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -136,12 +183,34 @@ const DoctorRevenuePanel = ({ from, to, periodLabel }: { from: string; to: strin
                 </Card>
               ))}
             </div>
+            </>)}
             <p className="text-[11px] text-muted-foreground">Revenue is as invoiced; refunds are shown in the month they were made. Revenue is before GST.</p>
           </>
         )}
       </CardContent>
     </Card>
   );
+};
+
+const EarningsCard = ({ name, main, inactive, n, selected, onClick, ariaLabel }: {
+  name: string; main?: boolean; inactive?: boolean; n: RevenueNumbers; selected: boolean; onClick?: () => void; ariaLabel: string;
+}) => {
+  const body = (
+    <>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="font-medium text-sm truncate">{name}</span>
+        {main && <Badge variant="secondary" className="text-[10px] shrink-0">Main</Badge>}
+        {inactive && <Badge variant="secondary" className="text-[10px] shrink-0">Inactive</Badge>}
+      </div>
+      <div className="font-heading font-bold text-xl mt-1 tabular-nums" data-testid="earnings-revenue">{inr(n.paid_amount)}</div>
+      <div className="text-[11px] text-muted-foreground">Revenue (ex-GST) · {n.visits_completed} {n.visits_completed === 1 ? "visit" : "visits"}</div>
+      <div className="text-[11px] text-muted-foreground tabular-nums">Net {inr(n.net)}</div>
+    </>
+  );
+  const cls = `rounded-lg border p-3 text-left ${selected ? "border-royal bg-royal/5 ring-1 ring-royal" : "border-border/60"}`;
+  return onClick ? (
+    <button type="button" aria-pressed={selected} aria-label={ariaLabel} onClick={onClick} className={`${cls} hover:bg-muted/40 transition-colors`}>{body}</button>
+  ) : <div className={cls}>{body}</div>;
 };
 
 export default DoctorRevenuePanel;

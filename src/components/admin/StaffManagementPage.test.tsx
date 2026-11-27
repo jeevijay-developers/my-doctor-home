@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import StaffManagementPage from "./StaffManagementPage";
 import { createTableMock } from "@/test/tableMock";
 import { PERMISSION_MODULES, PERMISSION_PRESETS } from "@/lib/staffPermissions";
@@ -62,19 +63,19 @@ describe("StaffManagementPage", () => {
 
   it("shows a spinner while the plan is loading", () => {
     h.planLoading = true;
-    const { container } = render(<StaffManagementPage />);
+    const { container } = render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     expect(container.querySelector(".animate-spin")).toBeTruthy();
     expect(screen.queryByText(/Staff Management/)).not.toBeInTheDocument();
   });
 
   it("is locked (upsell) on plans without the staff_management feature, and loads no staff", () => {
     h.features = {};
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     expect(screen.getByText("LOCKED:Staff Management")).toBeInTheDocument();
   });
 
   it("loads only this doctor's staff and masks phone numbers", async () => {
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     expect((await screen.findAllByText("Sunita Desk")).length).toBeGreaterThan(0);
     const q = mock.current.opsOf("staff_members")[0];
     expect(mock.current.hasOp(q, "eq", "doctor_id", "doc-1")).toBe(true);
@@ -83,7 +84,7 @@ describe("StaffManagementPage", () => {
   });
 
   it("doctor sees edit, deactivate and delete actions", async () => {
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Sunita Desk");
     expect(screen.getAllByLabelText("Edit").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Deactivate").length).toBeGreaterThan(0);
@@ -93,7 +94,7 @@ describe("StaffManagementPage", () => {
   it("staff with only staff.view sees no row actions at all", async () => {
     h.isStaff = true;
     h.granted = ["staff.view"];
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Sunita Desk");
     expect(screen.queryByLabelText("Edit")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Deactivate")).not.toBeInTheDocument();
@@ -103,7 +104,7 @@ describe("StaffManagementPage", () => {
   it("staff with staff.edit/staff.disable get those, but never Delete (doctor-only)", async () => {
     h.isStaff = true;
     h.granted = ["staff.view", "staff.edit", "staff.disable"];
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Sunita Desk");
     expect(screen.getAllByLabelText("Edit").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Deactivate").length).toBeGreaterThan(0);
@@ -113,7 +114,7 @@ describe("StaffManagementPage", () => {
   it("staff without staff.create cannot see an enabled Add Staff button", async () => {
     h.isStaff = true;
     h.granted = ["staff.view"];
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Sunita Desk");
     const add = screen.queryByRole("button", { name: /Add Staff/ });
     expect(add === null || (add as HTMLButtonElement).disabled).toBe(true);
@@ -121,13 +122,13 @@ describe("StaffManagementPage", () => {
 
   it("Add Staff is disabled in the grace period (read-only)", async () => {
     h.trial = "grace";
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Sunita Desk");
     expect(screen.getByRole("button", { name: /Add Staff/ })).toBeDisabled();
   });
 
   const openAdd = async () => {
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Sunita Desk");
     fireEvent.click(screen.getByRole("button", { name: /Add Staff/ }));
     return screen.findByRole("button", { name: /Create Staff|Create Account/i });
@@ -151,7 +152,7 @@ describe("StaffManagementPage", () => {
   });
 
   it("deleting needs confirmation, then calls delete-staff-account for that staff id", async () => {
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Sunita Desk");
     fireEvent.click(screen.getAllByLabelText("Delete")[0]);
     expect(mock.current.invoke).not.toHaveBeenCalled();
@@ -164,7 +165,7 @@ describe("StaffManagementPage", () => {
   });
 
   it("deactivating sets status inactive for that staff row only", async () => {
-    render(<StaffManagementPage />);
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Sunita Desk");
     fireEvent.click(screen.getAllByLabelText("Deactivate")[0]);
     await waitFor(() => expect(h.toastSuccess).toHaveBeenCalledWith("Staff account deactivated"));
@@ -172,26 +173,82 @@ describe("StaffManagementPage", () => {
     expect(upd.ops.find((o: any[]) => o[0] === "update")[1]).toEqual({ status: "inactive" });
     expect(mock.current.hasOp(upd, "eq", "id", "s1")).toBe(true);
   });
-  it("a doctor-role login shows a Doctor badge, 'Managed in Doctors', and no edit or delete", async () => {
-    mock.current.tables.staff_members = {
-      data: [row(), row({ id: "s2", staff_name: "Dr Mehta", role: "doctor", practitioner_id: "p2", phone: "+919800000002" })],
-    };
-    render(<StaffManagementPage />);
+  const doctorRows = () => ({
+    data: [row(), row({ id: "s2", staff_name: "Dr Mehta", role: "doctor", practitioner_id: "p2", phone: "+919800000002",
+      permissions: Object.fromEntries(PERMISSION_PRESETS.doctor.map((k) => [k, true])) })],
+  });
+
+  it("a doctor-role login shows a Doctor badge and a Permissions button for the owner, but no edit-all or delete", async () => {
+    mock.current.tables.staff_members = doctorRows();
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
     await screen.findAllByText("Dr Mehta");
     const tr = screen.getAllByText("Dr Mehta")[0].closest("tr")!;
     expect(within(tr).getByText("Doctor")).toBeInTheDocument();
-    expect(within(tr).getByText("Managed in Doctors")).toBeInTheDocument();
+    expect(within(tr).getByLabelText("Edit permissions for Dr Mehta")).toBeInTheDocument();
     expect(within(tr).queryByLabelText("Edit")).not.toBeInTheDocument();
     expect(within(tr).queryByLabelText("Delete")).not.toBeInTheDocument();
-    // The ordinary staff row keeps its actions and gets no Doctor badge.
     const staffTr = screen.getAllByText("Sunita Desk")[0].closest("tr")!;
     expect(within(staffTr).queryByText("Doctor")).not.toBeInTheDocument();
     expect(within(staffTr).getByLabelText("Edit")).toBeInTheDocument();
     expect(within(staffTr).getByLabelText("Delete")).toBeInTheDocument();
-    // Mobile cards: one Edit/Delete per surface for the staff row only.
     expect(screen.getAllByLabelText("Delete")).toHaveLength(2);
     expect(screen.getAllByLabelText("Edit")).toHaveLength(2);
-    expect(screen.getAllByText("Managed in Doctors")).toHaveLength(2);
+    // desktop + mobile surfaces
+    expect(screen.getAllByLabelText("Edit permissions for Dr Mehta")).toHaveLength(2);
+  });
+
+  it("staff (not the owner) cannot edit a doctor login's permissions", async () => {
+    h.isStaff = true;
+    h.granted = ["staff.view", "staff.edit"];
+    mock.current.tables.staff_members = doctorRows();
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
+    await screen.findAllByText("Dr Mehta");
+    expect(screen.queryByLabelText("Edit permissions for Dr Mehta")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Managed by the owner")).toHaveLength(2);
+  });
+
+  it("owner edits a doctor login: only permissions are saved, name/phone are locked, no phone function is called", async () => {
+    mock.current.tables.staff_members = doctorRows();
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
+    await screen.findAllByText("Dr Mehta");
+    fireEvent.click(screen.getAllByLabelText("Edit permissions for Dr Mehta")[0]);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Doctor permissions")).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("textbox")[0]).toBeDisabled();
+    // Tick one extra permission (Revenue / View Billing) and save.
+    const box = within(dialog).getByText("View Billing").closest("label")!.querySelector('[role="checkbox"]')!;
+    fireEvent.click(box);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save Changes" }));
+    await waitFor(() => expect(h.toastSuccess).toHaveBeenCalled());
+    const upd = mock.current.queries.find((q: any) => q.ops.some((o: any[]) => o[0] === "update"));
+    const payload = upd.ops.find((o: any[]) => o[0] === "update")[1];
+    expect(Object.keys(payload)).toEqual(["permissions"]);
+    expect(payload.permissions["billing.view"]).toBe(true);
+    expect(payload.permissions["prescriptions.create"]).toBe(true);
+    expect(mock.current.hasOp(upd, "eq", "id", "s2")).toBe(true);
+    expect(mock.current.invoke).not.toHaveBeenCalled();
+  });
+
+  it("'Doctor (default)' resets a doctor login to the doctor preset", async () => {
+    mock.current.tables.staff_members = { data: [row({ id: "s2", staff_name: "Dr Mehta", role: "doctor", practitioner_id: "p2", permissions: { "dashboard.view": true } })] };
+    render(<MemoryRouter><StaffManagementPage /></MemoryRouter>);
+    await screen.findAllByText("Dr Mehta");
+    fireEvent.click(screen.getAllByLabelText("Edit permissions for Dr Mehta")[0]);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("combobox", { name: /start from/i }));
+    fireEvent.click(screen.getByRole("option", { name: "Doctor (default)" }));
+    const labelToKey = new Map(PERMISSION_MODULES.flatMap((m) => m.permissions.map((p) => [p.label, p.key] as const)));
+    const ticked: string[] = [];
+    dialog.querySelectorAll('[role="checkbox"]').forEach((b) => {
+      if (b.getAttribute("aria-checked") === "true") ticked.push(labelToKey.get(b.closest("label")!.textContent!.trim())!);
+    });
+    expect(ticked.sort()).toEqual([...PERMISSION_PRESETS.doctor].sort());
+  });
+
+  it("?edit=<login id> opens that doctor login's permissions", async () => {
+    mock.current.tables.staff_members = doctorRows();
+    render(<MemoryRouter initialEntries={["/admin/staff?edit=s2"]}><StaffManagementPage /></MemoryRouter>);
+    expect(await screen.findByText("Doctor permissions")).toBeInTheDocument();
   });
 
   it("'Start from: Reception' ticks exactly the reception preset", async () => {

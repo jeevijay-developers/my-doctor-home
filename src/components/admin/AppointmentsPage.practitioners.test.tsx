@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { addDays, format, parseISO } from "date-fns";
 import AppointmentsPage from "./AppointmentsPage";
 import { clinicToday } from "@/lib/queue";
+import { weekdayOf } from "@/lib/practitioners/staffSlots";
 
 Element.prototype.scrollIntoView = vi.fn();
 
@@ -15,6 +16,8 @@ const h = vi.hoisted(() => ({
   inserts: [] as unknown[],
   updates: [] as unknown[],
   rows: [] as unknown[],
+  hours: [] as unknown[],
+  settings: [] as unknown[],
   prac: null as any,
   prof: null as any,
 }));
@@ -44,6 +47,8 @@ vi.mock("@/integrations/supabase/client", () => {
       from: vi.fn((table: string) => {
         const q = { table, calls: [] as Array<[string, unknown[]]> };
         h.queries.push(q);
+        if (table === "working_hours") return chain(q, () => ({ data: h.hours, error: null }));
+        if (table === "website_settings") return chain(q, () => ({ data: h.settings, error: null }));
         return chain(q, () => ({ data: h.rows, count: h.rows.length, error: null }));
       }),
       rpc: vi.fn().mockResolvedValue({ data: { ok: true }, error: null }),
@@ -116,8 +121,80 @@ describe("AppointmentsPage - per doctor", () => {
     h.inserts.length = 0;
     h.updates.length = 0;
     h.rows = [];
+    h.hours = [];
+    h.settings = [];
     setPractitioners(false);
     setProfile();
+  });
+
+  describe("staff booking slot list follows the doctor's working hours", () => {
+    // `tomorrow` is a fixed calendar date per run, and the weekday comes from it, so no test depends on today's time.
+    const dow = weekdayOf(tomorrow);
+    const row = (practitioner_id: string | null, day: number, s: string, e: string, over: Record<string, unknown> = {}) => ({
+      day_of_week: day, is_open: true, start_time: s, end_time: e, start_time_2: null, end_time_2: null, practitioner_id, ...over,
+    });
+    const openDialog = async () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: /new appointment/i }));
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/^date$/i), { target: { value: tomorrow } });
+      return dialog;
+    };
+    const slotOptions = async (dialog: HTMLElement) => {
+      fireEvent.click(within(dialog).getByRole("combobox", { name: /time slot/i }));
+      const opts = (await screen.findAllByRole("option")).map((o) => o.textContent);
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+      return opts;
+    };
+
+    it("single-doctor clinic with hours: slots come from that day's hours at the clinic slot length", async () => {
+      h.hours = [row("a", dow, "10:00:00", "12:00:00", { start_time_2: "15:00:00", end_time_2: "16:00:00" })];
+      h.settings = [{ slot_duration_minutes: 30 }];
+      const dialog = await openDialog();
+      await waitFor(async () => expect(await slotOptions(dialog)).toEqual(["10:00", "10:30", "11:00", "11:30", "15:00", "15:30", "Walk-in"]));
+    });
+
+    it("a closed day offers only Walk-in and says why", async () => {
+      h.hours = [row("a", (dow + 1) % 7, "10:00:00", "12:00:00"), row("a", dow, null as unknown as string, null as unknown as string, { is_open: false })];
+      const dialog = await openDialog();
+      expect(await screen.findByTestId("slot-closed-hint")).toBeInTheDocument();
+      expect(await slotOptions(dialog)).toEqual(["Walk-in"]);
+    });
+
+    it("a clinic with no hours at all keeps the old fixed list", async () => {
+      const dialog = await openDialog();
+      await waitFor(async () => expect(await slotOptions(dialog)).toContain("09:00"));
+      const opts = await slotOptions(dialog);
+      expect(opts).toContain("20:00");
+      expect(opts).toContain("Walk-in");
+    });
+
+    it("multi-doctor: each doctor's own hours and slot length; changing doctor resets the time", async () => {
+      setPractitioners(true);
+      h.prac.byId = (id: string | null | undefined) => (id === "b" ? { ...B, slot_duration_minutes: 60 } : A);
+      h.hours = [row("a", dow, "09:00:00", "11:00:00"), row("b", dow, "14:00:00", "17:00:00")];
+      h.settings = [{ slot_duration_minutes: 30 }];
+      const dialog = await openDialog();
+      await waitFor(() => expect(within(dialog).getByText(/choose a doctor to see/i)).toBeInTheDocument());
+
+      await pick(dialog, /^doctor$/i, /Dr\. Bina Shah/);
+      expect(await slotOptions(dialog)).toEqual(["14:00", "15:00", "16:00", "Walk-in"]);
+      await pick(dialog, /time slot/i, "15:00");
+      expect(within(dialog).getByRole("combobox", { name: /time slot/i })).toHaveTextContent("15:00");
+
+      await pick(dialog, /^doctor$/i, /Dr\. Asha Rao/);
+      expect(within(dialog).getByRole("combobox", { name: /time slot/i })).toHaveTextContent("Walk-in");
+      expect(await slotOptions(dialog)).toEqual(["09:00", "09:30", "10:00", "10:30", "Walk-in"]);
+    });
+
+    it("changing the date resets a chosen time", async () => {
+      h.hours = Array.from({ length: 7 }, (_, d) => row("a", d, "10:00:00", "12:00:00"));
+      const dialog = await openDialog();
+      await waitFor(async () => expect(await slotOptions(dialog)).toContain("10:30"));
+      await pick(dialog, /time slot/i, "10:30");
+      fireEvent.change(within(dialog).getByLabelText(/^date$/i), { target: { value: format(addDays(parseISO(tomorrow), 1), "yyyy-MM-dd") } });
+      expect(within(dialog).getByRole("combobox", { name: /time slot/i })).toHaveTextContent("Walk-in");
+    });
   });
 
   it("single-doctor clinic: no doctor picker, and the booking sends no practitioner_id", async () => {

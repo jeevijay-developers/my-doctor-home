@@ -235,7 +235,7 @@ describe("PrescriptionsPage - multi-doctor clinic", () => {
 
   it("shows each prescription's author and filters the list by doctor", async () => {
     render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
-    expect((await screen.findAllByText("Vikram Mehta")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Dr. Vikram Mehta")).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("combobox", { name: "Filter by doctor" }));
     fireEvent.click(await screen.findByRole("option", { name: /Vikram Mehta/ }));
@@ -275,5 +275,73 @@ describe("PrescriptionsPage - multi-doctor clinic", () => {
     expect((await screen.findAllByText("Dr. Vikram Mehta")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Reg. No.: MMC-42").length).toBeGreaterThan(0);
     expect(screen.getByText("Test Clinic")).toBeInTheDocument();
+  });
+  it("the owner (who has their own doctor row) must still choose the prescribing doctor, and it is sent", async () => {
+    const dialog = await openNew();
+    const select = within(dialog).getByRole("combobox", { name: "Prescribing doctor" });
+    // Defaults to the owner's own doctor row, but can be changed to another doctor.
+    expect(select).toHaveTextContent(/Test/);
+    fireEvent.click(select);
+    fireEvent.click(await screen.findByRole("option", { name: /Vikram Mehta/ }));
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "Prescribing doctor" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Vikram Mehta/ }));
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+    await waitFor(() => expect(savedRows()).toHaveLength(1));
+    expect(savedRows()[0]).toMatchObject({ patient_id: "p1", practitioner_id: "pr-vik" });
+  });
+
+  it("defaults the doctor to the patient's last non-cancelled appointment and says so", async () => {
+    mock.current.tables.appointments = (ops: any[]) =>
+      ops.some((o) => o[0] === "eq" && o[1] === "patient_id" && o[2] === "p1")
+        ? { data: [{ practitioner_id: "pr-vik" }], error: null }
+        : { data: [], error: null };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+
+    expect(await within(dialog).findByText("Defaulted from Aaryan's last visit")).toBeInTheDocument();
+    expect(within(dialog).getByRole("combobox", { name: "Prescribing doctor" })).toHaveTextContent(/Vikram Mehta/);
+    const q = mock.current.opsOf("appointments").find((x: any) => mock.current.hasOp(x, "neq", "status", "cancelled"));
+    expect(q).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+    await waitFor(() => expect(savedRows()).toHaveLength(1));
+    expect(savedRows()[0]).toMatchObject({ practitioner_id: "pr-vik" });
+  });
+
+  it("falls back to the patient's last visit, then to the owner's own doctor", async () => {
+    mock.current.tables.patient_visits = { data: [{ practitioner_id: "pr-vik" }], error: null };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    expect(await within(dialog).findByText(/Defaulted from Aaryan/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("combobox", { name: "Prescribing doctor" })).toHaveTextContent(/Vikram Mehta/);
+
+    mock.current.tables.patient_visits = { data: [], error: null };
+    await choosePatient(dialog, "Meena (9876543211)");
+    await waitFor(() => expect(within(dialog).queryByText(/Defaulted from/)).not.toBeInTheDocument());
+    expect(within(dialog).getByRole("combobox", { name: "Prescribing doctor" })).toHaveTextContent(/Test/);
+  });
+
+  it("the owner can re-assign an existing prescription to another doctor", async () => {
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    const sheet = await openRx("Ravi");
+    fireEvent.click(within(sheet).getByRole("button", { name: /^edit$/i }));
+    fireEvent.click(within(sheet).getByRole("combobox", { name: "Prescribing doctor" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Vikram Mehta/ }));
+    fireEvent.click(within(sheet).getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      const updates = mock.current.opsOf("prescriptions").flatMap((q: any) => q.ops.filter((o: any[]) => o[0] === "update").map((o: any[]) => o[1]));
+      expect(updates[0]).toMatchObject({ practitioner_id: "pr-vik" });
+    });
+  });
+
+  it("a doctor login does not get the doctor select when editing", async () => {
+    who.current = { isStaff: true, role: "doctor", myPractitionerId: "pr-own" };
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    const sheet = await openRx("Ravi");
+    fireEvent.click(within(sheet).getByRole("button", { name: /^edit$/i }));
+    expect(within(sheet).queryByRole("combobox", { name: "Prescribing doctor" })).not.toBeInTheDocument();
   });
 });

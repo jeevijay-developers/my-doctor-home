@@ -28,7 +28,8 @@ import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import { paymentMethodLabel } from "@/lib/paymentDetails";
 import { usePractitioners } from "@/hooks/usePractitioners";
 import DoctorRevenuePanel from "./DoctorRevenuePanel";
-import { istMonthRange } from "@/lib/practitioners/revenue";
+import PractitionerSelect, { ALL_DOCTORS } from "./PractitionerSelect";
+import { UNATTRIBUTED, istDay, istMonthRange, stripDoctorTitle } from "@/lib/practitioners/revenue";
 
 type Invoice = {
   id: string;
@@ -43,6 +44,8 @@ type Invoice = {
   status: string;
   created_at: string;
   appointment_id: string;
+  /** Doctor who saw the patient, snapshotted when the invoice was made (null = unknown). */
+  practitioner_id?: string | null;
   commission_percent?: number | null;
   commission_amount?: number | null;
   net_amount?: number | null;
@@ -80,14 +83,21 @@ type PaymentRow = {
 };
 
 const BillingPage = () => {
-  const { profile, can } = useProfile();
-  const { isMulti } = usePractitioners();
+  const { profile, can, role, myPractitionerId } = useProfile();
+  const { isMulti, byId } = usePractitioners();
+  // A doctor login (role "doctor") must never see other doctors' money: no earnings strip, no doctor
+  // picker, and the whole page is narrowed to their own doctor. This is a screen convenience, the
+  // database report (get_practitioner_revenue) is what enforces who may read clinic-wide figures.
+  const ownDoctorOnly = isMulti && role === "doctor";
+  const canSeeDoctorMoney = isMulti && !!can?.("billing.view") && role !== "doctor";
+  const [doctorFilter, setDoctorFilter] = useState<string>(ALL_DOCTORS);
+  const activeDoctor: string = !isMulti ? ALL_DOCTORS : ownDoctorOnly ? (myPractitionerId ?? "none") : doctorFilter;
   // Effective access (plan default + any active Superadmin override), not
   // raw plan tier — see FEATURE_KEYS.BILLING_INVOICES.
   const { hasFeature, loading: planLoading } = useFeatureAccess();
   const isPremium = hasFeature(FEATURE_KEYS.BILLING_INVOICES);
-  const [appointments, setAppointments] = useState<any[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [rawAppointments, setAppointments] = useState<any[]>([]);
+  const [rawInvoices, setInvoices] = useState<Invoice[]>([]);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [filter, setFilter] = useState("all");
@@ -149,7 +159,7 @@ const BillingPage = () => {
   // cannot get an invoice from here.
 
   // Reset to page 1 whenever the filtered result set changes shape underneath the pager.
-  useEffect(() => { setPage(1); }, [filter, periodMode, periodActive, selectedMonth, selectedDate]);
+  useEffect(() => { setPage(1); }, [filter, modeFilter, periodMode, periodActive, selectedMonth, selectedDate, activeDoctor]);
 
   const today = format(new Date(), "yyyy-MM-dd");
   const selectedMonthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
@@ -191,11 +201,12 @@ const BillingPage = () => {
   const istNowRange = istMonthRange(new Date());
   const perDoctorFrom = dateModeActive ? selectedDateStr : monthModeActive ? selectedMonthStart : istNowRange.from;
   const perDoctorTo = dateModeActive ? selectedDateStr : monthModeActive ? selectedMonthEnd : istNowRange.to;
-  const perDoctorLabel = dateModeActive ? format(selectedDate, "d MMM yyyy") : monthModeActive ? format(selectedMonth, "MMMM yyyy") : format(new Date(`${istNowRange.from}T12:00:00`), "MMMM yyyy");
+  const perDoctorLabel = dateModeActive ? format(selectedDate, "d MMM yyyy") : monthModeActive ? format(selectedMonth, "MMMM yyyy") : `${format(new Date(`${istNowRange.from}T12:00:00`), "MMMM yyyy")} (page below shows all time)`;
 
   // Lookup maps for resolving platform commission split & Route settlement status
-  const apptById = new Map(appointments.map(a => [a.id, a]));
-  const apptGatewayById = new Map(appointments.map(a => [a.id, a.payment_gateway]));
+  // Lookups use EVERY appointment: an invoice keeps its own doctor even if the visit was moved later.
+  const apptById = new Map(rawAppointments.map(a => [a.id, a]));
+  const apptGatewayById = new Map(rawAppointments.map(a => [a.id, a.payment_gateway]));
   const ledgerByApptId = new Map(ledger.filter(l => l.appointment_id).map(l => [l.appointment_id, l]));
   const paymentByApptId = new Map(payments.filter(p => p.appointment_id).map(p => [p.appointment_id, p]));
 
@@ -298,8 +309,19 @@ const BillingPage = () => {
   // live appointments), so deleting an appointment or patient later does NOT
   // retroactively reduce Revenue / Billing figures. Refunded invoices are
   // excluded so refunded bookings do not inflate positive revenue.
-  const invoiceDate = (inv: Invoice) => (inv.created_at || "").slice(0, 10);
-  const invoicedApptIds = new Set(invoices.map(i => i.appointment_id).filter(Boolean));
+  // IST calendar day, the same calendar the per-doctor report uses (a UTC slice put late-evening and
+  // early-morning invoices on the wrong day).
+  const invoiceDate = (inv: Invoice) => istDay(inv.created_at || "");
+  // Doctor filter: invoices by their snapshotted doctor, not-yet-invoiced appointments by their own.
+  const inScope = (pid: string | null | undefined) =>
+    activeDoctor === ALL_DOCTORS ? true : activeDoctor === UNATTRIBUTED ? !pid : pid === activeDoctor;
+  const doctorName = (pid: string | null | undefined): string | null =>
+    isMulti && pid ? (byId?.(pid)?.display_name ?? null) : null;
+  const invoices = rawInvoices.filter(i => inScope(i.practitioner_id));
+  const appointments = rawAppointments.filter(a => inScope(a.practitioner_id));
+  // Which appointments already have an invoice: from ALL invoices, so another doctor's invoice never
+  // makes its appointment reappear as an "open" row under a different doctor.
+  const invoicedApptIds = new Set(rawInvoices.map(i => i.appointment_id).filter(Boolean));
 
   type RevenueEntry = {
     date: string;
@@ -376,6 +398,7 @@ const BillingPage = () => {
     // cash / upi / card / online / other; null when the payment is unpaid or was never recorded.
     payment_mode: string | null;
     payment_reference: string | null;
+    doctor_name: string | null;
   };
 
   const invoiceTx: TxRow[] = invoices.map(i => {
@@ -384,6 +407,7 @@ const BillingPage = () => {
       key: `inv-${i.id}`,
       payment_mode: i.payment_method ?? (apptGatewayById.get(i.appointment_id) ? "online" : null),
       payment_reference: i.payment_reference ?? null,
+      doctor_name: doctorName(i.practitioner_id),
       patient_name: i.patient_name,
       service_name: i.service_name,
       date: invoiceDate(i),
@@ -413,6 +437,7 @@ const BillingPage = () => {
         key: `apt-${a.id}`,
         payment_mode: paymentStatus === "paid" ? (a.payment_gateway ? "online" : a.payment_method ?? null) : null,
         payment_reference: paymentStatus === "paid" ? a.payment_reference ?? null : null,
+        doctor_name: doctorName(a.practitioner_id),
         patient_name: a.patient_name,
         service_name: a.service_name,
         date: a.date,
@@ -509,6 +534,7 @@ const BillingPage = () => {
 
   const exportTransactionsCSV = () => {
     const rows = filtered.map(a => ({
+      ...(isMulti ? { "Doctor": a.doctor_name ?? "Unattributed" } : {}),
       "Patient Name": a.patient_name,
       "Service": a.service_name,
       "Date": a.date,
@@ -552,7 +578,8 @@ const BillingPage = () => {
     gst_amount: Number(inv.gst_amount),
     total_amount: Number(inv.total_amount),
     clinic_gstin: inv.clinic_gstin,
-    doctor_name: profile?.full_name || "Doctor",
+    // A multi-doctor clinic's invoice names the doctor who saw the patient (the PDF adds "Dr. ").
+    doctor_name: (isMulti && inv.practitioner_id ? stripDoctorTitle(byId?.(inv.practitioner_id)?.display_name) : "") || profile?.full_name || "Doctor",
     clinic_name: profile?.clinic_name,
     clinic_address: profile?.address,
     clinic_phone: profile?.phone,
@@ -584,9 +611,45 @@ const BillingPage = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
-        <CreditCard className="h-6 w-6 text-success" /> Revenue
-      </h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
+          <CreditCard className="h-6 w-6 text-success" /> Revenue
+        </h1>
+        {canSeeDoctorMoney && (
+          <PractitionerSelect
+            allowAll aria-label="Filter revenue by doctor" className="w-56"
+            value={activeDoctor === UNATTRIBUTED ? null : activeDoctor}
+            includeIds={activeDoctor !== ALL_DOCTORS && activeDoctor !== UNATTRIBUTED ? [activeDoctor] : undefined}
+            placeholder="Unattributed" onChange={setDoctorFilter}
+          />
+        )}
+      </div>
+
+      {canSeeDoctorMoney && (
+        <DoctorRevenuePanel
+          from={perDoctorFrom}
+          to={perDoctorTo}
+          periodLabel={perDoctorLabel}
+          selectedId={activeDoctor === ALL_DOCTORS ? null : activeDoctor}
+          onSelect={(id) => setDoctorFilter(id ?? ALL_DOCTORS)}
+        />
+      )}
+
+      {isMulti && activeDoctor !== ALL_DOCTORS && (
+        <div className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-royal/30 bg-royal/5 px-3 py-2 text-sm" data-testid="doctor-filter-banner">
+          <span>
+            Showing <strong>{activeDoctor === UNATTRIBUTED ? "unattributed entries" : (byId?.(activeDoctor)?.display_name ?? "this doctor")}</strong> only.
+            {" "}These are two different views, so their numbers can differ.
+            {" "}<strong>Earnings table above</strong> ({perDoctorLabel}): each visit counts when it was invoiced, a later refund is shown in the month it was made.
+            {" "}<strong>Cards, charts, transactions and invoices below</strong>: this doctor only, refunded invoices left out, each card for the period in its label (the Gross Revenue, Platform Charges and Net Credited totals are all time).
+          </span>
+          {!ownDoctorOnly && (
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-royal" onClick={() => setDoctorFilter(ALL_DOCTORS)}>
+              <X className="h-3 w-3" /> All doctors
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-3 gap-4">
         {revenueCards.map((r) => (
@@ -606,7 +669,7 @@ const BillingPage = () => {
               ₹{totalGrossRev.toLocaleString("en-IN")}
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              Total paid by patients (excl. refunded)
+              All time, paid by patients (excl. refunded)
             </div>
           </CardContent>
         </Card>
@@ -636,7 +699,7 @@ const BillingPage = () => {
               ₹{totalNetCredited.toLocaleString("en-IN")}
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              Routed to your Linked Account
+              All time, routed to your Linked Account
             </div>
           </CardContent>
         </Card>
@@ -782,7 +845,9 @@ const BillingPage = () => {
                   <CardContent className="py-16 text-center">
                     <CreditCard className="h-12 w-12 text-success/20 mx-auto mb-3" />
                     <p className="text-muted-foreground font-medium">
-                      {transactions.length === 0 ? "No transactions yet" : "No transactions in this period"}
+                      {transactions.length === 0
+                        ? (activeDoctor !== ALL_DOCTORS ? "No transactions for this doctor yet" : "No transactions yet")
+                        : "No transactions in this period"}
                     </p>
                   </CardContent>
                 </Card>
@@ -809,7 +874,7 @@ const BillingPage = () => {
                               </div>
                               <div className="space-y-1">
                                 <div className="font-medium text-foreground text-sm">{a.patient_name}</div>
-                                <div className="text-xs text-muted-foreground">{a.service_name} · {a.date}</div>
+                                <div className="text-xs text-muted-foreground">{a.service_name} · {a.date}{isMulti && a.doctor_name ? ` · ${a.doctor_name}` : ""}</div>
                                 {showCommissionBreakdown ? (
                                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground pt-0.5">
                                     <span>Gross ₹{a.amount.toLocaleString("en-IN")}</span>
@@ -915,13 +980,6 @@ const BillingPage = () => {
             </Card>
             </div>
           </div>
-          {isMulti && can?.("billing.view") && (
-            <DoctorRevenuePanel
-              from={perDoctorFrom}
-              to={perDoctorTo}
-              periodLabel={perDoctorLabel}
-            />
-          )}
         </TabsContent>
 
         <TabsContent value="invoices" className="space-y-3">
@@ -929,7 +987,7 @@ const BillingPage = () => {
             <Card className="border-border/60 shadow-none">
               <CardContent className="py-16 text-center">
                 <FileText className="h-12 w-12 text-royal/20 mx-auto mb-3" />
-                <p className="text-muted-foreground font-medium">No invoices yet</p>
+                <p className="text-muted-foreground font-medium">{activeDoctor !== ALL_DOCTORS ? "No invoices for this doctor yet" : "No invoices yet"}</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   Invoices auto-generate when an appointment's payment is marked as Paid.
                 </p>
@@ -948,6 +1006,7 @@ const BillingPage = () => {
                         <div className="font-medium text-foreground text-sm truncate">{inv.invoice_number}</div>
                         <div className="text-xs text-muted-foreground truncate">
                           {inv.patient_name} · {inv.service_name} · {format(new Date(inv.created_at), "d MMM yyyy")}
+                          {doctorName(inv.practitioner_id) ? ` · ${doctorName(inv.practitioner_id)}` : ""}
                           {inv.payment_method ? ` · ${paymentMethodLabel(inv.payment_method)}${inv.payment_reference ? ` ${inv.payment_reference}` : ""}` : ""}
                         </div>
                       </div>
@@ -988,7 +1047,9 @@ const BillingPage = () => {
             <div className="space-y-4 text-sm">
               <div className="flex items-start justify-between border-b border-border pb-3">
                 <div>
-                  <div className="font-heading font-bold text-lg text-primary">Dr. {profile?.full_name}</div>
+                  <div className="font-heading font-bold text-lg text-primary">
+                    Dr. {(isMulti && viewingInvoice.practitioner_id ? stripDoctorTitle(byId?.(viewingInvoice.practitioner_id)?.display_name) : "") || profile?.full_name}
+                  </div>
                   {profile?.clinic_name && <div className="text-muted-foreground">{profile.clinic_name}</div>}
                   {profile?.address && <div className="text-xs text-muted-foreground max-w-[240px]">{profile.address}</div>}
                   {profile?.phone && <div className="text-xs text-muted-foreground">Phone: {profile.phone}</div>}

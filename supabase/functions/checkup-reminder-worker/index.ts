@@ -23,6 +23,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendWhatsApp, sendSms, beginNotificationRequest, json } from "../_shared/notificationProviders.ts";
 import { WHATSAPP_CHECKUP_TEMPLATE, SMS_CHECKUP_TEMPLATE, IN_APP_CHECKUP_TEMPLATE, renderTemplate } from "../_shared/notificationTemplates.ts";
+import { resolveReminderDoctorName } from "../_shared/checkupDoctor.ts";
 import { addFrequency, subtractDays, type Frequency } from "../_shared/checkupSchedule.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -114,7 +115,7 @@ Deno.serve(async (req) => {
 
     const patientName = raw.patients?.name || "Patient";
     const patientPhone = raw.patients?.phone || "";
-    const doctorName = raw.profiles?.full_name || "your doctor";
+    const doctorName = (await resolveReminderDoctorName(admin, raw.doctor_id, raw.patient_id, raw.profiles?.full_name)) || "your doctor";
     const checkupDateLabel = new Date(`${raw.next_checkup_date}T00:00:00Z`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
     const vars = { patient_name: patientName, doctor_name: doctorName, checkup_date: checkupDateLabel };
 

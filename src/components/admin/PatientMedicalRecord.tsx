@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { usePractitioners } from "@/hooks/usePractitioners";
+import PatientDoctorChips from "./PatientDoctorChips";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { FEATURE_KEYS } from "@/lib/features";
 import { ArrowLeft, Mail, Phone, Cake, VenetianMask, CalendarClock, Activity } from "lucide-react";
@@ -44,6 +45,9 @@ const PatientMedicalRecord = () => {
   const isPremium = hasFeature(FEATURE_KEYS.PATIENT_RECORDS);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
+  // Doctors who have seen this patient (multi-doctor clinics). Best effort: the header works without it.
+  const [seenBy, setSeenBy] = useState<string[]>([]);
+  const [seenLast, setSeenLast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = useCallback(() => setRefreshKey((k) => k + 1), []);
@@ -58,6 +62,17 @@ const PatientMedicalRecord = () => {
     };
     load();
   }, [profile, patientId]);
+
+  useEffect(() => {
+    if (!isMulti || !profile || !patientId) { setSeenBy([]); setSeenLast(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("patients_with_doctors").select("practitioner_ids, last_practitioner_id").eq("id", patientId).eq("doctor_id", profile.id).maybeSingle();
+      const row = data as { practitioner_ids?: string[] | null; last_practitioner_id?: string | null } | null;
+      if (!cancelled) { setSeenBy(error ? [] : (row?.practitioner_ids ?? [])); setSeenLast(error ? null : (row?.last_practitioner_id ?? null)); }
+    })();
+    return () => { cancelled = true; };
+  }, [isMulti, profile, patientId, refreshKey]);
 
   // A doctor login opening a patient's record in a multi-doctor clinic is written to the
   // clinical access log, once per patient opened (the database ignores it in shared mode).
@@ -143,6 +158,7 @@ const PatientMedicalRecord = () => {
         <div className="flex-1 min-w-0">
           <h1 className="font-heading font-bold text-xl text-primary">{patient.name}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Medical Record</p>
+          <PatientDoctorChips ids={seenBy} lastId={seenLast} max={4} className="mt-1.5" />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs">
           <div className="flex items-center gap-1.5 text-muted-foreground"><Phone className="h-3.5 w-3.5" /> {patient.phone}</div>

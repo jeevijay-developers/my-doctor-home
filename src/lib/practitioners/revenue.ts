@@ -37,6 +37,18 @@ export function istMonthRange(date: Date): { from: string; to: string } {
   return { from: `${y}-${mm}-01`, to: `${y}-${mm}-${String(last).padStart(2, "0")}` };
 }
 
+/** Filter value for money that no doctor can be named for (older invoices, deleted doctors). */
+export const UNATTRIBUTED = "unattributed";
+
+/** "Dr. Asha" -> "Asha" (documents print "Dr. " themselves; never strips "Drake"). */
+export const stripDoctorTitle = (name: string | null | undefined): string => (name ?? "").trim().replace(/^dr\.?\s+/i, "");
+
+/** IST calendar day ('YYYY-MM-DD') of a timestamp, the calendar the revenue report uses. */
+export function istDay(ts: string | Date): string {
+  const d = typeof ts === "string" ? new Date(ts) : ts;
+  return Number.isNaN(d.getTime()) ? "" : IST_YMD.format(d);
+}
+
 export const hasActivity = (n: RevenueNumbers | null | undefined): boolean =>
   !!n && (n.visits_completed > 0 || n.paid_amount !== 0 || n.gst_amount !== 0 || n.refunds_count > 0 || n.refunds_amount !== 0
     || n.no_shows > 0 || n.paid_no_shows_count > 0 || n.platform_charge !== 0 || n.net !== 0 || (n.net_after_refunds ?? 0) !== 0
@@ -47,6 +59,7 @@ export function revenueErrorMessage(code: string | null | undefined): string {
     case "RANGE_TOO_LARGE": return "Please choose a period of at most 366 days.";
     case "INVALID_RANGE": return "That period is not valid.";
     case "FORBIDDEN": return "You do not have access to these figures.";
+    case "DOCTOR_LOGIN": return "Doctor logins see only their own earnings, not the clinic report.";
     default: return "Could not load these figures. Please try again.";
   }
 }

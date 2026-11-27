@@ -229,6 +229,11 @@ const DoctorsPage = () => {
     if (isOwner && !isOwnerRow(p)) {
       items.push(
         login ? (
+          <Button key="perms" size="sm" variant="outline" aria-label={`Edit permissions for ${name}`} asChild>
+            <Link to={`/admin/staff?edit=${login.id}`}>Permissions</Link>
+          </Button>
+        ) : null,
+        login ? (
           <Button key="rmlogin" size="sm" variant="outline" aria-label={`Remove login for ${name}`} onClick={() => setRemovingLogin({ doctor: p, login })}>
             Remove login
           </Button>

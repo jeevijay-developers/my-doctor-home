@@ -78,7 +78,7 @@ export function buildDoctorMeta({ origin, profile, settings }: DoctorSeoInput) {
   const title = settings?.seo_title?.trim() || (name ? `${name}${spec}${city} | Doctylia` : "");
 
   let description = settings?.seo_description?.trim() || "";
-  if (!description) description = profile?.bio?.trim().slice(0, 160) || "";
+  if (!description) description = profile?.bio?.replace(/\s+/g, " ").trim().slice(0, 160) || "";
   if (!description) {
     // Skip the shared placeholder: identical descriptions across doctors read as duplicate content.
     const hero = settings?.hero_description?.trim();
@@ -224,7 +224,8 @@ export function buildPractitionerMeta({ origin, profile, practitioner }: Practit
   const city = profile?.city ? ` in ${profile.city}` : "";
   const title = name ? `${name}${specialization ? ` - ${specialization}` : ""}${city} | Doctylia` : "";
 
-  let description = practitioner?.bio?.trim().slice(0, 160) || "";
+  // The bio is free text the doctor types: newlines and runs of spaces collapse so a meta tag stays one line.
+  let description = practitioner?.bio?.replace(/\s+/g, " ").trim().slice(0, 160) || "";
   if (!description && name) {
     const clinic = doctorDisplayName(profile);
     const exp = practitioner.experience_years ? ` (${practitioner.experience_years}+ years experience)` : "";
