@@ -2403,6 +2403,7 @@ export type Database = {
           id: string
           remove_features: string[]
           requested_appointments_limit: number | null
+          requested_social_marketing: boolean
           reviewer_id: string | null
           reviewer_note: string | null
           status: string
@@ -2422,6 +2423,7 @@ export type Database = {
           id?: string
           remove_features?: string[]
           requested_appointments_limit?: number | null
+          requested_social_marketing?: boolean
           reviewer_id?: string | null
           reviewer_note?: string | null
           status?: string
@@ -2441,6 +2443,7 @@ export type Database = {
           id?: string
           remove_features?: string[]
           requested_appointments_limit?: number | null
+          requested_social_marketing?: boolean
           reviewer_id?: string | null
           reviewer_note?: string | null
           status?: string
@@ -4470,6 +4473,7 @@ export type Database = {
           _appointments_limit?: number
           _note?: string
           _remove: string[]
+          _social_marketing?: boolean
         }
         Returns: string
       }

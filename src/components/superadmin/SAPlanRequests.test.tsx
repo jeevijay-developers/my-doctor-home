@@ -154,6 +154,27 @@ describe("SAPlanRequests", () => {
     expect(order).toEqual(["review_plan_request", "save_social_marketing_scope"]);
   });
 
+  it("a request that asks for social media marketing is flagged and pre-ticks the switch", async () => {
+    seed({ requests: [request({ add_features: [], requested_social_marketing: true })] });
+    mock.current.tables.custom_plan_social_marketing = { data: [] };
+    mock.current.rpcs.save_social_marketing_scope = () => ({ data: "draft", error: null });
+    renderPage(true, {});
+    expect((await screen.findAllByText("Social media marketing")).length).toBeGreaterThan(0);
+    await openReview();
+    expect(screen.getByText("The doctor asked for this.")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Include social media marketing" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(mock.current.rpc).toHaveBeenCalledWith("save_social_marketing_scope", expect.objectContaining({ _doctor_id: "d1" })));
+  });
+
+  it("the social media marketing switch stays off when the doctor did not ask", async () => {
+    mock.current.tables.custom_plan_social_marketing = { data: [] };
+    renderPage(true, {});
+    await openReview();
+    expect(screen.queryByText("The doctor asked for this.")).toBeNull();
+    expect(screen.getByRole("switch", { name: "Include social media marketing" })).not.toBeChecked();
+  });
+
   it("shows empty state with no pending requests", async () => {
     seed({ requests: [] });
     renderPage(true);

@@ -1,5 +1,5 @@
 import type { CustomBlock, CustomFieldType, TemplateConfig } from "./types";
-import { INFO_FIELD_KEYS, TEMPLATE_VERSION } from "./types";
+import { ADVICE_KEYS, DEFAULT_VITAL_FIELDS, INFO_FIELD_KEYS, TEMPLATE_VERSION } from "./types";
 
 export const DEFAULT_ACCENT = "#1d4ed8";
 
@@ -16,9 +16,9 @@ export const defaultTemplateConfig = (): TemplateConfig => ({
   footer: { address: true, qr: true },
   blocks: [
     { id: "patient_info", type: "patient_info", enabled: true, fields: [...INFO_FIELD_KEYS] },
-    { id: "vitals", type: "vitals", enabled: true },
+    { id: "vitals", type: "vitals", enabled: true, fields: [...DEFAULT_VITAL_FIELDS] },
     { id: "medicines", type: "medicines", enabled: true },
-    { id: "advice", type: "advice", enabled: true },
+    { id: "advice", type: "advice", enabled: true, fields: [...ADVICE_KEYS] },
     { id: "follow_up", type: "follow_up", enabled: true },
     { id: "signature", type: "signature", enabled: true },
   ],
@@ -28,8 +28,8 @@ const custom = (
   id: string,
   label: string,
   fieldType: CustomFieldType,
-  extra: Partial<Pick<CustomBlock, "options" | "required" | "carryForward">> = {},
-): CustomBlock => ({ id, type: "custom", enabled: true, label, fieldType, options: [], required: false, carryForward: false, ...extra });
+  extra: Partial<Pick<CustomBlock, "options" | "required" | "carryForward" | "placement">> = {},
+): CustomBlock => ({ id, type: "custom", enabled: true, label, fieldType, options: [], required: false, carryForward: false, placement: "section", ...extra });
 
 // A dental case sheet: OPD number, MLC, histories, tooth chart, pain scale, investigations, plan.
 const dentalTemplateConfig = (): TemplateConfig => {
@@ -53,9 +53,9 @@ const dentalTemplateConfig = (): TemplateConfig => {
       }),
       custom("cf_plan", "Treatment plan", "textarea"),
       custom("cf_referrals", "Referrals", "textarea"),
-      { id: "vitals", type: "vitals", enabled: false },
+      { id: "vitals", type: "vitals", enabled: false, fields: [...DEFAULT_VITAL_FIELDS] },
       { id: "medicines", type: "medicines", enabled: true },
-      { id: "advice", type: "advice", enabled: true },
+      { id: "advice", type: "advice", enabled: true, fields: [...ADVICE_KEYS] },
       { id: "follow_up", type: "follow_up", enabled: true },
       { id: "signature", type: "signature", enabled: true },
     ],

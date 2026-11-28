@@ -1,6 +1,8 @@
+import { isOffered, showsComplaint, vitalFields } from "./config";
 import { parseToothMap } from "./teeth";
+import { computeBmi, cleanVital, vitalError } from "./vitals";
 import {
-  LIMITS, isCustomBlock,
+  LIMITS, SYS_COMPLAINT, SYS_SYMPTOMS, isCustomBlock, sysVitalKey,
   type CustomBlock, type ExtraValue, type ExtraValues, type TemplateConfig,
 } from "./types";
 
@@ -74,17 +76,52 @@ function coerce(block: CustomBlock, v: unknown): ExtraValue | undefined {
 export function cleanExtra(config: TemplateConfig, extra: Record<string, unknown>): ExtraValues {
   const out: ExtraValues = {};
   for (const b of config.blocks) {
-    if (!isCustomBlock(b) || !b.enabled) continue;
+    if (!isCustomBlock(b) || !b.enabled || !isOffered(config, b)) continue;
     const v = coerce(b, extra[b.id]);
     if (v !== undefined) out[b.id] = v;
+  }
+  return { ...out, ...cleanBuiltinAnswers(config, extra) };
+}
+
+const shortText = (v: unknown, max: number): string | undefined => {
+  const s = typeof v === "string" ? v.trim().slice(0, max) : "";
+  return s || undefined;
+};
+
+// The complaint, symptoms and vitals typed on the prescription itself, for the rows the template
+// offers. BMI follows height and weight whenever both are given.
+function cleanBuiltinAnswers(config: TemplateConfig, extra: Record<string, unknown>): ExtraValues {
+  const out: ExtraValues = {};
+  if (showsComplaint(config, "complaint")) {
+    const v = shortText(extra[SYS_COMPLAINT], 500);
+    if (v) out[SYS_COMPLAINT] = v;
+  }
+  if (showsComplaint(config, "symptoms")) {
+    const v = shortText(extra[SYS_SYMPTOMS], 500);
+    if (v) out[SYS_SYMPTOMS] = v;
+  }
+  const fields = vitalFields(config);
+  for (const k of fields) {
+    const v = cleanVital(k, extra[sysVitalKey(k)]);
+    if (v !== undefined) out[sysVitalKey(k)] = v;
+  }
+  if (fields.includes("bmi")) {
+    const h = Number(out[sysVitalKey("height")]);
+    const w = Number(out[sysVitalKey("weight")]);
+    const bmi = computeBmi(h, w);
+    if (bmi !== undefined) out[sysVitalKey("bmi")] = bmi;
   }
   return out;
 }
 
 // First problem with the answers (required fields, numbers), in plain words, or null.
 export function validateExtra(config: TemplateConfig, extra: Record<string, unknown>): string | null {
+  for (const k of vitalFields(config)) {
+    const problem = vitalError(k, extra[sysVitalKey(k)]);
+    if (problem) return problem;
+  }
   for (const b of config.blocks) {
-    if (!isCustomBlock(b) || !b.enabled) continue;
+    if (!isCustomBlock(b) || !b.enabled || !isOffered(config, b)) continue;
     const raw = extra[b.id];
     if (b.fieldType === "number" && typeof raw === "string" && raw.trim() !== "" && !Number.isFinite(Number(raw))) {
       return `${b.label} must be a number.`;
@@ -128,7 +165,7 @@ export function carryForwardValues(
   const prev = parseExtra(previousExtra);
   const out: ExtraValues = {};
   for (const b of config.blocks) {
-    if (!isCustomBlock(b) || !b.enabled || !b.carryForward || !isEmptyValue(current[b.id])) continue;
+    if (!isCustomBlock(b) || !b.enabled || !b.carryForward || !isOffered(config, b) || !isEmptyValue(current[b.id])) continue;
     let value: unknown = prev[b.id];
     if (isEmptyValue(value)) {
       const same = previousConfig.blocks.find(
@@ -143,5 +180,5 @@ export function carryForwardValues(
 }
 
 export const hasCarryForward = (config: TemplateConfig) =>
-  config.blocks.some((b) => isCustomBlock(b) && b.enabled && b.carryForward);
+  config.blocks.some((b) => isCustomBlock(b) && b.enabled && b.carryForward && isOffered(config, b));
 

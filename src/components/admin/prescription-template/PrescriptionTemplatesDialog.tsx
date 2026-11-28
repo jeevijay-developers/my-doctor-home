@@ -67,7 +67,8 @@ const PrescriptionTemplatesDialog = ({ open, onOpenChange, api, profile, isOwner
       preset: presetKey,
       config: preset ? preset.build() : defaultTemplateConfig(),
       practitioner_id: newScope,
-      is_default: templates.length === 0,
+      // A template you just made is the one you want to use; the previous default stays in the Template box.
+      is_default: true,
     });
   };
   const edit = (t: PrescriptionTemplate) =>

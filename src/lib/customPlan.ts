@@ -31,6 +31,8 @@ export type PlanRequest = {
   approved_price: number | null;
   /** Same encoding as CustomPlan.monthly_appointments_limit. */
   requested_appointments_limit?: number | null;
+  /** The doctor asked for the social media marketing add-on (a service, not a feature switch). */
+  requested_social_marketing?: boolean;
   approved_appointments_limit?: number | null;
   valid_from: string | null;
   valid_until: string | null;

@@ -73,7 +73,11 @@ const TemplateEditor = ({ initial, profile, doctors, scopeLocked, onSave, onCanc
     });
     setSaving(false);
     if (error) toast.error(error);
-    else toast.success("Template saved");
+    else toast.success(
+      isDefault
+        ? "Template saved. New prescriptions will use it."
+        : "Template saved. It is not the default, so choose it in the Template box when you create a prescription.",
+    );
   };
 
   const mm = (key: "preprintedTopMm" | "preprintedBottomMm", label: string) => (
@@ -108,6 +112,10 @@ const TemplateEditor = ({ initial, profile, doctors, scopeLocked, onSave, onCanc
             </div>
           )}
           <Toggle id="tpl-default" checked={isDefault} onChange={setIsDefault}>Use as the default for new prescriptions</Toggle>
+          <p className="text-xs text-muted-foreground -mt-1">
+            On: every new prescription starts with this template. Off: you pick it from the Template box when you create a prescription.
+            Prescriptions you already issued keep the layout they were issued with.
+          </p>
         </section>
 
         <section className="space-y-3">

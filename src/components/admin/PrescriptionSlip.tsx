@@ -6,11 +6,12 @@ import { Phone, Mail, Download, Printer, X } from "lucide-react";
 import doctyliaLogo from "@/assets/doctylia-logo.webp";
 import type { MedicineItem } from "@/lib/prescriptionMedicines";
 import { parseTemplateConfig } from "@/lib/prescriptionTemplate/config";
+import { vitalsForSlip } from "@/lib/prescriptionTemplate/vitals";
 import { formatExtraValue, isEmptyValue, parseExtra } from "@/lib/prescriptionTemplate/extra";
 import { parseToothMap } from "@/lib/prescriptionTemplate/teeth";
 import {
-  RIGHT_INFO_FIELDS,
-  type Block, type CustomBlock, type CustomFieldType, type InfoFieldKey, type TemplateConfig,
+  ADVICE_COLUMNS, ADVICE_LABELS, RIGHT_INFO_FIELDS, SYS_COMPLAINT, SYS_SYMPTOMS, isCustomBlock,
+  type Block, type CustomBlock, type CustomFieldType, type CustomPlacement, type InfoFieldKey, type TemplateConfig,
 } from "@/lib/prescriptionTemplate/types";
 import ToothChartView from "./prescription-slip/ToothChartView";
 import PainScaleView from "./prescription-slip/PainScaleView";
@@ -151,6 +152,8 @@ type CardProps = {
 
 type InfoRowData = { label: string; value: string };
 
+const ownText = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v : null);
+
 // Printable width of an A4 page in the PDF (21 cm minus 2 x 24 pt margins). The PDF is scaled by the
 // slip's width, so the pre-printed spacers are sized as a fraction of it, not in absolute units.
 const A4_CONTENT_MM = 193;
@@ -198,8 +201,15 @@ export const PrescriptionSlipCard = ({ profile, prescription, template, forceLet
       case "gender": return { label: "Gender", value: prescription.patient_gender || "—" };
       case "weight": return { label: "Weight", value: prescription.patient_weight != null ? `${prescription.patient_weight} kg` : "—" };
       case "diagnosis": return { label: "Diagnosis", value: prescription.diagnosis || "—" };
-      case "complaint": return prescription.visit?.reason_for_visit ? { label: "Complaint", value: prescription.visit.reason_for_visit } : null;
-      case "symptoms": return prescription.visit?.symptoms ? { label: "Symptoms", value: prescription.visit.symptoms } : null;
+      // Typed on the prescription; older ones fall back to the linked visit.
+      case "complaint": {
+        const v = ownText(extra[SYS_COMPLAINT]) ?? prescription.visit?.reason_for_visit;
+        return v ? { label: "Complaint", value: v } : null;
+      }
+      case "symptoms": {
+        const v = ownText(extra[SYS_SYMPTOMS]) ?? prescription.visit?.symptoms;
+        return v ? { label: "Symptoms", value: v } : null;
+      }
       case "date": return { label: "Date", value: prescription.date };
       case "rx_id": return { label: "Prescription ID", value: prescription.id ? prescription.id.slice(0, 8).toUpperCase() : "PREVIEW" };
       case "patient_id": return prescription.patient_id ? { label: "Patient ID", value: prescription.patient_id.slice(0, 8).toUpperCase() } : null;
@@ -207,35 +217,46 @@ export const PrescriptionSlipCard = ({ profile, prescription, template, forceLet
   };
   const present = (r: InfoRowData | null): r is InfoRowData => r !== null;
 
-  const vitalsChips: Array<{ label: string; value: string }> = [];
-  if (prescription.vitals) {
-    const v = prescription.vitals;
-    if (v.blood_pressure) vitalsChips.push({ label: "BP", value: v.blood_pressure });
-    if (v.pulse != null) vitalsChips.push({ label: "Pulse", value: `${v.pulse} bpm` });
-    if (v.temperature != null) vitalsChips.push({ label: "Temp", value: `${v.temperature}°F` });
-    if (v.respiratory_rate != null) vitalsChips.push({ label: "RR", value: `${v.respiratory_rate}/min` });
-    if (v.spo2 != null) vitalsChips.push({ label: "SpO2", value: `${v.spo2}%` });
-    if (v.height != null) vitalsChips.push({ label: "Height", value: `${v.height} cm` });
-    if (v.bmi != null) vitalsChips.push({ label: "BMI", value: String(v.bmi) });
-  }
+  // Custom fields placed inside a built-in section print there, in the template's order, when answered.
+  const placed = (where: CustomPlacement) =>
+    config.blocks.filter(
+      (b): b is CustomBlock => isCustomBlock(b) && b.enabled && b.placement === where && !isEmptyValue(extra[b.id]),
+    );
 
-  const adviceSections: Array<{ label: string; value: string }> = [];
-  if (prescription.advice) adviceSections.push({ label: "General Advice", value: prescription.advice });
-  if (prescription.diet_advice) adviceSections.push({ label: "Diet Advice", value: prescription.diet_advice });
-  if (prescription.lifestyle_advice) adviceSections.push({ label: "Lifestyle Advice", value: prescription.lifestyle_advice });
+  const vitalsBlock = config.blocks.find((b) => b.type === "vitals");
+  const vitalsChips: Array<{ label: string; value: string }> = [
+    ...(vitalsBlock && vitalsBlock.type === "vitals"
+      ? vitalsForSlip(vitalsBlock.fields, extra, prescription.vitals).map((v) => ({ label: v.label, value: v.text }))
+      : []),
+    ...placed("vitals").map((b) => ({ label: b.label, value: formatExtraValue(b, extra[b.id]) })),
+  ];
+
+  const adviceBlock = config.blocks.find((b) => b.type === "advice");
+  const adviceSections: Array<{ label: string; value: string }> = [
+    ...(adviceBlock && adviceBlock.type === "advice"
+      ? adviceBlock.fields.flatMap((k) => {
+          const v = prescription[ADVICE_COLUMNS[k]];
+          return v ? [{ label: ADVICE_LABELS[k].replace(" advice", " Advice"), value: v }] : [];
+        })
+      : []),
+    ...placed("advice").map((b) => ({ label: b.label, value: formatExtraValue(b, extra[b.id]) })),
+  ];
   const hasFollowUp = !!(prescription.follow_up_date || prescription.follow_up_instructions);
 
   const renderBlock = (block: Block, index: number, blocks: Block[]) => {
     switch (block.type) {
       case "patient_info": {
         const rightKeys = new Set<InfoFieldKey>(RIGHT_INFO_FIELDS);
-        const left = block.fields.filter((k) => !rightKeys.has(k)).map(infoRow).filter(present);
+        const left = [
+          ...block.fields.filter((k) => !rightKeys.has(k)).map(infoRow).filter(present),
+          ...placed("patient_info").map((b) => ({ label: b.label, value: formatExtraValue(b, extra[b.id]) })),
+        ];
         const right = block.fields.filter((k) => rightKeys.has(k)).map(infoRow).filter(present);
         if (left.length + right.length === 0) return null;
         return (
           <div key={block.id} className="rounded-xl border-2 mt-5 p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5" style={{ borderColor: accent }}>
             <div className="space-y-2.5">
-              {left.map((f) => <InfoRow key={f.label} label={f.label} value={f.value} />)}
+              {left.map((f, i) => <InfoRow key={`${f.label}-${i}`} label={f.label} value={f.value} />)}
             </div>
             <div className="space-y-2.5">
               {right.map((f) => <InfoRow key={f.label} label={f.label} value={f.value} />)}
@@ -247,8 +268,8 @@ export const PrescriptionSlipCard = ({ profile, prescription, template, forceLet
         if (vitalsChips.length === 0) return null;
         return (
           <div key={block.id} className="flex flex-wrap gap-2 mt-3" data-prescription-slip-row>
-            {vitalsChips.map((c) => (
-              <span key={c.label} className="text-[11px] px-2.5 py-1 rounded-full font-medium" style={{ backgroundColor: `${accent}0d`, color: accent }}>
+            {vitalsChips.map((c, i) => (
+              <span key={`${c.label}-${i}`} className="text-[11px] px-2.5 py-1 rounded-full font-medium" style={{ backgroundColor: `${accent}0d`, color: accent }}>
                 {c.label}: {c.value}
               </span>
             ))}
@@ -297,8 +318,8 @@ export const PrescriptionSlipCard = ({ profile, prescription, template, forceLet
         if (adviceSections.length === 0) return null;
         return (
           <div key={block.id} className="mt-6 space-y-2.5 border-t border-gray-200 pt-4">
-            {adviceSections.map((s) => (
-              <div key={s.label} data-prescription-slip-row>
+            {adviceSections.map((s, i) => (
+              <div key={`${s.label}-${i}`} data-prescription-slip-row>
                 <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{s.label}</p>
                 <p className="text-[13px] text-gray-900 whitespace-pre-line mt-0.5">{s.value}</p>
               </div>
@@ -336,6 +357,8 @@ export const PrescriptionSlipCard = ({ profile, prescription, template, forceLet
           </div>
         );
       case "custom":
+        // Fields placed inside a section are printed by that section.
+        if (block.placement !== "section") return null;
         return <CustomBlockView key={block.id} block={block} value={extra[block.id]} accent={accent} />;
     }
   };

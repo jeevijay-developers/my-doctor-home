@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import TemplateFormFields, { emptyTemplateFormValues } from "./TemplateFormFields";
 import { TEMPLATE_PRESETS, defaultTemplateConfig } from "@/lib/prescriptionTemplate/defaults";
+import { newCustomBlock } from "@/lib/prescriptionTemplate/config";
 import type { TemplateConfig } from "@/lib/prescriptionTemplate/types";
 
 const Harness = ({ config }: { config: TemplateConfig }) => {
@@ -101,8 +102,90 @@ describe("TemplateFormFields", () => {
 
   it("a required field is starred in its label", () => {
     const cfg = defaultTemplateConfig();
-    cfg.blocks.push({ id: "cf_x", type: "custom", enabled: true, label: "OPD No.", fieldType: "text", options: [], required: true, carryForward: false });
+    cfg.blocks.push({ id: "cf_x", type: "custom", enabled: true, label: "OPD No.", fieldType: "text", options: [], required: true, carryForward: false, placement: "section" });
     render(<Harness config={cfg} />);
     expect(screen.getByText("OPD No. *")).toBeInTheDocument();
+  });
+});
+
+describe("TemplateFormFields - complaint, symptoms, vitals, advice kinds and placed fields", () => {
+  it("asks for the complaint and symptoms the patient box lists, and stores them under the reserved keys", () => {
+    render(<Harness config={defaultTemplateConfig()} />);
+    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "Fever" } });
+    fireEvent.change(screen.getByLabelText("Symptoms"), { target: { value: "Chills" } });
+    expect(out().extra).toMatchObject({ sys_complaint: "Fever", sys_symptoms: "Chills" });
+  });
+
+  it("does not ask for them when the patient box does not list them", () => {
+    const cfg = defaultTemplateConfig();
+    cfg.blocks = cfg.blocks.map((b) => (b.type === "patient_info" ? { ...b, fields: ["patient_name", "diagnosis"] } : b));
+    render(<Harness config={cfg} />);
+    expect(screen.queryByLabelText("Complaint")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Symptoms")).not.toBeInTheDocument();
+  });
+
+  it("shows an input for each vital the template offers, with its unit, and nothing for the rest", () => {
+    render(<Harness config={defaultTemplateConfig()} />);
+    expect(screen.getByLabelText("Blood pressure (mmHg)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pulse (bpm)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Temperature (°F)")).toBeInTheDocument();
+    expect(screen.getByLabelText("SpO2 (%)")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Weight (kg)")).not.toBeInTheDocument(); // not offered by default
+  });
+
+  it("keeps only what can be a vital while typing, and stores it under the vital's key", () => {
+    render(<Harness config={defaultTemplateConfig()} />);
+    fireEvent.change(screen.getByLabelText("Blood pressure (mmHg)"), { target: { value: "12x0/8o" } });
+    fireEvent.change(screen.getByLabelText("Pulse (bpm)"), { target: { value: "7a2" } });
+    expect(out().extra).toMatchObject({ sys_vital_blood_pressure: "120/8", sys_vital_pulse: "72" });
+  });
+
+  it("BMI follows height and weight once both are filled in, and is not editable then", () => {
+    const cfg = defaultTemplateConfig();
+    cfg.blocks = cfg.blocks.map((b) => (b.type === "vitals" ? { ...b, fields: ["height", "weight", "bmi"] } : b));
+    render(<Harness config={cfg} />);
+    const bmi = screen.getByLabelText("BMI") as HTMLInputElement;
+    expect(bmi.readOnly).toBe(false);
+    fireEvent.change(screen.getByLabelText("Height (cm)"), { target: { value: "170" } });
+    fireEvent.change(screen.getByLabelText("Weight (kg)"), { target: { value: "70" } });
+    expect((screen.getByLabelText("BMI") as HTMLInputElement).value).toBe("24.2");
+    expect((screen.getByLabelText("BMI") as HTMLInputElement).readOnly).toBe(true);
+  });
+
+  it("asks only for the kinds of advice the template offers", () => {
+    const cfg = defaultTemplateConfig();
+    cfg.blocks = cfg.blocks.map((b) => (b.type === "advice" ? { ...b, fields: ["general", "diet"] } : b));
+    render(<Harness config={cfg} />);
+    expect(screen.getByLabelText("General advice")).toBeInTheDocument();
+    expect(screen.getByLabelText("Diet advice")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Lifestyle advice")).not.toBeInTheDocument();
+  });
+
+  it("a switched-off vitals or advice section has no inputs, and an empty one does not leave a heading", () => {
+    const cfg = defaultTemplateConfig();
+    cfg.blocks = cfg.blocks.map((b) => (b.type === "vitals" ? { ...b, enabled: false } : b.type === "advice" ? { ...b, fields: [] } : b));
+    render(<Harness config={cfg} />);
+    expect(screen.queryByLabelText("Pulse (bpm)")).not.toBeInTheDocument();
+    expect(screen.queryByText("Advice")).not.toBeInTheDocument();
+  });
+
+  it("custom fields placed in a section are asked for inside it, not as sections of their own", () => {
+    const cfg = defaultTemplateConfig();
+    const patient = newCustomBlock(cfg.blocks, "text", "Occupation", "patient_info");
+    const vital = newCustomBlock(cfg.blocks, "number", "Blood sugar", "vitals");
+    const advice = newCustomBlock(cfg.blocks, "textarea", "Dental advice", "advice");
+    cfg.blocks.push(patient, vital, advice);
+    const { container } = render(<Harness config={cfg} />);
+    // Each one appears once, in document order of its section: patient box, vitals, advice.
+    const text = container.textContent!;
+    const at = (s: string) => text.indexOf(s);
+    expect(at("Occupation")).toBeGreaterThan(-1);
+    expect(at("Occupation")).toBeLessThan(at("Blood sugar"));
+    expect(at("Blood sugar")).toBeLessThan(at("MEDICINES-EDITOR"));
+    expect(at("MEDICINES-EDITOR")).toBeLessThan(at("Dental advice"));
+    expect(screen.getAllByLabelText("Occupation")).toHaveLength(1);
+
+    fireEvent.change(screen.getByLabelText("Blood sugar"), { target: { value: "110" } });
+    expect(out().extra[vital.id]).toBe("110");
   });
 });

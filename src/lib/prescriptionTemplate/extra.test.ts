@@ -7,7 +7,7 @@ import type { CustomBlock, TemplateConfig } from "./types";
 
 const withFields = (...fields: Array<Partial<CustomBlock> & Pick<CustomBlock, "id" | "label" | "fieldType">>): TemplateConfig => {
   const c = defaultTemplateConfig();
-  for (const f of fields) c.blocks.push({ type: "custom", enabled: true, options: [], required: false, carryForward: false, ...f });
+  for (const f of fields) c.blocks.push({ type: "custom", enabled: true, options: [], required: false, carryForward: false, placement: "section", ...f });
   return c;
 };
 

@@ -128,11 +128,12 @@ const SAPlanRequests = () => {
       <div className="text-xs text-muted-foreground truncate">{d?.clinic_name || "—"} · {d?.plan_tier || "free"} / {d?.plan_status || "—"}</div>
     </div>
   );
-  const Changes = ({ add, remove, limit }: { add: string[]; remove: string[]; limit?: number | null }) => (
+  const Changes = ({ add, remove, limit, social }: { add: string[]; remove: string[]; limit?: number | null; social?: boolean }) => (
     <div className="flex flex-wrap gap-1">
       {add.map((k) => <Badge key={k} variant="outline" className="text-[10px]"><Plus className="h-3 w-3 mr-0.5" />{labelFor(k)}</Badge>)}
       {remove.map((k) => <Badge key={k} variant="outline" className="text-[10px]"><Minus className="h-3 w-3 mr-0.5" />{labelFor(k)}</Badge>)}
       {limit != null && <Badge variant="outline" className="text-[10px]">Appointments: {describeAppointmentsLimit(limit)}</Badge>}
+      {social && <Badge variant="outline" className="text-[10px]"><Plus className="h-3 w-3 mr-0.5" />Social media marketing</Badge>}
     </div>
   );
 
@@ -202,7 +203,7 @@ const SAPlanRequests = () => {
                   {pending.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell><DoctorCell d={r.profiles} /></TableCell>
-                      <TableCell><Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} />{r.doctor_note && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">“{r.doctor_note}”</p>}</TableCell>
+                      <TableCell><Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} social={r.requested_social_marketing} />{r.doctor_note && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">“{r.doctor_note}”</p>}</TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{fmt(r.created_at)}</TableCell>
                       <TableCell className="text-right"><Button size="sm" onClick={() => setReviewing(r)}>Review</Button></TableCell>
                     </TableRow>
@@ -213,7 +214,7 @@ const SAPlanRequests = () => {
                 {pending.map((r) => (
                   <Card key={r.id}><CardContent className="p-3 space-y-2">
                     <DoctorCell d={r.profiles} />
-                    <Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} />
+                    <Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} social={r.requested_social_marketing} />
                     {r.doctor_note && <p className="text-xs text-muted-foreground">“{r.doctor_note}”</p>}
                     <div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">{fmt(r.created_at)}</span><Button size="sm" onClick={() => setReviewing(r)}>Review</Button></div>
                   </CardContent></Card>
@@ -272,7 +273,7 @@ const SAPlanRequests = () => {
                   {history.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell><DoctorCell d={r.profiles} /></TableCell>
-                      <TableCell><Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} /></TableCell>
+                      <TableCell><Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} social={r.requested_social_marketing} /></TableCell>
                       <TableCell className="text-xs space-y-1">{statusBadge(r.status)}
                         {r.status === "approved" && <div className="text-muted-foreground">₹{r.approved_price} · until {r.valid_until ? fmt(r.valid_until) : "no end"}</div>}
                         {r.reviewer_note && <div className="text-muted-foreground">“{r.reviewer_note}”</div>}</TableCell>
@@ -285,7 +286,7 @@ const SAPlanRequests = () => {
                 {history.map((r) => (
                   <Card key={r.id}><CardContent className="p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2"><DoctorCell d={r.profiles} />{statusBadge(r.status)}</div>
-                    <Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} />
+                    <Changes add={r.add_features} remove={r.remove_features} limit={r.status === "approved" ? r.approved_appointments_limit ?? r.requested_appointments_limit : r.requested_appointments_limit} social={r.requested_social_marketing} />
                     {r.reviewer_note && <p className="text-xs text-muted-foreground">“{r.reviewer_note}”</p>}
                     <div className="text-xs text-muted-foreground">{fmt(r.decided_at)}</div>
                   </CardContent></Card>
@@ -377,7 +378,8 @@ const ReviewDialog = ({
 }) => {
   // Only offered when there is no live record: starting one again would otherwise wipe an agreed scope.
   const canStartSocial = socialStatus === null || socialStatus === "ended";
-  const [startSocial, setStartSocial] = useState(false);
+  // Starts on when the doctor asked for it (the superadmin can still switch it off).
+  const [startSocial, setStartSocial] = useState(!!request.requested_social_marketing && canStartSocial);
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [current, setCurrent] = useState<Set<string>>(new Set());
   const [price, setPrice] = useState(String(standardPrice));
@@ -527,6 +529,7 @@ const ReviewDialog = ({
             <span className="ml-2 text-[11px] text-muted-foreground">
               {socialStatus === "active" ? "included (active)" : socialStatus === "draft" ? "included (draft, scope not confirmed)" : startSocial ? "included: scope to be agreed after approval" : "not included"}
             </span>
+            {request.requested_social_marketing && <p className="text-[11px] font-medium text-royal">The doctor asked for this.</p>}
             <p className="text-[11px] text-muted-foreground">A service delivered by the team, billed separately. Nothing is promised until the scope is documented and activated.</p>
           </div>
           <Switch checked={startSocial || socialStatus === "active" || socialStatus === "draft"} disabled={!canManage || !canStartSocial} onCheckedChange={setStartSocial} aria-label="Include social media marketing" />

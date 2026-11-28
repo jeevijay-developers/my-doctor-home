@@ -1,7 +1,9 @@
 import { DEFAULT_ACCENT, defaultTemplateConfig } from "./defaults";
 import {
-  BUILTIN_BLOCK_TYPES, CUSTOM_FIELD_TYPES, INFO_FIELD_KEYS, LIMITS, TEMPLATE_VERSION,
-  type Block, type BuiltinBlockType, type CustomBlock, type CustomFieldType, type InfoFieldKey, type TemplateConfig,
+  ADVICE_KEYS, BUILTIN_BLOCK_TYPES, CUSTOM_FIELD_TYPES, CUSTOM_PLACEMENTS, DEFAULT_VITAL_FIELDS, INFO_FIELD_KEYS,
+  LIMITS, PLACEMENT_FIELD_TYPES, PLACEMENT_LABELS, SYS_PREFIX, TEMPLATE_VERSION, VITAL_KEYS,
+  type AdviceKey, type Block, type BuiltinBlockType, type CustomBlock, type CustomFieldType, type CustomPlacement,
+  type InfoFieldKey, type TemplateConfig, type VitalKey,
 } from "./types";
 
 export const BLOCK_ID_PATTERN = /^[a-z][a-z0-9_]{0,31}$/;
@@ -40,6 +42,13 @@ export const cleanOptions = (v: unknown): string[] => {
   return out;
 };
 
+/** Where a field of this type may be placed. A tooth chart, say, only fits in its own section. */
+export const placementsFor = (t: CustomFieldType): CustomPlacement[] =>
+  CUSTOM_PLACEMENTS.filter((p) => PLACEMENT_FIELD_TYPES[p].includes(t));
+
+const pickKeys = <K extends string>(raw: unknown, allowed: readonly K[], fallback: readonly K[]): K[] =>
+  Array.isArray(raw) ? allowed.filter((k) => raw.includes(k)) : [...fallback];
+
 export const newBlockId = (taken: Iterable<string> = []): string => {
   const used = new Set(taken);
   for (;;) {
@@ -48,7 +57,12 @@ export const newBlockId = (taken: Iterable<string> = []): string => {
   }
 };
 
-export const newCustomBlock = (blocks: Block[], fieldType: CustomFieldType = "text", label = ""): CustomBlock => ({
+export const newCustomBlock = (
+  blocks: Block[],
+  fieldType: CustomFieldType = "text",
+  label = "",
+  placement: CustomPlacement = "section",
+): CustomBlock => ({
   id: newBlockId(blocks.map((b) => b.id)),
   type: "custom",
   enabled: true,
@@ -57,6 +71,7 @@ export const newCustomBlock = (blocks: Block[], fieldType: CustomFieldType = "te
   options: [],
   required: false,
   carryForward: false,
+  placement: placementsFor(fieldType).includes(placement) ? placement : "section",
 });
 
 // Tolerant read: anything malformed (older rows, hand-edited JSON) falls back to a safe value, so
@@ -88,6 +103,10 @@ export function parseTemplateConfig(value: unknown): TemplateConfig {
             ? Array.from(new Set(raw.fields.filter((f): f is InfoFieldKey => (INFO_FIELD_KEYS as readonly unknown[]).includes(f))))
             : [...INFO_FIELD_KEYS];
           blocks.push({ id: t, type: t, enabled, fields });
+        } else if (t === "vitals") {
+          blocks.push({ id: t, type: t, enabled, fields: pickKeys<VitalKey>(raw.fields, VITAL_KEYS, DEFAULT_VITAL_FIELDS) });
+        } else if (t === "advice") {
+          blocks.push({ id: t, type: t, enabled, fields: pickKeys<AdviceKey>(raw.fields, ADVICE_KEYS, ADVICE_KEYS) });
         } else {
           blocks.push({ id: t, type: t, enabled });
         }
@@ -95,7 +114,10 @@ export function parseTemplateConfig(value: unknown): TemplateConfig {
         if (customs >= LIMITS.customFields) continue;
         customs++;
         const fieldType = (CUSTOM_FIELD_TYPES as readonly unknown[]).includes(raw.fieldType) ? (raw.fieldType as CustomFieldType) : "text";
-        const id = typeof raw.id === "string" && BLOCK_ID_PATTERN.test(raw.id) && !ids.has(raw.id) ? raw.id : newBlockId(ids);
+        const id =
+          typeof raw.id === "string" && BLOCK_ID_PATTERN.test(raw.id) && !raw.id.startsWith(SYS_PREFIX) && !ids.has(raw.id)
+            ? raw.id
+            : newBlockId(ids);
         ids.add(id);
         blocks.push({
           id,
@@ -106,6 +128,9 @@ export function parseTemplateConfig(value: unknown): TemplateConfig {
           options: cleanOptions(raw.options),
           required: bool(raw.required, false),
           carryForward: bool(raw.carryForward, false),
+          placement: (CUSTOM_PLACEMENTS as readonly unknown[]).includes(raw.placement) && placementsFor(fieldType).includes(raw.placement as CustomPlacement)
+            ? (raw.placement as CustomPlacement)
+            : "section",
         });
       }
     }
@@ -147,6 +172,9 @@ export function validateTemplateConfig(config: TemplateConfig): string | null {
     if ((c.fieldType === "select" || c.fieldType === "multiselect") && c.options.length < 2) {
       return `Add at least two choices to "${label}".`;
     }
+    if (!placementsFor(c.fieldType).includes(c.placement)) {
+      return `"${label}" cannot go ${PLACEMENT_LABELS[c.placement].toLowerCase()}. Choose another place or field type.`;
+    }
   }
   return null;
 }
@@ -155,6 +183,25 @@ export function validateTemplateConfig(config: TemplateConfig): string | null {
 // the template has turned off (for example medicines typed before switching to a dental template).
 export const blockEnabled = (config: TemplateConfig, type: BuiltinBlockType): boolean =>
   config.blocks.some((b) => b.type === type && b.enabled);
+
+/**
+ * Whether a custom field is actually offered: in its own section, or inside a built-in section that is on.
+ * A field whose section is switched off is neither asked for, validated, carried forward, saved nor printed.
+ */
+export const isOffered = (config: TemplateConfig, b: CustomBlock): boolean =>
+  b.placement === "section" || config.blocks.some((x) => x.type === b.placement && x.enabled);
+
+/** Whether a kind of advice is offered (its section is on and the kind is ticked). */
+export const adviceEnabled = (config: TemplateConfig, key: AdviceKey): boolean =>
+  config.blocks.some((b) => b.type === "advice" && b.enabled && b.fields.includes(key));
+
+export const vitalFields = (config: TemplateConfig): VitalKey[] => {
+  const b = config.blocks.find((x) => x.type === "vitals" && x.enabled);
+  return b && b.type === "vitals" ? b.fields : [];
+};
+
+export const showsComplaint = (config: TemplateConfig, key: "complaint" | "symptoms"): boolean =>
+  config.blocks.some((b) => b.type === "patient_info" && b.enabled && b.fields.includes(key));
 
 export const showsDiagnosis = (config: TemplateConfig): boolean =>
   config.blocks.some((b) => b.type === "patient_info" && b.enabled && b.fields.includes("diagnosis"));

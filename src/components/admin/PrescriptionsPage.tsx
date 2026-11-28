@@ -40,9 +40,11 @@ import { Badge } from "@/components/ui/badge";
 import { slipDoctor } from "@/lib/practitioners/slipDoctor";
 import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 import { usePrescriptionTemplates } from "@/hooks/usePrescriptionTemplates";
-import { blockEnabled, parseTemplateConfig, showsDiagnosis } from "@/lib/prescriptionTemplate/config";
+import { adviceEnabled, blockEnabled, parseTemplateConfig, showsComplaint, showsDiagnosis, vitalFields } from "@/lib/prescriptionTemplate/config";
 import { defaultTemplateConfig } from "@/lib/prescriptionTemplate/defaults";
 import { carryForwardValues, cleanExtra, hasCarryForward, isEmptyValue, parseExtra, validateExtra } from "@/lib/prescriptionTemplate/extra";
+import { sysVitalKey, ADVICE_COLUMNS, ADVICE_KEYS, SYS_COMPLAINT, SYS_PREFIX, SYS_SYMPTOMS } from "@/lib/prescriptionTemplate/types";
+import { cleanVital } from "@/lib/prescriptionTemplate/vitals";
 import { pickDefaultTemplate, templatesForDoctor } from "@/lib/prescriptionTemplate/resolve";
 import type { TemplateConfig } from "@/lib/prescriptionTemplate/types";
 import TemplateFormFields from "./prescription-template/TemplateFormFields";
@@ -94,10 +96,9 @@ const templateColumns = (
     if (v) out[key] = v;
     else if (mode === "update") out[key] = null;
   };
-  if (blockEnabled(config, "advice")) {
-    put("advice", f.advice);
-    put("diet_advice", f.diet_advice);
-    put("lifestyle_advice", f.lifestyle_advice);
+  // Only the kinds of advice the template offers are written.
+  for (const k of ADVICE_KEYS) {
+    if (adviceEnabled(config, k)) put(ADVICE_COLUMNS[k], f[ADVICE_COLUMNS[k]]);
   }
   if (blockEnabled(config, "follow_up")) {
     put("follow_up_date", f.follow_up_date);
@@ -401,24 +402,80 @@ const PrescriptionsPage = () => {
   const formConfig = useMemo(() => formTemplate?.config ?? defaultTemplateConfig(), [formTemplate]);
   // An edited prescription keeps the layout it was issued with.
   const editConfig = useMemo(() => parseTemplateConfig(viewing?.template_snapshot), [viewing?.template_snapshot]);
-  // Starts on the doctor's default template; re-picked when the prescribing doctor changes unless
-  // the user chose a template by hand.
-  // Once answers have been typed the template is never switched automatically (they would be lost).
+  // Values filled in automatically, by where they came from: "visit" (the patient's visit of the prescription's
+  // date) and "carry" (the patient's last prescription). They are patient-specific, so they are tracked to be
+  // removed again when the patient (or, for the visit, the date) changes.
+  const autoFilled = useRef<{ visit: Record<string, unknown>; carry: Record<string, unknown> }>({ visit: {}, carry: {} });
   const formExtraRef = useRef(formExtra);
   formExtraRef.current = formExtra;
+
+  // Starts on the doctor's default template; re-picked when the prescribing doctor changes unless the user chose a
+  // template by hand. Once the doctor has TYPED answers the template is never switched automatically (they would be
+  // lost); values filled in automatically do not count as typed.
   useEffect(() => {
     if (!showNew || templateTouched.current) return;
-    if (Object.values(formExtraRef.current).some((v) => !isEmptyValue(v))) return;
+    const auto = { ...autoFilled.current.visit, ...autoFilled.current.carry };
+    const typed = Object.entries(formExtraRef.current).some(
+      ([k, v]) => !isEmptyValue(v) && JSON.stringify(v) !== JSON.stringify(auto[k]),
+    );
+    if (typed) return;
     setFormTemplateId(pickDefaultTemplate(templates, formDoctor)?.id ?? null);
   }, [showNew, templates, formDoctor]);
 
+  // Another patient: nothing about the previous one may stay on the form. That is everything filled in
+  // automatically (even if edited since), and the patient-specific answers the doctor typed: complaint, symptoms,
+  // vitals and the carry-forward fields. Starting a form (no previous patient) keeps what was typed so far.
+  const previousPatient = useRef("");
+  useEffect(() => {
+    const before = previousPatient.current;
+    previousPatient.current = showNew ? form.patient_id : "";
+    const filled = { ...autoFilled.current.visit, ...autoFilled.current.carry };
+    autoFilled.current = { visit: {}, carry: {} };
+    setCarryHint(null);
+    setVisitHint(null);
+    if (!before || before === form.patient_id) {
+      // First pick (or a closed form): only drop automatic values, there is nothing else tied to a patient yet.
+      const keys = Object.keys(filled);
+      if (keys.length === 0) return;
+      setFormExtra((prev) => {
+        const next = { ...prev };
+        for (const k of keys) if (JSON.stringify(prev[k]) === JSON.stringify(filled[k])) delete next[k];
+        return next;
+      });
+      return;
+    }
+    const carryIds = new Set(
+      formConfig.blocks.filter((b) => b.type === "custom" && b.carryForward).map((b) => b.id),
+    );
+    setFormExtra((prev) => {
+      const next = { ...prev };
+      for (const k of Object.keys(prev)) {
+        if (k.startsWith(SYS_PREFIX) || carryIds.has(k) || k in filled) delete next[k];
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.patient_id, showNew]);
+
+  // Fills only fields that are still empty, remembers what it filled and where from, and says whether it filled anything.
+  const applyAutoFill = (add: Record<string, unknown>, source: "visit" | "carry"): boolean => {
+    const current = formExtraRef.current;
+    const fresh = Object.fromEntries(Object.entries(add).filter(([k]) => isEmptyValue(current[k])));
+    if (Object.keys(fresh).length === 0) return false;
+    Object.assign(autoFilled.current[source], fresh);
+    setFormExtra((prev) => {
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(fresh)) if (isEmptyValue(prev[k])) next[k] = v;
+      return next;
+    });
+    return true;
+  };
+
   // Fields marked "carry forward" (histories, allergies) start from the patient's last prescription.
-  // Only empty fields are filled, so nothing the doctor typed is overwritten.
   const [carryHint, setCarryHint] = useState<string | null>(null);
   const carrySeq = useRef(0);
   useEffect(() => {
     const seq = ++carrySeq.current;
-    setCarryHint(null);
     const patientId = form.patient_id;
     if (!showNew || !profile || !patientId || !hasCarryForward(formConfig)) return;
     void (async () => {
@@ -435,10 +492,69 @@ const PrescriptionsPage = () => {
         Object.keys(carryForwardValues(formConfig, {}, parseTemplateConfig(r.template_snapshot), r.extra)).length > 0);
       if (!source) return;
       const prevConfig = parseTemplateConfig(source.template_snapshot);
-      setFormExtra((prev) => ({ ...prev, ...carryForwardValues(formConfig, prev, prevConfig, source.extra) }));
-      setCarryHint(`Histories and allergies filled in from the prescription of ${source.date}. Check them before saving.`);
+      if (applyAutoFill(carryForwardValues(formConfig, formExtraRef.current, prevConfig, source.extra), "carry")) {
+        setCarryHint(`Histories and allergies filled in from the prescription of ${source.date}. Check them before saving.`);
+      }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showNew, profile, form.patient_id, formConfig]);
+
+  // Complaint, symptoms and vitals the template asks for start from the patient's visit on the prescription's date
+  // (when the doctor or staff already recorded one), so they are not typed twice. Another date means another visit:
+  // what was filled from the previous one (and not edited) is removed first.
+  const [visitHint, setVisitHint] = useState<string | null>(null);
+  const visitSeq = useRef(0);
+  const wantsVisitData =
+    showsComplaint(formConfig, "complaint") || showsComplaint(formConfig, "symptoms") || vitalFields(formConfig).length > 0;
+  useEffect(() => {
+    const seq = ++visitSeq.current;
+    const stale = autoFilled.current.visit;
+    autoFilled.current.visit = {};
+    if (Object.keys(stale).length > 0) {
+      setFormExtra((prev) => {
+        const next = { ...prev };
+        for (const k of Object.keys(stale)) if (JSON.stringify(prev[k]) === JSON.stringify(stale[k])) delete next[k];
+        return next;
+      });
+      setVisitHint(null);
+    }
+    const patientId = form.patient_id;
+    if (!showNew || !profile || !patientId || !wantsVisitData) return;
+    void (async () => {
+      let q = supabase
+        .from("patient_visits")
+        .select("id, reason_for_visit, symptoms")
+        .eq("patient_id", patientId)
+        .eq("visit_date", form.date)
+        .is("deleted_at", null);
+      // In a multi-doctor clinic the visit must be this doctor's, not a colleague's on the same day.
+      if (isMulti && formDoctor) q = q.eq("practitioner_id", formDoctor);
+      const { data: visits } = await q.order("created_at", { ascending: false }).limit(1);
+      const visit = Array.isArray(visits) ? (visits[0] as { id?: string; reason_for_visit?: unknown; symptoms?: unknown } | undefined) : undefined;
+      if (seq !== visitSeq.current || !visit) return;
+      const vitalKeys = vitalFields(formConfig);
+      let vitals: Record<string, unknown> | undefined;
+      if (visit.id && vitalKeys.length > 0) {
+        const { data } = await supabase
+          .from("patient_vitals")
+          .select("blood_pressure, pulse, temperature, respiratory_rate, spo2, height, weight, bmi")
+          .eq("visit_id", visit.id)
+          .limit(1);
+        vitals = Array.isArray(data) ? (data[0] as Record<string, unknown> | undefined) : undefined;
+      }
+      if (seq !== visitSeq.current) return;
+      const add: Record<string, unknown> = {};
+      if (showsComplaint(formConfig, "complaint") && typeof visit.reason_for_visit === "string" && visit.reason_for_visit.trim()) add[SYS_COMPLAINT] = visit.reason_for_visit;
+      if (showsComplaint(formConfig, "symptoms") && typeof visit.symptoms === "string" && visit.symptoms.trim()) add[SYS_SYMPTOMS] = visit.symptoms;
+      for (const k of vitalKeys) {
+        // A recorded value the form would refuse (SpO2 101, height 0) is not copied: the doctor never typed it.
+        const v = cleanVital(k, vitals?.[k]);
+        if (v !== undefined) add[sysVitalKey(k)] = String(v);
+      }
+      if (applyAutoFill(add, "visit")) setVisitHint(`Filled in from this patient's visit on ${form.date}. Check it before saving.`);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNew, profile, form.patient_id, form.date, formConfig, wantsVisitData, formDoctor, isMulti]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -863,6 +979,11 @@ const PrescriptionsPage = () => {
                       {pickerTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {formTemplate
+                      ? `Using "${formTemplate.name}". Its extra fields are below.`
+                      : "Using the standard layout. Choose a template here to get its extra fields."}
+                  </p>
                 </div>
               )}
               <PrescriptionPatientFields
@@ -877,7 +998,9 @@ const PrescriptionsPage = () => {
                 }}
               />
 
-              {carryHint && <p className="text-xs text-muted-foreground rounded-md bg-secondary/60 px-3 py-2">{carryHint}</p>}
+              {[visitHint, carryHint].filter(Boolean).map((hint) => (
+                <p key={hint} className="text-xs text-muted-foreground rounded-md bg-secondary/60 px-3 py-2">{hint}</p>
+              ))}
               <TemplateFormFields
                 config={formConfig}
                 idPrefix="new-rx"

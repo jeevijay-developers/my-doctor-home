@@ -40,4 +40,33 @@ describe("CustomizePlanDialog", () => {
     );
     await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
   });
+
+  it("does not show social media marketing unless it is offered", () => {
+    render(<CustomizePlanDialog open onOpenChange={() => {}} features={features} onSubmitted={() => {}} />);
+    expect(screen.queryByRole("switch", { name: "Social media marketing" })).toBeNull();
+  });
+
+  it("lets a doctor ask for ONLY social media marketing", async () => {
+    rpcMock.mockResolvedValue({ error: null });
+    render(<CustomizePlanDialog open offerSocialMarketing onOpenChange={() => {}} features={features} onSubmitted={() => {}} />);
+    expect(screen.getByRole("button", { name: /change at least one feature/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("switch", { name: "Social media marketing" }));
+    fireEvent.click(screen.getByRole("button", { name: /send request/i }));
+
+    await waitFor(() =>
+      expect(rpcMock).toHaveBeenCalledWith("submit_plan_request", {
+        _add: [], _remove: [], _note: null, _social_marketing: true,
+      }),
+    );
+  });
+
+  it("sends nothing about social media marketing when it is left off", async () => {
+    rpcMock.mockResolvedValue({ error: null });
+    render(<CustomizePlanDialog open offerSocialMarketing onOpenChange={() => {}} features={features} onSubmitted={() => {}} />);
+    fireEvent.click(screen.getByRole("switch", { name: "Online Consultation" }));
+    fireEvent.click(screen.getByRole("button", { name: /send request/i }));
+    await waitFor(() => expect(rpcMock).toHaveBeenCalled());
+    expect(rpcMock.mock.calls[0][1]).not.toHaveProperty("_social_marketing");
+  });
 });

@@ -33,8 +33,8 @@ export const INFO_FIELD_LABELS: Record<InfoFieldKey, string> = {
   gender: "Gender",
   weight: "Weight",
   diagnosis: "Diagnosis",
-  complaint: "Complaint (from visit)",
-  symptoms: "Symptoms (from visit)",
+  complaint: "Complaint",
+  symptoms: "Symptoms",
   date: "Date",
   rx_id: "Prescription ID",
   patient_id: "Patient ID",
@@ -62,15 +62,61 @@ export type BuiltinBlockType = (typeof BUILTIN_BLOCK_TYPES)[number];
 
 export const BUILTIN_BLOCK_LABELS: Record<BuiltinBlockType, string> = {
   patient_info: "Patient details box",
-  vitals: "Vitals (from the visit)",
+  vitals: "Vitals",
   medicines: "Medicines",
-  advice: "Advice (general, diet, lifestyle)",
+  advice: "Advice",
   follow_up: "Follow-up",
   signature: "Signature",
 };
 
+// The vitals a template can offer. Weight is optional because the patient box already shows it.
+export const VITAL_KEYS = [
+  "blood_pressure", "pulse", "temperature", "respiratory_rate", "spo2", "height", "weight", "bmi",
+] as const;
+export type VitalKey = (typeof VITAL_KEYS)[number];
+/** What a template offers until the doctor changes it: the same chips the slip always printed. */
+export const DEFAULT_VITAL_FIELDS: readonly VitalKey[] = [
+  "blood_pressure", "pulse", "temperature", "respiratory_rate", "spo2", "height", "bmi",
+];
+
+// The kinds of advice, and the prescriptions column each one is stored in.
+export const ADVICE_KEYS = ["general", "diet", "lifestyle"] as const;
+export type AdviceKey = (typeof ADVICE_KEYS)[number];
+export const ADVICE_LABELS: Record<AdviceKey, string> = {
+  general: "General advice", diet: "Diet advice", lifestyle: "Lifestyle advice",
+};
+export const ADVICE_COLUMNS: Record<AdviceKey, "advice" | "diet_advice" | "lifestyle_advice"> = {
+  general: "advice", diet: "diet_advice", lifestyle: "lifestyle_advice",
+};
+
+// Answers to the built-in complaint / symptoms / vitals inputs live in `extra` under reserved keys,
+// so a custom field can never collide with them (custom block ids may not start with this prefix).
+export const SYS_PREFIX = "sys_";
+export const SYS_COMPLAINT = "sys_complaint";
+export const SYS_SYMPTOMS = "sys_symptoms";
+export const sysVitalKey = (k: VitalKey) => `sys_vital_${k}`;
+
+// Where a custom field is printed (and asked for): its own section, or inside one of these.
+export const CUSTOM_PLACEMENTS = ["section", "patient_info", "vitals", "advice"] as const;
+export type CustomPlacement = (typeof CUSTOM_PLACEMENTS)[number];
+export const PLACEMENT_LABELS: Record<CustomPlacement, string> = {
+  section: "Its own section",
+  patient_info: "In the patient details box",
+  vitals: "In the vitals",
+  advice: "In the advice",
+};
+/** The field types that read well in each place (a tooth chart does not fit in a row of the patient box). */
+export const PLACEMENT_FIELD_TYPES: Record<CustomPlacement, readonly CustomFieldType[]> = {
+  section: CUSTOM_FIELD_TYPES,
+  patient_info: ["text", "number", "select", "checkbox", "date"],
+  vitals: ["text", "number", "select"],
+  advice: ["text", "textarea", "select", "multiselect"],
+};
+
 export type PatientInfoBlock = { id: string; type: "patient_info"; enabled: boolean; fields: InfoFieldKey[] };
-export type SimpleBlock = { id: string; type: Exclude<BuiltinBlockType, "patient_info">; enabled: boolean };
+export type VitalsBlock = { id: string; type: "vitals"; enabled: boolean; fields: VitalKey[] };
+export type AdviceBlock = { id: string; type: "advice"; enabled: boolean; fields: AdviceKey[] };
+export type SimpleBlock = { id: string; type: "medicines" | "follow_up" | "signature"; enabled: boolean };
 export type CustomBlock = {
   id: string;
   type: "custom";
@@ -81,8 +127,10 @@ export type CustomBlock = {
   required: boolean;
   /** Pre-fill from the patient's last prescription (histories, allergies: things that rarely change). */
   carryForward: boolean;
+  /** Where it is printed and asked for: its own section, or inside a built-in one. */
+  placement: CustomPlacement;
 };
-export type Block = PatientInfoBlock | SimpleBlock | CustomBlock;
+export type Block = PatientInfoBlock | VitalsBlock | AdviceBlock | SimpleBlock | CustomBlock;
 
 export type Letterhead = "standard" | "preprinted";
 

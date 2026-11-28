@@ -64,7 +64,7 @@ describe("PrescriptionSlipCard with a template", () => {
     cfg.blocks = [
       { id: "signature", type: "signature", enabled: true },
       { id: "medicines", type: "medicines", enabled: true },
-      { id: "vitals", type: "vitals", enabled: false },
+      { id: "vitals", type: "vitals", enabled: false, fields: ["pulse"] },
       { id: "patient_info", type: "patient_info", enabled: false, fields: ["patient_name"] },
     ];
     const { container } = render(<PrescriptionSlipCard profile={profile} template={cfg} prescription={rx()} />);
@@ -181,5 +181,108 @@ describe("PrescriptionSlipCard with a template", () => {
     );
     expect(container.querySelector("img[onerror]")).toBeNull();
     expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeInTheDocument();
+  });
+});
+
+describe("PrescriptionSlipCard - built-in rows filled on the prescription, advice kinds and placed fields", () => {
+  const VISIT = { visit_date: "2026-08-28", reason_for_visit: "From the visit", symptoms: "Visit symptoms" };
+  const placedField = (cfg: TemplateConfig, label: string, where: "patient_info" | "vitals" | "advice", type: "text" | "number" | "textarea" = "text") => {
+    const b = newCustomBlock(cfg.blocks, type, label, where);
+    cfg.blocks.push(b);
+    return b.id;
+  };
+
+  it("prints the complaint and symptoms typed on the prescription, ahead of the visit's", () => {
+    render(
+      <PrescriptionSlipCard
+        profile={profile} prescription={rx({ visit: VISIT, extra: { sys_complaint: "Typed complaint", sys_symptoms: "Typed symptoms" } })}
+      />,
+    );
+    expect(screen.getByText("Typed complaint")).toBeInTheDocument();
+    expect(screen.getByText("Typed symptoms")).toBeInTheDocument();
+    expect(screen.queryByText("From the visit")).not.toBeInTheDocument();
+  });
+
+  it("an older prescription still takes complaint, symptoms and vitals from its linked visit", () => {
+    render(
+      <PrescriptionSlipCard
+        profile={profile}
+        prescription={rx({ visit: VISIT, vitals: { blood_pressure: "110/70", pulse: 66, temperature: null, respiratory_rate: null, spo2: null, height: null, weight: 70, bmi: null } })}
+      />,
+    );
+    expect(screen.getByText("From the visit")).toBeInTheDocument();
+    expect(screen.getByText("Visit symptoms")).toBeInTheDocument();
+    expect(screen.getByText("BP: 110/70")).toBeInTheDocument();
+    expect(screen.getByText("Pulse: 66 bpm")).toBeInTheDocument();
+    expect(screen.queryByText(/Weight: 70 kg/)).not.toBeInTheDocument(); // not offered by the standard template
+  });
+
+  it("prints vitals typed on the prescription, using the unit formats of the slip", () => {
+    render(
+      <PrescriptionSlipCard
+        profile={profile}
+        prescription={rx({ extra: { sys_vital_blood_pressure: "120/80", sys_vital_pulse: 72, sys_vital_temperature: 98.6, sys_vital_spo2: 98, sys_vital_height: 170, sys_vital_bmi: 24.2 } })}
+      />,
+    );
+    for (const chip of ["BP: 120/80", "Pulse: 72 bpm", "Temp: 98.6°F", "SpO2: 98%", "Height: 170 cm", "BMI: 24.2"]) {
+      expect(screen.getByText(chip)).toBeInTheDocument();
+    }
+  });
+
+  it("a vital the template does not offer is not printed, and Weight prints once the template offers it", () => {
+    const cfg = defaultTemplateConfig();
+    const p = rx({ extra: { sys_vital_weight: 70, sys_vital_pulse: 72 } });
+    const { unmount } = render(<PrescriptionSlipCard profile={profile} template={cfg} prescription={p} />);
+    expect(screen.queryByText("Weight: 70 kg")).not.toBeInTheDocument();
+    unmount();
+    cfg.blocks = cfg.blocks.map((b) => (b.type === "vitals" ? { ...b, fields: ["pulse", "weight"] } : b));
+    render(<PrescriptionSlipCard profile={profile} template={cfg} prescription={p} />);
+    expect(screen.getByText("Weight: 70 kg")).toBeInTheDocument();
+    expect(screen.queryByText("Temp: 98.6°F")).not.toBeInTheDocument();
+  });
+
+  it("prints only the kinds of advice the template offers", () => {
+    const cfg = defaultTemplateConfig();
+    cfg.blocks = cfg.blocks.map((b) => (b.type === "advice" ? { ...b, fields: ["general", "diet"] } : b));
+    render(<PrescriptionSlipCard profile={profile} template={cfg} prescription={rx({ advice: "Rest", diet_advice: "Less salt", lifestyle_advice: "Walk daily" })} />);
+    expect(screen.getByText("General Advice")).toBeInTheDocument();
+    expect(screen.getByText("Diet Advice")).toBeInTheDocument();
+    expect(screen.queryByText("Lifestyle Advice")).not.toBeInTheDocument();
+    expect(screen.queryByText("Walk daily")).not.toBeInTheDocument();
+  });
+
+  it("a field placed in the patient box prints as a row of the box, not as a section of its own", () => {
+    const cfg = defaultTemplateConfig();
+    const id = placedField(cfg, "Occupation", "patient_info");
+    const { container } = render(<PrescriptionSlipCard profile={profile} template={cfg} prescription={rx({ extra: { [id]: "Teacher" } })} />);
+    const box = container.querySelector(".rounded-xl.border-2") as HTMLElement;
+    expect(within(box).getByText("Occupation")).toBeInTheDocument();
+    expect(within(box).getByText("Teacher")).toBeInTheDocument();
+    expect(screen.queryByText("Occupation :")).not.toBeInTheDocument(); // the standalone style
+  });
+
+  it("a field placed in the vitals prints as a vital chip, and an unanswered one prints nothing", () => {
+    const cfg = defaultTemplateConfig();
+    const sugar = placedField(cfg, "Blood sugar", "vitals", "number");
+    placedField(cfg, "Unanswered", "vitals", "number");
+    render(<PrescriptionSlipCard profile={profile} template={cfg} prescription={rx({ extra: { [sugar]: 110 } })} />);
+    expect(screen.getByText("Blood sugar: 110")).toBeInTheDocument();
+    expect(screen.queryByText(/Unanswered/)).not.toBeInTheDocument();
+  });
+
+  it("a field placed in the advice prints as one more piece of advice", () => {
+    const cfg = defaultTemplateConfig();
+    const id = placedField(cfg, "Dental advice", "advice", "textarea");
+    render(<PrescriptionSlipCard profile={profile} template={cfg} prescription={rx({ extra: { [id]: "Brush twice a day" } })} />);
+    expect(screen.getByText("Dental advice")).toBeInTheDocument();
+    expect(screen.getByText("Brush twice a day")).toBeInTheDocument();
+  });
+
+  it("placed fields go with their section: switched off, they are not printed", () => {
+    const cfg = defaultTemplateConfig();
+    const id = placedField(cfg, "Blood sugar", "vitals", "number");
+    cfg.blocks = cfg.blocks.map((b) => (b.type === "vitals" ? { ...b, enabled: false } : b));
+    render(<PrescriptionSlipCard profile={profile} template={cfg} prescription={rx({ extra: { [id]: 110 } })} />);
+    expect(screen.queryByText(/Blood sugar/)).not.toBeInTheDocument();
   });
 });

@@ -39,7 +39,7 @@ describe("TemplateEditor", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(saved(onSave)).toMatchObject({ name: "  My slip ", preset: "general", practitioner_id: null, is_default: true });
     expect(saved(onSave).config).toEqual(defaultTemplateConfig());
-    expect(h.success).toHaveBeenCalledWith("Template saved");
+    expect(h.success).toHaveBeenCalledWith(expect.stringMatching(/^Template saved\. New prescriptions will use it/));
   });
 
   it("refuses an empty name without saving", async () => {
@@ -101,7 +101,7 @@ describe("TemplateEditor", () => {
 
   it("will not save with every section switched off", async () => {
     const { onSave } = setup();
-    for (const name of ["Patient details box", "Vitals (from the visit)", "Medicines", "Advice (general, diet, lifestyle)", "Follow-up", "Signature"]) {
+    for (const name of ["Patient details box", "Vitals", "Medicines", "Advice", "Follow-up", "Signature"]) {
       fireEvent.click(screen.getByRole("switch", { name: `Show ${name}` }));
     }
     fireEvent.click(screen.getByRole("button", { name: "Save template" }));
@@ -196,5 +196,103 @@ describe("TemplateEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalled();
     expect(onSave).not.toHaveBeenCalled();
+  });
+});
+
+describe("TemplateEditor - choosing vitals and advice, and adding fields inside sections", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const save = async (onSave: ReturnType<typeof vi.fn>) => {
+    fireEvent.click(screen.getByRole("button", { name: "Save template" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    return saved(onSave).config;
+  };
+
+  it("the vitals section lets the doctor tick which vitals it has", async () => {
+    const { onSave } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Vitals" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Temperature" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Weight" }));
+    const vitals = (await save(onSave)).blocks.find((b) => b.type === "vitals");
+    expect(vitals && vitals.type === "vitals" && vitals.fields).toEqual(["blood_pressure", "pulse", "respiratory_rate", "spo2", "height", "weight", "bmi"]);
+  });
+
+  it("the advice section lets the doctor turn a kind of advice off", async () => {
+    const { onSave } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Advice" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Lifestyle advice" }));
+    const advice = (await save(onSave)).blocks.find((b) => b.type === "advice");
+    expect(advice && advice.type === "advice" && advice.fields).toEqual(["general", "diet"]);
+  });
+
+  it("a vital that is switched off disappears from the preview", () => {
+    setup();
+    expect(within(preview()).getByText(/Temp: 98\.6/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Vitals" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Temperature" }));
+    expect(within(preview()).queryByText(/Temp: 98\.6/)).not.toBeInTheDocument();
+    expect(within(preview()).getByText(/Pulse: 72 bpm/)).toBeInTheDocument();
+  });
+
+  it("'Add your own field here' in the vitals adds a field that belongs to the vitals and shows as a chip", async () => {
+    const { onSave } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Vitals" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add your own field here" }));
+    fireEvent.change(screen.getByLabelText("Field name"), { target: { value: "Blood sugar" } });
+    expect(within(preview()).getByText(/Blood sugar: Sample text/)).toBeInTheDocument();
+
+    const custom = (await save(onSave)).blocks.filter(isCustomBlock);
+    expect(custom).toHaveLength(1);
+    expect(custom[0]).toMatchObject({ label: "Blood sugar", placement: "vitals", fieldType: "text" });
+  });
+
+  it("'Add your own field here' in the patient box adds a row of the box", async () => {
+    const { onSave } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Patient details box" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add your own field here" }));
+    fireEvent.change(screen.getByLabelText("Field name"), { target: { value: "Occupation" } });
+    const box = preview().querySelector(".rounded-xl.border-2") as HTMLElement;
+    expect(within(box).getByText("Occupation")).toBeInTheDocument();
+    const custom = (await save(onSave)).blocks.filter(isCustomBlock);
+    expect(custom[0]).toMatchObject({ label: "Occupation", placement: "patient_info" });
+  });
+
+  it("an existing field can be moved into a section with 'Where it appears'", async () => {
+    const { onSave } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+    fireEvent.change(screen.getByLabelText("Field name"), { target: { value: "Height" } });
+    fireEvent.click(screen.getByRole("combobox", { name: "Where Height appears" }));
+    fireEvent.click(await screen.findByRole("option", { name: "In the vitals" }));
+    const custom = (await save(onSave)).blocks.filter(isCustomBlock);
+    expect(custom[0]).toMatchObject({ label: "Height", placement: "vitals" });
+  });
+
+  it("a field type that does not fit its place moves the field back to its own section", async () => {
+    const { onSave } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Vitals" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add your own field here" }));
+    fireEvent.change(screen.getByLabelText("Field name"), { target: { value: "Teeth" } });
+    fireEvent.click(screen.getByRole("combobox", { name: "Type of Teeth" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Tooth chart" }));
+    const custom = (await save(onSave)).blocks.filter(isCustomBlock);
+    expect(custom[0]).toMatchObject({ fieldType: "tooth_chart", placement: "section" });
+  });
+
+  it("the place choices only list places the field type fits", async () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+    fireEvent.change(screen.getByLabelText("Field name"), { target: { value: "Notes" } });
+    fireEvent.click(screen.getByRole("combobox", { name: "Type of Notes" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Long text" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Where Notes appears" }));
+    const names = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(names).toEqual(["Its own section", "In the advice"]);
+  });
+
+  it("explains what the default setting does, and a template that is not the default says how to use it", async () => {
+    const { onSave } = setup();
+    expect(screen.getByText(/every new prescription starts with this template/i)).toBeInTheDocument();
+    await save(onSave);
+    expect(h.success).toHaveBeenCalledWith(expect.stringMatching(/not the default.*Template box/i));
   });
 });

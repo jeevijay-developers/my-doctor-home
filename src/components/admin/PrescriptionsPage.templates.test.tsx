@@ -298,7 +298,7 @@ describe("PrescriptionsPage - who can open the template builder", () => {
     await waitFor(() => {
       const inserts = mock.current.opsOf("prescription_templates").flatMap((q: any) => q.ops.filter((o: any[]) => o[0] === "insert").map((o: any[]) => o[1]));
       expect(inserts).toHaveLength(1);
-      expect(inserts[0]).toMatchObject({ doctor_id: "doc-1", name: "My general", preset: "general", practitioner_id: null, is_default: false });
+      expect(inserts[0]).toMatchObject({ doctor_id: "doc-1", name: "My general", preset: "general", practitioner_id: null, is_default: true });
       expect(inserts[0].config).toEqual(defaultTemplateConfig());
     });
   });
@@ -426,7 +426,7 @@ describe("PrescriptionsPage - template stays put once answers are typed (multi-d
   const VIK = { id: "pr-vik", user_id: "u-vik", display_name: "Vikram Mehta", qualifications: null, specialization: null, registration_number: null, signature_url: null, is_active: true, is_bookable: true, is_primary: false };
   const vikCfg = () => {
     const c = defaultTemplateConfig();
-    c.blocks.push({ id: "cf_vik", type: "custom", enabled: true, label: "Vik field", fieldType: "text", options: [], required: false, carryForward: false });
+    c.blocks.push({ id: "cf_vik", type: "custom", enabled: true, label: "Vik field", fieldType: "text", options: [], required: false, carryForward: false, placement: "section" });
     return c;
   };
   beforeEach(() => {
@@ -453,6 +453,33 @@ describe("PrescriptionsPage - template stays put once answers are typed (multi-d
     expect(within(dialog).getByRole("combobox", { name: "Template" })).toHaveTextContent("Vikram slip");
   });
 
+  it("only that doctor's visit is used to fill the form", async () => {
+    mock.current.tables.patient_visits = { data: [], error: null };
+    const dialog = await openNew();
+    await pickDoctor(dialog);
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    await waitFor(() =>
+      expect(
+        mock.current.opsOf("patient_visits").some((q: any) => mock.current.hasOp(q, "eq", "patient_id", "p1") && mock.current.hasOp(q, "eq", "practitioner_id", "pr-vik")),
+      ).toBe(true),
+    );
+  });
+
+  it("values filled in automatically do not stop the doctor's default template from being picked", async () => {
+    // A clinic default that offers the Complaint row (so the visit can fill it), and Vikram's own default.
+    mock.current.tables.prescription_templates = {
+      data: [templateRow({ id: "t-gen", name: "Clinic general", config: defaultTemplateConfig() }), templateRow({ id: "t-vik", name: "Vikram slip", practitioner_id: "pr-vik", config: vikCfg(), is_default: true })],
+      error: null,
+    };
+    mock.current.tables.patient_visits = { data: [{ id: "v1", reason_for_visit: "Toothache", symptoms: null }], error: null };
+    const dialog = await openNew();
+    await waitFor(() => expect(within(dialog).getByRole("combobox", { name: "Template" })).toHaveTextContent("Clinic general"));
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    await waitFor(() => expect(within(dialog).getByLabelText("Complaint")).toHaveValue("Toothache"));
+    await pickDoctor(dialog);
+    expect(await within(dialog).findByLabelText("Vik field")).toBeInTheDocument();
+  });
+
   it("with answers typed, the template and the answers stay", async () => {
     const dialog = await openNew();
     fireEvent.change(await within(dialog).findByLabelText("OPD No."), { target: { value: "14023" } });
@@ -460,5 +487,232 @@ describe("PrescriptionsPage - template stays put once answers are typed (multi-d
     await new Promise((r) => setTimeout(r, 50));
     expect(within(dialog).getByRole("combobox", { name: "Template" })).toHaveTextContent("Dental case sheet");
     expect(within(dialog).getByLabelText("OPD No.")).toHaveValue("14023");
+  });
+});
+
+describe("PrescriptionsPage - a template that is not the default (the 'Height field is missing' report)", () => {
+  const heightTemplate = (isDefault: boolean) => {
+    const cfg = defaultTemplateConfig();
+    cfg.blocks.push({ id: "cf_height", type: "custom", enabled: true, label: "Height", fieldType: "number", options: [], required: false, carryForward: false, placement: "section" });
+    return templateRow({ id: "t-h", name: "General", config: cfg, is_default: isDefault });
+  };
+
+  it("is offered, not applied: the form says it is on the standard layout until the template is chosen", async () => {
+    mock.current.tables.prescription_templates = { data: [heightTemplate(false)], error: null };
+    const dialog = await openNew();
+    expect(await within(dialog).findByRole("combobox", { name: "Template" })).toHaveTextContent("Standard");
+    expect(within(dialog).getByText(/Using the standard layout\. Choose a template here to get its extra fields/)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Height")).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "Template" }));
+    fireEvent.click(await screen.findByRole("option", { name: "General" }));
+    expect(await within(dialog).findByLabelText("Height")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Using "General"\. Its extra fields are below/)).toBeInTheDocument();
+  });
+
+  it("as the default it is used straight away", async () => {
+    mock.current.tables.prescription_templates = { data: [heightTemplate(true)], error: null };
+    const dialog = await openNew();
+    expect(await within(dialog).findByLabelText("Height")).toBeInTheDocument();
+  });
+});
+
+describe("PrescriptionsPage - complaint, symptoms and vitals", () => {
+  const VISIT = { id: "v1", reason_for_visit: "Toothache", symptoms: "Swelling on the left" };
+  const VITALS = { blood_pressure: "118/76", pulse: 70, temperature: null, respiratory_rate: null, spo2: 99, height: null, weight: null, bmi: null };
+
+  it("can be typed on the prescription (they used to be fillable nowhere) and are saved", async () => {
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    fireEvent.change(within(dialog).getByLabelText("Complaint"), { target: { value: "  Fever for 3 days " } });
+    fireEvent.change(within(dialog).getByLabelText("Symptoms"), { target: { value: "Chills" } });
+    fireEvent.change(within(dialog).getByLabelText("Blood pressure (mmHg)"), { target: { value: "120/80" } });
+    fireEvent.change(within(dialog).getByLabelText("Pulse (bpm)"), { target: { value: "72" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+
+    await waitFor(() => expect(savedRows()).toHaveLength(1));
+    expect(savedRows()[0].extra).toEqual({
+      sys_complaint: "Fever for 3 days", sys_symptoms: "Chills", sys_vital_blood_pressure: "120/80", sys_vital_pulse: 72,
+    });
+  });
+
+  it("a mistyped vital stops the save with a clear message", async () => {
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    fireEvent.change(within(dialog).getByLabelText("Pulse (bpm)"), { target: { value: "720" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+    await waitFor(() => expect(h.error).toHaveBeenCalledWith("Pulse must be a number between 20 and 250 bpm."));
+    expect(savedRows()).toHaveLength(0);
+  });
+
+  it("start from the patient's visit of the same day, and say so", async () => {
+    mock.current.tables.patient_visits = { data: [VISIT], error: null };
+    mock.current.tables.patient_vitals = { data: [VITALS], error: null };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+
+    await waitFor(() => expect(within(dialog).getByLabelText("Complaint")).toHaveValue("Toothache"));
+    expect(within(dialog).getByLabelText("Symptoms")).toHaveValue("Swelling on the left");
+    expect(within(dialog).getByLabelText("Blood pressure (mmHg)")).toHaveValue("118/76");
+    expect(within(dialog).getByLabelText("Pulse (bpm)")).toHaveValue("70");
+    expect(within(dialog).getByLabelText("SpO2 (%)")).toHaveValue("99");
+    expect(within(dialog).getByLabelText("Temperature (°F)")).toHaveValue(""); // not recorded
+    expect(within(dialog).getByText(/Filled in from this patient's visit on/)).toBeInTheDocument();
+    const visitQuery = mock.current.opsOf("patient_visits").find((q: any) => mock.current.hasOp(q, "eq", "patient_id", "p1"));
+    expect(visitQuery).toBeTruthy();
+    expect(visitQuery.ops.some((o: any[]) => o[0] === "eq" && o[1] === "visit_date" && /^\d{4}-\d{2}-\d{2}$/.test(String(o[2])))).toBe(true);
+  });
+
+  it("never overwrite what the doctor already typed", async () => {
+    mock.current.tables.patient_visits = { data: [VISIT], error: null };
+    mock.current.tables.patient_vitals = { data: [VITALS], error: null };
+    const dialog = await openNew();
+    fireEvent.change(within(dialog).getByLabelText("Complaint"), { target: { value: "My own words" } });
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    await waitFor(() => expect(within(dialog).getByLabelText("Symptoms")).toHaveValue("Swelling on the left"));
+    expect(within(dialog).getByLabelText("Complaint")).toHaveValue("My own words");
+  });
+
+  it("one patient's visit data never ends up on another patient's prescription", async () => {
+    mock.current.tables.patients = {
+      data: [...PATIENTS, { id: "p2", name: "Meena", phone: "9876543211", gender: "female", age: null, weight: null }],
+      error: null,
+    };
+    mock.current.tables.patient_visits = (ops: any[]) =>
+      ops.some((o) => o[0] === "eq" && o[1] === "patient_id" && o[2] === "p1") ? { data: [VISIT], error: null } : { data: [], error: null };
+    mock.current.tables.patient_vitals = { data: [VITALS], error: null };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    await waitFor(() => expect(within(dialog).getByLabelText("Complaint")).toHaveValue("Toothache"));
+    fireEvent.change(within(dialog).getByLabelText("Temperature (°F)"), { target: { value: "99.1" } }); // typed by hand
+
+    await choosePatient(dialog, "Meena (9876543211)");
+    await waitFor(() => expect(within(dialog).getByLabelText("Complaint")).toHaveValue(""));
+    expect(within(dialog).getByLabelText("Symptoms")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Pulse (bpm)")).toHaveValue("");
+    // Vitals belong to a patient: what was typed for the first one does not stay for the second.
+    expect(within(dialog).getByLabelText("Temperature (°F)")).toHaveValue("");
+  });
+
+  it("typing before any patient is chosen is kept when the first patient is picked", async () => {
+    const dialog = await openNew();
+    fireEvent.change(within(dialog).getByLabelText("Temperature (°F)"), { target: { value: "99.1" } });
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    expect(within(dialog).getByLabelText("Temperature (°F)")).toHaveValue("99.1");
+  });
+
+  it("changing the date drops what was filled from the other day's visit and fills from the new day's", async () => {
+    mock.current.tables.patient_visits = (ops: any[]) => {
+      const day = ops.find((o) => o[0] === "eq" && o[1] === "visit_date")?.[2];
+      return day === "2026-11-10"
+        ? { data: [{ id: "v10", reason_for_visit: "Visit of the 10th", symptoms: null }], error: null }
+        : day === "2026-11-11"
+          ? { data: [{ id: "v11", reason_for_visit: "Visit of the 11th", symptoms: null }], error: null }
+          : { data: [], error: null };
+    };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    fireEvent.change(within(dialog).getByLabelText("Date"), { target: { value: "2026-11-10" } });
+    await waitFor(() => expect(within(dialog).getByLabelText("Complaint")).toHaveValue("Visit of the 10th"));
+
+    fireEvent.change(within(dialog).getByLabelText("Date"), { target: { value: "2026-11-11" } });
+    await waitFor(() => expect(within(dialog).getByLabelText("Complaint")).toHaveValue("Visit of the 11th"));
+    expect(within(dialog).getByText(/visit on 2026-11-11/)).toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText("Date"), { target: { value: "2026-11-12" } }); // no visit that day
+    await waitFor(() => expect(within(dialog).getByLabelText("Complaint")).toHaveValue(""));
+    expect(within(dialog).queryByText(/Filled in from this patient's visit/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the 'check before saving' note while the filled-in values are on the form", async () => {
+    mock.current.tables.patient_visits = { data: [VISIT], error: null };
+    mock.current.tables.patient_vitals = { data: [VITALS], error: null };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    expect(await within(dialog).findByText(/Filled in from this patient's visit/)).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("Symptoms"), { target: { value: "edited" } });
+    expect(within(dialog).getByText(/Filled in from this patient's visit/)).toBeInTheDocument();
+  });
+
+  it("does not copy a recorded vital the form would refuse (the doctor never typed it)", async () => {
+    mock.current.tables.patient_visits = { data: [VISIT], error: null };
+    mock.current.tables.patient_vitals = { data: [{ ...VITALS, spo2: 101, pulse: 70 }], error: null };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    await waitFor(() => expect(within(dialog).getByLabelText("Pulse (bpm)")).toHaveValue("70"));
+    expect(within(dialog).getByLabelText("SpO2 (%)")).toHaveValue("");
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+    await waitFor(() => expect(savedRows()).toHaveLength(1)); // no error about a number nobody typed
+  });
+
+  it("a Celsius temperature is refused instead of being printed as degrees Fahrenheit", async () => {
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    fireEvent.change(within(dialog).getByLabelText("Temperature (°F)"), { target: { value: "37.5" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+    await waitFor(() => expect(h.error).toHaveBeenCalledWith("Temperature must be a number between 80 and 115 °F."));
+    expect(savedRows()).toHaveLength(0);
+  });
+
+  it("carried-forward histories do not follow a different patient either", async () => {
+    mock.current.tables.patients = {
+      data: [...PATIENTS, { id: "p2", name: "Meena", phone: "9876543211", gender: "female", age: null, weight: null }],
+      error: null,
+    };
+    mock.current.tables.prescription_templates = { data: [templateRow()], error: null };
+    const LAST = { extra: { cf_history: "Diabetic", cf_allergies: "Penicillin" }, template_snapshot: dentalConfig(), date: "2026-11-01" };
+    mock.current.tables.prescriptions = (ops: any[]) =>
+      ops.some((o) => o[0] === "insert")
+        ? { data: { id: "rx1", patient_id: "p1", patient_name: "Aaryan", date: "2026-11-18", medicines: [] }, error: null }
+        : ops.some((o) => o[0] === "eq" && o[1] === "patient_id" && o[2] === "p1")
+          ? { data: [LAST], error: null }
+          : { data: [], count: 0, error: null };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    await waitFor(() => expect(within(dialog).getByLabelText("Allergies")).toHaveValue("Penicillin"));
+
+    await choosePatient(dialog, "Meena (9876543211)");
+    await waitFor(() => expect(within(dialog).getByLabelText("Allergies")).toHaveValue(""));
+    expect(within(dialog).getByLabelText("Past medical / dental / drug history")).toHaveValue("");
+  });
+
+  it("the side panel shows what was typed, and an old prescription shows nothing extra", async () => {
+    const RX = {
+      id: "rx-v", doctor_id: "doc-1", practitioner_id: null, patient_id: null, patient_name: "Harshit",
+      diagnosis: "Pulpitis", medications: null, notes: null, date: "2026-11-27", created_at: "2026-11-27T10:00:00Z",
+      patient_age: 23, patient_weight: null, visit_id: null, medicines: [], advice: null, diet_advice: null,
+      lifestyle_advice: null, follow_up_date: null, follow_up_instructions: null, template_id: null, template_snapshot: null,
+      extra: { sys_complaint: "Toothache", sys_symptoms: "Swelling", sys_vital_blood_pressure: "120/80", sys_vital_pulse: 72 },
+    };
+    mock.current.tables.prescriptions = () => ({ data: [RX], count: 1, error: null });
+    render(<MemoryRouter><PrescriptionsPage /></MemoryRouter>);
+    fireEvent.click((await screen.findAllByRole("button", { name: "Harshit" }))[0]);
+    const answers = within(await screen.findByRole("dialog")).getByTestId("template-answers");
+    expect(within(answers).getByText("Toothache")).toBeInTheDocument();
+    expect(within(answers).getByText("Swelling")).toBeInTheDocument();
+    expect(within(answers).getByText(/BP: 120\/80/)).toBeInTheDocument();
+    expect(within(answers).getByText(/Pulse: 72 bpm/)).toBeInTheDocument();
+  });
+});
+
+describe("PrescriptionsPage - kinds of advice", () => {
+  const withAdvice = (fields: string[]) => {
+    const cfg = defaultTemplateConfig();
+    cfg.blocks = cfg.blocks.map((b) => (b.type === "advice" ? { ...b, fields } : b)) as typeof cfg.blocks;
+    return templateRow({ id: "t-adv", name: "No lifestyle", config: cfg });
+  };
+
+  it("asks for, and saves, only the kinds of advice the template offers", async () => {
+    mock.current.tables.prescription_templates = { data: [withAdvice(["general", "diet"])], error: null };
+    const dialog = await openNew();
+    await choosePatient(dialog, "Aaryan (8871876376)");
+    await within(dialog).findByLabelText("Diet advice");
+    expect(within(dialog).queryByLabelText("Lifestyle advice")).not.toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("General advice"), { target: { value: "Rest" } });
+    fireEvent.change(within(dialog).getByLabelText("Diet advice"), { target: { value: "Less salt" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /save prescription/i }));
+    await waitFor(() => expect(savedRows()).toHaveLength(1));
+    expect(savedRows()[0]).toMatchObject({ advice: "Rest", diet_advice: "Less salt" });
+    expect(savedRows()[0]).not.toHaveProperty("lifestyle_advice");
   });
 });

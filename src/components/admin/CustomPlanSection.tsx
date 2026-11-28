@@ -206,6 +206,9 @@ const CustomPlanSection = () => {
             {pendingRequest.requested_appointments_limit != null && (
               <Badge variant="outline" className="text-[11px]">Appointments: {describeAppointmentsLimit(pendingRequest.requested_appointments_limit)}</Badge>
             )}
+            {pendingRequest.requested_social_marketing && (
+              <Badge variant="outline" className="text-[11px]"><Plus className="h-3 w-3 mr-0.5" />Social media marketing</Badge>
+            )}
           </div>
         </div>
       )}
@@ -226,6 +229,8 @@ const CustomPlanSection = () => {
         features={requestable.map((r) => ({ key: r.feature_key, label: r.label, description: r.description, enabled: r.effective_enabled }))}
         onSubmitted={refetch}
         appointmentsLimit={limitConfig}
+        // Offered until the clinic has the add-on running.
+        offerSocialMarketing={!socialMarketing}
       />
     </div>
   );
@@ -234,7 +239,7 @@ const CustomPlanSection = () => {
 type DialogFeature = { key: string; label: string; description: string; enabled: boolean };
 
 export const CustomizePlanDialog = ({
-  open, onOpenChange, features, onSubmitted, appointmentsLimit,
+  open, onOpenChange, features, onSubmitted, appointmentsLimit, offerSocialMarketing = false,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -242,7 +247,10 @@ export const CustomizePlanDialog = ({
   onSubmitted: () => void;
   /** Only for Pro doctors. `effective` is the current monthly limit, null when unlimited. */
   appointmentsLimit?: { standardCap: number; effective: number | null };
+  /** Show the "Social media marketing" request. Off once the clinic already has it running. */
+  offerSocialMarketing?: boolean;
 }) => {
+  const [wantSocial, setWantSocial] = useState(false);
   const [desired, setDesired] = useState<Record<string, boolean> | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -258,11 +266,12 @@ export const CustomizePlanDialog = ({
   const sameAsCurrent = !!appointmentsLimit && requested.value != null &&
     (requested.value === appointmentsLimit.effective ||
       (requested.value === APPOINTMENTS_UNLIMITED && appointmentsLimit.effective === null));
-  const unchanged = add.length + remove.length === 0 && (requested.value == null || sameAsCurrent);
+  const social = offerSocialMarketing && wantSocial;
+  const unchanged = add.length + remove.length === 0 && (requested.value == null || sameAsCurrent) && !social;
   const invalidLimit = !!appointmentsLimit && limitMode === "number" && !requested.valid;
 
   const close = (o: boolean) => {
-    if (!o) { setDesired(null); setNote(""); setLimitMode("keep"); setLimitText(""); }
+    if (!o) { setDesired(null); setNote(""); setLimitMode("keep"); setLimitText(""); setWantSocial(false); }
     onOpenChange(o);
   };
 
@@ -272,6 +281,7 @@ export const CustomizePlanDialog = ({
       _add: add, _remove: remove, _note: note.trim() || null,
       // Sent only when the doctor actually asked for a different limit.
       ...(appointmentsLimit && requested.value != null && !sameAsCurrent ? { _appointments_limit: requested.value } : {}),
+      ...(social ? { _social_marketing: true } : {}),
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -324,6 +334,22 @@ export const CustomizePlanDialog = ({
             invalid={invalidLimit && limitText.trim() !== ""}
             hint={`You can book ${appointmentsLimit.effective === null ? "unlimited appointments" : `up to ${appointmentsLimit.effective}`} a month now. Ask for more, or for unlimited, and our team sets the price.`}
           />
+        )}
+        {offerSocialMarketing && (
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-border p-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-foreground">Social media marketing</span>
+                {social && <Badge className="text-[10px] bg-success/15 text-success border-0 hover:bg-success/15">Requesting</Badge>}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Our team runs your clinic's social media: planning, posts and creatives, publishing and monthly reports.
+                It is a managed service, billed separately. If you ask for it, we agree the exact scope, platforms and fee
+                with you first. Nothing starts or is charged until you have agreed.
+              </p>
+            </div>
+            <Switch checked={wantSocial} onCheckedChange={setWantSocial} aria-label="Social media marketing" />
+          </div>
         )}
         {remove.length > 0 && (
           <p className="text-xs text-muted-foreground">
