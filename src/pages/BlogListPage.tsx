@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Calendar, Clock3, Tag, User } from "lucide-react";
 import { PUBLIC_PROFILE_COLUMNS } from "@/lib/publicProfileColumns";
 import { format } from "date-fns";
@@ -10,7 +10,9 @@ import Footer from "@/components/doctor/Footer";
 import type { Tables } from "@/integrations/supabase/types";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { useClinicTeam } from "@/hooks/useClinicTeam";
-import { authorDisplayName, resolveBlogAuthor } from "@/lib/blogAuthor";
+import { authorDisplayName, authorFilterOptions, filterPostsByAuthor, isTeamList, resolveBlogAuthor } from "@/lib/blogAuthor";
+import { clinicDisplayName, initialsOf } from "@/lib/doctorSite/teamClinic";
+import { useOldSlugRedirect } from "@/hooks/useOldSlugRedirect";
 
 type BlogPost = Tables<"blog_posts">;
 type Doctor = Tables<"profiles">;
@@ -57,13 +59,17 @@ function upsertCanonical(href: string) {
 
 const BlogListPage = () => {
   const { slug } = useParams<{ slug: string }>();
+  const redirectOldSlug = useOldSlugRedirect();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("all");
-  // Per-post author names: only when some post names a doctor and the clinic has 2+ active doctors.
-  const hasAuthoredPosts = posts.some((p) => (p as { practitioner_id?: string | null }).practitioner_id);
-  const team = useClinicTeam(doctor?.id, hasAuthoredPosts);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The clinic's active doctors, fetched once the clinic is known (best-effort). With 2+ the page is about the
+  // clinic and its doctors; otherwise (or while loading or on failure) it stays the single doctor's page.
+  const team = useClinicTeam(doctor?.id, !!doctor);
+  const teamClinic = isTeamList(team);
+  const clinicName = doctor ? clinicDisplayName(doctor) : "";
 
   useEffect(() => {
     if (!slug) {
@@ -96,7 +102,8 @@ const BlogListPage = () => {
 
       if (!active) return;
       if (!profile) {
-        setLoading(false);
+        if (await redirectOldSlug(slug)) return;
+        if (active) setLoading(false);
         return;
       }
 
@@ -118,13 +125,15 @@ const BlogListPage = () => {
       active = false;
       void supabase.removeChannel(channel);
     };
-  }, [slug]);
+  }, [slug, redirectOldSlug]);
 
   useEffect(() => {
     if (!doctor) return;
     const doctorName = displayDoctorName(doctor);
-    const title = `Health Articles · ${doctorName} | Doctylia`;
-    const description = `Clear, practical health articles and medical guidance written by ${doctorName}${doctor.specialization ? ` (${doctor.specialization})` : ""} on Doctylia.`;
+    const title = teamClinic ? `Health Articles · ${clinicName} | Doctylia` : `Health Articles · ${doctorName} | Doctylia`;
+    const description = teamClinic
+      ? `Clear, practical health articles and medical guidance from the doctors at ${clinicName}${doctor.city ? ` in ${doctor.city}` : ""} on Doctylia.`
+      : `Clear, practical health articles and medical guidance written by ${doctorName}${doctor.specialization ? ` (${doctor.specialization})` : ""} on Doctylia.`;
     const canonicalUrl = slug
       ? `${window.location.origin}/dr/${slug}/blog`
       : window.location.href;
@@ -140,11 +149,13 @@ const BlogListPage = () => {
     const restoreOgType = upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
     const restoreTwTitle = upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", title);
     const restoreTwDesc = upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", description);
-    const restoreOgImage = doctor.profile_photo_url
-      ? upsertMeta('meta[property="og:image"]', "property", "og:image", doctor.profile_photo_url)
+    // A team clinic is not the owner: no owner photo as the share image.
+    const shareImage = teamClinic ? "" : doctor.profile_photo_url;
+    const restoreOgImage = shareImage
+      ? upsertMeta('meta[property="og:image"]', "property", "og:image", shareImage)
       : () => {};
-    const restoreTwImage = doctor.profile_photo_url
-      ? upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", doctor.profile_photo_url)
+    const restoreTwImage = shareImage
+      ? upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", shareImage)
       : () => {};
 
     return () => {
@@ -160,7 +171,7 @@ const BlogListPage = () => {
       restoreOgImage();
       restoreTwImage();
     };
-  }, [doctor, slug]);
+  }, [doctor, slug, teamClinic, clinicName]);
 
   const structuredData = useMemo(() => {
     if (!doctor || !slug) return null;
@@ -174,15 +185,19 @@ const BlogListPage = () => {
         {
           "@type": "Blog",
           "@id": `${blogUrl}#blog`,
-          name: `Health Articles by ${doctorName}`,
+          name: teamClinic ? `Health Articles from ${clinicName}` : `Health Articles by ${doctorName}`,
           url: blogUrl,
-          description: `Clear, practical health guidance from ${doctorName}${doctor.specialization ? `, ${doctor.specialization}` : ""}.`,
-          author: {
-            "@type": "Physician",
-            name: doctorName,
-            url: doctorUrl,
-            ...(doctor.specialization ? { medicalSpecialty: doctor.specialization } : {}),
-          },
+          description: teamClinic
+            ? `Clear, practical health guidance from the doctors at ${clinicName}.`
+            : `Clear, practical health guidance from ${doctorName}${doctor.specialization ? `, ${doctor.specialization}` : ""}.`,
+          author: teamClinic
+            ? { "@type": "MedicalClinic", name: clinicName, url: doctorUrl }
+            : {
+                "@type": "Physician",
+                name: doctorName,
+                url: doctorUrl,
+                ...(doctor.specialization ? { medicalSpecialty: doctor.specialization } : {}),
+              },
           blogPost: posts.slice(0, 20).map((post) => ({
             "@type": "BlogPosting",
             headline: post.title,
@@ -199,7 +214,7 @@ const BlogListPage = () => {
             {
               "@type": "ListItem",
               position: 1,
-              name: doctorName,
+              name: teamClinic ? clinicName : doctorName,
               item: doctorUrl,
             },
             {
@@ -212,13 +227,28 @@ const BlogListPage = () => {
         },
       ],
     };
-  }, [doctor, slug, posts]);
+  }, [doctor, slug, posts, teamClinic, clinicName]);
 
+  const authorParam = searchParams.get("author");
+  const authorOptions = useMemo(() => authorFilterOptions(posts as Array<{ practitioner_id?: string | null }>, team), [posts, team]);
+  const activeAuthor = authorOptions.find((o) => o.key === authorParam)?.key ?? null;
+  const byAuthor = useMemo(() => filterPostsByAuthor(posts, team, activeAuthor), [posts, team, activeAuthor]);
   const categories = useMemo(
-    () => ["all", ...Array.from(new Set(posts.map((post) => post.category).filter((value): value is string => Boolean(value))))],
-    [posts],
+    () => ["all", ...Array.from(new Set(byAuthor.map((post) => post.category).filter((value): value is string => Boolean(value))))],
+    [byAuthor],
   );
-  const filteredPosts = category === "all" ? posts : posts.filter((post) => post.category === category);
+  const filteredPosts = category === "all" || !categories.includes(category) ? byAuthor : byAuthor.filter((post) => post.category === category);
+  const selectedDoctor = activeAuthor ? (team ?? []).find((d) => d.slug === activeAuthor) ?? null : null;
+  const chooseAuthor = (key: string | null) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (key) next.set("author", key);
+        else next.delete("author");
+        return next;
+      },
+      { replace: true },
+    );
 
   if (loading) {
     return (
@@ -271,33 +301,75 @@ const BlogListPage = () => {
             </span>
             <h1 className="mt-4 font-heading text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">Health Articles</h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-blue-50 sm:text-lg">
-              Clear, practical health guidance from {doctorName}{doctor.specialization ? `, ${doctor.specialization}` : ""}.
+              {selectedDoctor
+                ? `Clear, practical health guidance from ${authorDisplayName(selectedDoctor.display_name)}${selectedDoctor.specialization ? `, ${selectedDoctor.specialization}` : ""}.`
+                : teamClinic
+                  ? `Clear, practical health guidance from the doctors at ${clinicName}.`
+                  : `Clear, practical health guidance from ${doctorName}${doctor.specialization ? `, ${doctor.specialization}` : ""}.`}
             </p>
           </div>
 
           <div className="mt-8 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 border-white/50 bg-white/15">
-              {doctor.profile_photo_url ? (
+              {selectedDoctor ? (
+                selectedDoctor.photo_url ? (
+                  <img src={selectedDoctor.photo_url} alt={authorDisplayName(selectedDoctor.display_name)} width={44} height={44} decoding="async" className="h-full w-full object-cover" />
+                ) : (
+                  <span aria-hidden="true" className="text-sm font-bold">{initialsOf(selectedDoctor.display_name)}</span>
+                )
+              ) : teamClinic ? (
+                <span aria-hidden="true" className="text-sm font-bold">{initialsOf(clinicName) || "Dr"}</span>
+              ) : doctor.profile_photo_url ? (
                 <img src={doctor.profile_photo_url} alt={doctorName} width={44} height={44} decoding="async" className="h-full w-full object-cover" />
               ) : (
                 <User className="h-5 w-5" />
               )}
             </div>
             <div>
-              <p className="text-sm font-bold">Written by {doctorName}</p>
-              <p className="text-xs text-blue-100">{posts.length} {posts.length === 1 ? "published article" : "published articles"}</p>
+              <p className="text-sm font-bold">
+                {selectedDoctor
+                  ? `Written by ${authorDisplayName(selectedDoctor.display_name)}`
+                  : teamClinic
+                    ? `Written by the doctors at ${clinicName}`
+                    : `Written by ${doctorName}`}
+              </p>
+              <p className="text-xs text-blue-100">
+                {byAuthor.length} {byAuthor.length === 1 ? "published article" : "published articles"}
+              </p>
             </div>
           </div>
         </div>
       </header>
 
       <section className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14 lg:px-10">
+        {authorOptions.length > 0 && (
+          <div role="group" aria-label="Filter articles by author" className="mb-5 flex flex-wrap gap-2">
+            {[{ key: null as string | null, label: "All authors", count: posts.length }, ...authorOptions].map((item) => (
+              <button
+                key={item.key ?? "all"}
+                type="button"
+                aria-pressed={activeAuthor === item.key}
+                onClick={() => chooseAuthor(item.key)}
+                className={`inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-bold transition ${
+                  activeAuthor === item.key
+                    ? "border-[#3C83FC] bg-[#3C83FC] text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-[#3C83FC] dark:border-gray-700 dark:bg-gray-900 dark:text-slate-300"
+                }`}
+              >
+                <span className="truncate">{item.label}</span>
+                <span className="text-xs font-semibold opacity-80">({item.count})</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {categories.length > 1 && (
           <div className="mb-9 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter articles by category">
             {categories.map((item) => (
               <button
                 key={item}
                 type="button"
+                aria-pressed={category === item}
                 onClick={() => setCategory(item)}
                 className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition ${
                   category === item
@@ -345,8 +417,10 @@ const BlogListPage = () => {
                       {post.title}
                     </h2>
                     {post.excerpt && <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{post.excerpt}</p>}
-                    {author && (
-                      <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">By {authorDisplayName(author.practitioner.display_name)}</p>
+                    {(author || teamClinic) && (
+                      <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        By {author ? authorDisplayName(author.practitioner.display_name) : clinicName}
+                      </p>
                     )}
                     <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-[#3C83FC]">
                       Read Article <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

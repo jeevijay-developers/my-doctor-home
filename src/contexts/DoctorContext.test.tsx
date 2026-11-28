@@ -51,6 +51,7 @@ const Probe = () => {
       <span>services={d.services.length}</span>
       <span>path={loc.pathname}</span>
       <span>multi={String(d.isMultiDoctor)}</span>
+      <span>team={String(d.isTeamClinic)}</span>
       <span>practitioners={d.practitioners.length}</span>
       <span>bookable={d.bookablePractitioners.length}</span>
       <span data-testid="hours">{JSON.stringify(d.workingHours)}</span>
@@ -188,6 +189,28 @@ describe("DoctorContext", () => {
       await waitFor(() => expect(screen.getByText("practitioners=2")).toBeInTheDocument());
       expect(screen.getByText("bookable=1")).toBeInTheDocument();
       expect(screen.getByText("multi=false")).toBeInTheDocument();
+    });
+
+    it("isTeamClinic is presentation only: 2 listed doctors but 1 bookable is a team clinic that is not multi-doctor", async () => {
+      m.tables.profiles = { data: { id: "d1" } };
+      withRpc({ data: [pr("p1"), pr("p2", { bookable: false })] });
+      renderAt("/dr/dr-one");
+      await waitFor(() => expect(screen.getByText("practitioners=2")).toBeInTheDocument());
+      expect(screen.getByText("team=true")).toBeInTheDocument();
+      expect(screen.getByText("multi=false")).toBeInTheDocument();
+    });
+
+    it("isTeamClinic is false for one doctor and when the doctor lookup fails", async () => {
+      m.tables.profiles = { data: { id: "d1" } };
+      withRpc({ data: [pr("p1")] });
+      const { unmount } = renderAt("/dr/dr-one");
+      await waitFor(() => expect(screen.getByText("practitioners=1")).toBeInTheDocument());
+      expect(screen.getByText("team=false")).toBeInTheDocument();
+      unmount();
+      withRpc({ data: null, error: { message: "boom" } });
+      renderAt("/dr/dr-one");
+      await waitFor(() => expect(screen.getByText("loading=false")).toBeInTheDocument());
+      expect(screen.getByText("team=false")).toBeInTheDocument();
     });
 
     it("one doctor: workingHours are exactly the rows loaded", async () => {

@@ -5,6 +5,7 @@ import { useDoctorData } from "@/contexts/DoctorContext";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { clinicPhone, doctorName as formatName, telHref, siteLabels } from "@/lib/doctorSite/doctorFacts";
 import { getClinicMapsUrl } from "@/lib/clinicLocation";
+import { clinicDisplayName, specialtiesLine } from "@/lib/doctorSite/teamClinic";
 import type { Tables } from "@/integrations/supabase/types";
 import DsButton from "./ui/DsButton";
 import { dsScrollTo, dsScrollToTop } from "./motion/scroll";
@@ -37,8 +38,10 @@ const Footer = ({ profileOverride }: FooterProps) => {
   const services = profileOverride ? [] : doctorData.services;
   const gallery = profileOverride ? [] : doctorData.gallery;
 
-  const name = formatName(profile) || "Doctor";
-  const specialty = (profile?.specialization ?? "").trim();
+  // A clinic with several doctors is signed by the clinic (never on the blog pages, which pass profileOverride).
+  const team = !profileOverride && doctorData.isTeamClinic === true;
+  const name = team ? clinicDisplayName(profile) : formatName(profile) || "Doctor";
+  const specialty = team ? specialtiesLine(doctorData.practitioners ?? [], 2) : (profile?.specialization ?? "").trim();
   const base = `/dr/${slug || profile?.slug || ""}`;
   const isDoctorHome = location.pathname === base;
   const isArticleRoute = location.pathname.includes("/blog");
@@ -56,7 +59,8 @@ const Footer = ({ profileOverride }: FooterProps) => {
   ].filter((item) => Boolean(item.url));
 
   const quickLinks = [
-    { label: "About", target: "about", show: settings?.show_about !== false },
+    { label: "Doctors", target: "doctors", show: team },
+    { label: team ? "About the clinic" : "About", target: "about", show: settings?.show_about !== false },
     { label: "Gallery", target: "gallery", show: settings?.show_gallery === true },
     { label: "Services", target: "services", show: settings?.show_services !== false },
     { label: "Reviews", target: "reviews", show: settings?.show_reviews !== false },
@@ -78,7 +82,7 @@ const Footer = ({ profileOverride }: FooterProps) => {
           <div className="lg:col-span-7">
             <p className="ds-eyebrow !text-[rgb(var(--ds-footer-ink-2))]">Your next step</p>
             <p className="mt-4 max-w-[16ch] font-ds-display text-ds-h2 font-medium leading-[1.08]">
-              Book a visit with {name}.
+              {team ? `Book a visit at ${name}.` : `Book a visit with ${name}.`}
             </p>
             <div className="mt-8 flex flex-col gap-2.5 sm:flex-row">
               <DsButton
@@ -146,7 +150,7 @@ const Footer = ({ profileOverride }: FooterProps) => {
         <div className="flex flex-col gap-8 pt-10 md:flex-row md:items-end md:justify-between">
           <Link to={base} className="inline-flex items-center gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 ring-1 ring-white/20">
-              {profile?.profile_photo_url ? (
+              {!team && profile?.profile_photo_url ? (
                 <OptimizedImage src={profile.profile_photo_url} alt="" width={96} height={96} className="h-full w-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <span aria-hidden="true" className="font-ds-display text-xl">{name.replace(/^Dr\.?\s*/i, "").charAt(0)}</span>

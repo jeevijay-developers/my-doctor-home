@@ -6,16 +6,17 @@
 // NOTE: keep relative imports only - Vercel's bundler does not resolve "@/".
 import { PUBLIC_PROFILE_COLUMNS } from "../publicProfileColumns";
 import { directorySlug } from "../directory/slug";
+import { buildClinicBody, buildPractitionerBody } from "./clinicBody";
+import { activeTeam, isMultiDoctorClinic, isPractitionerIndexable } from "./clinicTeam";
+import { redirectForOldSlug, resolveOldSlug } from "./slugRedirect";
 import { buildDoctorBody, buildHubHead, isHubIndexable, type DirectoryDoctor, type DirectoryFacet } from "./directorySeo";
 import {
-  activePractitioners,
   buildDoctorJsonLd,
   buildDoctorMeta,
   buildPractitionerJsonLd,
   buildPractitionerMeta,
   doctorDisplayName,
   doctorHubPaths,
-  formatDoctorName,
   type PractitionerSeo,
 } from "./doctorSeo";
 import { buildBlogListHead, buildBlogPostHead, blogPostPath, doctorPath, encodePathSegment, UUID_RE } from "./blogSeo";
@@ -102,6 +103,16 @@ function notFound(template: string, origin: string, path: string): Response {
 class Upstream {
   constructor(private base: string, private key: string, private f: typeof fetch) {}
 
+  /** What the shared old-slug resolver (slugRedirect.ts) needs to call the database. */
+  get slugUpstream() {
+    return { url: this.base, key: this.key };
+  }
+
+  /** The fetch this request uses (tests inject one). */
+  get fetcher(): typeof fetch {
+    return this.f;
+  }
+
   /** Scheme + host of the Supabase project (API and public storage share it). */
   get origin(): string {
     try {
@@ -131,25 +142,38 @@ class Upstream {
 
 const enc = encodeURIComponent;
 
-async function doctorPage(up: Upstream, template: string, origin: string, slug: string): Promise<Response> {
+/** Query params the rewrite adds for us; everything else was typed by the visitor and is kept on a redirect. */
+const HOURS_COLUMNS = "practitioner_id,day_of_week,is_open,start_time,end_time,start_time_2,end_time_2";
+
+function firstHttpsPhoto(rows: unknown): string | null {
+  const photo = Array.isArray(rows) ? rows[0]?.photo_url : null;
+  return typeof photo === "string" && /^https:\/\//.test(photo) ? photo : null;
+}
+
+const REWRITE_PARAMS = ["kind", "slug", "doctor", "post", "category"];
+
+/**
+ * A clinic's old slug (renamed, or moved to the clinic name) answers 301 to the current one, keeping
+ * the rest of the path and the visitor's query. Null when the slug is not a known old slug.
+ */
+async function oldSlugRedirect(up: Upstream, origin: string, reqUrl: URL, slug: string, suffix: string): Promise<Response | null> {
+  const current = await resolveOldSlug(up.slugUpstream, slug, up.fetcher);
+  if (!current || current.toLowerCase() === slug.toLowerCase()) return null;
+  // Rebuild the public URL: behind the Vercel rewrite the request URL may be /api/seo?kind=..., so the
+  // path and the visitor's own query are put back from what we know rather than read from it.
+  const original = new URL(`${origin}/dr/${encodePathSegment(slug)}${suffix}`);
+  reqUrl.searchParams.forEach((value, key) => {
+    if (!REWRITE_PARAMS.includes(key)) original.searchParams.append(key, value);
+  });
+  return redirectForOldSlug(original, encodePathSegment(current));
+}
+
+async function doctorPage(up: Upstream, template: string, origin: string, slug: string, reqUrl: URL): Promise<Response> {
   const path = `/dr/${slug}`;
   const profiles = await up.select("profiles", `select=${PUBLIC_PROFILE_COLUMNS}&slug=eq.${enc(slug)}&onboarding_completed=eq.true&limit=1`);
   const profile = profiles?.[0];
 
-  if (!profile) {
-    const hist = await up.select("slug_history", `select=doctor_id&old_slug=eq.${enc(slug)}&limit=1`);
-    const doctorId = hist?.[0]?.doctor_id;
-    if (doctorId) {
-      const cur = await up.select("profiles", `select=slug&id=eq.${enc(doctorId)}&limit=1`);
-      if (cur?.[0]?.slug) {
-        return new Response(null, {
-          status: 301,
-          headers: { Location: `${origin}${doctorPath(cur[0].slug)}`, "Cache-Control": "public, max-age=0, s-maxage=3600" },
-        });
-      }
-    }
-    return notFound(template, origin, path);
-  }
+  if (!profile) return (await oldSlugRedirect(up, origin, reqUrl, slug, "")) ?? notFound(template, origin, path);
   if (profile.plan_status === "cancelled") return notFound(template, origin, path);
 
   const id = enc(profile.id);
@@ -161,8 +185,25 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
     up.rpc("get_public_practitioners", { _doctor_id: profile.id }).catch(() => null) as Promise<PractitionerSeo[] | null>,
   ]);
   const settings = settingsRows?.[0] ?? {};
+  const team = Array.isArray(practitioners) ? practitioners : undefined;
+  const multi = isMultiDoctorClinic(team);
 
-  const input = { origin, profile, settings, services, reviews, ...(Array.isArray(practitioners) ? { practitioners } : {}) };
+  // Team clinics only (a single-doctor page costs nothing extra): opening hours for the JSON-LD and
+  // body, and a clinic photo for og:image when there is no hero photo. Both are best-effort.
+  let workingHours: any[] = [];
+  let clinicImage: string | null = null;
+  if (multi) {
+    const [hours, gallery] = await Promise.all([
+      up.select("working_hours", `select=${HOURS_COLUMNS}&doctor_id=eq.${id}&limit=500`).catch(() => []),
+      up.select("gallery_photos", `select=photo_url&doctor_id=eq.${id}&order=sort_order&limit=1`).catch(() => []),
+    ]);
+    const activeIds = new Set(activeTeam(team).map((p) => p.id));
+    // Rows of a deactivated doctor are not the clinic's hours any more.
+    workingHours = (Array.isArray(hours) ? hours : []).filter((r: any) => !r.practitioner_id || activeIds.has(r.practitioner_id));
+    clinicImage = firstHttpsPhoto(gallery);
+  }
+
+  const input = { origin, profile, settings, services, reviews, workingHours, clinicImage, ...(team ? { practitioners: team } : {}) };
   const meta = buildDoctorMeta(input);
   const name = doctorDisplayName(profile);
   const jsonLd = buildDoctorJsonLd(input);
@@ -181,7 +222,8 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
       description: meta.description,
       canonical: meta.canonical,
       robots: INDEXABLE,
-      ogType: "profile",
+      // A clinic is an organisation, not a person's profile.
+      ogType: multi ? "website" : "profile",
       image: meta.image,
       preconnect: supabaseOrigin ? [supabaseOrigin] : [],
       preloadImage: heroSrc ? optimizedImageUrl(heroSrc, HERO_IMAGE_WIDTH) : undefined,
@@ -189,72 +231,93 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
       // this it is only discovered after the stylesheet, then swapped in.
       preloadFonts: ["/fonts/newsreader-latin.woff2"],
       jsonLd: jsonLd ? [jsonLd] : [],
-      bodyHtml: buildDoctorBody({
-        name,
-        description: meta.description,
-        specialization: profile.specialization,
-        city: profile.city,
-        address: profile.address,
-        services,
-        hubs: doctorHubPaths(profile),
-      }),
+      bodyHtml: multi
+        ? buildClinicBody({ profile, description: meta.description, practitioners: team!, services, workingHours })
+        : buildDoctorBody({
+            name,
+            description: meta.description,
+            specialization: profile.specialization,
+            city: profile.city,
+            address: profile.address,
+            services,
+            hubs: doctorHubPaths(profile),
+          }),
     }),
     200,
     SITE_CACHE,
   );
 }
 
-async function practitionerPage(up: Upstream, template: string, origin: string, slug: string, doctorSlug: string): Promise<Response> {
+async function practitionerPage(up: Upstream, template: string, origin: string, slug: string, doctorSlug: string, reqUrl: URL): Promise<Response> {
   const path = `${doctorPath(slug)}/doctor/${encodePathSegment(doctorSlug)}`;
   const profiles = await up.select("profiles", `select=${PUBLIC_PROFILE_COLUMNS}&slug=eq.${enc(slug)}&onboarding_completed=eq.true&limit=1`);
   const profile = profiles?.[0];
-  if (!profile || profile.plan_status === "cancelled") return notFound(template, origin, path);
+  if (!profile) return (await oldSlugRedirect(up, origin, reqUrl, slug, `/doctor/${encodePathSegment(doctorSlug)}`)) ?? notFound(template, origin, path);
+  if (profile.plan_status === "cancelled") return notFound(template, origin, path);
 
-  const team = activePractitioners(await up.rpc("get_public_practitioners", { _doctor_id: profile.id }));
+  const team = activeTeam<PractitionerSeo>(await up.rpc("get_public_practitioners", { _doctor_id: profile.id }));
   const practitioner = team.find((p) => p.slug === doctorSlug);
   // Unknown or inactive doctor, or a clinic with one doctor (its page is the clinic page): back to the clinic.
-  if (!practitioner || team.length < 2) {
+  if (!practitioner || !isMultiDoctorClinic(team)) {
     return new Response(null, {
       status: 301,
       headers: { Location: `${origin}${doctorPath(profile.slug)}`, "Cache-Control": "public, max-age=0, s-maxage=3600" },
     });
   }
 
-  const input = { origin, profile, practitioner };
+  // Best-effort extras (any failure just leaves that section out): the clinic's hours, this doctor's
+  // services, and a clinic picture for doctors without a photo.
+  const id = enc(profile.id);
+  const [hours, services, offered, settingsRows, gallery] = await Promise.all([
+    up.select("working_hours", `select=${HOURS_COLUMNS}&doctor_id=eq.${id}&limit=500`).catch(() => []),
+    up.select("services", `select=id,name,description,price&doctor_id=eq.${id}&active=eq.true&order=sort_order&limit=12`).catch(() => []),
+    up.rpc("get_public_service_practitioners", { _doctor_id: profile.id }).catch(() => []),
+    up.select("website_settings", `select=hero_photo_url&doctor_id=eq.${id}&limit=1`).catch(() => []),
+    up.select("gallery_photos", `select=photo_url&doctor_id=eq.${id}&order=sort_order&limit=1`).catch(() => []),
+  ]);
+  const workingHours = Array.isArray(hours) ? hours : [];
+  // service_practitioners: a service with no rows is offered by every doctor; with rows, only by those.
+  const restricted = new Map<string, Set<string>>();
+  for (const r of Array.isArray(offered) ? offered : []) {
+    if (!restricted.has(r.service_id)) restricted.set(r.service_id, new Set());
+    restricted.get(r.service_id)!.add(r.practitioner_id);
+  }
+  const ownServices = (Array.isArray(services) ? services : []).filter((s: any) => {
+    const only = restricted.get(s.id);
+    return !only || only.has(practitioner.id);
+  });
+
+  const input = { origin, profile, practitioner, settings: settingsRows?.[0] ?? {}, workingHours, clinicImage: firstHttpsPhoto(gallery) };
   const meta = buildPractitionerMeta(input);
   const jsonLd = buildPractitionerJsonLd(input);
-  const name = formatDoctorName(practitioner.display_name);
-  const clinic = doctorDisplayName(profile);
-  const facts = [
-    practitioner.qualifications && `<p>${escapeHtml(practitioner.qualifications)}</p>`,
-    practitioner.experience_years ? `<p>${escapeHtml(String(practitioner.experience_years))}+ years of experience</p>` : "",
-    practitioner.registration_number ? `<p>Registration no. ${escapeHtml(practitioner.registration_number)}</p>` : "",
-  ].filter(Boolean).join("");
-  const bodyHtml = `<main><nav aria-label="Breadcrumb"><a href="${doctorPath(profile.slug)}">${escapeHtml(clinic || "Clinic")}</a></nav><h1>${escapeHtml(name)}${practitioner.specialization ? ` - ${escapeHtml(practitioner.specialization)}` : ""}</h1><p>${escapeHtml(meta.description)}</p>${facts}</main>`;
 
   return htmlResponse(
     renderPage(template, {
       title: meta.title,
       description: meta.description,
       canonical: meta.canonical,
-      // A doctor who opted out of the directory is still served, but not indexed.
-      robots: practitioner.directory_listed === false ? NOINDEX : INDEXABLE,
+      // Not indexed until the doctor has a real bio (thin content), nor when they opted out of the directory.
+      robots: isPractitionerIndexable(practitioner) ? INDEXABLE : NOINDEX,
       ogType: "profile",
       image: meta.image,
       preconnect: up.origin ? [up.origin] : [],
       jsonLd: jsonLd ? [jsonLd] : [],
-      bodyHtml,
+      bodyHtml: buildPractitionerBody({ profile, practitioner, description: meta.description, services: ownServices, workingHours }),
     }),
     200,
     SITE_CACHE,
   );
 }
 
-async function blogPage(up: Upstream, template: string, origin: string, slug: string, postKey?: string): Promise<Response> {
+async function blogPage(up: Upstream, template: string, origin: string, slug: string, reqUrl: URL, postKey?: string): Promise<Response> {
   const path = postKey ? `${doctorPath(slug)}/blog/${encodePathSegment(postKey)}` : `${doctorPath(slug)}/blog`;
   const profiles = await up.select("profiles", `select=${PUBLIC_PROFILE_COLUMNS}&slug=eq.${enc(slug)}&onboarding_completed=eq.true&limit=1`);
   const doctor = profiles?.[0];
-  if (!doctor || doctor.plan_status === "cancelled") return notFound(template, origin, path);
+  if (!doctor) {
+    const moved = await oldSlugRedirect(up, origin, reqUrl, slug, postKey ? `/blog/${encodePathSegment(postKey)}` : "/blog");
+    return moved ?? notFound(template, origin, path);
+  }
+  if (doctor.plan_status === "cancelled") return notFound(template, origin, path);
   const doctorId = enc(doctor.id);
 
   if (!postKey) {
@@ -280,7 +343,7 @@ async function blogPage(up: Upstream, template: string, origin: string, slug: st
   let lookupFailed = false;
   if (post.practitioner_id) {
     try {
-      const team = activePractitioners(await up.rpc("get_public_practitioners", { _doctor_id: doctor.id }));
+      const team = activeTeam<PractitionerSeo>(await up.rpc("get_public_practitioners", { _doctor_id: doctor.id }));
       const author = team.find((p) => p.id === post.practitioner_id);
       if (author && author.directory_listed !== false) byline = { practitioner: author, clinicTeamSize: team.length };
     } catch {
@@ -376,21 +439,21 @@ export async function handleSeoRequest(
     if (kind === "doctor") {
       const slug = url.searchParams.get("slug")?.trim();
       if (!slug) return notFound(template, origin, "/");
-      return await doctorPage(up, template, origin, slug);
+      return await doctorPage(up, template, origin, slug, url);
     }
     if (kind === "practitioner") {
       const slug = url.searchParams.get("slug")?.trim();
       const doctorSlug = url.searchParams.get("doctor")?.trim();
       if (!slug) return notFound(template, origin, "/");
       if (!doctorSlug) return notFound(template, origin, doctorPath(slug));
-      return await practitionerPage(up, template, origin, slug, doctorSlug);
+      return await practitionerPage(up, template, origin, slug, doctorSlug, url);
     }
     if (kind === "blog" || kind === "post") {
       const slug = url.searchParams.get("slug")?.trim();
       if (!slug) return notFound(template, origin, "/");
       const postKey = kind === "post" ? url.searchParams.get("post")?.trim() : undefined;
       if (kind === "post" && !postKey) return notFound(template, origin, `/dr/${slug}/blog`);
-      return await blogPage(up, template, origin, slug, postKey);
+      return await blogPage(up, template, origin, slug, url, postKey);
     }
     if (kind === "hub") {
       // Params arrive as typed in the URL; only canonical slugs are served as 200.

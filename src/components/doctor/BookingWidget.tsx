@@ -38,6 +38,8 @@ import { SELECT_DOCTOR_EVENT } from "./DoctorsSection";
 import { hoursFor } from "@/lib/practitioners/hours";
 import { practitionerErrorMessage } from "@/lib/practitioners/errors";
 import { formatDoctorName } from "@/lib/seo/doctorSeo";
+import { useNextAvailableByDoctor } from "@/hooks/useNextAvailableByDoctor";
+import { doctorSlugFromSearch } from "@/lib/doctorSite/doctorDeepLink";
 
 const getNextDays = (count: number) => {
   const days = [];
@@ -104,6 +106,8 @@ const BookingWidget = () => {
   );
   const sel = isMultiDoctor ? doctors.find((d) => d.id === practitionerId) ?? null : doctors[0] ?? null;
   const needsDoctor = isMultiDoctor && !sel;
+  // Next free slot per doctor for the picker rows: one shared call, only while the picker is open.
+  const { next: nextByDoctor, now: nextNow } = useNextAvailableByDoctor(profile?.id, isMultiDoctor && step === 0 && doctors.length > 1);
   // Services limited to some doctors (multi / sole-bookable clinics only; a single-doctor clinic is untouched).
   // A service with no mapping rows is offered by everyone. With a doctor chosen it must be offered by that
   // doctor; a service whose mapped doctors are all unavailable for booking is hidden for everyone.
@@ -253,6 +257,22 @@ const BookingWidget = () => {
     return () => window.removeEventListener(SELECT_DOCTOR_EVENT, handleSelectDoctor as EventListener);
     // chooseDoctor only touches state setters and the live ref.
   }, [isMultiDoctor, soleBookable, doctors]);
+
+  // `?doctor=<slug>` deep link: preselect that doctor and open "When". Only a multi-doctor clinic
+  // acts on it, only for a doctor who can be booked, and only once (unknown, inactive or
+  // non-bookable doctors are ignored silently). The param is never written back or shared.
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone.current || !isMultiDoctor || doctors.length === 0) return;
+    deepLinkDone.current = true; // the doctor list is in: one chance, never again mid-booking
+    const slug = doctorSlugFromSearch(typeof window !== "undefined" ? window.location.search : "");
+    if (!slug || live.current.practitionerId || live.current.submitting || live.current.confirmed) return;
+    const match = doctors.find((d) => (d.slug ?? "").toLowerCase() === slug);
+    if (!match) return;
+    chooseDoctor(match.id);
+    setStep(1);
+    // chooseDoctor only touches state setters and the live ref.
+  }, [isMultiDoctor, doctors]);
 
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [attempted, setAttempted] = useState(false);
@@ -1192,7 +1212,7 @@ const BookingWidget = () => {
           No doctors are taking online bookings right now. Please contact the clinic.
         </p>
       )}
-      <DoctorPicker doctors={doctors} value={sel?.id ?? null} onChange={chooseDoctor} clinicFee={profile?.consultation_fee} />
+      <DoctorPicker doctors={doctors} value={sel?.id ?? null} onChange={chooseDoctor} clinicFee={profile?.consultation_fee} nextAvailable={nextByDoctor} now={nextNow} />
       <DsButton size="lg" className="w-full" disabled={!sel} onClick={() => setStep(1)}>
         Continue
       </DsButton>

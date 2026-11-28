@@ -21,6 +21,7 @@ import BottomActionBar from "@/components/doctor/BottomActionBar";
 import DoctorThemeProvider from "@/components/doctor/DoctorThemeProvider";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { DEFAULT_TITLE, buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName } from "@/lib/seo/doctorSeo";
+import { clinicDisplayName, specialtiesLine } from "@/lib/doctorSite/teamClinic";
 // Root of the doctor site: scopes the `ds-*` design tokens, smooth scroll and the
 // reduced-motion policy (`motion` honours the OS setting via reducedMotion="user").
 const DoctorSiteShell = ({ children }: { children: ReactNode }) => (
@@ -60,7 +61,8 @@ function upsertCanonical(href: string) {
 }
 
 const DoctorPageContent = () => {
-  const { profile, settings, loading, services, reviews, isMultiDoctor, practitioners } = useDoctorData();
+  const { profile, settings, loading, services, reviews, isMultiDoctor, isTeamClinic, practitioners } = useDoctorData();
+  const team = isTeamClinic === true;
   const { hash } = useLocation();
 
   const doctorName = useMemo(() => doctorDisplayName(profile), [profile]);
@@ -69,8 +71,16 @@ const DoctorPageContent = () => {
     () => buildDoctorMeta({ origin: window.location.origin, profile, settings }),
     [profile, settings],
   );
-  const pageTitle = seoMeta.title;
+  // A clinic with several doctors is titled by the clinic ("Clinic - Cardiology, ENT in Pune | Doctylia"),
+  // unless the owner wrote their own SEO title. The edge function renders the crawler copy separately.
+  const pageTitle = useMemo(() => {
+    if (!team || !seoMeta.title || settings?.seo_title?.trim()) return seoMeta.title;
+    const specialties = specialtiesLine(practitioners ?? [], 2);
+    const city = (profile?.city ?? "").trim();
+    return `${clinicDisplayName(profile)}${specialties ? ` - ${specialties}` : ""}${city ? ` in ${city}` : ""} | Doctylia`;
+  }, [team, seoMeta.title, settings, practitioners, profile]);
   const pageDescription = seoMeta.description;
+  const teamImage = team ? settings?.hero_photo_url || "" : "";
 
   useEffect(() => {
     if (!pageTitle) return;
@@ -78,14 +88,14 @@ const DoctorPageContent = () => {
     document.title = pageTitle;
 
     const canonicalUrl = seoMeta.canonical || window.location.href;
-    const shareImage = seoMeta.image;
+    const shareImage = teamImage || seoMeta.image;
 
     const restoreCanonical = upsertCanonical(canonicalUrl);
     const restoreDesc = upsertMeta('meta[name="description"]', "name", "description", pageDescription);
     const restoreOgTitle = upsertMeta('meta[property="og:title"]', "property", "og:title", pageTitle);
     const restoreOgDesc = upsertMeta('meta[property="og:description"]', "property", "og:description", pageDescription);
     const restoreOgUrl = upsertMeta('meta[property="og:url"]', "property", "og:url", canonicalUrl);
-    const restoreOgType = upsertMeta('meta[property="og:type"]', "property", "og:type", "profile");
+    const restoreOgType = upsertMeta('meta[property="og:type"]', "property", "og:type", team ? "website" : "profile");
     const restoreTwTitle = upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", pageTitle);
     const restoreTwDesc = upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", pageDescription);
     const restoreOgImage = shareImage
@@ -108,7 +118,7 @@ const DoctorPageContent = () => {
       restoreOgImage();
       restoreTwImage();
     };
-  }, [pageTitle, pageDescription, seoMeta.canonical, seoMeta.image]);
+  }, [pageTitle, pageDescription, seoMeta.canonical, seoMeta.image, teamImage, team]);
 
   const structuredData = useMemo(
     () => buildDoctorJsonLd({ origin: window.location.origin, profile, settings, services, reviews, practitioners }),
@@ -188,13 +198,26 @@ const DoctorPageContent = () => {
       )}
       <Navbar />
       <main id="main">
-        {/* Order: hero, about, doctors (multi-doctor clinics), gallery, services, booking, reviews, articles, clinic details & contact, contact form. */}
+        {/* Single doctor: hero, about, gallery, services, booking, reviews, articles, clinic details, contact form.
+            Several bookable doctors add "Choose your doctor" (#doctors) after About. A team clinic (2+ active
+            doctors) is clinic-first: hero, doctors, about the clinic, services, gallery, booking, reviews,
+            articles, clinic details, contact form. */}
         <HeroBanner />
-        {showAbout && <AboutSection />}
-        {/* Multi-doctor clinics only: "Choose your doctor" (#doctors, the hero links here). */}
-        {isMultiDoctor && <DoctorsSection />}
-        {showGallery && <GallerySection />}
-        {showServices && <ServicesSection />}
+        {team ? (
+          <>
+            <DoctorsSection />
+            {showAbout && <AboutSection />}
+            {showServices && <ServicesSection />}
+            {showGallery && <GallerySection />}
+          </>
+        ) : (
+          <>
+            {showAbout && <AboutSection />}
+            {isMultiDoctor && <DoctorsSection />}
+            {showGallery && <GallerySection />}
+            {showServices && <ServicesSection />}
+          </>
+        )}
         {/* Stable wrapper: BookingWidget swaps its root between states, so observers watch this. */}
         <div id="booking-zone">
           <BookingWidget />

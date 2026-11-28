@@ -7,6 +7,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } fr
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { dsCn as cn } from "./ui/dsCn";
 import { doctorName, siteLabels } from "@/lib/doctorSite/doctorFacts";
+import { clinicDisplayName, initialsOf } from "@/lib/doctorSite/teamClinic";
 import DsButton from "./ui/DsButton";
 import { useActiveSection } from "./ui/useActiveSection";
 import { dsScrollTo, dsScrollToTop } from "./motion/scroll";
@@ -14,7 +15,7 @@ import { bookNow, useDoctorTheme } from "./siteActions";
 import { DUR, EASE } from "./motion/tokens";
 
 const Monogram = ({ name }: { name: string }) => {
-  const initials = name.replace(/^Dr\.?\s*/i, "").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+  const initials = initialsOf(name);
   return (
     <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ds-accent-soft font-ds-display text-lg font-medium text-ds-accent-ink">
       {initials || "Dr"}
@@ -23,7 +24,9 @@ const Monogram = ({ name }: { name: string }) => {
 };
 
 const Navbar = () => {
-  const { profile, settings } = useDoctorData();
+  const { profile, settings, isTeamClinic } = useDoctorData();
+  // A clinic with several doctors is led by the clinic, not by its owner.
+  const team = isTeamClinic === true;
   const labels = siteLabels(settings);
   const { slug } = useParams<{ slug: string }>();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -33,20 +36,31 @@ const Navbar = () => {
   const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 30, mass: 0.4 });
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
 
-  const name = doctorName(profile);
-  const specialty = (profile?.specialization ?? "").trim();
-  const avatar = profile?.profile_photo_url || "";
+  const name = team ? clinicDisplayName(profile) : doctorName(profile);
+  const specialty = team
+    ? (profile?.locality || profile?.city || "").trim()
+    : (profile?.specialization ?? "").trim();
+  const avatar = team ? "" : profile?.profile_photo_url || "";
 
   // Four links only, in page order: About, Articles, Contact (plus My appointment below).
   // "Contact" goes to Clinic details & contact, or to the question form if the doctor hides that section.
   const links = useMemo(
     () =>
-      [
-        { label: "About", target: "about", show: settings?.show_about !== false },
-        { label: "Articles", target: "blog", show: settings?.show_blog !== false },
-        { label: "Contact", target: settings?.show_clinic_details !== false ? "contact" : "ask", show: true },
-      ].filter((l) => l.show),
-    [settings],
+      (team
+        ? [
+            { label: "Doctors", target: "doctors", show: true },
+            { label: "Services", target: "services", show: settings?.show_services !== false },
+            { label: "Reviews", target: "reviews", show: settings?.show_reviews !== false },
+            { label: "Articles", target: "blog", show: settings?.show_blog !== false },
+            { label: "Contact", target: settings?.show_clinic_details !== false ? "contact" : "ask", show: true },
+          ]
+        : [
+            { label: "About", target: "about", show: settings?.show_about !== false },
+            { label: "Articles", target: "blog", show: settings?.show_blog !== false },
+            { label: "Contact", target: settings?.show_clinic_details !== false ? "contact" : "ask", show: true },
+          ]
+      ).filter((l) => l.show),
+    [settings, team],
   );
   const active = useActiveSection(links.map((l) => l.target));
 

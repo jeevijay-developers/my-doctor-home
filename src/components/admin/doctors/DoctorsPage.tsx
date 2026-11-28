@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Loader2, MoreHorizontal, Plus, Stethoscope, UserRound } from "lucide-react";
+import { AlertTriangle, Copy, ExternalLink, Loader2, MoreHorizontal, Plus, Stethoscope, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -29,6 +29,10 @@ import DoctorHoursEditor from "./DoctorHoursEditor";
 import DeactivateDoctorDialog from "./DeactivateDoctorDialog";
 import BuyDoctorSeatsDialog from "./BuyDoctorSeatsDialog";
 import { formatIstDate } from "@/lib/istDate";
+import {
+  completenessChipLabel, notIndexableNote, practitionerCompleteness, practitionerPublicPath,
+} from "@/lib/profileCompleteness";
+import { clinicSitePath } from "@/lib/clinicSlug";
 
 const SEATS_ENDING_SOON_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -62,6 +66,19 @@ const DoctorsPage = () => {
   const [removingLogin, setRemovingLogin] = useState<{ doctor: Practitioner; login: DoctorLogin } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [seatsOpen, setSeatsOpen] = useState(false);
+
+  const clinicSlug = ((profile as { slug?: string | null } | null)?.slug ?? "").trim() || null;
+  const activeCount = practitioners.filter((p) => p.is_active).length;
+  const publicPathOf = (p: Practitioner) =>
+    practitionerPublicPath({ clinicSlug, doctorSlug: p.slug, isActive: p.is_active, activeDoctors: activeCount });
+  const copyLink = async (path: string) => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+      toast.success("Link copied");
+    } catch {
+      toast.error("Could not copy the link. Open the page and copy it from the address bar.");
+    }
+  };
 
   // Doctor logins are staff_members rows with role 'doctor'. RLS decides who may read them;
   // anyone who can't simply sees no "Has login" badges.
@@ -279,6 +296,38 @@ const DoctorsPage = () => {
       </div>
     );
 
+  // Profile completeness: only for active doctors of a team clinic, where each has a page of their own.
+  const profileInfo = (p: Practitioner) => {
+    if (!p.is_active || activeCount < 2) return null;
+    const publicPath = publicPathOf(p);
+    const c = practitionerCompleteness(p);
+    const note = notIndexableNote(c);
+    const warn = !c.hasIndexableBio || !c.indexable;
+    return (
+      <div className="space-y-1">
+        <Badge variant="outline" className={warn ? "bg-warning/15 text-warning border-warning/30" : "bg-success/15 text-success border-success/30"}
+          title={c.missing.length ? `Still missing: ${c.missing.map((m) => m.label.toLowerCase()).join(", ")}` : "Profile complete"}>
+          {completenessChipLabel(c)}
+        </Badge>
+        {note && <p className="text-xs text-muted-foreground">{note}</p>}
+        {publicPath && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <a href={publicPath} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium text-royal hover:underline min-h-6">
+              Public page<span className="sr-only"> for {p.display_name} (opens in a new tab)</span>
+              <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            </a>
+            <button type="button" onClick={() => { void copyLink(publicPath); }}
+              className="inline-flex items-center gap-1 text-xs font-medium text-royal hover:underline min-h-6"
+              aria-label={`Copy link to ${p.display_name}'s public page`}>
+              <Copy className="h-3 w-3" aria-hidden="true" /> Copy link
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const badgeList = (p: Practitioner) => (
     <div className="flex flex-wrap gap-1">
       {badges(p).map((b) => <Badge key={b.label} variant="outline" className={b.className}>{b.label}</Badge>)}
@@ -301,6 +350,14 @@ const DoctorsPage = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+        {clinicSlug && (
+          <Button asChild variant="outline">
+            <a href={clinicSitePath(clinicSlug)} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-4 w-4 mr-1" aria-hidden="true" /> View clinic page
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          </Button>
+        )}
         {canBuySeats && (
           <Button variant="outline" onClick={() => setSeatsOpen(true)}>
             <Plus className="h-4 w-4 mr-1" /> Add seats
@@ -357,6 +414,7 @@ const DoctorsPage = () => {
                             <div className="font-medium text-foreground">{p.display_name}</div>
                             {p.specialization && <div className="text-xs text-muted-foreground">{p.specialization}</div>}
                             {ownerNote(p)}
+                            {profileInfo(p)}
                           </div>
                         </div>
                       </td>
@@ -383,6 +441,7 @@ const DoctorsPage = () => {
                     </div>
                   </div>
                   {badgeList(p)}
+                  {profileInfo(p)}
                   {ownerNote(p)}
                   <div className="pt-1">{actions(p)}</div>
                 </CardContent>

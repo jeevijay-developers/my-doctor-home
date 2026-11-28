@@ -2902,6 +2902,7 @@ export type Database = {
           registration_number: string | null
           signature_url: string | null
           slug: string | null
+          slug_locked: boolean
           specialization: string | null
           state: string | null
           trial_end: string | null
@@ -2944,6 +2945,7 @@ export type Database = {
           registration_number?: string | null
           signature_url?: string | null
           slug?: string | null
+          slug_locked?: boolean
           specialization?: string | null
           state?: string | null
           trial_end?: string | null
@@ -2986,6 +2988,7 @@ export type Database = {
           registration_number?: string | null
           signature_url?: string | null
           slug?: string | null
+          slug_locked?: boolean
           specialization?: string | null
           state?: string | null
           trial_end?: string | null
@@ -3913,6 +3916,10 @@ export type Database = {
         Args: { _doctor_id: string }
         Returns: boolean
       }
+      clinic_slug_problem: {
+        Args: { _clinic: string; _slug: string }
+        Returns: string
+      }
       clinical_row_visible: {
         Args: {
           _doctor_id: string
@@ -4103,6 +4110,14 @@ export type Database = {
           feature_key: string
         }[]
       }
+      get_public_next_available: {
+        Args: { _days?: number; _doctor_id: string }
+        Returns: {
+          next_date: string
+          next_time: string
+          practitioner_id: string
+        }[]
+      }
       get_public_practitioners: {
         Args: { _doctor_id: string }
         Returns: {
@@ -4190,6 +4205,7 @@ export type Database = {
         Returns: boolean
       }
       is_active_team_member: { Args: { _user_id: string }; Returns: boolean }
+      is_clinic_slug_available: { Args: { _slug: string }; Returns: Json }
       is_doctor_login: { Args: { _doctor_id: string }; Returns: boolean }
       log_clinical_access: { Args: { _patient_id: string }; Returns: undefined }
       multi_doctor_setting_valid: {
@@ -4197,6 +4213,7 @@ export type Database = {
         Returns: boolean
       }
       my_practitioner_id: { Args: { _doctor_id: string }; Returns: string }
+      my_slug_clinic_id: { Args: never; Returns: string }
       own_practitioner_upload_path: {
         Args: { _name: string }
         Returns: boolean
@@ -4293,6 +4310,7 @@ export type Database = {
         }
         Returns: Json
       }
+      resolve_clinic_slug: { Args: { _slug: string }; Returns: string }
       revenue_nest_modes: { Args: { _j: Json }; Returns: Json }
       review_patient_import_request: {
         Args: {
@@ -4416,6 +4434,7 @@ export type Database = {
         Args: { _doctor_id: string; _extra: number; _reason: string }
         Returns: Json
       }
+      set_clinic_slug: { Args: { _slug: string }; Returns: Json }
       set_custom_plan_appointments_limit: {
         Args: { _doctor_id: string; _limit: number }
         Returns: undefined
@@ -4448,6 +4467,8 @@ export type Database = {
         }
         Returns: number
       }
+      slug_is_reserved: { Args: { _slug: string }; Returns: boolean }
+      slug_is_valid: { Args: { _slug: string }; Returns: boolean }
       social_marketing_missing: {
         Args: {
           r: Database["public"]["Tables"]["custom_plan_social_marketing"]["Row"]
@@ -4475,6 +4496,10 @@ export type Database = {
           _remove: string[]
           _social_marketing?: boolean
         }
+        Returns: string
+      }
+      suggest_clinic_slug: {
+        Args: { _city?: string; _clinic_name: string }
         Returns: string
       }
       token_lookup_blocked: {

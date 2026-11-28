@@ -15,7 +15,8 @@
 // >= DIRECTORY_MIN_INDEXABLE eligible posts. Pagination URLs are not listed.
 //
 // Doctor sub-pages: /dr/:slug/doctor/:doctorSlug only for clinics with >= 2 active practitioners,
-// and never for a doctor with directory_listed = false (that page is served noindex).
+// and never for a doctor with directory_listed = false or a bio under 60 characters (both pages are
+// served noindex). The rules live in _shared/practitionerSitemap.ts (a copy of src/lib/seo/clinicTeam.ts).
 //
 // Marketing URLs have no content timestamp, so they omit <lastmod>.
 // Doctor and post URLs include <lastmod> from updated_at.
@@ -131,13 +132,19 @@ Deno.serve(async (req) => {
       urls.push(urlEntry(entry.path, "weekly", "0.7", lastMod(entry.updated_at)));
     }
 
+    // The blog index changes when its newest post does.
+    const newestPost = new Map<string, string>();
+    for (const post of posts) {
+      const stamp = lastMod(post.updated_at || post.published_at);
+      if (stamp && stamp > (newestPost.get(post.doctor_id) ?? "")) newestPost.set(post.doctor_id, stamp);
+    }
     const doctorsWithPosts = new Set<string>();
     for (const post of posts) {
       const doctor = doctorById.get(post.doctor_id);
       if (!doctor) continue;
       if (!doctorsWithPosts.has(doctor.id)) {
         doctorsWithPosts.add(doctor.id);
-        urls.push(urlEntry(`/dr/${encodeURIComponent(doctor.slug)}/blog`, "weekly", "0.5"));
+        urls.push(urlEntry(`/dr/${encodeURIComponent(doctor.slug)}/blog`, "weekly", "0.5", newestPost.get(doctor.id)));
       }
       urls.push(urlEntry(
         `/dr/${encodeURIComponent(doctor.slug)}/blog/${encodeURIComponent(post.slug || post.id)}`,
@@ -286,7 +293,7 @@ async function fetchPractitioners(admin: SupabaseClient): Promise<SitemapPractit
   const rows: SitemapPractitioner[] = [];
   // directory_listed ships in a later migration: fall back to the original columns until it is
   // applied (every doctor then counts as listed), same pattern as fetchDoctors.
-  let columns = "doctor_id, slug, is_active, updated_at, directory_listed";
+  let columns = "doctor_id, slug, is_active, updated_at, bio, directory_listed";
   for (let from = 0; ; from += PAGE_SIZE) {
     const run = (cols: string) =>
       admin
@@ -297,7 +304,7 @@ async function fetchPractitioners(admin: SupabaseClient): Promise<SitemapPractit
         .range(from, from + PAGE_SIZE - 1);
     let { data, error } = await run(columns);
     if (error && columns.includes("directory_listed")) {
-      columns = "doctor_id, slug, is_active, updated_at";
+      columns = "doctor_id, slug, is_active, updated_at, bio";
       ({ data, error } = await run(columns));
     }
     // Before the practitioners migration is applied the sitemap simply has no doctor sub-pages.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, UserCircle } from "lucide-react";
+import { CheckCircle2, Circle, ExternalLink, Loader2, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useProfile } from "@/hooks/useProfile";
 import { usePractitioners } from "@/hooks/usePractitioners";
+import {
+  MIN_INDEXABLE_BIO_CHARS, bioLength, completenessChipLabel, notIndexableNote, practitionerCompleteness, practitionerPublicPath,
+} from "@/lib/profileCompleteness";
+import { Badge } from "@/components/ui/badge";
 
 // What a doctor login sees under Settings. The clinic profile (ProfilePage) is the OWNER's own
 // name, phone, registration number and GSTIN, so showing it to the second doctor as "Your Details"
@@ -35,11 +39,23 @@ export const imageFileProblem = (file: File): string | null => {
 
 const MyDoctorDetailsCard = () => {
   const { profile, myPractitionerId, staffName } = useProfile();
-  const { byId, refetch } = usePractitioners();
+  const { byId, refetch, active } = usePractitioners();
   const me = myPractitionerId ? byId(myPractitionerId) : undefined;
+  const activeCount = (active ?? []).length;
+  const clinicSlug = (profile as { slug?: string | null } | null)?.slug ?? null;
+  const publicPath = me ? practitionerPublicPath({ clinicSlug, doctorSlug: me.slug, isActive: me.is_active, activeDoctors: activeCount }) : null;
+  const completeness = me ? practitionerCompleteness(me) : null;
+  const OWNER_MANAGED = new Set(["specialization", "qualifications", "experience", "fee", "registration"]);
+  const youCanAdd = [
+    ...(completeness?.missing.filter((m) => !OWNER_MANAGED.has(m.key)).map((m) => m.label) ?? []),
+    ...(me && !me.signature_url ? ["Add a signature (used on your prescriptions)"] : []),
+  ];
+  const ownerToAdd = completeness?.missing.filter((m) => OWNER_MANAGED.has(m.key)).map((m) => m.label) ?? [];
   const clinicId = profile?.id;
 
   const [bio, setBio] = useState(me?.bio ?? "");
+  const bioChars = bioLength(bio);
+  const bioNeeded = Math.max(0, MIN_INDEXABLE_BIO_CHARS - bioChars);
   const [photo, setPhoto] = useState<File | null>(null);
   const [signature, setSignature] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -124,6 +140,54 @@ const MyDoctorDetailsCard = () => {
           These appear on your prescriptions. To change them, ask the clinic owner to update your details on the Doctors page.
         </p>
 
+        {me && completeness && (
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground">Your public profile</h3>
+              <Badge variant="outline" className={completeness.hasIndexableBio ? "bg-success/15 text-success border-success/30" : "bg-warning/15 text-warning border-warning/30"}>
+                {completenessChipLabel(completeness)}
+              </Badge>
+              {publicPath && (
+                <a href={publicPath} target="_blank" rel="noopener noreferrer"
+                  className="ml-auto inline-flex items-center gap-1 text-sm font-medium text-royal hover:underline">
+                  View my public page<span className="sr-only"> (opens in a new tab)</span>
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              )}
+            </div>
+            {notIndexableNote(completeness) && <p className="text-xs text-muted-foreground">{notIndexableNote(completeness)}</p>}
+            {youCanAdd.length === 0 && ownerToAdd.length === 0 ? (
+              <p className="flex items-center gap-1.5 text-sm text-foreground"><CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" /> Your profile is complete.</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {youCanAdd.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-foreground">You can add</p>
+                    <ul className="mt-1 space-y-1">
+                      {youCanAdd.map((l) => (
+                        <li key={l} className="flex items-start gap-1.5 text-sm text-muted-foreground"><Circle className="h-3.5 w-3.5 mt-1 shrink-0" aria-hidden="true" />{l}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {ownerToAdd.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Ask the clinic owner to change these</p>
+                    <ul className="mt-1 space-y-1">
+                      {ownerToAdd.map((l) => (
+                        <li key={l} className="flex items-start gap-1.5 text-sm text-muted-foreground"><Circle className="h-3.5 w-3.5 mt-1 shrink-0" aria-hidden="true" />{l}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Your name, specialization, qualifications, fee and hours are managed by the clinic owner. Ask them to change these.
+            </p>
+          </div>
+        )}
+
         {me && (
           <div className="space-y-4 border-t pt-4">
             <div className="flex items-center gap-3">
@@ -147,8 +211,23 @@ const MyDoctorDetailsCard = () => {
             <div className="space-y-1.5">
               <Label htmlFor="my-doc-bio">Bio</Label>
               <Textarea id="my-doc-bio" rows={4} value={bio} maxLength={BIO_MAX} disabled={saving}
-                onChange={(e) => setBio(e.target.value)} />
-              <p className="text-[11px] text-muted-foreground">Shown on your public doctor page.</p>
+                aria-describedby="my-doc-bio-help" onChange={(e) => setBio(e.target.value)} />
+              <div id="my-doc-bio-help" className="flex flex-wrap items-start justify-between gap-x-3 text-[11px] text-muted-foreground">
+                <span>
+                  Shown on your public doctor page. {bioNeeded > 0
+                    ? `Write at least ${MIN_INDEXABLE_BIO_CHARS} characters so Google can list your page (${bioNeeded} more).`
+                    : "Long enough for Google to list your page."}
+                </span>
+                <span className="tabular-nums" data-testid="bio-counter">{bio.length}/{BIO_MAX}</span>
+              </div>
+              <div className="rounded-md border border-dashed bg-muted/30 p-3">
+                <p className="text-[11px] font-medium text-muted-foreground">How your bio looks on your page</p>
+                {bio.trim() ? (
+                  <p className="mt-1 text-sm text-foreground whitespace-pre-line break-words" data-testid="bio-preview">{bio.trim()}</p>
+                ) : (
+                  <p className="mt-1 text-sm text-muted-foreground italic">Nothing written yet. Visitors will see "Profile coming soon".</p>
+                )}
+              </div>
             </div>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <Button onClick={save} disabled={saving}>

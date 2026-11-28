@@ -100,6 +100,48 @@ describe("DoctorPublicPage", () => {
     expect(order).toEqual(["navbar", "hero", "about", "gallery", "services", "booking", "reviews", "blog", "clinic", "query", "footer"]);
   });
 
+  it("a team clinic is clinic-first: hero, doctors, about, services, gallery, booking, reviews, articles, clinic details, contact form", () => {
+    ctx.value = base({ isTeamClinic: true, isMultiDoctor: false, practitioners: [{ id: "a" }, { id: "b" }], settings: { show_gallery: true }, gallery: [{ id: 1 }] });
+    const { container } = renderPage();
+    const order = [...container.querySelectorAll("div")]
+      .filter((el) => el.children.length === 0)
+      .map((el) => el.textContent?.match(/^SECTION:(\w+)$/)?.[1])
+      .filter(Boolean);
+    expect(order).toEqual(["navbar", "hero", "doctors", "about", "services", "gallery", "booking", "reviews", "blog", "clinic", "query", "footer"]);
+  });
+
+  it("a team clinic's document title uses the clinic name, specialties and city", () => {
+    ctx.value = base({
+      isTeamClinic: true,
+      profile: { ...base().profile, clinic_name: "Little Steps Clinic", slug: "asha" },
+      practitioners: [{ specialization: "Cardiology" }, { specialization: "ENT" }],
+    });
+    renderPage();
+    expect(document.title).toBe("Little Steps Clinic - Cardiology, ENT in Pune | Doctylia");
+  });
+
+  it("a team clinic keeps an owner-written SEO title", () => {
+    ctx.value = base({ isTeamClinic: true, settings: { seo_title: "My own title" }, practitioners: [] });
+    renderPage();
+    expect(document.title).toBe("My own title");
+  });
+
+  it("a single-doctor clinic keeps the doctor-led title", () => {
+    renderPage();
+    expect(document.title).toContain("Dr. Asha Rao");
+    expect(document.title).not.toContain("clinic");
+  });
+
+  it("two bookable doctors without a team flag keep the old order (doctors after about)", () => {
+    ctx.value = base({ isMultiDoctor: true });
+    const { container } = renderPage();
+    const order = [...container.querySelectorAll("div")]
+      .filter((el) => el.children.length === 0)
+      .map((el) => el.textContent?.match(/^SECTION:(\w+)$/)?.[1])
+      .filter(Boolean);
+    expect(order.slice(0, 4)).toEqual(["navbar", "hero", "about", "doctors"]);
+  });
+
   it("still shows Services (it offers the plain consultation) and Gallery (placeholder) when the doctor has switched them on but added nothing", () => {
     ctx.value = base({ services: [], settings: { show_gallery: true }, gallery: [] });
     renderPage();
@@ -146,14 +188,16 @@ describe("DoctorPublicPage", () => {
     expect(ld.innerHTML).not.toContain("employee");
   });
 
-  it("multi-doctor JSON-LD makes the main node a clinic with employee links", () => {
+  it("multi-doctor JSON-LD makes the main node a clinic with embedded doctor members", () => {
     const doc = (slug: string, name: string) => ({ id: slug, slug, display_name: name, is_primary: false, bookable: true });
     ctx.value = base({ isMultiDoctor: true, practitioners: [doc("asha-rao", "Asha Rao"), doc("ravi-n", "Ravi N")] });
     const { container } = renderPage();
     const ld = JSON.parse(container.querySelector('script[type="application/ld+json"]')!.textContent!);
     const main = ld["@graph"][0];
     expect(main["@type"]).toContain("MedicalClinic");
-    expect(main.employee).toHaveLength(2);
+    // Phase 2: members are embedded Physician nodes (a bare @id cannot be resolved from this page).
+    expect(main.member).toHaveLength(2);
+    expect(main.member[0]["@type"]).toContain("Physician");
   });
 
   it("is wrapped in the doctor-site design scope, with a skip link and one main landmark", () => {

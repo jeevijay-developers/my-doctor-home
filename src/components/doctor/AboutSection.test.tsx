@@ -60,3 +60,49 @@ describe("AboutSection", () => {
     expect(scroll.dsScrollTo).toHaveBeenCalledWith("booking", expect.anything());
   });
 });
+
+describe("AboutSection for a clinic with several doctors", () => {
+  const team = (profile: Record<string, unknown> = {}, settings: Record<string, unknown> = {}) =>
+    vi.mocked(useDoctorData).mockReturnValue({
+      isTeamClinic: true,
+      profile: { full_name: "Asha Rao", clinic_name: "Little Steps Clinic", bio: "We care for families.", qualifications: "OWNER-QUAL", registration_number: "OWNER-REG", profile_photo_url: "https://x/owner.jpg", city: "Pune", address: "12 MG Road", ...profile },
+      settings,
+      practitioners: [{ specialization: "Cardiology" }, { specialization: "ENT" }],
+    } as never);
+
+  it("is about the clinic, not 'Meet Dr X', and carries no owner credentials or portrait", () => {
+    team();
+    const { container } = renderAbout();
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("About Little Steps Clinic");
+    expect(screen.queryByText(/Meet /)).not.toBeInTheDocument();
+    expect(screen.queryByText(/OWNER-QUAL|OWNER-REG/)).not.toBeInTheDocument();
+    expect(container.querySelector('img[src*="owner.jpg"]')).toBeNull();
+    expect(screen.getByText("We care for families.")).toBeInTheDocument();
+  });
+
+  it("shows clinic facts: doctor count, specialties and address", () => {
+    team();
+    renderAbout();
+    expect(screen.getByText("Doctors").nextSibling).toHaveTextContent("2");
+    expect(screen.getByText("Cardiology, ENT")).toBeInTheDocument();
+    expect(screen.getByText("12 MG Road, Pune")).toBeInTheDocument();
+  });
+
+  it("uses the clinic's own about photo when there is one", () => {
+    team({}, { about_photo_url: "https://x/clinic.jpg" });
+    const { container } = renderAbout();
+    expect(container.querySelector('img[src*="clinic.jpg"]')).not.toBeNull();
+  });
+
+  it("offers Book appointment", () => {
+    team();
+    renderAbout();
+    expect(screen.getByRole("button", { name: /^Book appointment/ })).toBeInTheDocument();
+  });
+
+  it("still works with no bio and no clinic name", () => {
+    team({ bio: "", clinic_name: "" });
+    renderAbout();
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("About Dr. Asha Rao's clinic");
+  });
+});

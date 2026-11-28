@@ -12,6 +12,7 @@ import { heroPhotoBadge } from "@/lib/doctorSite/heroSettings";
 import { todaysHours } from "@/lib/doctorSite/clinicStatus";
 import { dsCn as cn } from "./ui/dsCn";
 import QuickBookCard from "./hero/QuickBookCard";
+import TeamHero from "./hero/TeamHero";
 import DsButton from "./ui/DsButton";
 import { dsScrollTo } from "./motion/scroll";
 import { useNow } from "./ui/useNow";
@@ -26,7 +27,7 @@ const rise = (delay: number) => ({
   transition: { duration: DUR.medium + 0.1, ease: EASE.out, delay },
 });
 
-const HeroBanner = () => {
+const SoloHero = () => {
   const { profile, reviews, settings, workingHours, isMultiDoctor, bookablePractitioners } = useDoctorData();
   const headingRef = useRef<HTMLHeadingElement>(null);
   useSplitReveal(headingRef, { immediate: true });
@@ -293,6 +294,12 @@ const HeroBanner = () => {
       </div>
     </section>
   );
+};
+
+/** A clinic with several doctors leads with the clinic (TeamHero); everything else is unchanged. */
+const HeroBanner = () => {
+  const { isTeamClinic } = useDoctorData();
+  return isTeamClinic === true ? <TeamHero /> : <SoloHero />;
 };
 
 export default HeroBanner;

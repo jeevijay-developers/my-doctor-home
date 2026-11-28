@@ -1,6 +1,6 @@
 import "./__test__/intersectionObserverStub";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import ClinicDetails from "./ClinicDetails";
 import { useDoctorData } from "@/contexts/DoctorContext";
 
@@ -60,5 +60,51 @@ describe("ClinicDetails", () => {
     mockData({ profile: {}, workingHours: [], settings: {} });
     const { container } = render(<ClinicDetails />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("ClinicDetails in a team clinic", () => {
+  const docs = [
+    { id: "pa", display_name: "Asha Rao" },
+    { id: "pb", display_name: "Dr. Vikram Shah" },
+  ];
+  const row = (pid: string, d: number, over: Record<string, unknown> = {}) => ({ ...hours(d, { start_time_2: null, end_time_2: null, ...over }), practitioner_id: pid });
+  const mockTeam = (rawWorkingHours: unknown[]) =>
+    mockData({ isTeamClinic: true, practitioners: docs, rawWorkingHours });
+
+  it("labels the union 'Clinic hours' and lists each doctor's own week under 'Hours by doctor'", () => {
+    mockTeam([row("pa", 1, { start_time: "09:00:00", end_time: "12:00:00" }), row("pa", 2, { start_time: "09:00:00", end_time: "12:00:00" }), row("pb", 1, { start_time: "15:00:00", end_time: "18:00:00" })]);
+    render(<ClinicDetails />);
+    expect(screen.getByRole("heading", { name: "Clinic hours" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Hours by doctor" })).toBeInTheDocument();
+    const asha = within(screen.getByRole("region", { name: "Hours of Dr. Asha Rao" }));
+    expect(asha.getByText("9:00 AM – 12:00 PM")).toBeInTheDocument();
+    const vikram = within(screen.getByRole("region", { name: "Hours of Dr. Vikram Shah" }));
+    expect(vikram.getByText("3:00 PM – 6:00 PM")).toBeInTheDocument();
+    expect(vikram.queryByText("9:00 AM – 12:00 PM")).not.toBeInTheDocument();
+  });
+
+  it("says so when a doctor has no hours set", () => {
+    mockTeam([row("pa", 1)]);
+    render(<ClinicDetails />);
+    expect(within(screen.getByRole("region", { name: "Hours of Dr. Vikram Shah" })).getByText(/Hours not set/)).toBeInTheDocument();
+  });
+
+  it("collapses the per-doctor table behind a toggle on phones", () => {
+    mockTeam([row("pa", 1)]);
+    render(<ClinicDetails />);
+    const toggle = screen.getByRole("button", { name: "Show each doctor's hours" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(document.getElementById(toggle.getAttribute("aria-controls")!)).toHaveClass("hidden", "md:block");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(document.getElementById(toggle.getAttribute("aria-controls")!)).not.toHaveClass("hidden");
+  });
+
+  it("single-doctor clinics are unchanged: 'Hours', no per-doctor table", () => {
+    mockData();
+    render(<ClinicDetails />);
+    expect(screen.getByRole("heading", { name: "Hours" })).toBeInTheDocument();
+    expect(screen.queryByText("Hours by doctor")).not.toBeInTheDocument();
   });
 });

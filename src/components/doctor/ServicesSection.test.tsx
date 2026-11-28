@@ -160,3 +160,65 @@ describe("ServicesSection", () => {
     });
   });
 });
+
+describe("ServicesSection in a team clinic", () => {
+  const docs = [
+    { id: "p1", display_name: "Dr Asha", bookable: true },
+    { id: "p2", display_name: "Dr Ravi", bookable: false },
+  ];
+  const svc = (id: string, name: string) => service({ id, name, description: "Short." });
+  const team = (over: Record<string, unknown> = {}) =>
+    mockData({
+      isTeamClinic: true,
+      isMultiDoctor: false,
+      practitioners: docs,
+      bookablePractitioners: [docs[0]],
+      services: [svc("s1", "Heart check"), svc("s2", "Skin check"), svc("s3", "Everyone check")],
+      servicePractitioners: [
+        { service_id: "s1", practitioner_id: "p1" },
+        { service_id: "s2", practitioner_id: "p2" },
+      ],
+      ...over,
+    });
+
+  it("offers a doctor filter and narrows the list; unmapped services stay for every doctor", () => {
+    team();
+    renderSection();
+    const group = within(screen.getByRole("group", { name: "Filter services by doctor" }));
+    expect(group.getAllByRole("button").map((b) => b.textContent)).toEqual(["All", "Dr Asha", "Dr Ravi"]);
+    fireEvent.click(group.getByRole("button", { name: "Dr Asha" }));
+    expect(group.getByRole("button", { name: "Dr Asha" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { name: "Heart check" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Everyone check" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Skin check" })).not.toBeInTheDocument();
+  });
+
+  it("names an unbookable doctor in 'Offered by' too (all listed doctors)", () => {
+    team();
+    renderSection();
+    expect(screen.getByText("Offered by Dr Ravi")).toBeInTheDocument();
+  });
+
+  it("explains an empty filter result and All restores the list", () => {
+    team({ services: [svc("s2", "Skin check")], servicePractitioners: [{ service_id: "s2", practitioner_id: "p2" }] });
+    renderSection();
+    fireEvent.click(screen.getByRole("button", { name: "Dr Asha" }));
+    expect(screen.getByText(/No clinic services are listed for this doctor yet/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "All" }));
+    expect(screen.getByRole("heading", { name: "Skin check" })).toBeInTheDocument();
+  });
+
+  it("uses neutral copy for the default consultation and online rows", () => {
+    team({ services: [], settings: { show_online_consultation: true }, hasFeature: () => true });
+    renderSection();
+    expect(screen.getByText(/^See a doctor at the clinic/)).toBeInTheDocument();
+    expect(screen.getByText(/^Video consultation from wherever/)).toBeInTheDocument();
+    expect(screen.queryByText(/the doctor/)).not.toBeInTheDocument();
+  });
+
+  it("has no doctor filter outside a team clinic", () => {
+    team({ isTeamClinic: false });
+    renderSection();
+    expect(screen.queryByRole("group", { name: "Filter services by doctor" })).not.toBeInTheDocument();
+  });
+});

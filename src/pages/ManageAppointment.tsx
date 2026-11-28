@@ -24,6 +24,7 @@ import { hoursFor } from "@/lib/practitioners/hours";
 import { slipDoctor } from "@/lib/practitioners/slipDoctor";
 import type { PublicPractitioner } from "@/lib/practitioners/types";
 import { formatDoctorName } from "@/lib/seo/doctorSeo";
+import { useOldSlugRedirect } from "@/hooks/useOldSlugRedirect";
 
 type Appt = {
   id: string; doctor_id: string; patient_name: string; patient_phone: string;
@@ -38,6 +39,7 @@ type Appt = {
 
 const ManageAppointment = () => {
   const { slug } = useParams<{ slug: string }>();
+  const redirectOldSlug = useOldSlugRedirect();
   const [params] = useSearchParams();
   const [doctor, setDoctor] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
@@ -110,6 +112,7 @@ const ManageAppointment = () => {
       // Explicit public columns (anon cannot read the sensitive ones); the slips use these.
       const { data: profRow, error: profErr } = await supabase.from("profiles").select(PUBLIC_PROFILE_COLUMNS).eq("slug", slug).eq("onboarding_completed", true).single();
       const prof = profRow as unknown as { id: string; full_name: string; clinic_name: string | null; slug: string } | null;
+      if (!prof && (!profErr || profErr.code === "PGRST116") && (await redirectOldSlug(slug))) return;
       if (profErr || !prof) {
         // PGRST116 = no row: the clinic does not exist. Anything else is a failed request.
         setClinicError(profErr && profErr.code !== "PGRST116" ? "network" : "missing");
@@ -146,7 +149,7 @@ const ManageAppointment = () => {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [slug, clinicReload]);
+  }, [slug, clinicReload, redirectOldSlug]);
 
   const lookup = async (e?: React.FormEvent) => {
     e?.preventDefault();

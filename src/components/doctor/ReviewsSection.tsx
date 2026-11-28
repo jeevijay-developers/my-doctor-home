@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ratingSummary } from "@/lib/doctorSite/doctorFacts";
 import { formatDoctorName } from "@/lib/seo/doctorSeo";
+import { reviewsForTab } from "@/lib/doctorSite/teamClinic";
 import { dsCn as cn } from "./ui/dsCn";
 import { radioKeyDown } from "./ui/radioKeyDown";
 import DsButton from "./ui/DsButton";
@@ -100,10 +101,37 @@ const Distribution = ({ rows, total }: { rows: { stars: number; count: number }[
   </ul>
 );
 
-const ReviewsSection = () => {
-  const { reviews, profile, practitioners, isMultiDoctor } = useDoctorData();
-  const list = (reviews ?? []) as Review[];
-  const doctorNames = new Map((isMultiDoctor ? practitioners ?? [] : []).map((d) => [d.id, formatDoctorName(d.display_name)]));
+type ReviewsSectionProps = {
+  /** One doctor's own page: only that doctor's reviews, and "Write a review" preselects them. */
+  practitionerId?: string;
+};
+
+const ReviewsSection = ({ practitionerId }: ReviewsSectionProps = {}) => {
+  const { reviews, profile, practitioners, isMultiDoctor, isTeamClinic } = useDoctorData();
+  const team = isTeamClinic === true && !practitionerId;
+  // Several doctors listed (bookable or not): reviews name their doctor and the form asks which one.
+  const showDoctors = isMultiDoctor || isTeamClinic === true || !!practitionerId;
+  const allReviews = ((reviews ?? []) as Review[]).filter((r) => !practitionerId || r.practitioner_id === practitionerId);
+  const ownerName = practitionerId
+    ? formatDoctorName((practitioners ?? []).find((d) => d.id === practitionerId)?.display_name ?? "")
+    : "";
+  const doctorNames = new Map((showDoctors ? practitioners ?? [] : []).map((d) => [d.id, formatDoctorName(d.display_name)]));
+  const [tab, setTab] = useState("all");
+  // Tabs: All, each listed doctor who has reviews, and Clinic (reviews with no doctor, or whose doctor is no longer listed).
+  const knownIds = new Set((practitioners ?? []).map((d) => d.id));
+  const tabs = team
+    ? [
+        { id: "all", label: "All" },
+        ...(practitioners ?? [])
+          .filter((d) => reviewsForTab(allReviews, d.id, knownIds).length > 0)
+          .map((d) => ({ id: d.id, label: formatDoctorName(d.display_name) })),
+        ...(reviewsForTab(allReviews, "clinic", knownIds).length > 0 ? [{ id: "clinic", label: "Clinic" }] : []),
+      ]
+    : [];
+  const showTabs = tabs.length > 2;
+  const activeTab = showTabs && tabs.some((t) => t.id === tab) ? tab : "all";
+  // The aggregate follows the active tab; "All" counts every review once.
+  const list = showTabs ? reviewsForTab(allReviews, activeTab, knownIds) : allReviews;
   const summary = ratingSummary(list);
   const railRef = useRef<HTMLDivElement>(null);
 
@@ -112,7 +140,7 @@ const ReviewsSection = () => {
   const [name, setName] = useState("");
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
-  const [doctorId, setDoctorId] = useState("");
+  const [doctorId, setDoctorId] = useState(practitionerId ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   const scrollRail = (direction: 1 | -1) =>
@@ -128,7 +156,7 @@ const ReviewsSection = () => {
       rating,
       review_text: text.trim() || null,
       // Only a multi-doctor clinic that was told which doctor sends one; otherwise the payload is unchanged.
-      ...(isMultiDoctor && doctorId ? { practitioner_id: doctorId } : {}),
+      ...(showDoctors && doctorId ? { practitioner_id: doctorId } : {}),
     });
     if (error) {
       toast.error("Failed to submit review");
@@ -138,7 +166,7 @@ const ReviewsSection = () => {
       setName("");
       setRating(5);
       setText("");
-      setDoctorId("");
+      setDoctorId(practitionerId ?? "");
     }
     setSubmitting(false);
   };
@@ -149,7 +177,7 @@ const ReviewsSection = () => {
         <SectionHeader
           id="reviews-heading"
           eyebrow="Patient reviews"
-          title={summary ? "What patients say" : "Be the first to share your experience"}
+          title={summary ? (ownerName ? `What patients say about ${ownerName}` : "What patients say") : "Be the first to share your experience"}
           intro={summary ? undefined : "Your feedback helps other patients make a confident choice."}
           aside={
             summary ? (
@@ -169,8 +197,49 @@ const ReviewsSection = () => {
           }
         />
 
+        {showTabs && (
+          <div
+            role="tablist"
+            aria-label="Reviews by doctor"
+            className="mt-8 flex flex-wrap gap-2"
+            onKeyDown={(event) => {
+              const forward = event.key === "ArrowRight";
+              if (!forward && event.key !== "ArrowLeft") return;
+              const el = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+              const at = el.indexOf(document.activeElement as HTMLButtonElement);
+              if (at < 0) return;
+              event.preventDefault();
+              const next = el[(at + (forward ? 1 : -1) + el.length) % el.length];
+              next.focus();
+              next.click();
+            }}
+          >
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`reviews-tab-${t.id}`}
+                aria-selected={activeTab === t.id}
+                aria-controls="reviews-panel"
+                tabIndex={activeTab === t.id ? 0 : -1}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  "inline-flex min-h-11 max-w-full items-center rounded-full border px-4 text-ds-body font-medium transition-colors duration-ds-1",
+                  activeTab === t.id ? "border-ds-accent bg-ds-accent-soft text-ds-ink ring-1 ring-ds-accent" : "border-ds-line bg-ds-surface text-ds-ink-2 hover:border-ds-ink/30",
+                )}
+              >
+                <span className="truncate">{t.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {list.length > 0 && (
-          <div className="relative mt-10 md:mt-14">
+          <div
+            className="relative mt-10 md:mt-14"
+            {...(showTabs ? { role: "tabpanel", id: "reviews-panel", "aria-labelledby": `reviews-tab-${activeTab}` } : {})}
+          >
             <div
               ref={railRef}
               // Only sideways gestures belong to the rail. Opting the whole wheel out of Lenis (with the
@@ -182,7 +251,7 @@ const ReviewsSection = () => {
               className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain px-5 pb-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden"
             >
               {list.map((review, index) => (
-                <ReviewCard key={review.id} review={review} index={index} onRead={setReading} doctorName={review.practitioner_id ? doctorNames.get(review.practitioner_id) : undefined} />
+                <ReviewCard key={review.id} review={review} index={index} onRead={setReading} doctorName={review.practitioner_id && !practitionerId ? doctorNames.get(review.practitioner_id) : undefined} />
               ))}
             </div>
             {list.length > 3 && (
@@ -253,7 +322,7 @@ const ReviewsSection = () => {
               />
             </div>
 
-            {isMultiDoctor && (practitioners ?? []).length > 0 && (
+            {showDoctors && (practitioners ?? []).length > 0 && (
               <div>
                 <label htmlFor="review-doctor" className="mb-1.5 block text-ds-small font-medium">
                   Which doctor did you see? <span className="font-normal text-ds-ink-3">(optional)</span>

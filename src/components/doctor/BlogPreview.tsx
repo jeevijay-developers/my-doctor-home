@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import type { Tables } from "@/integrations/supabase/types";
+import { authorDisplayName, resolveBlogAuthor } from "@/lib/blogAuthor";
 import SectionHeader from "./ui/SectionHeader";
 import { DUR, EASE, staggerDelay } from "./motion/tokens";
 
@@ -35,14 +36,15 @@ const Cover = ({ post, className }: { post: BlogPost; className: string }) =>
     </div>
   );
 
-const meta = (post: BlogPost) => {
+const meta = (post: BlogPost, author?: string | null) => {
   const date = post.published_at || post.created_at;
-  return [post.category, format(new Date(date), "d MMM yyyy"), `${readingTime(post.content)} min read`].filter(Boolean).join(" · ");
+  return [author, post.category, format(new Date(date), "d MMM yyyy"), `${readingTime(post.content)} min read`].filter(Boolean).join(" · ");
 };
 
 /** Doctor-written articles (spec §5.9): one feature plus a short list. Hidden until there is something to read. */
 const BlogPreview = () => {
-  const { profile, settings } = useDoctorData();
+  const { profile, settings, isTeamClinic, practitioners } = useDoctorData();
+  const team = isTeamClinic === true;
   const { slug } = useParams<{ slug: string }>();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -73,7 +75,7 @@ const BlogPreview = () => {
     return (
       <section id="blog" aria-labelledby="blog-heading" className="bg-ds-paper-2 py-[4.5rem] md:py-32">
         <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8">
-          <SectionHeader id="blog-heading" eyebrow="Health articles" title="Written by the doctor" />
+          <SectionHeader id="blog-heading" eyebrow={team ? "From our doctors" : "Health articles"} title={team ? "Health articles" : "Written by the doctor"} />
           <p className="mt-10 rounded-ds-lg border border-dashed border-ds-line px-6 py-14 text-center text-ds-body text-ds-ink-2 md:mt-14">
             No articles yet. New ones will appear here.
           </p>
@@ -82,6 +84,12 @@ const BlogPreview = () => {
     );
   }
 
+  // Team clinics name the doctor who wrote a post (clinic byline when unknown, see resolveBlogAuthor).
+  const authorOf = (post: BlogPost) => {
+    if (!team) return null;
+    const hit = resolveBlogAuthor(post as { practitioner_id?: string | null }, practitioners ?? null);
+    return hit ? authorDisplayName(hit.practitioner.display_name) : null;
+  };
   const [feature, ...rest] = posts;
   const href = (post: BlogPost) => blogPostPath(slug, post as { id: string; slug?: string | null });
 
@@ -90,8 +98,8 @@ const BlogPreview = () => {
       <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-8">
         <SectionHeader
           id="blog-heading"
-          eyebrow="Health articles"
-          title="Written by the doctor"
+          eyebrow={team ? "From our doctors" : "Health articles"}
+          title={team ? "Health articles" : "Written by the doctor"}
           aside={
             <Link to={`/dr/${slug}/blog`} className="inline-flex min-h-12 items-center gap-2 rounded-full border border-ds-line bg-ds-surface/70 px-6 text-ds-small font-semibold transition-colors hover:border-ds-ink/30">
               All articles <ArrowRight aria-hidden="true" className="h-4 w-4" />
@@ -111,7 +119,7 @@ const BlogPreview = () => {
               <div className="overflow-hidden rounded-ds-lg ring-1 ring-ds-line">
                 <Cover post={feature} className="aspect-[16/10] w-full" />
               </div>
-              <p className="mt-5 text-ds-label text-ds-ink-3">{meta(feature)}</p>
+              <p className="mt-5 text-ds-label text-ds-ink-3">{meta(feature, authorOf(feature))}</p>
               <h3 className="mt-2 font-ds-display text-ds-h2 font-medium leading-tight underline-offset-[6px] decoration-ds-line group-hover:underline">{feature.title}</h3>
               {feature.excerpt && <p className="mt-3 line-clamp-3 max-w-[56ch] text-ds-lead text-ds-ink-2">{feature.excerpt}</p>}
               <span className="mt-4 inline-flex items-center gap-2 text-ds-small font-semibold text-ds-accent-ink">
@@ -132,7 +140,7 @@ const BlogPreview = () => {
                 >
                   <Link to={href(post)} className="group grid grid-cols-[1fr_auto] items-center gap-4 py-5">
                     <span className="min-w-0">
-                      <span className="block text-ds-label text-ds-ink-3">{meta(post)}</span>
+                      <span className="block text-ds-label text-ds-ink-3">{meta(post, authorOf(post))}</span>
                       <span className="mt-1 block font-ds-display text-ds-h3 font-medium leading-snug underline-offset-4 decoration-ds-line group-hover:underline">{post.title}</span>
                     </span>
                     <ArrowRight aria-hidden="true" className="h-5 w-5 shrink-0 text-ds-ink-3 transition-transform duration-ds-2 group-hover:translate-x-1" />

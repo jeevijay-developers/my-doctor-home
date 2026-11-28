@@ -1,25 +1,32 @@
 import { useEffect, useMemo, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { MotionConfig } from "framer-motion";
-import { ArrowLeft, UserRound } from "lucide-react";
 import "@/styles/doctor-site.css";
 import { DoctorProvider, useDoctorData } from "@/contexts/DoctorContext";
+import Navbar from "@/components/doctor/Navbar";
 import BookingWidget from "@/components/doctor/BookingWidget";
+import ReviewsSection from "@/components/doctor/ReviewsSection";
+import ClinicDetails from "@/components/doctor/ClinicDetails";
 import Footer from "@/components/doctor/Footer";
+import BottomActionBar from "@/components/doctor/BottomActionBar";
 import DoctorThemeProvider from "@/components/doctor/DoctorThemeProvider";
-import OptimizedImage from "@/components/shared/OptimizedImage";
-import { dsCn } from "@/components/doctor/ui/dsCn";
+import SmoothScroll from "@/components/doctor/motion/SmoothScroll";
+import { dsScrollTo } from "@/components/doctor/motion/scroll";
 import { SELECT_DOCTOR_EVENT } from "@/components/doctor/DoctorsSection";
-import { formatQualifications } from "@/lib/doctorSite/doctorFacts";
-import { groupWorkingHours, formatDayRangeLabel } from "@/lib/workingHoursGrouping";
-import { dayIntervals, type WorkingHoursRow } from "@/lib/doctorSite/clinicStatus";
+import ProfileHeader from "@/components/doctor/practitioner/ProfileHeader";
+import DoctorBio from "@/components/doctor/practitioner/DoctorBio";
+import DoctorServices from "@/components/doctor/practitioner/DoctorServices";
+import DoctorHours from "@/components/doctor/practitioner/DoctorHours";
+import DoctorArticles from "@/components/doctor/practitioner/DoctorArticles";
+import OtherDoctors from "@/components/doctor/practitioner/OtherDoctors";
+import { usePractitionerHead } from "@/components/doctor/practitioner/usePractitionerHead";
+import { clinicDisplayName } from "@/lib/doctorSite/teamClinic";
+import { doctorPageNoindex, otherDoctors } from "@/lib/doctorSite/practitionerPage";
 import { hoursFor } from "@/lib/practitioners/hours";
-import { practitionerFee } from "@/lib/practitioners/fee";
-import { DEFAULT_TITLE, buildPractitionerJsonLd, buildPractitionerMeta, doctorDisplayName, formatDoctorName } from "@/lib/seo/doctorSeo";
+import { buildPractitionerJsonLd, buildPractitionerMeta, formatDoctorName } from "@/lib/seo/doctorSeo";
 import { jsonLdScript } from "@/lib/jsonLd";
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
+// Root of the doctor site: scopes the `ds-*` design tokens and the reduced-motion policy.
 const Shell = ({ children }: { children: ReactNode }) => (
   <DoctorThemeProvider>
     <MotionConfig reducedMotion="user">
@@ -27,35 +34,6 @@ const Shell = ({ children }: { children: ReactNode }) => (
     </MotionConfig>
   </DoctorThemeProvider>
 );
-
-/** Sets a <meta> tag (created when missing) and returns the function that puts the previous value back. */
-function setMeta(attr: "name" | "property", key: string, content: string) {
-  let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
-  if (!el) {
-    el = document.createElement("meta");
-    el.setAttribute(attr, key);
-    document.head.appendChild(el);
-  }
-  const prev = el.content;
-  el.content = content;
-  return () => {
-    if (el) el.content = prev;
-  };
-}
-
-function setCanonical(href: string) {
-  let link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-  if (!link) {
-    link = document.createElement("link");
-    link.setAttribute("rel", "canonical");
-    document.head.appendChild(link);
-  }
-  const prev = link.href;
-  link.href = href;
-  return () => {
-    if (link) link.href = prev || `${window.location.origin}/`;
-  };
-}
 
 const Notice = ({ title, children }: { title: string; children?: ReactNode }) => (
   <Shell>
@@ -71,65 +49,56 @@ const Notice = ({ title, children }: { title: string; children?: ReactNode }) =>
 const PractitionerContent = () => {
   const { slug = "", doctorSlug = "" } = useParams<{ slug: string; doctorSlug: string }>();
   const navigate = useNavigate();
-  const { profile, practitioners, allWorkingHours, rawWorkingHours, reviews, loading } = useDoctorData();
+  const { hash } = useLocation();
+  const { profile, settings, practitioners, allWorkingHours, rawWorkingHours, isTeamClinic, loading } = useDoctorData();
 
   const doctor = useMemo(() => (practitioners ?? []).find((p) => p.slug === doctorSlug) ?? null, [practitioners, doctorSlug]);
+  // 2+ active doctors (the context says so; a bare list is read the same way). Fewer: no doctor pages.
+  const team = isTeamClinic ?? (practitioners ?? []).length >= 2;
 
-  // An unknown or inactive doctor has no page of its own: send the visitor to the clinic page.
+  // An unknown or inactive doctor, or a clinic that is down to one doctor, has no page of its own:
+  // send the visitor to the clinic page.
   useEffect(() => {
-    if (!loading && profile && !doctor) navigate(`/dr/${slug}`, { replace: true });
-  }, [loading, profile, doctor, slug, navigate]);
+    if (!loading && profile && (!doctor || !team)) navigate(`/dr/${slug}`, { replace: true });
+  }, [loading, profile, doctor, team, slug, navigate]);
 
   // Preselect this doctor in the booking widget (its listener is mounted before this effect runs).
   const doctorId = doctor?.id;
   const bookable = !!doctor?.bookable;
   useEffect(() => {
-    if (!doctorId || !bookable) return;
+    if (!doctorId || !bookable || !team) return;
     window.dispatchEvent(new CustomEvent(SELECT_DOCTOR_EVENT, { detail: { id: doctorId } }));
-  }, [doctorId, bookable]);
+  }, [doctorId, bookable, team]);
 
   const input = useMemo(
-    () => (profile && doctor ? { origin: window.location.origin, profile, practitioner: doctor } : null),
-    [profile, doctor],
+    () =>
+      profile && doctor
+        ? { origin: window.location.origin, profile, practitioner: doctor, settings, workingHours: hoursFor(rawWorkingHours ?? allWorkingHours ?? [], doctor.id) }
+        : null,
+    [profile, doctor, settings, rawWorkingHours, allWorkingHours],
   );
   const meta = useMemo(() => (input ? buildPractitionerMeta(input) : null), [input]);
   const structuredData = useMemo(() => (input ? buildPractitionerJsonLd(input) : null), [input]);
+  usePractitionerHead(meta, doctor ? doctorPageNoindex(doctor) : false);
 
-  useEffect(() => {
-    if (!meta?.title) return;
-    const prevTitle = document.title;
-    document.title = meta.title;
-    const canonical = meta.canonical || window.location.href;
-    const undo: Array<() => void> = [
-      setCanonical(canonical),
-      setMeta("name", "description", meta.description),
-      setMeta("property", "og:title", meta.title),
-      setMeta("property", "og:description", meta.description),
-      setMeta("property", "og:url", canonical),
-      setMeta("property", "og:type", "profile"),
-      setMeta("name", "twitter:title", meta.title),
-      setMeta("name", "twitter:description", meta.description),
-    ];
-    if (meta.image) {
-      undo.push(setMeta("property", "og:image", meta.image), setMeta("name", "twitter:image", meta.image));
-    }
-    return () => {
-      document.title = prevTitle || DEFAULT_TITLE;
-      undo.forEach((fn) => fn());
-    };
-  }, [meta]);
-
-  const groups = useMemo(() => {
-    if (!doctor) return [];
-    const rows = [...hoursFor(rawWorkingHours ?? allWorkingHours ?? [], doctor.id)].sort((a, b) => a.day_of_week - b.day_of_week);
-    return groupWorkingHours(rows);
-  }, [rawWorkingHours, allWorkingHours, doctor]);
-
-  // This doctor's own visible reviews (the clinic-level ones belong to the clinic page).
-  const ownReviews = useMemo(
-    () => (doctor ? ((reviews ?? []) as Array<Record<string, any>>).filter((r) => r.practitioner_id === doctor.id) : []),
-    [reviews, doctor],
+  const rows = useMemo(
+    () => (doctor ? hoursFor(rawWorkingHours ?? allWorkingHours ?? [], doctor.id) : []),
+    [rawWorkingHours, allWorkingHours, doctor],
   );
+  const others = useMemo(() => (doctor ? otherDoctors(practitioners, doctor.id) : []), [practitioners, doctor]);
+
+  // A link like /dr/x/doctor/y#booking lands on that section once the page has rendered.
+  useEffect(() => {
+    if (loading || !doctor || !hash) return;
+    let target = hash.slice(1);
+    try {
+      target = decodeURIComponent(target);
+    } catch {
+      // A malformed escape is just not a section id.
+    }
+    const frame = window.requestAnimationFrame(() => dsScrollTo(target));
+    return () => window.cancelAnimationFrame(frame);
+  }, [hash, loading, doctor]);
 
   if (loading) {
     return (
@@ -144,131 +113,65 @@ const PractitionerContent = () => {
   if (profile.plan_status === "cancelled") {
     return <Notice title="This clinic is temporarily unavailable">Please check back later or contact the clinic directly.</Notice>;
   }
-  if (!doctor) return null; // the effect above is redirecting
+  if (!doctor || !team) return null; // the effect above is redirecting
 
   const name = formatDoctorName(doctor.display_name);
-  const clinic = doctorDisplayName(profile);
-  const years = Number(doctor.experience_years);
-  const fee = practitionerFee(doctor, profile.consultation_fee);
-  const facts = [
-    { term: "Qualifications", detail: formatQualifications(doctor.qualifications) },
-    { term: "Experience", detail: Number.isFinite(years) && years > 0 ? `${years} year${years === 1 ? "" : "s"} in practice` : "" },
-    { term: "Registration no.", detail: (doctor.registration_number ?? "").trim() },
-    { term: "Consultation fee", detail: `₹${fee}` },
-  ].filter((f) => f.detail);
+  const clinicName = clinicDisplayName(profile);
 
   return (
     <Shell>
-      {structuredData && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData) }} />}
-      <main id="main" className="mx-auto max-w-[1200px] px-5 py-10 sm:px-6 md:py-16 lg:px-8">
-        <Link to={`/dr/${slug}`} className="inline-flex min-h-11 items-center gap-2 text-ds-body font-medium text-ds-accent-ink hover:underline">
-          <ArrowLeft aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
-          {clinic ? `Back to ${clinic}'s clinic` : "Back to the clinic"}
-        </Link>
+      <SmoothScroll>
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-ds-accent focus:px-5 focus:py-3 focus:font-medium focus:text-white"
+        >
+          Skip to main content
+        </a>
+        {structuredData && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData) }} />}
+        <Navbar />
+        <main id="main">
+          <ProfileHeader doctor={doctor} profile={profile} clinicName={clinicName} clinicHref={`/dr/${slug}`} />
 
-        <header className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-center">
-          {doctor.photo_url ? (
-            <OptimizedImage
-              src={doctor.photo_url}
-              alt={name}
-              width={320}
-              height={320}
-              className="h-32 w-32 shrink-0 rounded-full object-cover ring-2 ring-ds-surface sm:h-40 sm:w-40"
-            />
-          ) : (
-            <span aria-hidden="true" className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-ds-paper-2 text-ds-ink-2 sm:h-40 sm:w-40">
-              <UserRound className="h-12 w-12" strokeWidth={1.5} />
-            </span>
-          )}
-          <div className="min-w-0">
-            <h1 className="font-ds-display text-ds-h1 font-medium leading-tight text-ds-ink">{name}</h1>
-            {doctor.specialization && <p className="mt-2 text-ds-body text-ds-ink-2">{doctor.specialization}</p>}
-            {doctor.review_count > 0 && doctor.avg_rating != null && (
-              <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-ds-body text-ds-ink-2">
-                <span className="font-medium text-ds-ink ds-tabular">★ {Number(doctor.avg_rating).toFixed(1)}</span>
-                <span>{doctor.review_count} review{doctor.review_count === 1 ? "" : "s"}</span>
-              </p>
-            )}
-          </div>
-        </header>
-
-        <div className="mt-10 grid gap-10 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            {doctor.bio?.trim() && (
-              <section aria-labelledby="about-doctor">
-                <h2 id="about-doctor" className="font-ds-display text-ds-h3 font-medium">About {name}</h2>
-                <p className="mt-3 whitespace-pre-line text-[1.0625rem] leading-relaxed text-ds-ink-2 sm:text-ds-body">{doctor.bio.trim()}</p>
-              </section>
-            )}
-
-            {facts.length > 0 && (
-              <dl className="mt-8 border-t border-ds-line">
-                {facts.map((f) => (
-                  <div key={f.term} className="flex items-baseline justify-between gap-4 border-b border-ds-line py-3">
-                    <dt className="text-ds-small text-ds-ink-3">{f.term}</dt>
-                    <dd className="text-right text-[1.0625rem] text-ds-ink ds-tabular sm:text-ds-body">{f.detail}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-
-            {groups.length > 0 && (
-              <section aria-labelledby="doctor-hours" className="mt-10">
-                <h2 id="doctor-hours" className="font-ds-display text-ds-h3 font-medium">Hours</h2>
-                <dl className="mt-4 border-t border-ds-line">
-                  {groups.map((g) => {
-                    const sessions = g.sample.is_open
-                      ? dayIntervals(g.sample as unknown as WorkingHoursRow).map((i) => `${i.startLabel} – ${i.endLabel}`)
-                      : ["Closed"];
-                    const lines = sessions.length > 0 ? sessions : ["Contact the clinic"];
-                    return (
-                      <div key={g.days.join("-")} className="flex items-start justify-between gap-4 border-b border-ds-line py-3.5 text-[1.0625rem] text-ds-ink-2 sm:text-ds-body">
-                        <dt>{formatDayRangeLabel(g.days, DAY_NAMES)}</dt>
-                        <dd className={dsCn("text-right ds-tabular", !g.sample.is_open && "text-ds-danger")}>
-                          {lines.map((line) => (
-                            <span key={line} className="block whitespace-nowrap">{line}</span>
-                          ))}
-                        </dd>
-                      </div>
-                    );
-                  })}
-                </dl>
-              </section>
-            )}
-
-            {ownReviews.length > 0 && (
-              <section aria-labelledby="doctor-reviews" className="mt-10">
-                <h2 id="doctor-reviews" className="font-ds-display text-ds-h3 font-medium">What patients say about {name}</h2>
-                <ul className="mt-4 space-y-4">
-                  {ownReviews.map((r) => (
-                    <li key={r.id} className="rounded-ds-md border border-ds-line bg-ds-surface p-5 shadow-ds-1">
-                      <p className="text-ds-small font-medium text-ds-ink ds-tabular">
-                        <span aria-hidden="true">★ {r.rating}</span>
-                        <span className="sr-only">{r.rating} out of 5 stars</span>
-                      </p>
-                      {r.review_text?.trim() && (
-                        <p className="mt-2 whitespace-pre-line text-[1.0625rem] leading-relaxed text-ds-ink-2 sm:text-ds-body">“{r.review_text.trim()}”</p>
-                      )}
-                      <p className="mt-2 text-ds-small text-ds-ink-3">{r.patient_name}</p>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
+          <div className="mx-auto grid max-w-[1200px] gap-12 px-5 pb-16 sm:px-6 md:pb-24 lg:grid-cols-12 lg:gap-14 lg:px-8">
+            <div className="space-y-12 lg:col-span-7">
+              <DoctorBio name={name} bio={doctor.bio} />
+              <DoctorServices doctor={doctor} name={name} />
+            </div>
+            <div className="lg:col-span-5">
+              <DoctorHours rows={rows as never} name={name} />
+            </div>
           </div>
 
-          <div className="lg:col-span-5" id="booking-zone">
+          {/* Stable wrapper: BookingWidget swaps its root between states, so observers watch this. */}
+          <div id="booking-zone">
             {doctor.bookable ? (
               <BookingWidget />
             ) : (
-              <p className="rounded-ds-lg border border-ds-line bg-ds-surface p-6 text-[1.0625rem] text-ds-ink-2 shadow-ds-1">
-                Online booking is not open for this doctor. Please call the clinic.
-              </p>
+              <section id="booking" aria-label="Booking" className="px-5 py-12 sm:px-6 lg:px-8">
+                <p className="mx-auto max-w-[1200px] rounded-ds-lg border border-ds-line bg-ds-surface p-6 text-[1.0625rem] text-ds-ink-2 shadow-ds-1 sm:text-ds-body">
+                  Online booking is not open for this doctor. Please call the clinic.
+                </p>
+              </section>
             )}
           </div>
-        </div>
-      </main>
-      <Footer />
+
+          {settings?.show_reviews !== false && <ReviewsSection practitionerId={doctor.id} />}
+          <DoctorArticles
+            clinicId={profile.id}
+            clinicSlug={slug}
+            doctorId={doctor.id}
+            doctorSlug={doctor.slug}
+            name={name}
+            enabled={settings?.show_blog !== false}
+          />
+          <OtherDoctors doctors={others} clinicSlug={slug} clinicName={clinicName} />
+          {settings?.show_clinic_details !== false && <ClinicDetails />}
+        </main>
+        <Footer />
+        <BottomActionBar />
+        {/* Keeps the footer clear of the fixed mobile action bar. */}
+        <div aria-hidden="true" style={{ height: "var(--ds-bottom-bar)" }} />
+      </SmoothScroll>
     </Shell>
   );
 };

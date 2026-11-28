@@ -53,4 +53,47 @@ describe("Navbar", () => {
     renderNav();
     expect(screen.getByRole("button", { name: /Switch to (light|dark) theme/ })).toBeInTheDocument();
   });
+
+  describe("clinic with several doctors", () => {
+    const team = (settings: Record<string, unknown> = {}, profile: Record<string, unknown> = {}) =>
+      vi.mocked(useDoctorData).mockReturnValue({
+        profile: { full_name: "asha rao", specialization: "Pediatrician", clinic_name: "Little Steps Clinic", city: "Pune", profile_photo_url: "https://x/owner.jpg", ...profile },
+        settings,
+        isTeamClinic: true,
+      } as never);
+
+    it("brands the page with the clinic, not the owner", () => {
+      team();
+      renderNav();
+      expect(screen.getByText("Little Steps Clinic")).toBeInTheDocument();
+      expect(screen.queryByText("Dr. Asha Rao")).not.toBeInTheDocument();
+      expect(screen.queryByText("Pediatrician")).not.toBeInTheDocument();
+      expect(document.querySelector('img[src*="owner.jpg"]')).toBeNull();
+    });
+
+    it("links Doctors, Services, Reviews, Articles and Contact, in page order", () => {
+      team();
+      renderNav();
+      expect(sectionLinks()).toEqual(["Doctors", "Services", "Reviews", "Articles", "Contact"]);
+      expect(screen.getAllByRole("button", { name: /Book appointment/ }).length).toBeGreaterThan(0);
+    });
+
+    it("drops links to sections the clinic switched off", () => {
+      team({ show_services: false, show_reviews: false, show_blog: false });
+      renderNav();
+      expect(sectionLinks()).toEqual(["Doctors", "Contact"]);
+    });
+
+    it("keeps the My appointment link", () => {
+      team();
+      renderNav();
+      expect(screen.getAllByRole("link", { name: /My appointment/ })[0]).toHaveAttribute("href", "/dr/asha/manage");
+    });
+
+    it("without a clinic name falls back to the owner without doubling Dr.", () => {
+      team({}, { clinic_name: "", full_name: "Dr. Asha Rao" });
+      renderNav();
+      expect(screen.getByText("Dr. Asha Rao's clinic")).toBeInTheDocument();
+    });
+  });
 });

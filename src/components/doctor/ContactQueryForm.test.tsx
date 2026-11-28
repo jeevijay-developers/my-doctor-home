@@ -97,4 +97,52 @@ describe("ContactQueryForm", () => {
     expect(screen.queryByText("Message sent")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^Your name/)).toHaveValue("Sunita");
   });
+
+  describe("team clinic", () => {
+    const docs = [
+      { id: "pa", display_name: "Asha Rao", specialization: "Cardiology" },
+      { id: "pb", display_name: "Dr. Vikram Shah", specialization: null },
+    ];
+    beforeEach(() => {
+      vi.mocked(useDoctorData).mockReturnValue({ profile: { id: "doc-1" }, isTeamClinic: true, practitioners: docs } as never);
+    });
+
+    it("offers an optional 'Who would you like to consult?' with no preference first", () => {
+      render(<ContactQueryForm />);
+      const select = screen.getByLabelText(/Who would you like to consult/) as HTMLSelectElement;
+      expect(select.value).toBe("");
+      expect(screen.getByRole("option", { name: "No preference" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Dr. Asha Rao (Cardiology)" })).toBeInTheDocument();
+    });
+
+    it("sends the message unchanged when no doctor is chosen", async () => {
+      render(<ContactQueryForm />);
+      fill("Sunita", "9876543210", "Hello");
+      send();
+      await waitFor(() => expect(fn.invoke).toHaveBeenCalled());
+      expect(fn.invoke.mock.calls[0][1].body).toEqual(expect.objectContaining({ message: "Hello" }));
+      expect(fn.invoke.mock.calls[0][1].body).not.toHaveProperty("practitioner_id");
+    });
+
+    it("carries a chosen doctor as the first line of the message (the table has no doctor column)", async () => {
+      render(<ContactQueryForm />);
+      fireEvent.change(screen.getByLabelText(/Who would you like to consult/), { target: { value: "pb" } });
+      fill("Sunita", "9876543210", "Hello");
+      send();
+      await waitFor(() => expect(fn.invoke).toHaveBeenCalled());
+      expect(fn.invoke.mock.calls[0][1].body.message).toBe("For Dr. Vikram Shah:" + String.fromCharCode(10) + "Hello");
+    });
+
+    it("keeps the 1000-character limit including the doctor line", () => {
+      render(<ContactQueryForm />);
+      fireEvent.change(screen.getByLabelText(/Who would you like to consult/), { target: { value: "pb" } });
+      expect(screen.getByLabelText(/^Your message/)).toHaveAttribute("maxlength", String(1000 - "For Dr. Vikram Shah:_".length));
+    });
+
+    it("is not shown outside a team clinic", () => {
+      vi.mocked(useDoctorData).mockReturnValue({ profile: { id: "doc-1" }, isTeamClinic: false, practitioners: docs } as never);
+      render(<ContactQueryForm />);
+      expect(screen.queryByLabelText(/Who would you like to consult/)).not.toBeInTheDocument();
+    });
+  });
 });

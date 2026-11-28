@@ -6,6 +6,7 @@ import { useDoctorData } from "@/contexts/DoctorContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/lib/phone";
 import { edgeFunctionErrorMessage } from "@/lib/edgeFunctionError";
+import { formatDoctorName } from "@/lib/seo/doctorSeo";
 import { dsCn as cn } from "./ui/dsCn";
 import DsButton from "./ui/DsButton";
 import SectionHeader from "./ui/SectionHeader";
@@ -33,8 +34,17 @@ const inputClass = (invalid: boolean) =>
  * it (not in a pop-up after submitting). Required fields carry a * (name, mobile
  * number, message); email is always on the form, above the message.
  */
+const MESSAGE_LIMIT = 1000;
+
 const ContactQueryForm = () => {
-  const { profile } = useDoctorData();
+  const { profile, isTeamClinic, practitioners } = useDoctorData();
+  const doctors = isTeamClinic === true ? practitioners ?? [] : [];
+  // patient_queries has no doctor column (and the edge function takes none), so a chosen doctor
+  // travels as the first line of the message: "For Dr. X:". A migration would be needed for a real column.
+  const [doctorId, setDoctorId] = useState("");
+  const chosen = doctors.find((d) => d.id === doctorId);
+  const prefix = chosen ? `For ${formatDoctorName(chosen.display_name)}:\n` : "";
+  const messageLimit = MESSAGE_LIMIT - prefix.length;
   const [values, setValues] = useState({ name: "", phone: "", email: "", message: "" });
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
   const [website, setWebsite] = useState(""); // honeypot
@@ -58,6 +68,7 @@ const ContactQueryForm = () => {
     setValues({ name: "", phone: "", email: "", message: "" });
     setTouched({});
     setWebsite("");
+    setDoctorId("");
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -84,7 +95,7 @@ const ContactQueryForm = () => {
         name: values.name.trim(),
         phone: normalizeIndianPhone(values.phone),
         email: values.email.trim() || null,
-        message: values.message.trim(),
+        message: `${prefix}${values.message.trim()}`,
       },
     });
     setSubmitting(false);
@@ -175,6 +186,28 @@ const ContactQueryForm = () => {
                 </div>
               </div>
 
+              {doctors.length >= 2 && (
+                <div>
+                  <label htmlFor="query-doctor" className="mb-1.5 block text-ds-small font-medium">
+                    Who would you like to consult? <span className="font-normal text-ds-ink-3">(optional)</span>
+                  </label>
+                  <select
+                    id="query-doctor"
+                    value={doctorId}
+                    onChange={(e) => setDoctorId(e.target.value)}
+                    disabled={submitting}
+                    className={cn(inputClass(false), "h-12")}
+                  >
+                    <option value="">No preference</option>
+                    {doctors.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {formatDoctorName(d.display_name)}{d.specialization ? ` (${d.specialization})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label htmlFor="query-email" className="mb-1.5 block text-ds-small font-medium">Email</label>
                 <input
@@ -194,7 +227,7 @@ const ContactQueryForm = () => {
               <div>
                 <div className="mb-1.5 flex items-baseline justify-between gap-3">
                   <label htmlFor="query-message" className="text-ds-small font-medium">Your message<Req /></label>
-                  <span className="text-ds-label text-ds-ink-3 ds-tabular">{values.message.length}/1000</span>
+                  <span className="text-ds-label text-ds-ink-3 ds-tabular">{values.message.length}/{messageLimit}</span>
                 </div>
                 <textarea
                   id="query-message"
@@ -202,7 +235,7 @@ const ContactQueryForm = () => {
                   onChange={(e) => set("message")(e.target.value)}
                   onBlur={touch("message")}
                   rows={5}
-                  maxLength={1000}
+                  maxLength={messageLimit}
                   placeholder="How can the clinic help?"
                   disabled={submitting}
                   required

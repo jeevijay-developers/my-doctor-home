@@ -93,3 +93,30 @@ describe("Footer", () => {
     expect(screen.getByRole("link", { name: /Instagram/ })).toHaveAttribute("href", "https://instagram.com/asha");
   });
 });
+
+describe("Footer in a team clinic", () => {
+  beforeEach(() => {
+    scroll.dsScrollTo.mockReset();
+    mockContext({ isTeamClinic: true, practitioners: [{ specialization: "Cardiology" }, { specialization: "ENT" }] });
+  });
+
+  it("is signed by the clinic, not the owner", () => {
+    renderAt("/dr/asha");
+    expect(screen.getByText("Book a visit at Little Steps.")).toBeInTheDocument();
+    expect(screen.queryByText(/Dr\. Asha Rao/)).not.toBeInTheDocument();
+    expect(screen.getByText(/© \d{4} Little Steps/)).toBeInTheDocument();
+    expect(screen.getByText(/Cardiology, ENT/)).toBeInTheDocument();
+  });
+
+  it("adds a Doctors quick link that scrolls on the home page", () => {
+    renderAt("/dr/asha");
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Explore" })).getByRole("link", { name: "Doctors" }));
+    expect(scroll.dsScrollTo).toHaveBeenCalledWith("doctors", expect.anything());
+  });
+
+  it("single-doctor clinics have no Doctors link", () => {
+    mockContext();
+    renderAt("/dr/asha");
+    expect(within(screen.getByRole("navigation", { name: "Explore" })).queryByRole("link", { name: "Doctors" })).not.toBeInTheDocument();
+  });
+});

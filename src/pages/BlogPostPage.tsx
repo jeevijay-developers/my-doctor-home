@@ -14,14 +14,20 @@ import { jsonLdScript } from "@/lib/jsonLd";
 import { UUID_RE, blogPostPath, buildBlogPostJsonLd, buildBlogPostMeta } from "@/lib/seo/blogSeo";
 import { markdownToHtml } from "@/lib/markdown";
 import { useClinicTeam } from "@/hooks/useClinicTeam";
-import { authorDisplayName, authorHref, resolveBlogAuthor } from "@/lib/blogAuthor";
+import { authorDisplayName, authorHref, isTeamList, pickRelatedPosts, resolveBlogAuthor, shortBio } from "@/lib/blogAuthor";
+import { clinicDisplayName, initialsOf, specialtiesLine } from "@/lib/doctorSite/teamClinic";
 import type { Tables } from "@/integrations/supabase/types";
+import { useOldSlugRedirect } from "@/hooks/useOldSlugRedirect";
 
 type BlogPost = Tables<"blog_posts">;
 type Doctor = Tables<"profiles">;
 type RelatedPost = Pick<BlogPost, "id" | "title" | "featured_image_url" | "category" | "published_at" | "created_at"> & {
   slug?: string | null;
+  practitioner_id?: string | null;
 };
+
+// Enough recent posts to prefer the author's own and still fill three slots.
+const RELATED_CANDIDATES = 12;
 
 const readingTime = (content: string | null) =>
   Math.max(1, Math.ceil((content || "").replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length / 200));
@@ -63,13 +69,16 @@ function upsertCanonical(href: string) {
   };
 }
 
-const Avatar = ({ doctor, name, size }: { doctor: Doctor; name: string; size: number }) => (
+/** A person's photo, else their initials (a team's clinic or doctor), else a neutral icon. */
+const Avatar = ({ photoUrl, name, size, initials }: { photoUrl?: string | null; name: string; size: number; initials?: string }) => (
   <span
     className="flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary ring-2 ring-border"
     style={{ width: size, height: size }}
   >
-    {doctor.profile_photo_url ? (
-      <img src={doctor.profile_photo_url} alt={name} width={size} height={size} decoding="async" className="h-full w-full object-cover" />
+    {photoUrl ? (
+      <img src={photoUrl} alt={name} width={size} height={size} decoding="async" className="h-full w-full object-cover" />
+    ) : initials ? (
+      <span aria-hidden="true" className="font-heading font-bold text-primary" style={{ fontSize: size * 0.36 }}>{initials}</span>
     ) : (
       <User className="h-1/2 w-1/2 text-primary" aria-hidden="true" />
     )}
@@ -78,6 +87,7 @@ const Avatar = ({ doctor, name, size }: { doctor: Doctor; name: string; size: nu
 
 const BlogPostPage = () => {
   const { slug, postId } = useParams<{ slug: string; postId: string }>();
+  const redirectOldSlug = useOldSlugRedirect();
   const [post, setPost] = useState<BlogPost | null>(null);
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,6 +113,7 @@ const BlogPostPage = () => {
       const profile = rawProfile as unknown as Tables<"profiles"> | null;
 
       if (!active || !profile) {
+        if (active && (await redirectOldSlug(slug))) return;
         if (active) setLoading(false);
         return;
       }
@@ -124,7 +135,7 @@ const BlogPostPage = () => {
 
     void load();
     return () => { active = false; };
-  }, [slug, postId]);
+  }, [slug, postId, redirectOldSlug]);
 
   useEffect(() => {
     if (!doctor) return;
@@ -185,7 +196,9 @@ const BlogPostPage = () => {
   // Per-doctor byline: only for a post that names a doctor, at a clinic with 2+ active doctors.
   // The team is fetched lazily and best-effort; any failure keeps the clinic byline.
   const postPractitionerId = (post as { practitioner_id?: string | null } | null)?.practitioner_id ?? null;
-  const team = useClinicTeam(doctor?.id, !!postPractitionerId);
+  // The team is needed for every post of the clinic: with 2+ doctors the byline is the real author or the clinic, never the owner.
+  const team = useClinicTeam(doctor?.id, !!post);
+  const teamClinic = isTeamList(team);
   const author = useMemo(() => (post ? resolveBlogAuthor({ practitioner_id: postPractitionerId }, team) : null), [post, postPractitionerId, team]);
 
   const structuredData = useMemo(() => {
@@ -221,7 +234,7 @@ const BlogPostPage = () => {
           .eq("is_published", true)
           .neq("id", post.id)
           .order("published_at", { ascending: false })
-          .limit(3);
+          .limit(RELATED_CANDIDATES);
         if (active && data) setRelated(data as unknown as RelatedPost[]);
       } catch {
         /* optional section */
@@ -286,20 +299,53 @@ const BlogPostPage = () => {
   const publishedDate = post.published_at || post.created_at;
   const authorName = author ? authorDisplayName(author.practitioner.display_name) : null;
   const authorLink = author ? authorHref(slug!, author.practitioner) : null;
-  const bylineCredentials = author?.practitioner.specialization || credentials;
-  const bookingHref = `/dr/${slug}#booking`;
+  const clinicName = clinicDisplayName(doctor);
+  const clinicHref = `/dr/${slug}`;
+  // Who the article, the booking card and the author box are about. A clinic with 2+ doctors is never
+  // presented as its owner: the real author when known, else the clinic itself.
+  const subject = author
+    ? {
+        name: authorName!,
+        photoUrl: author.practitioner.photo_url,
+        initials: initialsOf(author.practitioner.display_name),
+        specialty: author.practitioner.specialization || "Medical professional",
+        bookingHref: authorLink ? `${authorLink}#booking` : `${clinicHref}#booking`,
+      }
+    : teamClinic
+      ? {
+          name: clinicName,
+          photoUrl: null as string | null,
+          initials: initialsOf(clinicName) || "Dr",
+          specialty: specialtiesLine(team ?? [], 3) || "Clinic",
+          bookingHref: `${clinicHref}#booking`,
+        }
+      : {
+          name: doctorName,
+          photoUrl: doctor.profile_photo_url,
+          initials: undefined as string | undefined,
+          specialty: doctor.specialization || "Medical professional",
+          bookingHref: `${clinicHref}#booking`,
+        };
+  const bylineCredentials = author || teamClinic ? subject.specialty : credentials;
+  const bookingHref = subject.bookingHref;
+  const relatedPick = teamClinic
+    ? pickRelatedPosts(related, author?.practitioner.id ?? null)
+    : { posts: related.slice(0, 3), allSameAuthor: false };
+  const relatedHeading = !teamClinic ? `More from ${doctorName}` : relatedPick.allSameAuthor ? `More from ${authorName}` : "More health articles";
 
   const bookingCard = (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-center gap-3">
-        <Avatar doctor={doctor} name={doctorName} size={48} />
+        <Avatar photoUrl={subject.photoUrl} name={subject.name} size={48} initials={subject.initials} />
         <div className="min-w-0">
-          <p className="truncate font-heading text-base font-bold text-navy">{doctorName}</p>
-          <p className="truncate text-xs text-muted-foreground">{doctor.specialization || "Medical professional"}</p>
+          <p className="truncate font-heading text-base font-bold text-navy">{subject.name}</p>
+          <p className="truncate text-xs text-muted-foreground">{subject.specialty}</p>
         </div>
       </div>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        Questions about this article? Book an appointment to talk it through with your doctor.
+        {teamClinic && !author
+          ? "Questions about this article? Book an appointment and talk it through with one of our doctors."
+          : "Questions about this article? Book an appointment to talk it through with your doctor."}
       </p>
       <Link
         to={bookingHref}
@@ -322,9 +368,13 @@ const BlogPostPage = () => {
         {/* Slim doctor bar */}
         <div className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-5 sm:px-8">
-            <Link to={`/dr/${slug}`} className="flex min-w-0 items-center gap-2.5">
-              <Avatar doctor={doctor} name={doctorName} size={32} />
-              <span className="truncate font-heading text-sm font-bold text-navy">{doctorName}</span>
+            <Link to={clinicHref} className="flex min-w-0 items-center gap-2.5">
+              {teamClinic ? (
+                <Avatar name={clinicName} size={32} initials={initialsOf(clinicName) || "Dr"} />
+              ) : (
+                <Avatar photoUrl={doctor.profile_photo_url} name={doctorName} size={32} />
+              )}
+              <span className="truncate font-heading text-sm font-bold text-navy">{teamClinic ? clinicName : doctorName}</span>
             </Link>
             <Link
               to={bookingHref}
@@ -358,7 +408,7 @@ const BlogPostPage = () => {
             )}
 
             <div className="mt-6 flex min-w-0 items-center gap-3">
-              <Avatar doctor={doctor} name={doctorName} size={44} />
+              <Avatar photoUrl={subject.photoUrl} name={subject.name} size={44} initials={subject.initials} />
               <div className="min-w-0">
                 {authorName ? (
                   authorLink ? (
@@ -369,8 +419,8 @@ const BlogPostPage = () => {
                     <p className="truncate text-sm font-bold text-navy">By {authorName}</p>
                   )
                 ) : (
-                  <Link to={`/dr/${slug}`} className="block hover:underline">
-                    <p className="truncate text-sm font-bold text-navy">Written by {doctorName}</p>
+                  <Link to={clinicHref} className="block hover:underline">
+                    <p className="truncate text-sm font-bold text-navy">Written by {teamClinic ? clinicName : doctorName}</p>
                   </Link>
                 )}
                 <p className="truncate text-xs text-muted-foreground">{bylineCredentials}</p>
@@ -414,7 +464,7 @@ const BlogPostPage = () => {
                 {(post as { ai_assisted?: boolean | null }).ai_assisted && (
                   <p className="flex items-start gap-2 rounded-xl bg-secondary px-4 py-3 text-xs leading-5 text-muted-foreground">
                     <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                    <span>Drafted with AI assistance, reviewed and published by {authorName ?? doctorName}.</span>
+                    <span>Drafted with AI assistance, reviewed and published by {authorName ?? (teamClinic ? clinicName : doctorName)}.</span>
                   </p>
                 )}
                 <p className="flex items-start gap-2 rounded-xl border border-border px-4 py-3 text-xs leading-5 text-muted-foreground">
@@ -427,19 +477,49 @@ const BlogPostPage = () => {
               <div className="mt-8 lg:hidden">{bookingCard}</div>
 
               <section aria-label="About the author" className="mt-8 flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center">
-                <Avatar doctor={doctor} name={doctorName} size={56} />
+                <Avatar photoUrl={subject.photoUrl} name={subject.name} size={56} initials={subject.initials} />
                 <div className="min-w-0 flex-1">
-                  <Link to={`/dr/${slug}`} className="font-heading text-base font-bold text-navy hover:underline">
-                    About {doctorName}
-                  </Link>
-                  <p className="mt-0.5 text-sm text-muted-foreground">Read more health guidance from this doctor.</p>
+                  {author ? (
+                    <>
+                      {authorLink ? (
+                        <Link to={authorLink} className="break-words font-heading text-base font-bold text-navy hover:underline">
+                          About {subject.name}
+                        </Link>
+                      ) : (
+                        <p className="break-words font-heading text-base font-bold text-navy">About {subject.name}</p>
+                      )}
+                      <p className="mt-0.5 text-sm text-muted-foreground">{subject.specialty}</p>
+                      {shortBio(author.practitioner.bio) && (
+                        <p className="mt-2 break-words text-sm leading-relaxed text-muted-foreground">{shortBio(author.practitioner.bio)}</p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Link to={clinicHref} className="break-words font-heading text-base font-bold text-navy hover:underline">
+                        About {teamClinic ? clinicName : doctorName}
+                      </Link>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        {teamClinic ? "Health guidance from the doctors at this clinic." : "Read more health guidance from this doctor."}
+                      </p>
+                    </>
+                  )}
                 </div>
-                <Link
-                  to={`/dr/${slug}/blog`}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:border-primary hover:text-primary"
-                >
-                  All articles <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
+                <div className="flex flex-wrap gap-2 sm:flex-col sm:items-stretch">
+                  {authorLink && (
+                    <Link
+                      to={authorLink}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                    >
+                      View profile
+                    </Link>
+                  )}
+                  <Link
+                    to={author ? `/dr/${slug}/blog?author=${encodeURIComponent(author.practitioner.slug)}` : `/dr/${slug}/blog`}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:border-primary hover:text-primary"
+                  >
+                    {author ? "Their articles" : "All articles"} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </div>
               </section>
             </div>
 
@@ -451,13 +531,13 @@ const BlogPostPage = () => {
             </aside>
           </div>
 
-          {related.length > 0 && (
+          {relatedPick.posts.length > 0 && (
             <section aria-labelledby="more-articles" className="border-t border-border pb-16 pt-10">
               <h2 id="more-articles" className="font-heading text-xl font-bold text-navy sm:text-2xl">
-                More from {doctorName}
+                {relatedHeading}
               </h2>
               <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {related.map((r) => (
+                {relatedPick.posts.map((r) => (
                   <li key={r.id}>
                     <Link
                       to={blogPostPath(slug!, { id: r.id, slug: r.slug })}

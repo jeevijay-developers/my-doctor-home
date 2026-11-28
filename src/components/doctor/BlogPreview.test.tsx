@@ -57,4 +57,27 @@ describe("BlogPreview", () => {
     const { container } = renderBlog();
     expect(container).toBeEmptyDOMElement();
   });
+
+  describe("team clinic", () => {
+    const team = [{ id: "pa", display_name: "Asha Rao" }, { id: "pb", display_name: "Dr Vikram Shah" }];
+    beforeEach(() => {
+      vi.mocked(useDoctorData).mockReturnValue({ profile: { id: "d1" }, settings: {}, isTeamClinic: true, practitioners: team } as never);
+    });
+
+    it("is titled 'Health articles', never 'Written by the doctor' (also with no articles)", async () => {
+      db.posts = [];
+      renderBlog();
+      expect(await screen.findByText(/No articles yet/)).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Health articles");
+      expect(screen.queryByText("Written by the doctor")).not.toBeInTheDocument();
+    });
+
+    it("names the author of a post that has one; the clinic byline otherwise", async () => {
+      db.posts = [{ ...post("a", "Heart basics"), practitioner_id: "pb" }, post("b", "Clinic news")];
+      renderBlog();
+      await screen.findByRole("heading", { name: "Heart basics" });
+      expect(screen.getByText(/Dr Vikram Shah · Heart/)).toBeInTheDocument();
+      expect(screen.getByText(/^Heart · /)).toBeInTheDocument();
+    });
+  });
 });

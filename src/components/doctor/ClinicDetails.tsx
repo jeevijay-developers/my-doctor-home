@@ -1,4 +1,5 @@
-import { Mail, MapPin, Navigation, Phone } from "lucide-react";
+import { useId, useState } from "react";
+import { ChevronDown, Mail, MapPin, Navigation, Phone } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { getClinicMapsQuery, getClinicMapsUrl } from "@/lib/clinicLocation";
@@ -6,6 +7,8 @@ import { groupWorkingHours, formatDayRangeLabel } from "@/lib/workingHoursGroupi
 import { dayIntervals, getClinicStatus, istNow, type WorkingHoursRow } from "@/lib/doctorSite/clinicStatus";
 import { clinicPhone, telHref, whatsappHref, siteLabels } from "@/lib/doctorSite/doctorFacts";
 import type { Tables } from "@/integrations/supabase/types";
+import { hoursFor, type HoursRow } from "@/lib/practitioners/hours";
+import { formatDoctorName } from "@/lib/seo/doctorSeo";
 import { dsCn as cn } from "./ui/dsCn";
 import DsButton from "./ui/DsButton";
 import SectionHeader from "./ui/SectionHeader";
@@ -22,13 +25,39 @@ const scheduleLines = (row: WorkingHour): string[] => {
   return sessions.length > 0 ? sessions : ["Contact the clinic"];
 };
 
+/** Weekly hours of one doctor: days with the same hours are grouped ("Mon - Fri"). */
+const DoctorHours = ({ rows, today }: { rows: WorkingHour[]; today: number }) => {
+  const groups = groupWorkingHours([...rows].sort((a, b) => a.day_of_week - b.day_of_week));
+  if (groups.length === 0) return <p className="py-3 text-ds-body text-ds-ink-2">Hours not set. Please call the clinic.</p>;
+  return (
+    <dl className="border-t border-ds-line">
+      {groups.map((group) => {
+        const isToday = group.days.includes(today);
+        return (
+          <div key={group.days.join("-")} className={cn("flex items-start justify-between gap-4 border-b border-ds-line py-2.5 text-ds-small", isToday ? "font-semibold text-ds-ink" : "text-ds-ink-2")}>
+            <dt>{formatDayRangeLabel(group.days, DAY_NAMES)}{isToday && <span className="ml-2 text-ds-label font-medium text-ds-accent-ink">Today</span>}</dt>
+            <dd className={cn("text-right ds-tabular", !group.sample.is_open && "text-ds-danger")}>
+              {scheduleLines(group.sample).map((line) => (
+                <span key={line} className="block whitespace-nowrap">{line}</span>
+              ))}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+};
+
 /**
  * Visit the clinic (spec §5.10): where it is, when it is open, and the three
  * ways to reach it, each one tap. The map loads only when scrolled near
  * (a Google embed is ~1 MB and sets a third-party cookie).
  */
 const ClinicDetails = () => {
-  const { profile, workingHours, settings } = useDoctorData();
+  const { profile, workingHours, settings, isTeamClinic, practitioners, rawWorkingHours } = useDoctorData();
+  const team = isTeamClinic === true;
+  const doctorHoursId = useId();
+  const [showDoctorHours, setShowDoctorHours] = useState(false);
   const labels = siteLabels(settings);
   const [mapRef, mapNear] = useDwellInView<HTMLDivElement>();
 
@@ -91,7 +120,7 @@ const ClinicDetails = () => {
             {groups.length > 0 && (
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-ds-display text-ds-h3 font-medium">Hours</h3>
+                  <h3 className="font-ds-display text-ds-h3 font-medium">{team ? "Clinic hours" : "Hours"}</h3>
                   {status.state !== "unknown" && (
                     <p className={cn("inline-flex items-center gap-2 rounded-full border px-3 py-1 text-ds-label font-medium", status.state === "open" ? "border-ds-live/25 bg-ds-live/[0.07] text-ds-live" : "border-ds-line text-ds-ink-2")}>
                       <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", status.state === "open" ? "bg-ds-live-dot" : "bg-ds-ink-3")} />
@@ -117,6 +146,30 @@ const ClinicDetails = () => {
                     );
                   })}
                 </dl>
+              </div>
+            )}
+
+            {team && (practitioners ?? []).length > 0 && (
+              <div className="mt-8">
+                <h3 className="font-ds-display text-ds-h3 font-medium">Hours by doctor</h3>
+                <button
+                  type="button"
+                  aria-expanded={showDoctorHours}
+                  aria-controls={doctorHoursId}
+                  onClick={() => setShowDoctorHours((v) => !v)}
+                  className="mt-2 inline-flex min-h-11 items-center gap-1 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline md:hidden"
+                >
+                  {showDoctorHours ? "Hide each doctor's hours" : "Show each doctor's hours"}
+                  <ChevronDown aria-hidden="true" className={cn("h-4 w-4 transition-transform duration-ds-2", showDoctorHours && "rotate-180")} />
+                </button>
+                <div id={doctorHoursId} className={cn("mt-3 space-y-6", showDoctorHours ? "block" : "hidden", "md:block")}>
+                  {(practitioners ?? []).map((d) => (
+                    <section key={d.id} aria-label={`Hours of ${formatDoctorName(d.display_name)}`}>
+                      <h4 className="mb-1 break-words text-ds-body font-semibold text-ds-ink">{formatDoctorName(d.display_name)}</h4>
+                      <DoctorHours rows={hoursFor((rawWorkingHours ?? []) as HoursRow[], d.id) as unknown as WorkingHour[]} today={today} />
+                    </section>
+                  ))}
+                </div>
               </div>
             )}
 

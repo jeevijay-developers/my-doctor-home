@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarCheck2, Phone } from "lucide-react";
+import { CalendarCheck2, Phone, Users } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { clinicPhone, telHref, whatsappHref, siteLabels } from "@/lib/doctorSite/doctorFacts";
+import { clinicDisplayName } from "@/lib/doctorSite/teamClinic";
+import { dsScrollTo } from "./motion/scroll";
 import DsButton from "./ui/DsButton";
+import { dsCn as cn } from "./ui/dsCn";
 import { useSectionInView } from "./ui/useActiveSection";
 import { bookNow } from "./siteActions";
 import { SPRING_SOFT } from "./motion/tokens";
@@ -41,13 +44,17 @@ const iconAction =
  * bar also hides while the keyboard is up so it never covers a form field.
  */
 const BottomActionBar = () => {
-  const { profile, settings } = useDoctorData();
+  const { profile, settings, isTeamClinic } = useDoctorData();
+  const team = isTeamClinic === true;
+  const regionLabel = team ? `Quick actions for ${clinicDisplayName(profile)}` : "Quick actions";
   const labels = siteLabels(settings);
   const phone = clinicPhone(profile);
   const whatsapp = whatsappHref(settings);
   const bookingVisible = useSectionInView("booking-zone", "-30% 0px -30% 0px");
   const heroVisible = useSectionInView("top", "0px 0px -20% 0px");
   const typing = useTyping();
+  // With Doctors, Call and WhatsApp beside it, Book gets a short label so it never truncates on a 360px phone.
+  const compact = team && Boolean(phone) && Boolean(whatsapp);
 
   const showPhoneBar = !bookingVisible && !typing;
   const showDock = !bookingVisible && !heroVisible;
@@ -59,7 +66,7 @@ const BottomActionBar = () => {
           <motion.div
             key="ds-bottom-bar"
             role="region"
-            aria-label="Quick actions"
+            aria-label={regionLabel}
             initial={{ y: "110%" }}
             animate={{ y: 0 }}
             exit={{ y: "110%" }}
@@ -68,18 +75,24 @@ const BottomActionBar = () => {
             style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
           >
             <div className="mx-auto flex max-w-md items-center gap-1.5">
-              <DsButton size="lg" onClick={bookNow} className="min-w-0 flex-1 px-4">
+              <DsButton size="lg" onClick={bookNow} className="min-w-0 flex-1 px-4" aria-label={compact ? labels.book : undefined}>
                 <CalendarCheck2 className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
-                {labels.book}
+                {compact ? "Book" : labels.book}
               </DsButton>
+              {team && (
+                <button type="button" onClick={() => dsScrollTo("doctors", { focusSelector: "h2" })} className={cn(iconAction, compact && "w-[3.75rem]")}>
+                  <Users className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+                  Doctors
+                </button>
+              )}
               {phone && (
-                <a href={telHref(phone)} className={iconAction}>
+                <a href={telHref(phone)} className={cn(iconAction, compact && "w-[3.75rem]")}>
                   <Phone className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
                   Call
                 </a>
               )}
               {whatsapp && (
-                <a href={whatsapp} target="_blank" rel="noreferrer" className={iconAction}>
+                <a href={whatsapp} target="_blank" rel="noreferrer" className={cn(iconAction, compact && "w-[3.75rem]")}>
                   <span aria-hidden="true" className="flex"><WhatsAppIcon className="h-5 w-5" /></span>
                   WhatsApp
                 </a>
@@ -94,7 +107,7 @@ const BottomActionBar = () => {
           <motion.div
             key="ds-dock"
             role="region"
-            aria-label="Quick actions"
+            aria-label={regionLabel}
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.98 }}

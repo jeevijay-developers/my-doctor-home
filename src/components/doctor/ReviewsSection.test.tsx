@@ -159,3 +159,116 @@ describe("ReviewsSection", () => {
     });
   });
 });
+
+describe("ReviewsSection tabs in a team clinic", () => {
+  const DRS = [
+    { id: "pa", display_name: "Asha Rao" },
+    { id: "pb", display_name: "Dr. Vikram Shah" },
+    { id: "pc", display_name: "Meera Iyer" },
+  ];
+  const reviews = [
+    review({ id: "r1", patient_name: "A1", rating: 5, practitioner_id: "pa" }),
+    review({ id: "r2", patient_name: "A2", rating: 3, practitioner_id: "pa" }),
+    review({ id: "r3", patient_name: "B1", rating: 4, practitioner_id: "pb" }),
+    review({ id: "r4", patient_name: "C1", rating: 1, practitioner_id: null }),
+    review({ id: "r5", patient_name: "G1", rating: 2, practitioner_id: "gone" }),
+  ];
+  const mockTeam = (rs: unknown[] = reviews) =>
+    vi.mocked(useDoctorData).mockReturnValue({ reviews: rs, profile: { id: "doc-1" }, isTeamClinic: true, isMultiDoctor: false, practitioners: DRS } as never);
+  const avg = () => document.querySelector("#reviews-heading")!.closest("section")!.querySelector("p.font-ds-display")!.textContent;
+
+  it("offers All, each doctor with reviews, and Clinic (a doctor with none gets no tab)", () => {
+    mockTeam();
+    render(<ReviewsSection />);
+    const tabs = screen.getAllByRole("tab").map((t) => t.textContent);
+    expect(tabs).toEqual(["All", "Dr. Asha Rao", "Dr. Vikram Shah", "Clinic"]);
+  });
+
+  it("the aggregate follows the active tab and All counts each review once", () => {
+    mockTeam();
+    render(<ReviewsSection />);
+    expect(screen.getByText("5 reviews")).toBeInTheDocument();
+    expect(avg()).toBe("3.0");
+    fireEvent.click(screen.getByRole("tab", { name: "Dr. Asha Rao" }));
+    expect(screen.getByText("2 reviews")).toBeInTheDocument();
+    expect(avg()).toBe("4.0");
+    fireEvent.click(screen.getByRole("tab", { name: "Clinic" }));
+    expect(screen.getByText("2 reviews")).toBeInTheDocument(); // no-doctor + a doctor no longer listed
+    expect(screen.queryByText("A1")).not.toBeInTheDocument();
+    expect(screen.getByText("C1")).toBeInTheDocument();
+  });
+
+  it("tabs are a keyboard tablist: roving tabindex and arrow keys", () => {
+    mockTeam();
+    render(<ReviewsSection />);
+    const all = screen.getByRole("tab", { name: "All" });
+    expect(all).toHaveAttribute("aria-selected", "true");
+    expect(all).toHaveAttribute("tabindex", "0");
+    all.focus();
+    fireEvent.keyDown(screen.getByRole("tablist"), { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Dr. Asha Rao" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "reviews-tab-pa");
+  });
+
+  it("shows no tabs when every review is the clinic's", () => {
+    mockTeam([review({ id: "r1", practitioner_id: null })]);
+    render(<ReviewsSection />);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
+  it("keeps the write-review doctor chooser, listing every listed doctor", async () => {
+    mockTeam([]);
+    render(<ReviewsSection />);
+    fireEvent.click(screen.getByRole("button", { name: /write a review/i }));
+    expect(await screen.findByLabelText(/which doctor did you see/i)).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Dr. Meera Iyer" })).toBeInTheDocument();
+  });
+});
+
+describe("ReviewsSection on one doctor's own page", () => {
+  const DRS = [
+    { id: "pa", display_name: "Asha Rao" },
+    { id: "pb", display_name: "Dr. Vikram Shah" },
+  ];
+  const reviews = [
+    review({ id: "r1", patient_name: "A1", rating: 5, practitioner_id: "pa", review_text: "Kind and clear" }),
+    review({ id: "r2", patient_name: "A2", rating: 3, practitioner_id: "pa", review_text: "Fine" }),
+    review({ id: "r3", patient_name: "B1", rating: 1, practitioner_id: "pb", review_text: "Long wait" }),
+    review({ id: "r4", patient_name: "C1", rating: 1, practitioner_id: null, review_text: "Parking" }),
+  ];
+  const mockTeam = (rs: unknown[] = reviews) =>
+    vi.mocked(useDoctorData).mockReturnValue({ reviews: rs, profile: { id: "doc-1" }, isTeamClinic: true, isMultiDoctor: false, practitioners: DRS } as never);
+
+  it("lists and averages only that doctor's reviews, without tabs", () => {
+    mockTeam();
+    render(<ReviewsSection practitionerId="pa" />);
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("What patients say about Dr. Asha Rao");
+    expect(screen.getByText("2 reviews")).toBeInTheDocument();
+    expect(screen.getByText("4.0")).toBeInTheDocument();
+    expect(screen.getByText(/Kind and clear/)).toBeInTheDocument();
+    expect(screen.queryByText(/Long wait/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Parking/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^for Dr\./)).not.toBeInTheDocument();
+  });
+
+  it("invites the first review when the doctor has none, and still offers to write one", () => {
+    mockTeam([reviews[2]]);
+    render(<ReviewsSection practitionerId="pa" />);
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Be the first to share your experience");
+    expect(screen.getByRole("button", { name: /write a review/i })).toBeInTheDocument();
+  });
+
+  it("preselects this doctor in the form and submits their id", async () => {
+    mockTeam();
+    db.insert.mockResolvedValue({ error: null });
+    render(<ReviewsSection practitionerId="pb" />);
+    fireEvent.click(screen.getByRole("button", { name: /write a review/i }));
+    const select = (await screen.findByLabelText(/which doctor did you see/i)) as HTMLSelectElement;
+    expect(select.value).toBe("pb");
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Meera" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit review" }));
+    await waitFor(() => expect(db.insert).toHaveBeenCalled());
+    expect(db.insert.mock.calls[0][0]).toMatchObject({ doctor_id: "doc-1", practitioner_id: "pb", patient_name: "Meera" });
+  });
+});

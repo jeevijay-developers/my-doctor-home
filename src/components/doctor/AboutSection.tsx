@@ -8,6 +8,7 @@ import DsButton from "./ui/DsButton";
 import SectionHeader from "./ui/SectionHeader";
 import { bookNow } from "./siteActions";
 import { DUR, EASE, staggerDelay } from "./motion/tokens";
+import TeamAbout from "./TeamAbout";
 
 const BIO_PREVIEW = 420;
 
@@ -16,7 +17,7 @@ const BIO_PREVIEW = 420;
  * definition list, one action. Every line comes from what the doctor entered;
  * nothing is written on their behalf, and missing items are simply left out.
  */
-const AboutSection = () => {
+const SoloAbout = () => {
   const { profile, settings } = useDoctorData();
   const reduce = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
@@ -119,6 +120,12 @@ const AboutSection = () => {
       </div>
     </section>
   );
+};
+
+/** A clinic with several doctors gets "About the clinic" (TeamAbout); otherwise the doctor's own About. */
+const AboutSection = () => {
+  const { isTeamClinic } = useDoctorData();
+  return isTeamClinic === true ? <TeamAbout /> : <SoloAbout />;
 };
 
 export default AboutSection;
