@@ -34,6 +34,8 @@ vi.mock("@/hooks/usePlanAccess", () => ({ usePlanAccess: vi.fn() }));
 vi.mock("@/hooks/useProfile", () => ({ useProfile: vi.fn() }));
 vi.mock("@/hooks/usePractitioners", () => ({ usePractitioners: vi.fn(() => ({ isMulti: false, primary: null })) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+// The Search visibility card runs its own queries; its behaviour is covered in SeoHealthCard.test.tsx.
+vi.mock("./SeoHealthCard", () => ({ default: () => <div data-testid="seo-health-card" /> }));
 vi.mock("@/integrations/supabase/client", () => {
   const chain = (resolved: any = { data: null, error: null }): any => {
     const promise = Promise.resolve(resolved);
@@ -292,5 +294,39 @@ describe("SettingsPage profile tab (multi-doctor split)", () => {
     expect(screen.queryByText("Clinic Details")).not.toBeInTheDocument();
     expect(screen.queryByText("Medical Registration Number")).not.toBeInTheDocument();
     expect(screen.queryByText("My doctor profile")).not.toBeInTheDocument();
+  });
+});
+
+describe("SettingsPage search visibility placement", () => {
+  const owner = (extra: Record<string, unknown> = {}) =>
+    vi.mocked(useProfile).mockReturnValue({ profile: { ...baseProfile, plan_status: "active", plan_tier: "premium" }, loading: false, isStaff: false, role: "owner", can: () => true, setProfile: vi.fn(), refetch: vi.fn(), ...extra } as any);
+  const renderProfileTab = () => render(<SettingsPage />, { wrapper: ({ children }) => <MemoryRouter initialEntries={["/admin/settings"]}>{children}</MemoryRouter> });
+
+  beforeEach(() => {
+    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: true, appointmentsCap: 0, appointmentsUsed: 0, nearCap: false, loading: false });
+  });
+
+  it("single-doctor owner: the Profile tab starts with the Search visibility card and has no Website address card", () => {
+    vi.mocked(usePractitioners).mockReturnValue({ isMulti: false, primary: { id: "pr-1" } } as any);
+    owner();
+    renderProfileTab();
+    expect(screen.getByTestId("seo-health-card")).toBeInTheDocument();
+    expect(screen.queryByText(/website address/i)).not.toBeInTheDocument();
+  });
+
+  it("multi-doctor owner: same card, no Website address card", () => {
+    vi.mocked(usePractitioners).mockReturnValue({ isMulti: true, primary: { id: "pr-1" } } as any);
+    owner();
+    renderProfileTab();
+    expect(screen.getAllByTestId("seo-health-card")).toHaveLength(1);
+    expect(screen.queryByText(/website address/i)).not.toBeInTheDocument();
+  });
+
+  it("staff see it in place of the old address card too (the card itself hides without permission)", () => {
+    vi.mocked(usePractitioners).mockReturnValue({ isMulti: false, primary: { id: "pr-1" } } as any);
+    owner({ isStaff: true, role: "staff" });
+    renderProfileTab();
+    expect(screen.getByTestId("seo-health-card")).toBeInTheDocument();
+    expect(screen.queryByText(/website address/i)).not.toBeInTheDocument();
   });
 });

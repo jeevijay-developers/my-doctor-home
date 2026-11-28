@@ -1,5 +1,5 @@
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { Check, Loader2, Sparkles, Undo2, Wand2, X, TriangleAlert } from "lucide-react";
+import { Check, Loader2, Sparkles, Undo2, Wand2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -269,17 +269,6 @@ const BioAssistant = ({ value, onChange, context, disabled = false, idPrefix, he
           ))}
         </ul>
         <p className="text-[11px] text-muted-foreground">{ADVICE} {analysis.lengthHint}</p>
-        {analysis.warnings.length > 0 && (
-          <div className="rounded-md border border-warning/40 bg-warning/10 p-2.5" data-testid="bio-warnings">
-            <p className="flex items-center gap-1 text-xs font-medium text-warning">
-              <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" /> A friendly caution before you publish
-            </p>
-            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[11px] text-muted-foreground">
-              {analysis.warnings.map((w) => <li key={w.term}>{w.message}</li>)}
-            </ul>
-            <p className="mt-1 text-[11px] text-muted-foreground">Medical advertising rules (NMC, ASCI) ask for factual wording. You can still save.</p>
-          </div>
-        )}
       </section>
     </div>
   );

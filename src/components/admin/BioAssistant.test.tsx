@@ -217,14 +217,11 @@ describe("BioAssistant: search checklist", () => {
     expect(screen.getByText(/long enough to be listed/i)).toBeInTheDocument();
   });
 
-  it("shows friendly advertising cautions but never blocks typing", () => {
+  it("no longer shows an advertising caution box, and never blocks typing", () => {
     render(<Harness />);
     fireEvent.change(box(), { target: { value: "The best doctor with a 100% guaranteed cure." } });
-    const warn = screen.getByTestId("bio-warnings");
-    expect(warn).toHaveTextContent(/best/);
-    expect(warn).toHaveTextContent(/guarantee/);
-    expect(warn).toHaveTextContent(/cure/);
-    expect(warn).toHaveTextContent(/you can still save/i);
+    expect(screen.queryByTestId("bio-warnings")).not.toBeInTheDocument();
+    expect(screen.queryByText(/friendly caution/i)).not.toBeInTheDocument();
     expect(box().value).toBe("The best doctor with a 100% guaranteed cure.");
   });
 });

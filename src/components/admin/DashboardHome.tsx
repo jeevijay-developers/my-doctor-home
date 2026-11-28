@@ -26,7 +26,6 @@ import PlanCard from "./PlanCard";
 import MyEarningsCard from "./MyEarningsCard";
 import GettingStartedCard from "./GettingStartedCard";
 import DoctorProfilesNudge from "./DoctorProfilesNudge";
-import SeoHealthCard from "./SeoHealthCard";
 import { clinicToday } from "@/lib/queue";
 import { summarizePlan } from "@/lib/planSummary";
 import { permissionForPath, type PermissionKey } from "@/lib/staffPermissions";
@@ -251,7 +250,6 @@ const DashboardHome = () => {
       </div>
 
       <DoctorProfilesNudge />
-      <SeoHealthCard />
 
       {isTrialEndingSoon && !isStaff && !urgentBannerDismissed && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">

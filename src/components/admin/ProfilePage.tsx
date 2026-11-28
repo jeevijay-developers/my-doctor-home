@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { User, MapPin, Upload, UserCircle, Building2 } from "lucide-react";
@@ -37,11 +37,9 @@ interface ProfilePageProps {
    * saved changes. Default "single" renders exactly as before.
    */
   variant?: "single" | "multi";
-  /** Rendered at the top of the Clinic card in the multi layout (the website address card). */
-  clinicTop?: ReactNode;
 }
 
-const ProfilePage = ({ variant = "single", clinicTop }: ProfilePageProps = {}) => {
+const ProfilePage = ({ variant = "single" }: ProfilePageProps = {}) => {
   const multi = variant === "multi";
   const { profile, refetch, can } = useProfile();
   const [saving, setSaving] = useState(false);
@@ -120,7 +118,7 @@ const ProfilePage = ({ variant = "single", clinicTop }: ProfilePageProps = {}) =
     const payload: any = { ...core, bio: sanitizeBio(form.bio) || null, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
 
     // BUG-M05: keep public URL slug in sync when the doctor's name changes.
-    // A clinic that picked its own address (Settings > Website address) keeps it: never re-derive.
+    // A clinic that picked its own address (set automatically when a second doctor was added) keeps it: never re-derive.
     if (!(profile as any).slug_locked && form.full_name && form.full_name !== (profile as any).full_name) {
       let slug = generateSlug(form.full_name);
       if (slug && slug !== (profile as any).slug) {
@@ -328,12 +326,11 @@ const ProfilePage = ({ variant = "single", clinicTop }: ProfilePageProps = {}) =
           <CardTitle className="flex items-center gap-2">{multi ? <Building2 className="h-5 w-5 text-teal" aria-hidden="true" /> : <MapPin className="h-5 w-5 text-teal" />} {multi ? "Clinic" : "Clinic Details"}</CardTitle>
           {multi && (
             <p className="text-sm text-muted-foreground">
-              Shown on the clinic page and in search results: the clinic name, address, phone, email and website address.
+              Shown on the clinic page and in search results: the clinic name, address, phone and email.
             </p>
           )}
         </CardHeader>
         <CardContent className="space-y-5">
-          {multi && clinicTop}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Clinic Name</Label>
