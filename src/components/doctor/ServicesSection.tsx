@@ -2,6 +2,8 @@ import { useId, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, ChevronDown, Clock } from "lucide-react";
 import { displayPrice, serviceType } from "@/lib/doctorSite/services";
+import { servicesForDoctor } from "@/lib/doctorSite/practitionerPage";
+import type { DoctorSubject } from "@/lib/doctorSite/practitionerSubject";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { FEATURE_KEYS } from "@/lib/features";
 import { formatDoctorName } from "@/lib/seo/doctorSeo";
@@ -10,6 +12,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import DsButton from "./ui/DsButton";
 import SectionHeader from "./ui/SectionHeader";
 import { bookNow } from "./siteActions";
+import { SELECT_DOCTOR_EVENT } from "./DoctorsSection";
 import { DUR, EASE, staggerDelay } from "./motion/tokens";
 
 type Service = Tables<"services">;
@@ -96,14 +99,22 @@ const ServiceRow = ({ index, name, description, type, duration, price, offeredBy
   );
 };
 
-const ServicesSection = () => {
-  const { services, profile, settings, hasFeature, isMultiDoctor, isTeamClinic, practitioners, bookablePractitioners, servicePractitioners } = useDoctorData();
-  const team = isTeamClinic === true;
+/**
+ * `subject` lists only what ONE doctor of a team clinic offers (same rule the booking enforces), at
+ * their own fee, and books with that doctor; without it this is the clinic-wide list, unchanged.
+ */
+const ServicesSection = ({ subject }: { subject?: DoctorSubject }) => {
+  const ctx = useDoctorData();
+  const { services, hasFeature, isMultiDoctor, isTeamClinic, practitioners, bookablePractitioners, servicePractitioners } = ctx;
+  const { profile, settings } = subject ?? ctx;
+  const team = !subject && isTeamClinic === true;
   const [showAll, setShowAll] = useState(false);
   const [doctorId, setDoctorId] = useState<string | null>(null);
   // An online-only service can only be booked when the doctor's plan offers online consultation.
   const onlineAllowed = hasFeature?.(FEATURE_KEYS.ONLINE_CONSULTATION) === true;
-  const allServices = ((services ?? []) as Service[]).filter((service) => service.type !== "online" || onlineAllowed);
+  const allServices = subject
+    ? servicesForDoctor((services ?? []) as Service[], servicePractitioners, subject.doctorId, onlineAllowed && subject.onlineBooking)
+    : ((services ?? []) as Service[]).filter((service) => service.type !== "online" || onlineAllowed);
   // Team clinics: a service with no mapping rows is offered by every doctor; otherwise only by those mapped.
   const offeredBy = (serviceId: string, doctor: string) => {
     const rows = (servicePractitioners ?? []).filter((m) => m.service_id === serviceId);
@@ -114,12 +125,12 @@ const ServicesSection = () => {
   const list = showDoctorFilter && doctorId ? allServices.filter((service) => offeredBy(service.id, doctorId)) : allServices;
   const visible = showAll ? list : list.slice(0, INITIAL_VISIBLE);
 
-  const online = Boolean(settings?.show_online_consultation) && hasFeature?.(FEATURE_KEYS.ONLINE_CONSULTATION);
+  const online = Boolean(settings?.show_online_consultation) && hasFeature?.(FEATURE_KEYS.ONLINE_CONSULTATION) && (!subject || subject.onlineBooking);
   const onlineFee = Number(settings?.online_fee) > 0 ? Number(settings.online_fee) : null;
 
   // Multi-doctor clinics only: a service limited to some doctors says which (unmapped = every doctor).
   const offeredByNames = (serviceId: string): string[] | undefined => {
-    if (!isMultiDoctor && !team) return undefined;
+    if (subject || (!isMultiDoctor && !team)) return undefined;
     const ids = new Set((servicePractitioners ?? []).filter((m) => m.service_id === serviceId).map((m) => m.practitioner_id));
     if (ids.size === 0) return undefined;
     return ((team ? practitioners : bookablePractitioners) ?? []).filter((p) => ids.has(p.id)).map((p) => p.display_name);
@@ -127,6 +138,7 @@ const ServicesSection = () => {
 
   // Same event as before: BookingWidget preselects the service (and its visit type).
   const book = (service: Partial<Service>) => {
+    if (subject) window.dispatchEvent(new CustomEvent(SELECT_DOCTOR_EVENT, { detail: { id: subject.doctorId } }));
     window.dispatchEvent(new CustomEvent("doctylia:select-service", { detail: service }));
     bookNow();
   };

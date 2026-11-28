@@ -5,6 +5,7 @@ import { continueWithTime, pickTomorrow, timeField } from "./__test__/bookingFlo
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import BookingWidget from "./BookingWidget";
+import { dsScrollTo } from "./motion/scroll";
 import { createTableMock } from "@/test/tableMock";
 
 const mock = vi.hoisted(() => ({ current: null as any }));
@@ -153,6 +154,26 @@ describe("BookingWidget (multi-doctor clinic, pay at clinic)", () => {
     expect(await screen.findByRole("heading", { name: "Select Time Slot" })).toBeInTheDocument();
     await waitFor(() => expect(timeField()).toHaveTextContent(/PM$/));
     expect(screen.getAllByText("Dr. Vikram Shah").length).toBeGreaterThan(0);
+  });
+
+  it("a silent select-doctor (a doctor's own page on load) preselects without scrolling to the booking card", async () => {
+    render(<BookingWidget />);
+    vi.mocked(dsScrollTo).mockClear();
+    act(() => {
+      window.dispatchEvent(new CustomEvent("doctylia:select-doctor", { detail: { id: "pb", silent: true } }));
+    });
+    expect(await screen.findByRole("heading", { name: "Select Time Slot" })).toBeInTheDocument();
+    expect(dsScrollTo).not.toHaveBeenCalled();
+  });
+
+  it("a tap on Book (not silent) still scrolls to the booking card", async () => {
+    render(<BookingWidget />);
+    vi.mocked(dsScrollTo).mockClear();
+    act(() => {
+      window.dispatchEvent(new CustomEvent("doctylia:select-doctor", { detail: { id: "pb" } }));
+    });
+    expect(await screen.findByRole("heading", { name: "Select Time Slot" })).toBeInTheDocument();
+    expect(dsScrollTo).toHaveBeenCalledWith("booking-card");
   });
 
   it("ignores a select-doctor event for a doctor who cannot be booked", () => {

@@ -210,4 +210,16 @@ describe("sitemap", () => {
     expect(l).toContain("/dr/dr-asha/doctor/a");
     expect(l).not.toContain("/dr/dr-asha/doctor/b");
   });
+  it("clinic lastmod is the newest of the profile and its doctors; the doctor pages keep their own", async () => {
+    const pr = (o: any) => ({ doctor_id: "d1", slug: "a", is_active: true, updated_at: null, ...o });
+    const { xml } = await run({
+      profiles: [doc(), doc({ id: "d2", slug: "dr-solo", updated_at: "2026-05-01T00:00:00.000Z" })],
+      blog_posts: [post({ updated_at: "2026-12-31T00:00:00.000Z" })],
+      practitioners: [pr({ updated_at: "2026-03-04T05:06:07.000Z" }), pr({ slug: "b", updated_at: "2026-02-01T00:00:00.000Z" }), pr({ doctor_id: "d2", slug: "x", updated_at: "2026-01-01T00:00:00.000Z" })],
+    });
+    const entry = (path: string) => xml.match(new RegExp(`<url><loc>https://doctylia.com${path}</loc>(?:<lastmod>([^<]+)</lastmod>)?`))?.[1];
+    expect(entry("/dr/dr-asha")).toBe("2026-03-04T05:06:07Z");
+    // an older doctor edit never moves the profile's own date backwards; blog posts do not move it
+    expect(entry("/dr/dr-solo")).toBe("2026-05-01T00:00:00Z");
+  });
 });

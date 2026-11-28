@@ -92,7 +92,7 @@ const ClinicDetails = () => {
         />
 
         <div className="mt-10 grid gap-8 md:mt-14 lg:grid-cols-12 lg:gap-12">
-          <div ref={mapRef} className="relative min-h-[320px] overflow-hidden rounded-ds-lg bg-ds-paper-2 ring-1 ring-ds-line lg:col-span-7 lg:min-h-[480px]">
+          <div ref={mapRef} className="relative min-h-[320px] overflow-hidden rounded-ds-lg bg-ds-paper-2 ring-1 ring-ds-line lg:col-span-7 lg:sticky lg:top-28 lg:min-h-[480px] lg:self-start lg:max-h-[calc(100vh-8rem)]">
             {mapsQuery && mapNear ? (
               <iframe
                 title={`Map showing ${clinicName || "the clinic"}`}
@@ -157,12 +157,12 @@ const ClinicDetails = () => {
                   aria-expanded={showDoctorHours}
                   aria-controls={doctorHoursId}
                   onClick={() => setShowDoctorHours((v) => !v)}
-                  className="mt-2 inline-flex min-h-11 items-center gap-1 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline md:hidden"
+                  className="mt-2 inline-flex min-h-11 items-center gap-1 text-ds-small font-medium text-ds-accent-ink underline-offset-4 hover:underline"
                 >
                   {showDoctorHours ? "Hide each doctor's hours" : "Show each doctor's hours"}
                   <ChevronDown aria-hidden="true" className={cn("h-4 w-4 transition-transform duration-ds-2", showDoctorHours && "rotate-180")} />
                 </button>
-                <div id={doctorHoursId} className={cn("mt-3 space-y-6", showDoctorHours ? "block" : "hidden", "md:block")}>
+                <div id={doctorHoursId} className={cn("mt-3 space-y-6", showDoctorHours ? "block" : "hidden")}>
                   {(practitioners ?? []).map((d) => (
                     <section key={d.id} aria-label={`Hours of ${formatDoctorName(d.display_name)}`}>
                       <h4 className="mb-1 break-words text-ds-body font-semibold text-ds-ink">{formatDoctorName(d.display_name)}</h4>

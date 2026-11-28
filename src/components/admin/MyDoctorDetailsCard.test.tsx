@@ -141,4 +141,26 @@ describe("MyDoctorDetailsCard", () => {
       expect(screen.getByText(/your profile is complete/i)).toBeInTheDocument();
     });
   });
+
+  describe("bio helpers", () => {
+    it("Fill from my details uses the doctor's own record, asks before replacing, and saves through the self-edit RPC", async () => {
+      render(<MyDoctorDetailsCard />);
+      fireEvent.click(screen.getByRole("button", { name: /fill from my details/i }));
+      // The existing bio ("old bio") is not empty: confirm first.
+      fireEvent.click(screen.getByRole("button", { name: /replace my bio/i }));
+      const box = screen.getByLabelText(/^bio/i) as HTMLTextAreaElement;
+      expect(box.value).toContain("Dr. utkarsh vijay is an ENT with 5+ years of experience (MS).");
+            expect(screen.getByTestId("bio-preview").textContent).toBe(box.value.trim());
+      fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      await waitFor(() => expect(h.rpc).toHaveBeenCalledTimes(1));
+      expect(h.rpc.mock.calls[0][0]).toBe("update_my_practitioner_profile");
+      expect(h.rpc.mock.calls[0][1]._bio).toBe(box.value.trim());
+    });
+
+    it("keeps the 60-character guidance and shows the search checklist", () => {
+      render(<MyDoctorDetailsCard />);
+      expect(screen.getByRole("region", { name: /search checklist/i })).toBeInTheDocument();
+      expect(screen.getByText(/at least 60 characters/i, { selector: "li" })).toBeInTheDocument();
+    });
+  });
 });

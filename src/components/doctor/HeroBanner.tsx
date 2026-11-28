@@ -1,6 +1,7 @@
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Clock3, MapPin, Phone, Star, Stethoscope } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock3, MapPin, Phone, Star, Stethoscope } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { HERO_IMAGE_WIDTH } from "@/lib/seo/imageUrl";
 import { useDoctorData } from "@/contexts/DoctorContext";
@@ -17,6 +18,8 @@ import DsButton from "./ui/DsButton";
 import { dsScrollTo } from "./motion/scroll";
 import { useNow } from "./ui/useNow";
 import { useNextAvailable } from "./hero/useNextAvailable";
+import { useDoctorNextSlot } from "./hero/useDoctorNextSlot";
+import type { DoctorSubject } from "@/lib/doctorSite/practitionerSubject";
 import { useSplitReveal } from "./motion/useSplitReveal";
 import CountUp from "./effects/CountUp";
 import { DUR, EASE } from "./motion/tokens";
@@ -27,8 +30,17 @@ const rise = (delay: number) => ({
   transition: { duration: DUR.medium + 0.1, ease: EASE.out, delay },
 });
 
-const SoloHero = () => {
-  const { profile, reviews, settings, workingHours, isMultiDoctor, bookablePractitioners } = useDoctorData();
+type BackLink = { href: string; label: string };
+
+/**
+ * `subject` makes the hero about ONE doctor of a team clinic (their name, photo, credentials, fee and
+ * hours instead of the clinic profile's); without it this is the single-doctor site's hero, unchanged.
+ */
+const SoloHero = ({ subject, backLink }: { subject?: DoctorSubject; backLink?: BackLink }) => {
+  const ctx = useDoctorData();
+  const { reviews, bookablePractitioners } = ctx;
+  const { profile, settings, workingHours } = subject ?? ctx;
+  const isMultiDoctor = subject ? false : ctx.isMultiDoctor;
   const headingRef = useRef<HTMLHeadingElement>(null);
   useSplitReveal(headingRef, { immediate: true });
 
@@ -37,14 +49,16 @@ const SoloHero = () => {
   const place = (profile?.locality || profile?.city || "").trim();
   const now = useNow();
   const status = getClinicStatus(workingHours, now);
-  const facts = trustFacts(profile, reviews);
+  const facts = subject ? subject.facts : trustFacts(profile, reviews);
   const claims = customClaims(settings);
   const labels = siteLabels(settings);
   const phone = clinicPhone(profile);
   const directions = (profile?.google_maps_url || "").trim() || getClinicMapsUrl(profile);
   const fee = Number(profile?.consultation_fee) > 0 ? Number(profile.consultation_fee) : null;
   // Several doctors: no single "next free slot" to offer (no lookup at all); the patient picks a doctor first.
-  const nextSlot = useNextAvailable(isMultiDoctor ? undefined : profile?.id, workingHours ?? [], settings?.slot_duration_minutes, settings?.booking_advance_days);
+  const clinicSlot = useNextAvailable(isMultiDoctor || subject ? undefined : profile?.id, workingHours ?? [], settings?.slot_duration_minutes, settings?.booking_advance_days);
+  const doctorSlot = useDoctorNextSlot(subject ? ctx.profile?.id : undefined, subject?.doctorId);
+  const nextSlot = subject ? doctorSlot : clinicSlot;
 
   // Platform-default copy is filler every doctor gets; show the doctor's own
   // headline if they wrote one, otherwise their name (the thing a patient checks first).
@@ -89,6 +103,12 @@ const SoloHero = () => {
         {/* Phones: headline, then the booking card straight away (it must sit above the
             fixed action bar without scrolling); supporting copy follows. lg: editorial order. */}
         <div className="flex flex-col md:col-span-7 lg:pt-8">
+          {backLink && (
+            <Link to={backLink.href} className="mb-4 inline-flex min-h-11 items-center gap-2 self-start text-ds-small font-medium text-ds-accent-ink hover:underline">
+              <ArrowLeft aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+              {backLink.label}
+            </Link>
+          )}
           <motion.div {...rise(0)} className="order-1 flex flex-wrap items-center gap-x-3 gap-y-2">
             {(specialty || place) && (
               <p className="ds-eyebrow">
@@ -156,7 +176,7 @@ const SoloHero = () => {
                 </DsButton>
               </div>
             ) : (
-              <QuickBookCard state={nextSlot} fee={fee} />
+              <QuickBookCard state={nextSlot} fee={fee} doctorId={subject?.doctorId} />
             )}
           </motion.div>
 
@@ -296,10 +316,13 @@ const SoloHero = () => {
   );
 };
 
-/** A clinic with several doctors leads with the clinic (TeamHero); everything else is unchanged. */
-const HeroBanner = () => {
+/**
+ * A clinic with several doctors leads with the clinic (TeamHero); everything else is unchanged.
+ * A doctor's own page of such a clinic passes `subject` and gets the single-doctor hero for that doctor.
+ */
+const HeroBanner = ({ subject, backLink }: { subject?: DoctorSubject; backLink?: BackLink }) => {
   const { isTeamClinic } = useDoctorData();
-  return isTeamClinic === true ? <TeamHero /> : <SoloHero />;
+  return subject || isTeamClinic !== true ? <SoloHero subject={subject} backLink={backLink} /> : <TeamHero />;
 };
 
 export default HeroBanner;

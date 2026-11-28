@@ -10,7 +10,7 @@ import { SLOT_DURATION_OPTIONS } from "@/lib/timeSlots";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import BioAssistant from "../BioAssistant";
 import { Switch } from "@/components/ui/switch";
 import { AmountInput } from "@/components/ui/amount-input";
 import { DigitsInput } from "@/components/ui/digits-input";
@@ -61,9 +61,11 @@ interface Props {
   /** The owner's own row: personal fields sync from Profile and are read-only here. */
   isOwnerRow: boolean;
   onSaved: () => void | Promise<void>;
+  /** Clinic details the bio helpers use ("Fill from my details", AI). All optional. */
+  bioContext?: { clinicName?: string | null; city?: string | null; locality?: string | null; services?: string[] | null };
 }
 
-const DoctorFormDialog = ({ open, onOpenChange, practitioner, clinicId, isOwnerRow, onSaved }: Props) => {
+const DoctorFormDialog = ({ open, onOpenChange, practitioner, clinicId, isOwnerRow, onSaved, bioContext }: Props) => {
   const [form, setForm] = useState<FormState>(() => toForm(practitioner));
   const [photo, setPhoto] = useState<File | null>(null);
   const [signature, setSignature] = useState<File | null>(null);
@@ -197,7 +199,7 @@ const DoctorFormDialog = ({ open, onOpenChange, practitioner, clinicId, isOwnerR
 
         {isOwnerRow && (
           <p className="text-sm rounded-lg bg-secondary p-3">
-            Edit your name, photo and signature in Profile.{" "}
+            Edit your name, photo, signature and bio in Profile.{" "}
             <Link to="/admin/profile" className="text-royal font-medium underline-offset-2 hover:underline">Open Profile</Link>
           </p>
         )}
@@ -238,9 +240,30 @@ const DoctorFormDialog = ({ open, onOpenChange, practitioner, clinicId, isOwnerR
               disabled={personalLocked} maxLength={60} />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="doc-bio">Bio</Label>
-            <Textarea id="doc-bio" rows={3} value={form.bio} onChange={(e) => set("bio", e.target.value)}
-              disabled={personalLocked} maxLength={2000} />
+            {isOwnerRow ? (
+              <>
+                <Label>Bio</Label>
+                <p className="whitespace-pre-line break-words rounded-md border bg-muted/30 p-3 text-sm" data-testid="owner-bio-readonly">
+                  {form.bio.trim() || <span className="italic text-muted-foreground">No bio yet.</span>}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  This is your bio from Profile.{" "}
+                  <Link to="/admin/profile" className="text-royal font-medium underline-offset-2 hover:underline">Edit your bio in Profile</Link>
+                </p>
+              </>
+            ) : (
+              <BioAssistant
+                idPrefix="doc"
+                value={form.bio}
+                onChange={(v) => set("bio", v)}
+                disabled={saving}
+                context={{
+                  name: form.display_name, specialization: form.specialization, qualifications: form.qualifications,
+                  experience: form.experience_years, clinicName: bioContext?.clinicName, locality: bioContext?.locality,
+                  city: bioContext?.city, services: bioContext?.services,
+                }}
+              />
+            )}
           </div>
           {!isOwnerRow && (
             <>

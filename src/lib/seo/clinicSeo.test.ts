@@ -85,7 +85,8 @@ describe("team clinic JSON-LD", () => {
     expect(main.name).toBe("Sharma Clinic");
     expect(main.address.addressLocality).toBe("Kota");
     expect(main.telephone).toBe("9876543210");
-    expect(main.medicalSpecialty).toBeUndefined();
+    // Changed deliberately: the clinic lists the specialties of all its doctors (not the owner's alone).
+    expect(main.medicalSpecialty).toEqual(["Dentist", "ENT"]);
   });
   it("drops the clinic-level aggregateRating even when the clinic has reviews", () => {
     expect(ld({ reviews: [{ rating: 5 }, { rating: 4 }] })["@graph"][0].aggregateRating).toBeUndefined();

@@ -102,43 +102,46 @@ describe("PractitionerPage in the full site shell", () => {
   it("shows the profile facts and a Book button for this doctor", () => {
     mockData({ practitioners: [DR_A, { ...DR_B, experience_years: 1 }] });
     renderAt(PAGE);
-    expect(screen.getByText("MBBS")).toBeInTheDocument();
+    expect(screen.getAllByText("MBBS").length).toBeGreaterThan(0);
     expect(screen.getByText("1 year in practice")).toBeInTheDocument();
-    expect(screen.getByText("REG-1")).toBeInTheDocument();
+    expect(screen.getAllByText("REG-1").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Book with Dr. Vikram Shah" })).toBeInTheDocument();
   });
 
-  it("shows initials without a photo, and the photo (named) with one", () => {
-    mockData();
+  it("leads with this doctor's own portrait, and never the clinic owner's photo", () => {
+    mockData({
+      profile: { id: "c1", slug: "dr-a", full_name: "Asha Rao", clinic_name: "City Clinic", city: "Kota", consultation_fee: 750, plan_status: "active", profile_photo_url: "https://cdn.example/owner.jpg" },
+      settings: { hero_photo_url: "https://cdn.example/clinic.jpg" },
+    });
     const { unmount } = renderAt(PAGE);
-    expect(screen.getByText("VS")).toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: "Dr. Vikram Shah" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
     unmount();
     mockData({ practitioners: [DR_A, { ...DR_B, photo_url: "https://cdn.example/vs.jpg" }] });
     renderAt(PAGE);
-    expect(screen.getByRole("img", { name: "Dr. Vikram Shah" })).toBeInTheDocument();
+    const portrait = screen.getByRole("img", { name: "Portrait of Dr. Vikram Shah" });
+    expect(portrait.getAttribute("src")).toContain("vs.jpg");
   });
 
-  it("says 'Profile coming soon' for a doctor without a bio", () => {
+  it("introduces the doctor in an About section that leaves the bio out when they have none", () => {
     mockData({ practitioners: [DR_A, { ...DR_B, bio: "   " }] });
     renderAt(PAGE);
-    expect(screen.getByRole("heading", { level: 2, name: "About Dr. Vikram Shah" })).toBeInTheDocument();
-    expect(screen.getByText("Profile coming soon")).toBeInTheDocument();
+    const about = screen.getByRole("heading", { level: 2, name: "Meet Dr. Vikram Shah" }).closest("section")!;
+    expect(within(about).getByText("Cardiologist")).toBeInTheDocument();
+    expect(about.querySelector("p.whitespace-pre-line")).toBeNull();
   });
 
   it("keeps line breaks and paragraphs of the bio", () => {
     mockData({ practitioners: [DR_A, { ...DR_B, bio: "First line\nSecond line\n\nNew paragraph" }] });
     renderAt(PAGE);
-    const first = screen.getByText(/First line/);
-    expect(first.textContent).toBe("First line\nSecond line");
-    expect(first.className).toContain("whitespace-pre-line");
-    expect(screen.getByText("New paragraph")).toBeInTheDocument();
+    const bio = screen.getByText(/First line/);
+    expect(bio.textContent).toBe("First line\nSecond line\n\nNew paragraph");
+    expect(bio.className).toContain("whitespace-pre-line");
   });
 
-  it("collapses a very long bio behind Read more", () => {
+  it("collapses a very long bio behind a read-the-full-story button", () => {
     mockData({ practitioners: [DR_A, { ...DR_B, bio: "Long experience. ".repeat(200) }] });
     renderAt(PAGE);
-    const more = screen.getByRole("button", { name: /read more/i });
+    const more = screen.getByRole("button", { name: /read the full story/i });
     expect(more).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(more);
     expect(screen.getByRole("button", { name: /show less/i })).toHaveAttribute("aria-expanded", "true");
@@ -148,7 +151,7 @@ describe("PractitionerPage in the full site shell", () => {
     const all = Array.from({ length: 7 }, (_, d) => hour("pb", d, "09:00:00", "13:00:00"));
     mockData({ allWorkingHours: all, rawWorkingHours: all });
     renderAt(PAGE);
-    expect(screen.getByText("Today")).toBeInTheDocument();
+    expect(within(document.getElementById("hours")!).getByText("Today")).toBeInTheDocument();
   });
 
   it("says so when the doctor has no hours set", () => {
@@ -165,7 +168,7 @@ describe("PractitionerPage in the full site shell", () => {
     it("lists every service when none is mapped to a doctor", () => {
       mockData({ services, servicePractitioners: [] });
       renderAt(PAGE);
-      const section = screen.getByRole("heading", { name: "Services offered by Dr. Vikram Shah" }).closest("section")!;
+      const section = screen.getByRole("heading", { name: "Services & consultations" }).closest("section")!;
       expect(within(section).getByText("General check-up")).toBeInTheDocument();
       expect(within(section).getByText("Echo test")).toBeInTheDocument();
       expect(within(section).getByText(/20 min/)).toBeInTheDocument();
@@ -176,14 +179,21 @@ describe("PractitionerPage in the full site shell", () => {
       expect(screen.getByText("General check-up")).toBeInTheDocument();
       expect(screen.queryByText("Echo test")).not.toBeInTheDocument();
     });
-    it("hides the section when every service belongs to other doctors, or the clinic has none", () => {
+    it("offers a plain clinic consultation when every service belongs to other doctors, or the clinic has none", () => {
       mockData({ services, servicePractitioners: [{ service_id: "s1", practitioner_id: "pa" }, { service_id: "s2", practitioner_id: "pa" }] });
       const { unmount } = renderAt(PAGE);
-      expect(screen.queryByRole("heading", { name: /Services offered by/ })).not.toBeInTheDocument();
+      expect(screen.queryByText("General check-up")).not.toBeInTheDocument();
+      expect(screen.getByText("Clinic consultation")).toBeInTheDocument();
       unmount();
       mockData({ services: [] });
       renderAt(PAGE);
-      expect(screen.queryByRole("heading", { name: /Services offered by/ })).not.toBeInTheDocument();
+      expect(screen.getByText("Clinic consultation")).toBeInTheDocument();
+    });
+    it("does not say who offers a service or filter by doctor: this page is about one doctor", () => {
+      mockData({ services, servicePractitioners: [{ service_id: "s2", practitioner_id: "pb" }] });
+      renderAt(PAGE);
+      expect(screen.queryByText(/Offered by/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: /Filter services by doctor/ })).not.toBeInTheDocument();
     });
     it("a service's Book button preselects the doctor and the service", () => {
       mockData({ services: [services[0]] });
@@ -194,7 +204,7 @@ describe("PractitionerPage in the full site shell", () => {
       window.addEventListener("doctylia:select-doctor", a);
       window.addEventListener("doctylia:select-service", b);
       renderAt(PAGE);
-      fireEvent.click(screen.getByRole("button", { name: "Book General check-up with Dr. Vikram Shah" }));
+      fireEvent.click(screen.getByRole("button", { name: "Book General check-up" }));
       window.removeEventListener("doctylia:select-doctor", a);
       window.removeEventListener("doctylia:select-service", b);
       expect(doctors.at(-1)).toEqual({ id: "pb" });

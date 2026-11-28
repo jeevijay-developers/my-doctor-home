@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Copy, ExternalLink, Loader2, MoreHorizontal, Plus, Stethoscope, UserRound } from "lucide-react";
+import { AlertTriangle, Clock, Copy, ExternalLink, Loader2, MoreVertical, Pencil, Plus, Stethoscope, UserRound, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -202,10 +202,11 @@ const DoctorsPage = () => {
   type MenuEntry = {
     key: string; label: string; onSelect?: () => void; to?: string;
     disabled?: boolean; title?: string; destructive?: boolean; separatorBefore?: boolean;
+    icon?: LucideIcon;
   };
 
-  // Edit and Hours are the everyday actions and stay as buttons; everything else lives in the "⋯" menu
-  // (destructive ones last, in red, behind a separator) so the row stays tidy on any width.
+  // Edit is the one everyday action and stays a pencil icon button; Hours and everything else live in the
+  // vertical-dots menu (destructive ones last, in red, behind a separator) so the row stays tidy on any width.
   const actions = (p: Practitioner) => {
     const name = p.display_name;
     const login = loginOf(p);
@@ -225,9 +226,13 @@ const DoctorsPage = () => {
     }
     if (canManage) {
       primary.push(
-        <Button key="edit" size="sm" variant="outline" aria-label={`Edit ${name}`} onClick={() => { setEditing(p); setFormOpen(true); }}>Edit</Button>,
-        <Button key="hours" size="sm" variant="outline" aria-label={`Hours for ${name}`} onClick={() => setHoursFor(p)}>Hours</Button>,
+        <Button key="edit" size="icon" variant="outline" title="Edit" aria-label={`Edit ${name}`}
+          className="h-10 w-10 shrink-0 focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => { setEditing(p); setFormOpen(true); }}>
+          <Pencil className="h-4 w-4" aria-hidden="true" />
+        </Button>,
       );
+      menu.push({ key: "hours", label: "Hours", icon: Clock, onSelect: () => setHoursFor(p) });
     }
     if (isOwner && !isOwnerRow(p)) {
       if (login) {
@@ -256,8 +261,8 @@ const DoctorsPage = () => {
         {menu.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="h-9 w-9 p-0" aria-label={`More actions for ${name}`}>
-                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+              <Button size="icon" variant="outline" className="h-10 w-10 shrink-0 p-0 focus-visible:ring-2 focus-visible:ring-ring" aria-label={`More actions for ${name}`}>
+                <MoreVertical className="h-4 w-4" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[11rem]">
@@ -275,6 +280,7 @@ const DoctorsPage = () => {
                       onSelect={m.onSelect}
                       className={m.destructive ? "text-destructive focus:text-destructive" : undefined}
                     >
+                      {m.icon && <m.icon className="mr-2 h-4 w-4" aria-hidden="true" />}
                       {m.label}
                     </DropdownMenuItem>
                   )}
@@ -460,6 +466,11 @@ const DoctorsPage = () => {
             clinicId={clinicId}
             isOwnerRow={!!editing && isOwnerRow(editing)}
             onSaved={refetch}
+            bioContext={{
+              clinicName: profile?.clinic_name,
+              city: profile?.city,
+              locality: (profile as { locality?: string | null } | null)?.locality,
+            }}
           />
           <DoctorHoursEditor open={!!hoursFor} onOpenChange={(o) => !o && setHoursFor(null)} practitioner={hoursFor} clinicId={clinicId} />
           <DeactivateDoctorDialog practitioner={deactivating} clinicId={clinicId} onClose={() => setDeactivating(null)} onDone={refetch} />

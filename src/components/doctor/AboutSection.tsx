@@ -4,9 +4,11 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { doctorName, formatQualifications } from "@/lib/doctorSite/doctorFacts";
+import type { DoctorSubject } from "@/lib/doctorSite/practitionerSubject";
 import DsButton from "./ui/DsButton";
 import SectionHeader from "./ui/SectionHeader";
 import { bookNow } from "./siteActions";
+import { SELECT_DOCTOR_EVENT } from "./DoctorsSection";
 import { DUR, EASE, staggerDelay } from "./motion/tokens";
 import TeamAbout from "./TeamAbout";
 
@@ -17,8 +19,9 @@ const BIO_PREVIEW = 420;
  * definition list, one action. Every line comes from what the doctor entered;
  * nothing is written on their behalf, and missing items are simply left out.
  */
-const SoloAbout = () => {
-  const { profile, settings } = useDoctorData();
+const SoloAbout = ({ subject }: { subject?: DoctorSubject }) => {
+  const ctx = useDoctorData();
+  const { profile, settings } = subject ?? ctx;
   const reduce = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
   const bioId = useId();
@@ -111,7 +114,13 @@ const SoloAbout = () => {
           )}
 
           <div className="mt-9">
-            <DsButton size="lg" onClick={bookNow}>
+            <DsButton
+              size="lg"
+              onClick={() => {
+                if (subject) window.dispatchEvent(new CustomEvent(SELECT_DOCTOR_EVENT, { detail: { id: subject.doctorId } }));
+                bookNow();
+              }}
+            >
               {name ? `Book with ${name}` : "Book an appointment"}
               <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={2} />
             </DsButton>
@@ -122,10 +131,13 @@ const SoloAbout = () => {
   );
 };
 
-/** A clinic with several doctors gets "About the clinic" (TeamAbout); otherwise the doctor's own About. */
-const AboutSection = () => {
+/**
+ * A clinic with several doctors gets "About the clinic" (TeamAbout); otherwise the doctor's own About.
+ * A doctor's own page of such a clinic passes `subject` and gets that doctor's About.
+ */
+const AboutSection = ({ subject }: { subject?: DoctorSubject }) => {
   const { isTeamClinic } = useDoctorData();
-  return isTeamClinic === true ? <TeamAbout /> : <SoloAbout />;
+  return !subject && isTeamClinic === true ? <TeamAbout /> : <SoloAbout subject={subject} />;
 };
 
 export default AboutSection;

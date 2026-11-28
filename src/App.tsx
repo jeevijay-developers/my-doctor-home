@@ -5,12 +5,14 @@ import { Loader2 } from "lucide-react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import LandingPage from "./pages/LandingPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MaintenanceGate from "./components/MaintenanceGate";
 import Analytics from "./components/shared/Analytics";
 import { DIRECTORY_HIDDEN } from "./lib/siteSwitches";
 
+// Lazy: its sections (carousel, pricing, case studies) are ~100 kB the doctor pages never use.
+// main.tsx starts this download at "/" so the marketing page does not wait for the router.
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const FeaturesPage = lazy(() => import("./pages/FeaturesPage"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));

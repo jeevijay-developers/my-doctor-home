@@ -40,6 +40,14 @@ export default defineConfig(({ mode }) => ({
           // entry chunk statically imported ~1 MB of editor + PDF code on every
           // page, including the public doctor site. Left to Rollup they stay in
           // the lazy chunks that actually use them.
+          // One chunk each instead of dozens of one-icon / one-function chunks: the doctor page
+          // used to fetch ~80 JS files in a dependency chain before it could render.
+          if (id.includes("node_modules/lucide-react/")) {
+            return "vendor-icons";
+          }
+          if (id.includes("node_modules/date-fns/")) {
+            return "vendor-date";
+          }
           if (id.includes("framer-motion")) {
             return "vendor-motion";
           }

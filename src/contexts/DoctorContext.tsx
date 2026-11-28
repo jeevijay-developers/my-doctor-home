@@ -1,8 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { PUBLIC_PROFILE_COLUMNS } from "@/lib/publicProfileColumns";
-import type { Tables } from "@/integrations/supabase/types";
+import { fetchDoctorBundle, fetchDoctorProfile, fetchPractitioners, takeDoctorPrefetch } from "@/lib/doctorSite/prefetch";
 import { readPreviewMessage } from "@/lib/doctorSite/heroSettings";
 import type { PublicPractitioner } from "@/lib/practitioners/types";
 import { clinicHoursUnion } from "@/lib/practitioners/hours";
@@ -78,17 +77,6 @@ function deriveClinic(practitioners: PublicPractitioner[], rawHours: any[]): Cli
     allWorkingHours, rawWorkingHours, practitioners, bookablePractitioners, soleBookable, isMultiDoctor,
     isTeamClinic: practitioners.length >= 2,
   };
-}
-
-/** One get_public_practitioners call. supabase-js resolves {error} instead of throwing, so check both. */
-async function fetchPractitioners(doctorId: string): Promise<{ list: PublicPractitioner[]; error: unknown }> {
-  try {
-    const res = await supabase.rpc("get_public_practitioners", { _doctor_id: doctorId });
-    if (res?.error) return { list: [], error: res.error };
-    return { list: (Array.isArray(res?.data) ? res.data : []) as unknown as PublicPractitioner[], error: null };
-  } catch (e) {
-    return { list: [], error: e };
-  }
 }
 
 /** Best-effort: any failure means "no filtering" (every doctor offers every service); never blocks the page. */
@@ -175,11 +163,10 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const load = async () => {
-      const { data: rawProfile } = await supabase
-        .from("profiles").select(PUBLIC_PROFILE_COLUMNS)
-        .eq("slug", slug).eq("onboarding_completed", true).maybeSingle();
-      // Explicit column list (anon cannot read the sensitive columns); typed as the full row.
-      const profile = rawProfile as unknown as Tables<"profiles"> | null;
+      // Started from main.tsx before this page's code arrived (same queries, same order).
+      const pre = takeDoctorPrefetch(slug);
+      const early = pre ? await pre.promise.catch(() => null) : null;
+      const profile = early ? early.profile : await fetchDoctorProfile(slug);
 
       if (!profile) {
         // Try old-slug redirect
@@ -205,17 +192,7 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const id = profile.id;
-      const [servRes, pkgRes, revRes, galRes, setRes, whRes, premiumRes, practRes] = await Promise.all([
-        supabase.from("services").select("*").eq("doctor_id", id).eq("active", true).order("sort_order"),
-        supabase.from("packages").select("*").eq("doctor_id", id).eq("active", true).order("sort_order"),
-        supabase.from("reviews").select("*").eq("doctor_id", id).eq("is_visible", true).order("is_pinned", { ascending: false }).order("created_at", { ascending: false }),
-        supabase.from("gallery_photos").select("*").eq("doctor_id", id).order("sort_order"),
-        supabase.from("website_settings").select("*").eq("doctor_id", id).single(),
-        supabase.from("working_hours").select("*").eq("doctor_id", id).order("day_of_week"),
-        supabase.rpc("doctor_has_premium_access", { _doctor_id: id }),
-        // A failed doctor lookup must never break the page: it then works as a single-doctor site.
-        fetchPractitioners(id),
-      ]);
+      const [servRes, pkgRes, revRes, galRes, setRes, whRes, premiumRes, practRes] = early?.bundle ?? (await fetchDoctorBundle(id));
 
       if (cancelled) return;
       clinicIdRef.current = id;

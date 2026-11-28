@@ -270,7 +270,9 @@ describe("SettingsPage profile tab (multi-doctor split)", () => {
     expect(clinic.compareDocumentPosition(mine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText(/shown on the clinic page and in search results/i)).toBeInTheDocument();
     expect(screen.getByText(/shown on your doctor page/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /doctors page/i })).toHaveAttribute("href", "/admin/doctors");
+    // The bio is written right here now: no pointer back to the Doctors page.
+    expect(screen.queryByRole("link", { name: /doctors page/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^bio/i)).toBeInTheDocument();
     expect(screen.getByText("Clinic phone")).toBeInTheDocument();
     expect(screen.queryByText("Your Details")).not.toBeInTheDocument();
   });

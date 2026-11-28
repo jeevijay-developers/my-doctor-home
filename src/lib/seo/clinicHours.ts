@@ -84,3 +84,20 @@ export function hoursLines(rows?: HoursRowLike[] | null): Array<{ label: string;
     text: d.intervals.map(([s, e]) => `${twelveHour(s)} - ${twelveHour(e)}`).join(", "),
   }));
 }
+
+/** "Monday to Saturday", "Monday, Wednesday and Friday", "" when nothing is open. */
+export function openDaysSummary(rows?: HoursRowLike[] | null): string {
+  const open = new Set(clinicOpenDays(rows).map((d) => d.day));
+  const days = DAY_ORDER.filter((d) => open.has(d));
+  if (!days.length) return "";
+  if (days.length === 7) return "every day";
+  // Runs of consecutive days (Monday first) collapse into "A to B" when they are 3+ long.
+  const runs: number[][] = [];
+  for (const d of days) {
+    const run = runs[runs.length - 1];
+    if (run && DAY_ORDER.indexOf(d) === DAY_ORDER.indexOf(run[run.length - 1]) + 1) run.push(d);
+    else runs.push([d]);
+  }
+  const parts = runs.flatMap((r) => (r.length >= 3 ? [`${DAY_NAMES[r[0]]} to ${DAY_NAMES[r[r.length - 1]]}`] : r.map((d) => DAY_NAMES[d])));
+  return parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}

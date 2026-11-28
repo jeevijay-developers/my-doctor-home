@@ -242,14 +242,19 @@ const BookingWidget = () => {
     if (!isMultiDoctor && step === 0) setStep(1);
   }, [isMultiDoctor, step]);
 
-  // "Book" on a doctor's card (DoctorsSection): preselect that doctor and open When.
+  // "Book" on a doctor's card (DoctorsSection): preselect that doctor and open When. A `silent`
+  // event (a doctor's own page choosing its doctor on load) must not pull the visitor down to the
+  // booking card, so the step-change scroll below is skipped for a moment after it.
+  const quietUntil = useRef(0);
   useEffect(() => {
     if (!isMultiDoctor && !soleBookable) return;
     const handleSelectDoctor = (event: Event) => {
-      const id = (event as CustomEvent<{ id?: string } | undefined>).detail?.id;
+      const detail = (event as CustomEvent<{ id?: string; silent?: boolean } | undefined>).detail;
+      const id = detail?.id;
       if (!id || !doctors.some((d) => d.id === id)) return;
       if (live.current.submitting || live.current.paymentFailed) return;
       if (live.current.confirmed) live.current.reset();
+      if (detail?.silent) quietUntil.current = Date.now() + 1500;
       chooseDoctor(id);
       setStep(1);
     };
@@ -916,6 +921,7 @@ const BookingWidget = () => {
   useEffect(() => {
     if (lastVisibleStep.current === visibleStep) return;
     lastVisibleStep.current = visibleStep;
+    if (Date.now() < quietUntil.current) return;
     // Bring the new step's top into view (the previous step may have left the page scrolled to its bottom).
     // The details step focuses its first field itself, which scroll's focus handling leaves alone.
     dsScrollTo("booking-card");

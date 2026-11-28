@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { User, MapPin, Upload, UserCircle, Building2 } from "lucide-react";
@@ -20,6 +19,8 @@ import { isValidIndianPhone, normalizeIndianPhone, phoneErrorMessage } from "@/l
 import { INDIAN_STATES } from "@/lib/formatClinicLocation";
 import { getCitiesForState } from "@/lib/indiaStatesCities";
 import { isGoogleMapsUrl } from "@/lib/googleMapsUrl";
+import { sanitizeBio } from "@/lib/doctorBio";
+import BioAssistant from "./BioAssistant";
 
 
 const specializations = [
@@ -49,8 +50,10 @@ const ProfilePage = ({ variant = "single", clinicTop }: ProfilePageProps = {}) =
     phone: "", clinic_name: "", city: "", state: "", address: "",
     consultation_fee: 0, gstin: "", gst_registered: false,
     registration_number: "", clinic_email: "",
-    locality: "", pincode: "", directory_listed: true, google_maps_url: "",
+    locality: "", pincode: "", directory_listed: true, google_maps_url: "", bio: "",
   });
+  // Service names (first few) feed the bio helpers. Failure just means no services in the draft.
+  const [serviceNames, setServiceNames] = useState<string[]>([]);
 
   useEffect(() => {
     if (profile) {
@@ -73,9 +76,23 @@ const ProfilePage = ({ variant = "single", clinicTop }: ProfilePageProps = {}) =
         pincode: (profile as any).pincode || "",
         directory_listed: (profile as any).directory_listed !== false,
         google_maps_url: (profile as any).google_maps_url || "",
+        bio: (profile as any).bio || "",
       });
     }
   }, [profile]);
+
+  const profileId = profile?.id;
+  useEffect(() => {
+    if (!profileId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.from("services").select("name").eq("doctor_id", profileId).eq("active", true).order("sort_order");
+        if (!cancelled && Array.isArray(data)) setServiceNames(data.map((r: any) => String(r?.name ?? "")).filter(Boolean).slice(0, 6));
+      } catch { /* optional context only */ }
+    })();
+    return () => { cancelled = true; };
+  }, [profileId]);
 
 
   // Keep a legacy free-text city selectable so existing profiles don't silently lose it.
@@ -100,7 +117,7 @@ const ProfilePage = ({ variant = "single", clinicTop }: ProfilePageProps = {}) =
     // Directory fields are saved in a second update (below) so a database that has not
     // been migrated yet can never block the rest of the profile from saving.
     const { locality, pincode: _pincode, directory_listed, google_maps_url: _maps, ...core } = form;
-    const payload: any = { ...core, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
+    const payload: any = { ...core, bio: sanitizeBio(form.bio) || null, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
 
     // BUG-M05: keep public URL slug in sync when the doctor's name changes.
     // A clinic that picked its own address (Settings > Website address) keeps it: never re-derive.
@@ -200,9 +217,7 @@ const ProfilePage = ({ variant = "single", clinicTop }: ProfilePageProps = {}) =
         <CardTitle className="flex items-center gap-2"><User className="h-5 w-5 text-royal" aria-hidden="true" /> {multi ? "My doctor profile" : "Your Details"}</CardTitle>
         {multi && (
           <p className="text-sm text-muted-foreground">
-            Shown on your doctor page and on your prescriptions. Write or update your bio on the{" "}
-            <Link to="/admin/doctors" className="text-royal font-medium hover:underline">Doctors page</Link>
-            ; a bio of at least 60 characters lets Google list your page.
+            Shown on your doctor page and on your prescriptions. Write your bio below: at least 60 characters lets Google list your page.
           </p>
         )}
       </CardHeader>
@@ -266,6 +281,19 @@ const ProfilePage = ({ variant = "single", clinicTop }: ProfilePageProps = {}) =
             <p className="text-[11px] text-muted-foreground">Shown on prescriptions, near your signature.</p>
           </div>
         </div>
+
+        <BioAssistant
+          idPrefix="profile"
+          value={form.bio}
+          onChange={(bio) => setForm((f) => ({ ...f, bio }))}
+          disabled={!can("profile.edit")}
+          helpText="Shown on your public doctor page. Plain text only."
+          context={{
+            name: form.full_name, specialization: form.specialization, qualifications: form.qualifications,
+            experience: form.experience_years, clinicName: form.clinic_name, locality: form.locality, city: form.city,
+            services: serviceNames,
+          }}
+        />
 
         <div className="flex items-center gap-5 pt-1">
           <div className="relative group">

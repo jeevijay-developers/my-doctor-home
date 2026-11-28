@@ -5,12 +5,15 @@ import { ArrowRight, CalendarClock } from "lucide-react";
 import { relativeDayLabel, SELECT_SLOT_EVENT, slotLabel, type NextAvailable, type SelectSlotDetail } from "@/lib/doctorSite/nextAvailable";
 import DsButton from "../ui/DsButton";
 import { bookNow } from "../siteActions";
+import { SELECT_DOCTOR_EVENT } from "../DoctorsSection";
 import { DUR, EASE } from "../motion/tokens";
 import type { useNextAvailable } from "./useNextAvailable";
 
 type Props = {
   state: ReturnType<typeof useNextAvailable>;
   fee: number | null;
+  /** On a doctor's own page: book with THIS doctor, whatever the widget had selected. */
+  doctorId?: string;
 };
 
 /** A slot found at page load may have passed if the tab stayed open. */
@@ -27,16 +30,25 @@ const stillAhead = (slot: NextAvailable, now = new Date()) => {
  * date and time already chosen (it re-checks the slot is still free). The button
  * works in every state, so a patient never waits on the lookup.
  */
-const QuickBookCard = ({ state, fee }: Props) => {
+const QuickBookCard = ({ state, fee, doctorId }: Props) => {
   const spotlight = useSpotlight<HTMLDivElement>();
   const slot = state.status === "found" ? state.slot : null;
   const slotTextId = useId();
 
+  const pickDoctor = () => {
+    if (doctorId) window.dispatchEvent(new CustomEvent(SELECT_DOCTOR_EVENT, { detail: { id: doctorId } }));
+  };
+  const openBooking = () => {
+    pickDoctor();
+    bookNow();
+  };
+
   const bookSlot = () => {
     if (!slot || !stillAhead(slot)) {
-      bookNow();
+      openBooking();
       return;
     }
+    pickDoctor();
     const detail: SelectSlotDetail = { dateKey: slot.dateKey, time: slot.time, type: "clinic" };
     window.dispatchEvent(new CustomEvent(SELECT_SLOT_EVENT, { detail }));
     bookNow();
@@ -99,7 +111,7 @@ const QuickBookCard = ({ state, fee }: Props) => {
           // Rendered while loading too (invisible), so the card does not grow when the slot arrives.
           <button
             type="button"
-            onClick={bookNow}
+            onClick={openBooking}
             aria-hidden={slot ? undefined : true}
             tabIndex={slot ? undefined : -1}
             className={`min-h-12 rounded-full px-4 text-ds-small font-medium text-ds-ink-2 underline decoration-ds-line underline-offset-4 transition-colors hover:text-ds-ink hover:decoration-ds-ink ${slot ? "" : "invisible"}`}

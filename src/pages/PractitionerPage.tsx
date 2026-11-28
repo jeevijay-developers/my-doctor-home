@@ -13,9 +13,9 @@ import DoctorThemeProvider from "@/components/doctor/DoctorThemeProvider";
 import SmoothScroll from "@/components/doctor/motion/SmoothScroll";
 import { dsScrollTo } from "@/components/doctor/motion/scroll";
 import { SELECT_DOCTOR_EVENT } from "@/components/doctor/DoctorsSection";
-import ProfileHeader from "@/components/doctor/practitioner/ProfileHeader";
-import DoctorBio from "@/components/doctor/practitioner/DoctorBio";
-import DoctorServices from "@/components/doctor/practitioner/DoctorServices";
+import HeroBanner from "@/components/doctor/HeroBanner";
+import AboutSection from "@/components/doctor/AboutSection";
+import ServicesSection from "@/components/doctor/ServicesSection";
 import DoctorHours from "@/components/doctor/practitioner/DoctorHours";
 import DoctorArticles from "@/components/doctor/practitioner/DoctorArticles";
 import OtherDoctors from "@/components/doctor/practitioner/OtherDoctors";
@@ -23,6 +23,7 @@ import { usePractitionerHead } from "@/components/doctor/practitioner/usePractit
 import { clinicDisplayName } from "@/lib/doctorSite/teamClinic";
 import { doctorPageNoindex, otherDoctors } from "@/lib/doctorSite/practitionerPage";
 import { hoursFor } from "@/lib/practitioners/hours";
+import { practitionerSubject } from "@/lib/doctorSite/practitionerSubject";
 import { buildPractitionerJsonLd, buildPractitionerMeta, formatDoctorName } from "@/lib/seo/doctorSeo";
 import { jsonLdScript } from "@/lib/jsonLd";
 
@@ -63,11 +64,12 @@ const PractitionerContent = () => {
   }, [loading, profile, doctor, team, slug, navigate]);
 
   // Preselect this doctor in the booking widget (its listener is mounted before this effect runs).
+  // Silent: arriving on the page must show the doctor, not scroll down to the booking card.
   const doctorId = doctor?.id;
   const bookable = !!doctor?.bookable;
   useEffect(() => {
     if (!doctorId || !bookable || !team) return;
-    window.dispatchEvent(new CustomEvent(SELECT_DOCTOR_EVENT, { detail: { id: doctorId } }));
+    window.dispatchEvent(new CustomEvent(SELECT_DOCTOR_EVENT, { detail: { id: doctorId, silent: true } }));
   }, [doctorId, bookable, team]);
 
   const input = useMemo(
@@ -86,6 +88,11 @@ const PractitionerContent = () => {
     [rawWorkingHours, allWorkingHours, doctor],
   );
   const others = useMemo(() => (doctor ? otherDoctors(practitioners, doctor.id) : []), [practitioners, doctor]);
+  // The single-doctor site's hero, About and Services, fed this doctor instead of the clinic owner.
+  const subject = useMemo(
+    () => (doctor && profile ? practitionerSubject({ doctor, profile, settings, workingHours: rows }) : null),
+    [doctor, profile, settings, rows],
+  );
 
   // A link like /dr/x/doctor/y#booking lands on that section once the page has rendered.
   useEffect(() => {
@@ -130,15 +137,15 @@ const PractitionerContent = () => {
         {structuredData && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData) }} />}
         <Navbar />
         <main id="main">
-          <ProfileHeader doctor={doctor} profile={profile} clinicName={clinicName} clinicHref={`/dr/${slug}`} />
+          <HeroBanner subject={subject ?? undefined} backLink={{ href: `/dr/${slug}`, label: `Back to ${clinicName}` }} />
+          {settings?.show_about !== false && <AboutSection subject={subject ?? undefined} />}
+          {settings?.show_services !== false && <ServicesSection subject={subject ?? undefined} />}
 
-          <div className="mx-auto grid max-w-[1200px] gap-12 px-5 pb-16 sm:px-6 md:pb-24 lg:grid-cols-12 lg:gap-14 lg:px-8">
-            <div className="space-y-12 lg:col-span-7">
-              <DoctorBio name={name} bio={doctor.bio} />
-              <DoctorServices doctor={doctor} name={name} />
-            </div>
-            <div className="lg:col-span-5">
-              <DoctorHours rows={rows as never} name={name} />
+          <div className="px-5 py-[4.5rem] sm:px-6 md:py-24 lg:px-8">
+            <div className="mx-auto max-w-[1200px]">
+              <div className="max-w-xl">
+                <DoctorHours rows={rows as never} name={name} />
+              </div>
             </div>
           </div>
 

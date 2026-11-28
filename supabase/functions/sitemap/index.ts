@@ -119,12 +119,22 @@ Deno.serve(async (req) => {
       urlEntry("/refund-policy", "yearly", "0.3"),
     ];
 
+    // A clinic page also changes when one of its doctors is edited (bio, fee, name): lastmod is the newest of
+    // the profile and its active doctors. Post timestamps are left out on purpose (moderation toggles move
+    // them without changing the page), and so is website_settings (it would need one more full table scan).
+    const newestDoctorEdit = new Map<string, string>();
+    for (const p of practitioners) {
+      const stamp = lastMod(p.updated_at);
+      if (stamp && stamp > (newestDoctorEdit.get(p.doctor_id) ?? "")) newestDoctorEdit.set(p.doctor_id, stamp);
+    }
     for (const doctor of doctors) {
+      const profileStamp = lastMod(doctor.updated_at) ?? "";
+      const doctorStamp = newestDoctorEdit.get(doctor.id) ?? "";
       urls.push(urlEntry(
         `/dr/${encodeURIComponent(doctor.slug)}`,
         "weekly",
         "0.8",
-        lastMod(doctor.updated_at),
+        (doctorStamp > profileStamp ? doctorStamp : profileStamp) || null,
       ));
     }
 

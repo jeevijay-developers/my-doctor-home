@@ -21,7 +21,6 @@ import BottomActionBar from "@/components/doctor/BottomActionBar";
 import DoctorThemeProvider from "@/components/doctor/DoctorThemeProvider";
 import { jsonLdScript } from "@/lib/jsonLd";
 import { DEFAULT_TITLE, buildDoctorJsonLd, buildDoctorMeta, doctorDisplayName } from "@/lib/seo/doctorSeo";
-import { clinicDisplayName, specialtiesLine } from "@/lib/doctorSite/teamClinic";
 // Root of the doctor site: scopes the `ds-*` design tokens, smooth scroll and the
 // reduced-motion policy (`motion` honours the OS setting via reducedMotion="user").
 const DoctorSiteShell = ({ children }: { children: ReactNode }) => (
@@ -67,18 +66,14 @@ const DoctorPageContent = () => {
 
   const doctorName = useMemo(() => doctorDisplayName(profile), [profile]);
 
+  // The same builder the edge function uses, fed the same doctors, so the title and description a
+  // script-running crawler sees are exactly the ones in the server HTML (clinic-first for a team,
+  // doctor-led otherwise; a stored seo_title the app generated earlier is treated as automatic).
   const seoMeta = useMemo(
-    () => buildDoctorMeta({ origin: window.location.origin, profile, settings }),
-    [profile, settings],
+    () => buildDoctorMeta({ origin: window.location.origin, profile, settings, practitioners: practitioners ?? undefined }),
+    [profile, settings, practitioners],
   );
-  // A clinic with several doctors is titled by the clinic ("Clinic - Cardiology, ENT in Pune | Doctylia"),
-  // unless the owner wrote their own SEO title. The edge function renders the crawler copy separately.
-  const pageTitle = useMemo(() => {
-    if (!team || !seoMeta.title || settings?.seo_title?.trim()) return seoMeta.title;
-    const specialties = specialtiesLine(practitioners ?? [], 2);
-    const city = (profile?.city ?? "").trim();
-    return `${clinicDisplayName(profile)}${specialties ? ` - ${specialties}` : ""}${city ? ` in ${city}` : ""} | Doctylia`;
-  }, [team, seoMeta.title, settings, practitioners, profile]);
+  const pageTitle = seoMeta.title;
   const pageDescription = seoMeta.description;
   const teamImage = team ? settings?.hero_photo_url || "" : "";
 

@@ -90,12 +90,12 @@ describe("ClinicDetails in a team clinic", () => {
     expect(within(screen.getByRole("region", { name: "Hours of Dr. Vikram Shah" })).getByText(/Hours not set/)).toBeInTheDocument();
   });
 
-  it("collapses the per-doctor table behind a toggle on phones", () => {
+  it("collapses the per-doctor table behind a toggle, on every screen size", () => {
     mockTeam([row("pa", 1)]);
     render(<ClinicDetails />);
     const toggle = screen.getByRole("button", { name: "Show each doctor's hours" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(document.getElementById(toggle.getAttribute("aria-controls")!)).toHaveClass("hidden", "md:block");
+    expect(document.getElementById(toggle.getAttribute("aria-controls")!)).toHaveClass("hidden");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(document.getElementById(toggle.getAttribute("aria-controls")!)).not.toHaveClass("hidden");

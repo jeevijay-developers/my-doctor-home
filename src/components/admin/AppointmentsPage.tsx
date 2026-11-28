@@ -5,7 +5,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { CalendarCheck, Plus, Search, Filter, Clock, User, Phone, Video, Calendar as CalendarIcon, MoreVertical, ListChecks, Users } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -32,7 +32,7 @@ import { useTrialStatus } from "@/contexts/TrialStatusContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import DateFilter from "@/components/shared/DateFilter";
-import NameButton from "./NameButton";
+import { CLICKABLE_ROW_CLASSES, clickableRowProps, stopRowClick } from "@/lib/clickableRow";
 import BulkSelectionBar from "./BulkSelectionBar";
 import { defaultAppointmentAmount } from "@/lib/appointmentAmount";
 import { appointmentSerialNumber } from "@/lib/appointmentList";
@@ -401,6 +401,11 @@ const AppointmentsPage = () => {
       .filter((s) => s !== currentStatus)
       .filter((s) => (STATUS_ACTIONS[s].requiresCancelPermission ? (can("appointments.edit") || can("appointments.cancel")) : can("appointments.edit")))
       .map((s) => ({ next: s, ...STATUS_ACTIONS[s] }));
+
+  // Same rule the detail panel used to gate its own Reschedule button —
+  // now it only drives the kebab menu's Reschedule item.
+  const canReschedule = (a: Appointment) =>
+    a.status !== "completed" && a.status !== "cancelled" && can("appointments.edit");
 
   // Leaving a final state needs a confirmation step since Completed already
   // has an invoice generated for it (see FINAL_STATUSES comment above).
@@ -892,12 +897,13 @@ const AppointmentsPage = () => {
                     return (
                       <tr
                         key={a.id}
-                        className={`border-b border-border/60 last:border-0 transition-colors ${
+                        {...clickableRowProps(() => setViewing(a), `View appointment for ${a.patient_name}`)}
+                        className={`border-b border-border/60 last:border-0 transition-colors ${CLICKABLE_ROW_CLASSES} ${
                           isSelected ? "bg-royal/5" : ""
                         }`}
                       >
                         {!isStaff && (
-                          <td className="pl-4 pr-2 py-3 w-10">
+                          <td className="pl-4 pr-2 py-3 w-10" onClick={stopRowClick}>
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleSelected(a.id)}
@@ -916,9 +922,9 @@ const AppointmentsPage = () => {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <NameButton onClick={() => setViewing(a)} className="font-medium text-foreground truncate block">
+                                <span className="font-medium text-foreground truncate block">
                                   {a.patient_name}
-                                </NameButton>
+                                </span>
                               </div>
                               <div className="text-xs text-muted-foreground truncate">{a.service_name}</div>
                               {isMulti && byId(a.practitioner_id) && (
@@ -940,20 +946,26 @@ const AppointmentsPage = () => {
                           <Badge variant="outline" className={`text-[10px] capitalize ${sc.bg}`}>{sc.label}</Badge>
                         </td>
                         <td className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">₹{a.amount}</td>
-                        <td className="px-4 py-3 w-10">
-                          {getStatusOptions(a.status).length > 0 && (
+                        <td className="px-4 py-3 w-10" onClick={stopRowClick}>
+                          {(getStatusOptions(a.status).length > 0 || canReschedule(a)) && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="h-7 w-7"
-                                  aria-label={`Change status for ${a.patient_name}`}
+                                  aria-label={`Actions for ${a.patient_name}`}
                                 >
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                {canReschedule(a) && (
+                                  <DropdownMenuItem onClick={() => openReschedule(a)}>
+                                    Reschedule
+                                  </DropdownMenuItem>
+                                )}
+                                {canReschedule(a) && getStatusOptions(a.status).length > 0 && <DropdownMenuSeparator />}
                                 {getStatusOptions(a.status).map((o) => (
                                   <DropdownMenuItem key={o.next} onClick={() => requestStatusChange(a, o.next)}>
                                     {o.label}
@@ -980,7 +992,8 @@ const AppointmentsPage = () => {
               return (
                 <Card
                   key={a.id}
-                  className={`relative border-border/60 shadow-none transition-all ${
+                  {...clickableRowProps(() => setViewing(a), `View appointment for ${a.patient_name}`)}
+                  className={`relative border-border/60 shadow-none transition-all ${CLICKABLE_ROW_CLASSES} ${
                     isSelected ? "bg-royal/5" : ""
                   }`}
                 >
@@ -994,6 +1007,7 @@ const AppointmentsPage = () => {
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={() => toggleSelected(a.id)}
+                            onClick={stopRowClick}
                             aria-label={`Select appointment for ${a.patient_name}`}
                             className="h-5 w-5 rounded"
                           />
@@ -1003,9 +1017,7 @@ const AppointmentsPage = () => {
                         </div>
                         <div>
                           <div className="font-medium text-foreground flex items-center gap-2">
-                            <NameButton onClick={() => setViewing(a)}>
-                              {a.patient_name}
-                            </NameButton>
+                            {a.patient_name}
                           </div>
                           <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                             <span>{a.service_name}</span>
@@ -1035,19 +1047,26 @@ const AppointmentsPage = () => {
                           </Badge>
                         )}
                         <span className="font-semibold text-sm text-foreground">₹{a.amount}</span>
-                        {getStatusOptions(a.status).length > 0 && (
+                        {(getStatusOptions(a.status).length > 0 || canReschedule(a)) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                aria-label={`Change status for ${a.patient_name}`}
+                                onClick={stopRowClick}
+                                aria-label={`Actions for ${a.patient_name}`}
                               >
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" onClick={stopRowClick}>
+                              {canReschedule(a) && (
+                                <DropdownMenuItem onClick={() => openReschedule(a)}>
+                                  Reschedule
+                                </DropdownMenuItem>
+                              )}
+                              {canReschedule(a) && getStatusOptions(a.status).length > 0 && <DropdownMenuSeparator />}
                               {getStatusOptions(a.status).map((o) => (
                                 <DropdownMenuItem key={o.next} onClick={() => requestStatusChange(a, o.next)}>
                                   {o.label}
@@ -1186,14 +1205,6 @@ const AppointmentsPage = () => {
                     </div>
                   )}
 
-                  {/* Secondary actions */}
-                  {viewing.status !== "completed" && viewing.status !== "cancelled" && can("appointments.edit") && (
-                    <div className="pt-4 border-t border-border flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => { const a = viewing; setViewing(null); openReschedule(a); }}>
-                        Reschedule
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </>
             );

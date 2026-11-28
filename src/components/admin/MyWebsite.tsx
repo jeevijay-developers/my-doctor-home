@@ -26,6 +26,8 @@ import { buildDoctorMeta } from "@/lib/seo/doctorSeo";
 import { SLOT_DURATION_OPTIONS, DEFAULT_SLOT_DURATION_MINUTES } from "@/lib/timeSlots";
 import { PREVIEW_SETTINGS_MESSAGE, withoutPlatformDefaults } from "@/lib/doctorSite/heroSettings";
 import { practitionerErrorMessage } from "@/lib/practitioners/errors";
+import { clinicDisplayUrl } from "@/lib/clinicSlug";
+import SeoSnippetEditor from "@/components/admin/SeoSnippetEditor";
 
 // `offeredBy` (multi-doctor clinics only): the doctors this service is limited to; [] = every doctor,
 // undefined = not loaded (never written back).
@@ -134,17 +136,13 @@ const MyWebsite = () => {
           // not JSON keywords
         }
       }
-      // Pre-fill blank SEO fields with the same text the public page would generate, so the
-      // doctor sees (and can refine) the real title/description instead of an empty box.
-      const auto = buildDoctorMeta({
-        origin: window.location.origin,
-        profile,
-        settings: { ...settingsRes.data, seo_title: "", seo_description: "" },
-      });
+      // Blank SEO fields stay blank ("Automatic"): pre-filling them used to save the generated text back
+      // as if the doctor had written it, which then overrode better automatic text. The automatic text is
+      // shown as a placeholder and in the preview instead (see autoSeo below).
       setSettings(withoutPlatformDefaults({
         ...settingsRes.data,
-        seo_title: settingsRes.data.seo_title?.trim() ? settingsRes.data.seo_title : auto.title,
-        seo_description: settingsRes.data.seo_description?.trim() ? settingsRes.data.seo_description : auto.description,
+        seo_title: settingsRes.data.seo_title?.trim() ? settingsRes.data.seo_title : "",
+        seo_description: settingsRes.data.seo_description?.trim() ? settingsRes.data.seo_description : "",
         quick_stats: parsedStats || DEFAULT_QUICK_STATS,
       }));
     }
@@ -320,6 +318,37 @@ const MyWebsite = () => {
   };
 
   const updateSetting = (key: string, value: any) => setSettings((prev) => ({ ...prev, [key]: value }));
+
+  // What the public page uses while the stored title/description is blank: the shared builder, so the
+  // preview can never disagree with the page (team clinics get the clinic-level text).
+  const autoSeo = profile
+    ? buildDoctorMeta({
+        origin: window.location.origin,
+        profile,
+        settings: { ...settings, seo_title: "", seo_description: "" },
+        practitioners: activeList as any[],
+      })
+    : { title: "", description: "" };
+
+  const [resettingSeo, setResettingSeo] = useState<"seo_title" | "seo_description" | null>(null);
+  // Clears one stored SEO value ("" is what an emptied box already saved) straight away, so the owner does
+  // not have to find the Save button. On failure nothing changes locally and the error is shown.
+  const resetSeoField = async (key: "seo_title" | "seo_description") => {
+    if (!profile || !canEditWebsite) return;
+    setResettingSeo(key);
+    try {
+      const { error } = await supabase.from("website_settings").update({ [key]: "" } as any).eq("doctor_id", profile.id);
+      if (error) {
+        toast({ title: "Could not reset", description: error.message || "Please try again.", variant: "destructive" });
+        return;
+      }
+      updateSetting(key, "");
+      setPreviewKey((k) => k + 1);
+      toast({ title: key === "seo_title" ? "Title is automatic again" : "Description is automatic again" });
+    } finally {
+      setResettingSeo(null);
+    }
+  };
 
   const handleHeroPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1155,9 +1184,17 @@ const MyWebsite = () => {
             <AccordionItem value="websettings" className="border rounded-xl px-4">
               <AccordionTrigger className="text-sm font-semibold text-primary">Website Settings</AccordionTrigger>
               <AccordionContent className="space-y-3 pb-4">
-                <div><Label>SEO Title</Label><Input value={settings.seo_title || ""} onChange={(e) => updateSetting("seo_title", e.target.value)} maxLength={70} placeholder="Dr. Name — Specialization" /></div>
-                <div><Label>SEO Description</Label><Textarea value={settings.seo_description || ""} onChange={(e) => updateSetting("seo_description", e.target.value)} rows={3} maxLength={160} placeholder="Your page description for Google..." />
-                  <p className="mt-1 text-xs text-muted-foreground">Auto-filled from your profile — edit it to change how your site appears on Google.</p></div>
+                <SeoSnippetEditor
+                  title={settings.seo_title || ""}
+                  description={settings.seo_description || ""}
+                  autoTitle={autoSeo.title}
+                  autoDescription={autoSeo.description}
+                  displayUrl={profile?.slug ? clinicDisplayUrl(profile.slug) : "doctylia.com"}
+                  disabled={!canEditWebsite}
+                  onChange={updateSetting}
+                  onReset={resetSeoField}
+                  resetting={resettingSeo}
+                />
                 <div><Label>WhatsApp Number</Label><FormattedPhoneInput value={settings.whatsapp_number || ""} onChange={(e) => updateSetting("whatsapp_number", e.target.value)} placeholder="+919XXXXXXXX" /></div>
                 <div><Label>WhatsApp Pre-fill Message</Label><Input value={settings.whatsapp_message || ""} onChange={(e) => updateSetting("whatsapp_message", e.target.value)} /></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

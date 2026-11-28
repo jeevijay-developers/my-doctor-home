@@ -189,7 +189,7 @@ const RX_BY_VIKRAM = {
 const RX_BY_OWNER = { ...RX_BY_VIKRAM, id: "rx-o", practitioner_id: "pr-own", patient_name: "Ravi" };
 
 const openRx = async (name: string) => {
-  fireEvent.click((await screen.findAllByRole("button", { name }))[0]);
+  fireEvent.click((await screen.findAllByRole("button", { name: new RegExp(`View prescription for ${name}`) }))[0]);
   return screen.findByRole("dialog");
 };
 

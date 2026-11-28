@@ -6,17 +6,15 @@
 // NOTE: keep relative imports only - Vercel's bundler does not resolve "@/".
 import { PUBLIC_PROFILE_COLUMNS } from "../publicProfileColumns";
 import { directorySlug } from "../directory/slug";
-import { buildClinicBody, buildPractitionerBody } from "./clinicBody";
+import { buildClinicBody, buildPractitionerBody, buildSingleDoctorBody } from "./clinicBody";
 import { activeTeam, isMultiDoctorClinic, isPractitionerIndexable } from "./clinicTeam";
 import { redirectForOldSlug, resolveOldSlug } from "./slugRedirect";
-import { buildDoctorBody, buildHubHead, isHubIndexable, type DirectoryDoctor, type DirectoryFacet } from "./directorySeo";
+import { buildHubHead, isHubIndexable, type DirectoryDoctor, type DirectoryFacet } from "./directorySeo";
 import {
   buildDoctorJsonLd,
   buildDoctorMeta,
   buildPractitionerJsonLd,
   buildPractitionerMeta,
-  doctorDisplayName,
-  doctorHubPaths,
   type PractitionerSeo,
 } from "./doctorSeo";
 import { buildBlogListHead, buildBlogPostHead, blogPostPath, doctorPath, encodePathSegment, UUID_RE } from "./blogSeo";
@@ -178,7 +176,7 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
 
   const id = enc(profile.id);
   const [services, reviews, settingsRows, practitioners] = await Promise.all([
-    up.select("services", `select=name,description,price&doctor_id=eq.${id}&active=eq.true&order=sort_order&limit=12`),
+    up.select("services", `select=name,description,price,duration&doctor_id=eq.${id}&active=eq.true&order=sort_order&limit=12`),
     up.select("reviews", `select=rating&doctor_id=eq.${id}&is_visible=eq.true`),
     up.select("website_settings", `select=*&doctor_id=eq.${id}&limit=1`),
     // Best-effort: if this fails the page renders exactly as it does for a single-doctor clinic.
@@ -188,24 +186,21 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
   const team = Array.isArray(practitioners) ? practitioners : undefined;
   const multi = isMultiDoctorClinic(team);
 
-  // Team clinics only (a single-doctor page costs nothing extra): opening hours for the JSON-LD and
-  // body, and a clinic photo for og:image when there is no hero photo. Both are best-effort.
+  // Opening hours for the body (and the team JSON-LD) on every page; a clinic photo for og:image only
+  // for team clinics (a single doctor has the portrait). Both are best-effort.
   let workingHours: any[] = [];
   let clinicImage: string | null = null;
-  if (multi) {
-    const [hours, gallery] = await Promise.all([
-      up.select("working_hours", `select=${HOURS_COLUMNS}&doctor_id=eq.${id}&limit=500`).catch(() => []),
-      up.select("gallery_photos", `select=photo_url&doctor_id=eq.${id}&order=sort_order&limit=1`).catch(() => []),
-    ]);
-    const activeIds = new Set(activeTeam(team).map((p) => p.id));
-    // Rows of a deactivated doctor are not the clinic's hours any more.
-    workingHours = (Array.isArray(hours) ? hours : []).filter((r: any) => !r.practitioner_id || activeIds.has(r.practitioner_id));
-    clinicImage = firstHttpsPhoto(gallery);
-  }
+  const [hours, gallery] = await Promise.all([
+    up.select("working_hours", `select=${HOURS_COLUMNS}&doctor_id=eq.${id}&limit=500`).catch(() => []),
+    multi ? up.select("gallery_photos", `select=photo_url&doctor_id=eq.${id}&order=sort_order&limit=1`).catch(() => []) : Promise.resolve([]),
+  ]);
+  const activeIds = new Set(activeTeam(team).map((p) => p.id));
+  // Rows of a deactivated doctor are not the clinic's hours any more.
+  workingHours = (Array.isArray(hours) ? hours : []).filter((r: any) => !r.practitioner_id || activeIds.has(r.practitioner_id));
+  if (multi) clinicImage = firstHttpsPhoto(gallery);
 
   const input = { origin, profile, settings, services, reviews, workingHours, clinicImage, ...(team ? { practitioners: team } : {}) };
   const meta = buildDoctorMeta(input);
-  const name = doctorDisplayName(profile);
   const jsonLd = buildDoctorJsonLd(input);
 
   // The hero portrait is the page's largest paint. Without a hint the browser only discovers it
@@ -232,16 +227,8 @@ async function doctorPage(up: Upstream, template: string, origin: string, slug: 
       preloadFonts: ["/fonts/newsreader-latin.woff2"],
       jsonLd: jsonLd ? [jsonLd] : [],
       bodyHtml: multi
-        ? buildClinicBody({ profile, description: meta.description, practitioners: team!, services, workingHours })
-        : buildDoctorBody({
-            name,
-            description: meta.description,
-            specialization: profile.specialization,
-            city: profile.city,
-            address: profile.address,
-            services,
-            hubs: doctorHubPaths(profile),
-          }),
+        ? buildClinicBody({ origin, profile, description: meta.description, practitioners: team!, services, workingHours, reviews })
+        : buildSingleDoctorBody({ origin, profile, description: meta.description, services, workingHours, reviews }),
     }),
     200,
     SITE_CACHE,
@@ -270,7 +257,7 @@ async function practitionerPage(up: Upstream, template: string, origin: string, 
   const id = enc(profile.id);
   const [hours, services, offered, settingsRows, gallery] = await Promise.all([
     up.select("working_hours", `select=${HOURS_COLUMNS}&doctor_id=eq.${id}&limit=500`).catch(() => []),
-    up.select("services", `select=id,name,description,price&doctor_id=eq.${id}&active=eq.true&order=sort_order&limit=12`).catch(() => []),
+    up.select("services", `select=id,name,description,price,duration&doctor_id=eq.${id}&active=eq.true&order=sort_order&limit=12`).catch(() => []),
     up.rpc("get_public_service_practitioners", { _doctor_id: profile.id }).catch(() => []),
     up.select("website_settings", `select=hero_photo_url&doctor_id=eq.${id}&limit=1`).catch(() => []),
     up.select("gallery_photos", `select=photo_url&doctor_id=eq.${id}&order=sort_order&limit=1`).catch(() => []),
@@ -287,7 +274,7 @@ async function practitionerPage(up: Upstream, template: string, origin: string, 
     return !only || only.has(practitioner.id);
   });
 
-  const input = { origin, profile, practitioner, settings: settingsRows?.[0] ?? {}, workingHours, clinicImage: firstHttpsPhoto(gallery) };
+  const input = { origin, profile, practitioner, services: ownServices, settings: settingsRows?.[0] ?? {}, workingHours, clinicImage: firstHttpsPhoto(gallery) };
   const meta = buildPractitionerMeta(input);
   const jsonLd = buildPractitionerJsonLd(input);
 
@@ -302,7 +289,7 @@ async function practitionerPage(up: Upstream, template: string, origin: string, 
       image: meta.image,
       preconnect: up.origin ? [up.origin] : [],
       jsonLd: jsonLd ? [jsonLd] : [],
-      bodyHtml: buildPractitionerBody({ profile, practitioner, description: meta.description, services: ownServices, workingHours }),
+      bodyHtml: buildPractitionerBody({ origin, profile, practitioner, description: meta.description, services: ownServices, workingHours }),
     }),
     200,
     SITE_CACHE,

@@ -114,14 +114,25 @@ describe("DoctorPublicPage", () => {
     ctx.value = base({
       isTeamClinic: true,
       profile: { ...base().profile, clinic_name: "Little Steps Clinic", slug: "asha" },
-      practitioners: [{ specialization: "Cardiology" }, { specialization: "ENT" }],
+      practitioners: [{ slug: "a", specialization: "Cardiology" }, { slug: "b", specialization: "ENT" }],
+    });
+    renderPage();
+    expect(document.title).toBe("Little Steps Clinic - Cardiology, ENT in Pune | Doctylia");
+  });
+
+  it("a team clinic ignores a stored title the app generated earlier (same text as the edge)", () => {
+    ctx.value = base({
+      isTeamClinic: true,
+      profile: { ...base().profile, clinic_name: "Little Steps Clinic", slug: "asha" },
+      settings: { seo_title: "Dr. Asha Rao - Cardiology in Pune | Doctylia" },
+      practitioners: [{ slug: "a", specialization: "Cardiology" }, { slug: "b", specialization: "ENT" }],
     });
     renderPage();
     expect(document.title).toBe("Little Steps Clinic - Cardiology, ENT in Pune | Doctylia");
   });
 
   it("a team clinic keeps an owner-written SEO title", () => {
-    ctx.value = base({ isTeamClinic: true, settings: { seo_title: "My own title" }, practitioners: [] });
+    ctx.value = base({ isTeamClinic: true, settings: { seo_title: "My own title" }, practitioners: [{ slug: "a" }, { slug: "b" }] });
     renderPage();
     expect(document.title).toBe("My own title");
   });

@@ -24,7 +24,7 @@ import PaginationBar, { PAGE_SIZE } from "@/components/shared/PaginationBar";
 import DateFilter from "@/components/shared/DateFilter";
 import PatientVitalsFields from "./PatientVitalsFields";
 import BulkSelectionBar from "./BulkSelectionBar";
-import NameButton from "./NameButton";
+import { CLICKABLE_ROW_CLASSES, clickableRowProps, stopRowClick } from "@/lib/clickableRow";
 import { usePractitioners } from "@/hooks/usePractitioners";
 import PractitionerSelect, { ALL_DOCTORS } from "./PractitionerSelect";
 import PatientDoctorChips from "./PatientDoctorChips";
@@ -458,12 +458,13 @@ const PatientsPage = () => {
                     return (
                       <tr
                         key={p.id}
-                        className={`border-b border-border/60 last:border-0 transition-colors ${
+                        {...clickableRowProps(() => viewPatient(p), `View patient ${p.name}`)}
+                        className={`border-b border-border/60 last:border-0 transition-colors ${CLICKABLE_ROW_CLASSES} ${
                           isSelected ? "bg-royal/5" : ""
                         }`}
                       >
                         {!isStaff && (
-                          <td className="pl-4 pr-2 py-3 w-10">
+                          <td className="pl-4 pr-2 py-3 w-10" onClick={stopRowClick}>
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleSelected(p.id)}
@@ -478,9 +479,9 @@ const PatientsPage = () => {
                               {p.name?.charAt(0)?.toUpperCase() || "P"}
                             </div>
                             <div className="min-w-0">
-                              <NameButton onClick={() => viewPatient(p)} className="font-semibold text-foreground truncate block">
+                              <span className="font-semibold text-foreground truncate block">
                                 {p.name}
-                              </NameButton>
+                              </span>
                               {p.email && <div className="text-xs text-muted-foreground truncate">{p.email}</div>}
                             </div>
                           </div>
@@ -511,11 +512,12 @@ const PatientsPage = () => {
               return (
                 <Card
                   key={p.id}
-                  className={`border-border/60 shadow-none transition-colors ${isSelected ? "bg-royal/5 border-royal/30" : ""}`}
+                  {...clickableRowProps(() => viewPatient(p), `View patient ${p.name}`)}
+                  className={`border-border/60 shadow-none transition-colors ${CLICKABLE_ROW_CLASSES} ${isSelected ? "bg-royal/5 border-royal/30" : ""}`}
                 >
                   <CardContent className="p-4 flex items-start gap-3">
                     {!isStaff && (
-                      <div className="pt-1">
+                      <div className="pt-1" onClick={stopRowClick}>
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelected(p.id)}
@@ -528,9 +530,9 @@ const PatientsPage = () => {
                       {p.name?.charAt(0)?.toUpperCase() || "P"}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <NameButton onClick={() => viewPatient(p)} className="font-semibold text-foreground truncate block">
+                      <span className="font-semibold text-foreground truncate block">
                         {p.name}
-                      </NameButton>
+                      </span>
                       <div className="text-xs text-muted-foreground mt-0.5 truncate">
                         {p.phone}{p.email ? ` · ${p.email}` : ""}
                       </div>

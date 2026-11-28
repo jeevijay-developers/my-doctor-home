@@ -102,7 +102,7 @@ describe("clinic page (kind=doctor) for a team clinic", () => {
     expect(html).not.toContain("/dr/sharma-clinic/doctor/ravi");
   });
 
-  it("one doctor deactivated: the single-doctor layout, with no extra lookups", async () => {
+  it("one doctor deactivated: the single-doctor layout (hours are read for the body, no gallery lookup)", async () => {
     const calls: string[] = [];
     const html = await (await run("kind=doctor&slug=sharma-clinic", clinicRoutes({
       "/get_public_practitioners": () => [pA, { ...pB, is_active: false }],
@@ -112,7 +112,8 @@ describe("clinic page (kind=doctor) for a team clinic", () => {
     expect(html).toContain('"@type":["Physician","MedicalBusiness"]');
     expect(html).toContain('<meta property="og:type" content="profile" />');
     expect(html).not.toContain("MedicalClinic");
-    expect(calls).toEqual([]);
+    // Changed deliberately: a single-doctor page now reads working_hours for its crawler body; still no gallery lookup.
+    expect(calls).toEqual(["/rest/v1/working_hours"]);
   });
 
   it("hostile clinic and doctor names stay inert in head, JSON-LD and body", async () => {
@@ -229,5 +230,50 @@ describe("old clinic slug 301s on the edge (keeps the path suffix and the query)
   it("the resolver echoing the same slug is not a redirect (no loop)", async () => {
     const res = await run("kind=doctor&slug=old-slug", moved({ "/resolve_clinic_slug": () => "old-slug" }));
     expect(res.status).toBe(404);
+  });
+});
+
+describe("stored auto-generated SEO text on the edge", () => {
+  const AUTO_TITLE = "Dr. Anita Sharma - Dentist in Kota | Doctylia";
+  const AUTO_DESC = "Book an appointment with Dr. Anita Sharma, Dentist in Kota. Clinic timings, fees, services and patient reviews on Doctylia.";
+
+  it("a team clinic ignores the stored doctor-led title and description, and the title fits 60 characters", async () => {
+    const html = await (await run("kind=doctor&slug=sharma-clinic", clinicRoutes({
+      "/website_settings": () => [{ seo_title: AUTO_TITLE, seo_description: AUTO_DESC }],
+    }))).text();
+    expect(html).toContain("<title>Sharma Clinic - Dentist, ENT in Kota | Doctylia</title>");
+    expect(html).toContain('<meta property="og:title" content="Sharma Clinic - Dentist, ENT in Kota | Doctylia" />');
+    expect(meta(html, /<meta name="description" content="([^"]*)"/)).toContain("Sharma Clinic in Kota has 2 doctors");
+  });
+  it("a team clinic keeps a title and description the owner really wrote", async () => {
+    const html = await (await run("kind=doctor&slug=sharma-clinic", clinicRoutes({
+      "/website_settings": () => [{ seo_title: "Kota's family dental and ENT care", seo_description: "Our own words about the clinic." }],
+    }))).text();
+    expect(html).toContain("<title>Kota&#39;s family dental and ENT care</title>");
+    expect(meta(html, /<meta name="description" content="([^"]*)"/)).toBe("Our own words about the clinic.");
+  });
+  it("a single doctor's page gets the Quick facts body with fees, hours and the booking link", async () => {
+    const html = await (await run("kind=doctor&slug=sharma-clinic", clinicRoutes({
+      "/get_public_practitioners": () => [pA],
+      "/profiles": () => [{ ...profile, consultation_fee: 500, qualifications: "BDS" }],
+    }))).text();
+    expect(html).toContain("<h2>Quick facts</h2>");
+    expect(html).toContain("Consultation fee ₹500.");
+    expect(html).toContain("Open Monday.");
+    expect(html).toContain('<a href="https://doctylia.com/dr/sharma-clinic#booking">');
+  });
+  it("a team clinic page leads with Quick facts, JSON-LD has the booking action", async () => {
+    const html = await (await run("kind=doctor&slug=sharma-clinic", clinicRoutes())).text();
+    expect(html.indexOf("Quick facts")).toBeGreaterThan(-1);
+    expect(html.indexOf("Quick facts")).toBeLessThan(html.indexOf("Our doctors"));
+    expect(html).toContain('"@type":"ReserveAction"');
+  });
+  it("an unlisted doctor's page is noindex but still carries real facts", async () => {
+    const html = await (await run("kind=practitioner&slug=sharma-clinic&doctor=ravi", clinicRoutes({
+      "/get_public_practitioners": () => [pA, { ...pB, directory_listed: false }],
+    }))).text();
+    expect(html).toContain('<meta name="robots" content="noindex, follow"');
+    expect(html).toContain("Quick facts");
+    expect(html).toContain("Consultation fee ₹800.");
   });
 });

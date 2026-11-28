@@ -29,7 +29,7 @@ Date: 2026-11-28. Status: PLAN (nothing built yet). Builds on `2026-11-25-multi-
 - Keep the `/dr/` prefix: `doctylia.com/dr/<clinic-slug>`. Dropping it risks collisions with top-level routes and is a far bigger migration. Doctor pages: `/dr/<clinic-slug>/doctor/<doctor-slug>` (unchanged).
 - Clinic slug = slugified `clinic_name`; on collision append city, then `-2`, `-3` (never random characters). Latin transliteration fallback; if empty use `clinic`.
 - Owner edits it in Settings ("Website address") with live availability check; length 3-50; reserved words refused.
-- **Opt-in switch, not automatic.** When a clinic gets its 2nd active doctor, the owner sees a banner: "Use your clinic name in your website address". Existing links, QR codes and prints keep working forever through redirects.
+- **Automatic when the 2nd doctor is added** (owner decision, replaces the earlier opt-in banner). When a clinic with a clinic name and an unlocked address gets its 2nd ACTIVE doctor (or later gets a name while already a team), a database trigger (`apply_team_clinic_address`, migration `20261128130000_auto_clinic_address.sql`) switches the address to the clinic-name slug once, sets `slug_locked`, archives the old slug in `slug_history` and notifies the owner. It never reverts (deactivating doctors, a 3rd doctor or renaming the clinic leave it alone) and a failure there can never block adding a doctor. Existing links, QR codes and prints keep working forever through redirects. Settings shows a read-only "Website address" card; there is no manual edit and no banner.
 - Single-doctor clinics are untouched (doctor-name URL stays valid).
 
 ### D2. Redirects (shared, permanent)
@@ -59,7 +59,7 @@ Navbar + profile header (large photo, name, specialty, qualifications, experienc
 - **No "First available doctor" option (owner decision 2026-11-28):** the patient always picks a doctor, as today. Next-available per doctor on the cards helps them choose.
 
 ### Owner decisions (2026-11-28)
-- URL switch is **opt-in** by the owner (banner + Settings "Website address"); never automatic.
+- URL switch is **automatic** when the 2nd active doctor is added (D1); Settings "Website address" is a read-only card. No banner.
 - Booking keeps the explicit doctor pick.
 
 ### D6. Profile management
@@ -83,7 +83,7 @@ Navbar + profile header (large photo, name, specialty, qualifications, experienc
 2. Two active doctors, one not bookable: listed with "Call the clinic", not pickable.
 3. Owner is also a doctor: appears as a card like the others, not as the hero.
 4. No `clinic_name`: fall back to the owner's name without a "Dr." duplicate.
-5. Clinic renamed: slug does NOT change by itself.
+5. Clinic renamed: slug does NOT change by itself (locked after the automatic switch).
 6. Duplicate clinic names, non-Latin names, empty slug, reserved words, 50+ chars.
 7. Staff renames slug (RLS) and concurrent rename (UNIQUE race): clear error.
 8. Visitor on the old URL when the slug changes (realtime navigation keeps the suffix).

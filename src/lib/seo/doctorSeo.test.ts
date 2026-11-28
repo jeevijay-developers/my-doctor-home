@@ -75,9 +75,15 @@ describe("buildDoctorMeta", () => {
   });
   it("description falls back bio (160 chars) -> hero -> generated", () => {
     const bio = "b".repeat(200);
-    expect(buildDoctorMeta({ origin, profile: { ...base, bio } }).description).toBe("b".repeat(160));
+    // Changed deliberately: a long bio is cut at a word boundary with an ellipsis (still <= 160), not mid-word.
+    expect(buildDoctorMeta({ origin, profile: { ...base, bio } }).description).toBe(`${"b".repeat(159)}…`);
+    const words = "word ".repeat(60);
+    const cut = buildDoctorMeta({ origin, profile: { ...base, bio: words } }).description;
+    expect(cut.length).toBeLessThanOrEqual(160);
+    expect(cut.endsWith("word…")).toBe(true);
     expect(buildDoctorMeta({ origin, profile: base, settings: { hero_description: "Custom hero" } }).description).toBe("Custom hero");
     expect(buildDoctorMeta({ origin, profile: base, settings: { hero_description: "h".repeat(300) } }).description).toHaveLength(160);
+    expect(buildDoctorMeta({ origin, profile: base, settings: { hero_description: "h".repeat(300) } }).description.endsWith("…")).toBe(true);
   });
   it("skips the shared placeholder hero text", () => {
     const m = buildDoctorMeta({

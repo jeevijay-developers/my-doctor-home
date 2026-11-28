@@ -168,7 +168,9 @@ describe("DoctorsPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Edit Dr. Asha Rao" })[0]);
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText(/^Name/)).toBeDisabled();
-    expect(within(dialog).getByText(/Edit your name, photo and signature in Profile/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Edit your name, photo, signature and bio in Profile/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: /edit your bio in profile/i })).toHaveAttribute("href", "/admin/profile");
+    expect(within(dialog).queryByLabelText(/^bio/i)).toBeNull();
     // Booking fields stay editable on the owner's row.
     expect(within(dialog).getByLabelText(/Consultation fee/)).not.toBeDisabled();
   });
@@ -248,21 +250,55 @@ describe("DoctorsPage", () => {
     });
   });
 
-  it("the ⋯ menu keeps Edit/Hours visible, lists Permissions and Remove login for a doctor with a login, and puts Deactivate last in red", async () => {
+  it("Edit is a pencil icon button (accessible name, tooltip) and Hours/Permissions/etc. live in the menu, Deactivate last in red", async () => {
     mock.current.tables.staff_members = { data: [{ id: "login-bina", practitioner_id: "p-bina", staff_name: "Dr. Bina Shah", status: "active" }] };
     renderPage();
-    expect(screen.getAllByRole("button", { name: "Edit Dr. Bina Shah" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Hours for Dr. Bina Shah" }).length).toBeGreaterThan(0);
+    const edit = screen.getAllByRole("button", { name: "Edit Dr. Bina Shah" })[0];
+    expect(edit).toHaveAttribute("title", "Edit");
+    expect(edit.textContent).toBe("");
+    expect(edit.querySelector("svg")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Hours for Dr. Bina Shah" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Deactivate/ })).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("Has login").length).toBeGreaterThan(0));
     openMenu("Dr. Bina Shah");
     const items = await screen.findAllByRole("menuitem");
-    expect(items.map((i) => i.textContent)).toEqual(["Permissions", "Remove login", "Make main doctor", "Stop bookings", "Deactivate"]);
-    expect(items[0].getAttribute("href")).toBe("/admin/staff?edit=login-bina");
+    expect(items.map((i) => i.textContent)).toEqual(["Hours", "Permissions", "Remove login", "Make main doctor", "Stop bookings", "Deactivate"]);
+    expect(items[1].getAttribute("href")).toBe("/admin/staff?edit=login-bina");
     expect(items[items.length - 1].className).toMatch(/text-destructive/);
   });
 
-  it("staff without practitioners.manage see the list but no action buttons", () => {
+  it("the Edit pencil opens the edit dialog", async () => {
+    renderPage();
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit Dr. Bina Shah" })[0]);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("Hours is the first menu item and opens the hours editor", async () => {
+    renderPage();
+    openMenu("Dr. Bina Shah");
+    const items = await screen.findAllByRole("menuitem");
+    expect(items[0].textContent).toBe("Hours");
+    fireEvent.click(items[0]);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Working hours · Dr\. Bina Shah/)).toBeInTheDocument();
+  });
+
+  it("the main doctor row now has a menu too: Hours only (no login, make main, stop or deactivate)", async () => {
+    renderPage();
+    openMenu("Dr. Asha Rao");
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual(["Hours"]);
+  });
+
+  it("an inactive doctor keeps a visible Reactivate button and has no pencil or menu", () => {
+    setState({}, [OWNER, doc("p-bina", "Dr. Bina Shah", { is_active: false })]);
+    renderPage();
+    expect(screen.getAllByRole("button", { name: "Reactivate Dr. Bina Shah" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Edit Dr. Bina Shah" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More actions for Dr. Bina Shah" })).not.toBeInTheDocument();
+  });
+
+  it("staff without practitioners.manage see the list but no action buttons or menu", () => {
     h.role = "staff";
     h.isStaff = true;
     h.granted = ["practitioners.view"];
@@ -272,6 +308,16 @@ describe("DoctorsPage", () => {
     for (const name of [/add doctor/i, /^Edit /, /^Hours /]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
+  });
+
+  it("staff with practitioners.manage get Hours in the menu on every row, but no login/main-doctor items", async () => {
+    h.role = "staff";
+    h.isStaff = true;
+    h.granted = ["practitioners.manage"];
+    renderPage();
+    openMenu("Dr. Bina Shah");
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual(["Hours", "Stop bookings", "Deactivate"]);
   });
 
   describe("buying seats", () => {

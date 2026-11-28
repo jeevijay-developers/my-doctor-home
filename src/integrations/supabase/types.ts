@@ -3894,6 +3894,10 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_team_clinic_address: {
+        Args: { _clinic: string }
+        Returns: undefined
+      }
       blog_facets: {
         Args: never
         Returns: {
@@ -3918,6 +3922,10 @@ export type Database = {
       }
       clinic_slug_problem: {
         Args: { _clinic: string; _slug: string }
+        Returns: string
+      }
+      clinic_slug_suggestion: {
+        Args: { _city: string; _clinic: string; _name: string }
         Returns: string
       }
       clinical_row_visible: {

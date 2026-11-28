@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import BioAssistant from "./BioAssistant";
 import { useProfile } from "@/hooks/useProfile";
 import { usePractitioners } from "@/hooks/usePractitioners";
 import {
@@ -208,18 +208,22 @@ const MyDoctorDetailsCard = () => {
                 onChange={(e) => setSignature(e.target.files?.[0] ?? null)} />
               {me.signature_url && <img src={me.signature_url} alt="Your signature" className="h-10 object-contain" />}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="my-doc-bio">Bio</Label>
-              <Textarea id="my-doc-bio" rows={4} value={bio} maxLength={BIO_MAX} disabled={saving}
-                aria-describedby="my-doc-bio-help" onChange={(e) => setBio(e.target.value)} />
-              <div id="my-doc-bio-help" className="flex flex-wrap items-start justify-between gap-x-3 text-[11px] text-muted-foreground">
-                <span>
-                  Shown on your public doctor page. {bioNeeded > 0
-                    ? `Write at least ${MIN_INDEXABLE_BIO_CHARS} characters so Google can list your page (${bioNeeded} more).`
-                    : "Long enough for Google to list your page."}
-                </span>
-                <span className="tabular-nums" data-testid="bio-counter">{bio.length}/{BIO_MAX}</span>
-              </div>
+            <div className="space-y-3">
+              <BioAssistant
+                idPrefix="my-doc"
+                value={bio}
+                onChange={setBio}
+                disabled={saving}
+                rows={4}
+                helpText={`Shown on your public doctor page. ${bioNeeded > 0
+                  ? `Write at least ${MIN_INDEXABLE_BIO_CHARS} characters so Google can list your page (${bioNeeded} more).`
+                  : "Long enough for Google to list your page."}`}
+                context={{
+                  name: me.display_name, specialization: me.specialization, qualifications: me.qualifications,
+                  experience: me.experience_years, clinicName: profile?.clinic_name,
+                  city: profile?.city, locality: (profile as { locality?: string | null } | null)?.locality,
+                }}
+              />
               <div className="rounded-md border border-dashed bg-muted/30 p-3">
                 <p className="text-[11px] font-medium text-muted-foreground">How your bio looks on your page</p>
                 {bio.trim() ? (

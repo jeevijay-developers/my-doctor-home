@@ -1,7 +1,7 @@
 # Doctylia: Master Context for AI Agents
 
 > **Purpose:** This file gives any AI agent (sales, marketing, support, research, writing, or engineering) the full business and product context of Doctylia in one place, so it does not have to rediscover it or guess.
-> **Snapshot date:** 16 November 2026. Facts about the product were read from the repository at that date.
+> **Snapshot date:** 28 November 2026 (updated from the 16 Nov 2026 snapshot to add multi-doctor clinics, prescription templates, the clinic-first public site, custom-plan seats and the social media marketing add-on). Facts about the product were read from the repository at that date.
 > **Not a source of truth for code.** For engineering rules read `CLAUDE.md`, `AGENTS.md`, `CONTEXT.md` and `docs/` in the repo. This file points to them and does not duplicate their detail.
 > **File name note:** it began as a note defining "SMB SaaS" (Section 2) and was expanded into the master context. Rename it (e.g. `AGENT_CONTEXT.md`) if you prefer.
 
@@ -103,10 +103,10 @@ These three are separate; mixing them was a source of confusion in the sales tea
 
 ### 5.1 Four app surfaces **[code]**
 1. **Marketing site** (`/`, `/features`, `/pricing`, `/about`, legal pages). Enquiries go to Super Admin > Leads (new, contacted, converted, lost).
-2. **Doctor public site** (`/dr/<slug>`, `/dr/<slug>/blog`, `/dr/<slug>/manage`, `/dr/<slug>/queue`): profile, services and fees, gallery, map link, reviews, contact form, WhatsApp button, 5-step booking widget, patient manage-booking page, live queue screen (token numbers only).
-3. **Doctor/staff admin panel** (`/admin`): Dashboard, My Website, Appointments, Live Queue, Patients and medical records, Prescriptions, Reviews, Inquiries, Blog, Billing, Staff, Settings, Support.
-4. **Super Admin** (`/superadmin`): Overview, Doctors, Leads, Subscriptions, Plan Requests (custom plans), Tickets, Moderation, Billing, Payments, Flags, Audit log, Notifications, Team (permission-scoped team accounts).
-Also: **Doctor directory** (`/doctors`, `/doctors/<city>/<specialty>`; search incl. pincode; ranking never paid; doctors can opt out) and **Health Articles hub** (`/health-articles[/category]`; index of doctors' published articles; canonical stays on the doctor's page; AI-assisted articles carry a disclosure).
+2. **Doctor/clinic public site** (`/dr/<slug>`, `/dr/<slug>/blog`, `/dr/<slug>/manage`, `/dr/<slug>/queue`): profile, services and fees, gallery, map link, reviews, contact form, WhatsApp button, 5-step booking widget, patient manage-booking page, live queue screen (token numbers only). **A clinic with 2+ active doctors gets a clinic-first layout** (team hero, doctor cards, a full-page profile per doctor) instead of the single-doctor layout — see "Multi-doctor clinics" below; this redesign was still partly uncommitted at snapshot date and must be re-checked.
+3. **Doctor/staff admin panel** (`/admin`): Dashboard, My Website, Appointments, Live Queue, Patients and medical records, Prescriptions (incl. Templates), Doctors (practitioners, multi-doctor clinics only), Reviews, Inquiries, Blog, Billing, Staff, Settings, Support.
+4. **Super Admin** (`/superadmin`): Overview, Doctors, Leads, Subscriptions, Plan Requests (custom plans, incl. doctor-seat and social-media-marketing requests), Tickets, Moderation, Billing, Payments, Flags (incl. the multi-doctor launch switch), Audit log, Notifications, Team (permission-scoped team accounts).
+Also: **Doctor directory** (`/doctors`, `/doctors/<city>/<specialty>`; search incl. pincode; ranking never paid; doctors can opt out; a clinic with 2+ active doctors can get a per-doctor directory row) and **Health Articles hub** (`/health-articles[/category]`; index of doctors' published articles; canonical stays on the doctor's page; AI-assisted articles carry a disclosure).
 
 ### 5.2 Features **[code unless noted]**
 | Feature | Notes |
@@ -124,11 +124,24 @@ Also: **Doctor directory** (`/doctors`, `/doctors/<city>/<specialty>`; search in
 | AI blog writer | Drafts health articles; doctor reviews; AI disclosure shown on AI-assisted posts |
 | Reviews and inquiries | Doctor controls review visibility; inbox for site enquiries |
 | Analytics dashboard | Schedule, appointments, patients, revenue, plan usage |
-| Custom plans | Doctor requests a feature set and price on top of Pro/Premium; can include a custom monthly appointment limit |
+| Prescription templates | Doctor builds their own slip layout (extra fields, tooth chart, pain scale, letterhead mode) under Prescriptions > Templates; a default built-in layout is unaffected (Premium) |
+| Multi-doctor clinics | A clinic can add more than one doctor (practitioners), each with their own slots, queue, prescriptions and (opt-in) revenue view; **built and merged to the codebase, but the platform-wide launch switch was still OFF at last review** — see the dedicated section below. Demo and quote only after confirming the launch flag and a priced seat are live for that clinic |
+| Doctor-seat purchase | Extra doctor slots beyond the first are a paid add-on (Premium, active plan only); the per-seat price is a platform setting and was unset/hidden for most of the product's life — **confirm a live price before quoting** |
+| Social media marketing | A superadmin-run add-on (posting, reporting, ad spend) recorded against a doctor's custom plan; **the team delivers it manually, the app only tracks scope/status/fee** — do not describe it as a self-serve platform feature |
+| Custom plans | Doctor requests a feature set and price on top of Pro/Premium; can include a custom monthly appointment limit and/or the social media marketing add-on |
 | Support tickets | In-app tickets by category with replies |
 | Custom domain | **[user]** reported live; **not seen in code at last review**; demo before quoting |
 | WhatsApp appointment reminders | **[user]** reported live; check-up reminders are confirmed in code; demo before quoting |
-| Patient data import | **Not confirmed.** Only export was seen. Do not promise import |
+| Patient data import | CSV import exists for Pro/Premium clinics (import_patients RPC, rate-limited, no medical history/reports); confirm current limits before quoting a number |
+
+### 5.2b Multi-doctor clinics **[code / user, snapshot 2026-11-27/28 — re-check before quoting]**
+A clinic can now have more than one doctor under one subscription instead of one doctor = one account:
+- One doctor is always the **primary** (the owner, by default); added doctors are **practitioners** with their own working hours, slot/queue numbers, prescriptions and (owner opt-in) revenue visibility.
+- **A clinic with 2+ active doctors is multi-doctor regardless of plan tier**; the plan only controls whether the clinic may *add or re-enable* a doctor. The first extra doctor seat is included in Premium; further seats are a **paid add-on**, priced per seat per (up to 30-day) period, non-refundable.
+- **Status at last review:** the feature is fully built and merged, but the **platform-wide launch switch (`multi_doctor_enabled`) was still off**, no seat price had been confirmed live, and no real clinic had piloted it yet. The public-site redesign for multi-doctor clinics (clinic-first homepage, per-doctor profile pages) was partly uncommitted. **Do not promise multi-doctor support to a prospect, and do not quote a seat price, until this is confirmed enabled in the live product.**
+- Clinical records are shared across a clinic's doctors by default (an owner-only switch can restrict a doctor to their own patients' visits/prescriptions/documents); the patient list itself always stays clinic-wide so reception can find any walk-in.
+- Doctor logins (separate from staff) can view their own prescriptions/revenue but do not book appointments; only reception/owner books.
+- Full design: `docs/superpowers/specs/2026-11-25-multi-doctor-clinic-design.md` and the "Multi-doctor clinics" section of `CLAUDE.md`.
 
 ### 5.3 Plans and pricing **[code defaults; editable in Super Admin]**
 | | Pro | Premium |
@@ -155,6 +168,9 @@ Custom plans exist for special needs. Prices and trial length can change in Supe
 - Legal pages (Terms, Privacy, Refund) were drafts with placeholders at last review; they must match what sales says.
 - Landing/features page claims that were unsupported at last review: "10,000+ doctors", "2,847 doctors", "Rs 2.4 Cr revenue", "98% satisfaction", "India's #1", "30-Day Money Back" (contradicts the Refund Policy), and percentage outcome claims. Some may have been removed since; check the live pages.
 - No separate evidence of Hindi UI; support language coverage should be confirmed.
+- **Multi-doctor clinics** (Section 5.2b) are built but the platform launch switch was off at last review, no clinic had piloted it, and part of the clinic-first public-site redesign was uncommitted. Treat as not generally available until confirmed live.
+- **Doctor-seat pricing** was unset/hidden for most of the product's life; a price being present in `platform_settings` does not by itself mean sales may quote it — confirm it is the intended, final price.
+- **Social media marketing add-on**: the app only records scope, status and fee for a service the team delivers by hand; it is not a self-serve feature and its fee sits outside the subscription and outside any Razorpay order.
 
 ---
 
@@ -248,7 +264,7 @@ If two documents disagree, **this file and the live product win**, and the Deskt
 
 **Safe to say [code]:** 7-day free trial, no card; Pro Rs 1,499 / Premium Rs 3,999 per month (check live page and GST status); branded website; online booking; live queue; billing and invoices; patient records and prescriptions (Premium); video consults (Premium); staff roles (Premium); AI blog writer with doctor review; directory and articles hub with unpaid ranking; per-doctor data separation and server-enforced staff permissions.
 
-**Say only after demo-testing or confirmation:** custom domain; WhatsApp appointment reminders; patient data import; "GST invoices", "dynamic UPI QR", "in-call Rx" (features-page wording).
+**Say only after demo-testing or confirmation:** custom domain; WhatsApp appointment reminders; patient data import limits; "GST invoices", "dynamic UPI QR", "in-call Rx" (features-page wording); **multi-doctor clinics and any doctor-seat price** (confirm the launch flag is on and a seat price is live for that clinic); **prescription templates** (confirm which blocks/fields are available on the doctor's plan).
 
 **Do not say (unsupported or risky):**
 - "No commission" / "you keep the full fee" (until the platform charge is confirmed removed)
@@ -270,8 +286,11 @@ If two documents disagree, **this file and the live product win**, and the Deskt
 - Commission/service-charge wording removed from the Marketing Guide v2; management intends to remove the charge from the product (not yet confirmed in code).
 - Custom domain and WhatsApp appointment reminders are described as implemented.
 - The goal now is converting existing leads, not generating new ones.
+- Multi-doctor clinics, prescription templates, patient CSV import and per-doctor revenue are built and merged into the codebase (2026-11-27/28); the multi-doctor platform launch switch and a confirmed live seat price are still a human/owner step, not yet flipped at last review.
 
 **Open (needs a human decision)**
+10. Pilot and launch multi-doctor clinics (one real clinic, confirm a live Razorpay seat payment, then flip the superadmin launch switch) and confirm the public per-doctor site redesign is fully shipped.
+11. Confirm and announce the doctor-seat price once set, and decide whether/how to market multi-doctor and prescription templates to new and existing leads.
 1. Is the platform service charge removed, and where (pricing page FAQ, Terms, code)?
 2. Does the list price include GST?
 3. Confirmed status of patient data import, custom domain and WhatsApp appointment reminders (plan, setup steps, limits).

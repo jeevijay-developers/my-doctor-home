@@ -2,7 +2,7 @@
 
 > Doctylia is a multi-tenant SaaS platform for doctors in India. Each doctor gets a branded online booking website plus a practice-management panel covering appointments, a live patient queue, patient records, digital prescriptions, GST invoicing, billing and staff.
 
-Every clinic has a public page at https://doctylia.com/dr/<clinic-slug>. For a single doctor the address is usually based on the doctor's name; a clinic with several doctors may use its clinic name. Such a clinic page lists its doctors, services, address, phone and opening hours, and links to one page per doctor at https://doctylia.com/dr/<clinic-slug>/doctor/<doctor-slug>. Old addresses redirect permanently to the current one. Queue, appointment-management, shared-prescription, admin, superadmin and account pages are private or require login and are not meant for crawling.
+Every clinic has a public page at https://doctylia.com/dr/<clinic-slug>. For a single doctor the address is usually based on the doctor's name; a clinic with several doctors may use its clinic name. Each page starts with a "Quick facts" paragraph (where the clinic or doctor practises, specialties, consultation fee, opening days and the booking link), followed by the doctors, services with prices and durations, address, phone, opening hours, a patient review summary and how to book. A clinic with several doctors links to one page per doctor at https://doctylia.com/dr/<clinic-slug>/doctor/<doctor-slug>; those pages are only indexed once the doctor has written a profile. Only what the clinic has entered is shown. Old addresses redirect permanently to the current one. Queue, appointment-management, shared-prescription, admin, superadmin and account pages are private or require login and are not meant for crawling.
 
 ## Product
 
@@ -14,8 +14,7 @@ Every clinic has a public page at https://doctylia.com/dr/<clinic-slug>. For a s
 
 ## Find doctors and health information
 
-- [Doctor directory](https://doctylia.com/doctors): Search doctors by city and specialty
-- [Health articles](https://doctylia.com/health-articles): Articles published by doctors on Doctylia, each linked to the author's page (the doctor who wrote it)
+- [Health articles](https://doctylia.com/health-articles): Articles published by doctors on Doctylia, each linked to the author's page (the doctor who wrote it); each article's canonical address is on the doctor's own site at https://doctylia.com/dr/<clinic-slug>/blog/<article>
 
 ## Policies
 
