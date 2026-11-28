@@ -62,8 +62,6 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   const pageTitle = location.pathname.startsWith("/admin/patients/")
     ? "Medical Record"
     : pageTitles[location.pathname] || "Dashboard";
-  // The dashboard fits the screen on large displays (its own panels scroll); every other page scrolls as usual.
-  const fitScreen = location.pathname.replace(/\/$/, "") === "/admin/dashboard";
   const { settings } = usePlatformSettings();
   const banner = typeof settings.announcement_banner === "string" ? settings.announcement_banner : "";
   const { mode, setTheme } = usePanelTheme("doctylia-admin-theme");
@@ -88,13 +86,13 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
 
   return (
     <SidebarProvider>
-      <div className={`min-h-screen flex w-full overflow-x-hidden ${fitScreen ? "lg:h-screen lg:overflow-hidden" : ""}`}>
+      <div className="min-h-screen flex w-full overflow-x-hidden">
         <AdminSidebar />
         {/* min-w-0 stops this column's default min-width:auto from letting
             wide/unbreakable descendant content bloat it past the viewport
             width — without it, any such content anywhere on a page forces
             the whole row (and every section in it) to overflow together. */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center justify-between bg-card border-b border-border px-4 md:px-6">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
