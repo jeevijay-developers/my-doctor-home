@@ -219,9 +219,9 @@ const DashboardHome = () => {
   const currentTip = visibleTips.length > 0 ? visibleTips[tipIndex % visibleTips.length] : null;
 
   return (
-    <div className="max-w-7xl mx-auto w-full flex flex-col gap-2 lg:gap-2.5 xl:gap-3">
+    <div className="max-w-7xl mx-auto w-full flex flex-col gap-2 lg:gap-2.5 xl:gap-3 lg:h-full lg:min-h-[600px]">
       {/* Welcome Banner */}  
-      <div className="relative overflow-hidden rounded-2xl p-4 md:p-5" style={{ backgroundColor: "#1E40AF" }}>
+      <div className="relative overflow-hidden rounded-2xl p-4 md:p-5 shrink-0" style={{ backgroundColor: "#1E40AF" }}>
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -282,7 +282,7 @@ const DashboardHome = () => {
       )}
 
       {/* Stats Grid */}
-      <div className={`grid grid-cols-2 gap-3 ${statCards.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+      <div className={`grid grid-cols-2 gap-3 shrink-0 ${statCards.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         {statCards.map((s) => <StatCard key={s.label} {...s} />)}
       </div>
 
@@ -291,7 +291,7 @@ const DashboardHome = () => {
 
       {/* Growth Tip Banner */}
       {/* Lime is a fill/accent; `text-spark` resolves to its readable ink tone (raw lime on white is ~1.5:1) */}
-      {currentTip && <Card className="border-spark/40 bg-spark/10 shadow-none">
+      {currentTip && <Card className="border-spark/40 bg-spark/10 shadow-none shrink-0">
         <CardContent className="p-3 pt-3 flex flex-row items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-spark/30 flex items-center justify-center flex-shrink-0">
             <Lightbulb className="h-[18px] w-[18px] text-spark" aria-hidden="true" />
@@ -313,10 +313,10 @@ const DashboardHome = () => {
       {/* Main two-column layout:
           LEFT  = Today's Schedule (spans full height of right column)
           RIGHT = Monthly Revenue (top) + Share Your Website (bottom), equally split */}
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2 lg:flex-1 lg:min-h-0 lg:grid-rows-[minmax(0,1fr)]">
         {/* LEFT — Today's Schedule */}
-        <Card className="rounded-2xl flex flex-col">
-          <CardHeader className="pb-3">
+        <Card className="rounded-2xl flex flex-col lg:min-h-0">
+          <CardHeader className="pb-3 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg">Today's Schedule</CardTitle>
@@ -329,7 +329,7 @@ const DashboardHome = () => {
               </Link>
             </div>
           </CardHeader>
-          <CardContent className="flex-1">
+          <CardContent className="flex-1 lg:min-h-0 lg:overflow-y-auto">
             {todayAppointments.length === 0 ? (
               <div className="text-center py-10">
                 <div className="w-16 h-16 rounded-2xl bg-royal/5 flex items-center justify-center mx-auto mb-3">
@@ -376,11 +376,11 @@ const DashboardHome = () => {
 
         {/* RIGHT — Monthly Revenue + Share Your Website, stacked and equally sized
             so their combined height matches Today's Schedule on the left */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:min-h-0">
           {/* Monthly Revenue */}
           {canSeeRevenue && (
-          <Card className="rounded-2xl flex flex-col">
-            <CardHeader className="pb-2">
+          <Card className="rounded-2xl flex flex-col lg:flex-1 lg:min-h-0">
+            <CardHeader className="pb-2 shrink-0">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   <IndianRupee className="h-4 w-4 text-teal" aria-hidden="true" /> Monthly Revenue
@@ -391,8 +391,8 @@ const DashboardHome = () => {
               </div>
               <p className="text-xs text-muted-foreground">Last 30 days</p>
             </CardHeader>
-            <CardContent className="pt-0 pb-3">
-              <div className="w-full h-[220px]" role="img" aria-label={`Daily revenue for the last 30 days, total ₹${monthlyRevenue.toLocaleString("en-IN")}`}>
+            <CardContent className="pt-0 pb-3 flex flex-col lg:flex-1 lg:min-h-0">
+              <div className="w-full h-[220px] lg:h-auto lg:flex-1 lg:min-h-[120px]" role="img" aria-label={`Daily revenue for the last 30 days, total ₹${monthlyRevenue.toLocaleString("en-IN")}`}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={revenueSeries} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                     <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
@@ -427,7 +427,7 @@ const DashboardHome = () => {
           )}
 
           {/* Share Your Website */}
-          <Card className="rounded-2xl border-l-4 border-l-success flex flex-col">
+          <Card className="rounded-2xl border-l-4 border-l-success flex flex-col lg:shrink-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Share2 className="h-4 w-4 text-success" aria-hidden="true" /> Share Your Website
