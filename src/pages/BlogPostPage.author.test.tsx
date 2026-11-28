@@ -19,7 +19,7 @@ vi.mock("@/lib/seo/blogSeo", async (orig) => {
 });
 
 const clinic = {
-  id: "clinic-1", slug: "city-clinic", display_name: "City Clinic", full_name: null,
+  id: "clinic-1", slug: "city-clinic", display_name: "City Clinic", clinic_name: "City Clinic", full_name: null,
   onboarding_completed: true, profile_photo_url: null, specialization: "General", qualifications: "MBBS",
 };
 const team = [
@@ -72,11 +72,18 @@ describe("BlogPostPage author byline", () => {
     expect(screen.queryByRole("link", { name: /by dr\. ravi/i })).not.toBeInTheDocument();
   });
 
-  it("keeps the clinic byline and skips the lookup for a clinic post", async () => {
+  it("credits the clinic, not its owner, for a clinic-level post at a clinic with 2+ doctors", async () => {
+    renderPost(null);
+    expect(await screen.findByText(/written by city clinic/i)).toBeInTheDocument();
+    expect(screen.queryByText(/written by dr\. city clinic/i)).not.toBeInTheDocument();
+    expect(h.rpc).toHaveBeenCalledWith("get_public_practitioners", { _doctor_id: "clinic-1" });
+    expect(h.jsonLd.mock.calls.at(-1)?.[0].practitioner ?? null).toBeNull();
+  });
+
+  it("keeps the owner byline for a clinic-level post when the clinic has one doctor", async () => {
+    h.rpc.mockResolvedValue({ data: [team[0]], error: null });
     renderPost(null);
     expect(await screen.findByText(/written by dr\. city clinic/i)).toBeInTheDocument();
-    expect(h.rpc).not.toHaveBeenCalled();
-    expect(h.jsonLd.mock.calls.at(-1)?.[0].practitioner ?? null).toBeNull();
   });
 
   it("falls back to the clinic byline when the practitioners call fails", async () => {

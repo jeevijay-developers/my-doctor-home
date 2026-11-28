@@ -4,6 +4,8 @@ import { ArrowRight, ChevronDown, Clock } from "lucide-react";
 import { displayPrice, serviceType } from "@/lib/doctorSite/services";
 import { useDoctorData } from "@/contexts/DoctorContext";
 import { FEATURE_KEYS } from "@/lib/features";
+import { formatDoctorName } from "@/lib/seo/doctorSeo";
+import { dsCn } from "./ui/dsCn";
 import type { Tables } from "@/integrations/supabase/types";
 import DsButton from "./ui/DsButton";
 import SectionHeader from "./ui/SectionHeader";
@@ -95,11 +97,21 @@ const ServiceRow = ({ index, name, description, type, duration, price, offeredBy
 };
 
 const ServicesSection = () => {
-  const { services, profile, settings, hasFeature, isMultiDoctor, bookablePractitioners, servicePractitioners } = useDoctorData();
+  const { services, profile, settings, hasFeature, isMultiDoctor, isTeamClinic, practitioners, bookablePractitioners, servicePractitioners } = useDoctorData();
+  const team = isTeamClinic === true;
   const [showAll, setShowAll] = useState(false);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
   // An online-only service can only be booked when the doctor's plan offers online consultation.
   const onlineAllowed = hasFeature?.(FEATURE_KEYS.ONLINE_CONSULTATION) === true;
-  const list = ((services ?? []) as Service[]).filter((service) => service.type !== "online" || onlineAllowed);
+  const allServices = ((services ?? []) as Service[]).filter((service) => service.type !== "online" || onlineAllowed);
+  // Team clinics: a service with no mapping rows is offered by every doctor; otherwise only by those mapped.
+  const offeredBy = (serviceId: string, doctor: string) => {
+    const rows = (servicePractitioners ?? []).filter((m) => m.service_id === serviceId);
+    return rows.length === 0 || rows.some((m) => m.practitioner_id === doctor);
+  };
+  const doctors = team ? practitioners ?? [] : [];
+  const showDoctorFilter = team && doctors.length >= 2;
+  const list = showDoctorFilter && doctorId ? allServices.filter((service) => offeredBy(service.id, doctorId)) : allServices;
   const visible = showAll ? list : list.slice(0, INITIAL_VISIBLE);
 
   const online = Boolean(settings?.show_online_consultation) && hasFeature?.(FEATURE_KEYS.ONLINE_CONSULTATION);
@@ -107,10 +119,10 @@ const ServicesSection = () => {
 
   // Multi-doctor clinics only: a service limited to some doctors says which (unmapped = every doctor).
   const offeredByNames = (serviceId: string): string[] | undefined => {
-    if (!isMultiDoctor) return undefined;
+    if (!isMultiDoctor && !team) return undefined;
     const ids = new Set((servicePractitioners ?? []).filter((m) => m.service_id === serviceId).map((m) => m.practitioner_id));
     if (ids.size === 0) return undefined;
-    return (bookablePractitioners ?? []).filter((p) => ids.has(p.id)).map((p) => p.display_name);
+    return ((team ? practitioners : bookablePractitioners) ?? []).filter((p) => ids.has(p.id)).map((p) => p.display_name);
   };
 
   // Same event as before: BookingWidget preselects the service (and its visit type).
@@ -134,6 +146,30 @@ const ServicesSection = () => {
           intro="Choose a service to book it directly. Prices and visit lengths are set by the clinic."
         />
 
+        {showDoctorFilter && (
+          <div role="group" aria-label="Filter services by doctor" className="mt-8 flex flex-wrap gap-2">
+            {[{ id: null as string | null, label: "All" }, ...doctors.map((d) => ({ id: d.id as string | null, label: formatDoctorName(d.display_name) }))].map((chip) => (
+              <button
+                key={chip.id ?? "all"}
+                type="button"
+                aria-pressed={doctorId === chip.id}
+                onClick={() => { setDoctorId(chip.id); setShowAll(false); }}
+                className={dsCn(
+                  "inline-flex min-h-11 max-w-full items-center rounded-full border px-4 text-ds-body font-medium transition-colors duration-ds-1",
+                  doctorId === chip.id ? "border-ds-accent bg-ds-accent-soft text-ds-ink ring-1 ring-ds-accent" : "border-ds-line bg-ds-surface text-ds-ink-2 hover:border-ds-ink/30",
+                )}
+              >
+                <span className="truncate">{chip.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {showDoctorFilter && (
+          <p role="status" aria-live="polite" className="sr-only">
+            {list.length === 0 ? "No services listed for this doctor." : `Showing ${list.length} service${list.length === 1 ? "" : "s"}.`}
+          </p>
+        )}
+
         <ol className="mt-10 md:mt-14" aria-label="Services">
           {visible.map((service, index) => (
             <ServiceRow
@@ -148,22 +184,27 @@ const ServicesSection = () => {
               onBook={() => book(service)}
             />
           ))}
-          {list.length === 0 && (
+          {allServices.length === 0 && (
             <ServiceRow
               index={0}
               name="Clinic consultation"
-              description="See the doctor at the clinic. Pick a time that suits you and book it online."
+              description={team ? "See a doctor at the clinic. Pick a time that suits you and book it online." : "See the doctor at the clinic. Pick a time that suits you and book it online."}
               type="clinic"
               duration={defaultDuration}
               price={defaultFee}
               onBook={() => book({ id: undefined, type: "clinic" })}
             />
           )}
+          {showDoctorFilter && doctorId && list.length === 0 && (
+            <li className="rounded-ds-lg border border-dashed border-ds-line px-6 py-10 text-center text-ds-body text-ds-ink-2">
+              No clinic services are listed for this doctor yet. Choose All to see every service.
+            </li>
+          )}
           {online && (
             <ServiceRow
-              index={Math.max(visible.length, list.length === 0 ? 1 : 0)}
+              index={Math.max(visible.length, allServices.length === 0 ? 1 : 0)}
               name="Online consultation"
-              description="Speak with the doctor by video from wherever you are. Book a slot, pay online, and join the call from your phone."
+              description={team ? "Video consultation from wherever you are. Book a slot, pay online, and join the call from your phone." : "Speak with the doctor by video from wherever you are. Book a slot, pay online, and join the call from your phone."}
               type="online"
               duration={Number(settings?.online_duration) || null}
               price={onlineFee}

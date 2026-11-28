@@ -5,6 +5,7 @@ import { Clock, Loader2, MapPin, UserCheck, Users, WifiOff } from "lucide-react"
 import { estimateWaitMinutes, formatWait } from "@/lib/queue";
 import { doctorDisplayName, formatDoctorName } from "@/lib/seo/doctorSeo";
 import type { PublicPractitioner } from "@/lib/practitioners/types";
+import { useOldSlugRedirect } from "@/hooks/useOldSlugRedirect";
 
 type QueueDoctor = {
   id: string;
@@ -75,6 +76,7 @@ const useQueuePoll = (doctorId: string | null, practitionerId?: string) => {
 // Visitors have no read access to appointments, so it polls one narrow function.
 const QueueDisplay = () => {
   const { slug } = useParams<{ slug: string }>();
+  const redirectOldSlug = useOldSlugRedirect();
   const [params] = useSearchParams();
   const doctorSlug = params.get("doctor");
   const [doctor, setDoctor] = useState<QueueDoctor | null>(null);
@@ -124,7 +126,7 @@ const QueueDisplay = () => {
         .from("profiles").select("id, full_name, clinic_name, specialization, qualifications, profile_photo_url, city").eq("slug", slug).eq("onboarding_completed", true).maybeSingle();
       if (cancelled) return;
       if (error) { timer = setTimeout(find, POLL_MS); return; }
-      if (!data) { setNotFound(true); return; }
+      if (!data) { if (await redirectOldSlug(slug)) return; if (!cancelled) setNotFound(true); return; }
       // Show the clinic (and start its queue) at once; the doctor list follows. A failed lookup
       // (retried once) never breaks the screen: it then shows the clinic's single queue.
       setDoctor(data as any);
@@ -148,7 +150,7 @@ const QueueDisplay = () => {
     };
     find();
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [slug]);
+  }, [slug, redirectOldSlug]);
 
   // ?doctor=<slug> picks one doctor; otherwise a clinic with 2+ doctors gets a panel each;
   // otherwise exactly the single-doctor screen and request.

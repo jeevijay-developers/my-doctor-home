@@ -23,6 +23,7 @@ import UpgradeCheckoutDialog from "./UpgradeCheckoutDialog";
 import { getSubscriptionCardStates, getTierFeatures, TIER_LABELS, TIER_PRICES, getDoctorTierPrice, TIER_TAGLINES, DEFAULT_APPOINTMENT_CAP, hasNoActivePlan } from "@/lib/planFeatures";
 import { formatIstDate } from "@/lib/istDate";
 import ProfilePage from "./ProfilePage";
+import WebsiteAddressCard from "./WebsiteAddressCard";
 import DeleteAccountDialog from "./DeleteAccountDialog";
 import CustomPlanSection from "./CustomPlanSection";
 import { useCustomPlan } from "@/hooks/useCustomPlan";
@@ -266,6 +267,7 @@ const SettingsPage = () => {
         <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
           <Settings className="h-6 w-6 text-muted-foreground" /> Settings
         </h1>
+        <WebsiteAddressCard />
         <ProfilePage />
       </div>
     );
@@ -287,8 +289,15 @@ const SettingsPage = () => {
           <TabsTrigger value="account" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Account</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile">
-          <ProfilePage />
+        <TabsContent value="profile" className="space-y-6">
+          {isMulti ? (
+            <ProfilePage variant="multi" clinicTop={<WebsiteAddressCard />} />
+          ) : (
+            <>
+              <WebsiteAddressCard />
+              <ProfilePage />
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="subscription">

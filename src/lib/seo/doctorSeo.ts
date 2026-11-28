@@ -3,6 +3,9 @@
 // two can never describe the same doctor differently.
 import { directorySlug } from "../directory/slug";
 import { isGoogleMapsUrl } from "../googleMapsUrl";
+import { DIRECTORY_HIDDEN } from "../siteSwitches";
+import { activeTeam, distinctSpecialties, isMultiDoctorClinic, listedTeam } from "./clinicTeam";
+import { openingHoursSpecification, type HoursRowLike } from "./clinicHours";
 
 export const DEFAULT_TITLE = "Doctylia - India's #1 Practice Management & Website Platform for Doctors";
 export const DEFAULT_DESCRIPTION =
@@ -19,6 +22,10 @@ export interface DoctorSeoInput {
   reviews?: any[];
   /** Active doctors of a multi-doctor clinic (get_public_practitioners rows). Fewer than 2 changes nothing. */
   practitioners?: PractitionerSeo[];
+  /** Clinic working_hours rows (multi-doctor clinic JSON-LD only). */
+  workingHours?: HoursRowLike[];
+  /** A clinic photo (first gallery photo) used for og:image when there is no hero photo. */
+  clinicImage?: string | null;
 }
 
 /** The public columns of get_public_practitioners that SEO uses. */
@@ -36,6 +43,7 @@ export interface PractitionerSeo {
   is_primary?: boolean;
   /** false = the doctor opted out of the directory: their page is served noindex. */
   directory_listed?: boolean | null;
+  consultation_fee?: number | string | null;
   /** Visible reviews written for this doctor (get_public_practitioners). */
   review_count?: number | string | null;
   avg_rating?: number | string | null;
@@ -43,7 +51,7 @@ export interface PractitionerSeo {
 
 /** Active doctors with a slug, in the order given. */
 export function activePractitioners(list?: PractitionerSeo[] | null): PractitionerSeo[] {
-  return (list ?? []).filter((p) => p && p.slug && p.is_active !== false);
+  return activeTeam(list);
 }
 
 function practitionerPath(clinicSlug: string, doctorSlug: string): string {
@@ -71,7 +79,41 @@ export function doctorDisplayName(profile: any): string {
   return formatDoctorName((profile?.display_name?.trim() || profile?.full_name?.trim() || ""));
 }
 
-export function buildDoctorMeta({ origin, profile, settings }: DoctorSeoInput) {
+/** What a team clinic goes by: its clinic name, else the owner's name (never "Dr. Dr."). */
+export function seoClinicName(profile: any): string {
+  return String(profile?.clinic_name ?? "").trim() || doctorDisplayName(profile);
+}
+
+function cleanUrl(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function buildClinicMeta({ origin, profile, settings, practitioners, clinicImage }: DoctorSeoInput) {
+  const name = seoClinicName(profile);
+  const team = activeTeam(practitioners);
+  const specs = distinctSpecialties(team).slice(0, 3).join(", ");
+  const city = profile?.city ? ` in ${profile.city}` : "";
+  const title = settings?.seo_title?.trim() || (name ? `${name}${specs ? ` - ${specs}` : ""}${city} | Doctylia` : "");
+
+  let description = settings?.seo_description?.trim() || "";
+  if (!description) {
+    description = name
+      ? `${name}${city} has ${team.length} doctors${specs ? ` (${specs})` : ""}. Book an appointment online and see timings, fees, services and patient reviews on Doctylia.`
+      : DEFAULT_DESCRIPTION;
+  }
+
+  return {
+    title,
+    description,
+    canonical: profile?.slug ? `${origin}/dr/${profile.slug}` : "",
+    // The clinic's own pictures first; the owner's portrait only when nothing else exists.
+    image: (cleanUrl(settings?.hero_photo_url) || cleanUrl(clinicImage) || profile?.profile_photo_url || "") as string,
+  };
+}
+
+export function buildDoctorMeta(input: DoctorSeoInput) {
+  if (isMultiDoctorClinic(input.practitioners)) return buildClinicMeta(input);
+  const { origin, profile, settings } = input;
   const name = doctorDisplayName(profile);
   const spec = profile?.specialization ? ` - ${profile.specialization}` : "";
   const city = profile?.city ? ` in ${profile.city}` : "";
@@ -113,6 +155,24 @@ export function doctorHubPaths(profile: any) {
   };
 }
 
+/** Free-text address + area (only when the address doesn't already mention it) as a PostalAddress, or null. */
+export function postalAddress(profile: any): Record<string, unknown> | null {
+  const address = String(profile?.address ?? "").trim();
+  const locality = String(profile?.locality ?? "").trim();
+  const streetAddress = [address, locality && !address.toLowerCase().includes(locality.toLowerCase()) ? locality : ""]
+    .filter(Boolean)
+    .join(", ");
+  if (!(streetAddress || profile?.city || profile?.state || profile?.pincode)) return null;
+  return {
+    "@type": "PostalAddress",
+    ...(streetAddress ? { streetAddress } : {}),
+    ...(profile.city ? { addressLocality: profile.city } : {}),
+    ...(profile.state ? { addressRegion: profile.state } : {}),
+    ...(profile.pincode ? { postalCode: profile.pincode } : {}),
+    addressCountry: "IN",
+  };
+}
+
 export function buildDoctorJsonLd(input: DoctorSeoInput) {
   const { origin, profile, settings, services = [], reviews = [] } = input;
   const name = doctorDisplayName(profile);
@@ -125,12 +185,6 @@ export function buildDoctorJsonLd(input: DoctorSeoInput) {
     ? (validReviews.reduce((a: number, r: any) => a + Number(r.rating), 0) / validReviews.length).toFixed(1)
     : null;
 
-  // Append the area only when the free-text address doesn't already mention it.
-  const address = String(profile.address ?? "").trim();
-  const locality = String(profile.locality ?? "").trim();
-  const streetAddress = [address, locality && !address.toLowerCase().includes(locality.toLowerCase()) ? locality : ""]
-    .filter(Boolean)
-    .join(", ");
   const sameAs = [settings?.social_facebook, settings?.social_instagram, settings?.social_linkedin, settings?.social_youtube].filter(
     (u: unknown) => typeof u === "string" && /^https?:\/\//i.test(u as string),
   );
@@ -147,18 +201,7 @@ export function buildDoctorJsonLd(input: DoctorSeoInput) {
     ...(profile.consultation_fee ? { priceRange: `₹${profile.consultation_fee}` } : {}),
     ...(sameAs.length ? { sameAs } : {}),
     ...(isGoogleMapsUrl(profile.google_maps_url) ? { hasMap: String(profile.google_maps_url).trim() } : {}),
-    ...(streetAddress || profile.city || profile.state || profile.pincode
-      ? {
-          address: {
-            "@type": "PostalAddress",
-            ...(streetAddress ? { streetAddress } : {}),
-            ...(profile.city ? { addressLocality: profile.city } : {}),
-            ...(profile.state ? { addressRegion: profile.state } : {}),
-            ...(profile.pincode ? { postalCode: profile.pincode } : {}),
-            addressCountry: "IN",
-          },
-        }
-      : {}),
+    ...(postalAddress(profile) ? { address: postalAddress(profile) } : {}),
     ...(Array.isArray(services) && services.length > 0
       ? {
           availableService: services.slice(0, 12).map((s: any) => ({
@@ -182,22 +225,57 @@ export function buildDoctorJsonLd(input: DoctorSeoInput) {
       : {}),
   };
 
-  // Multi-doctor clinic: the main node describes the clinic, the doctors hang off it as employees.
+  // Multi-doctor clinic: the main node describes the clinic itself, and the doctors are embedded as
+  // minimal Physician members (same @id as the full node on each doctor's own page).
   const team = activePractitioners(input.practitioners);
-  if (team.length >= 2 && profile.slug) {
+  const multi = team.length >= 2 && !!profile.slug;
+  if (multi) {
     physician["@type"] = ["MedicalClinic", "MedicalBusiness"];
     physician["@id"] = `${canonical}#clinic`;
-    physician.employee = team.map((p) => ({ "@id": `${origin}${practitionerPath(profile.slug, p.slug)}#physician` }));
+    physician.name = seoClinicName(profile);
+    // The owner's specialty belongs to the owner's own doctor node, not to the clinic.
+    delete physician.medicalSpecialty;
+    // A clinic has no single fee: a range across its doctors, or nothing.
+    delete physician.priceRange;
+    // The clinic-level aggregateRating is deliberately dropped: each doctor's page carries that
+    // doctor's own rating (get_public_practitioners.avg_rating), and the clinic figure would double
+    // count the same reviews. It would also be a self-serving rating on the business's own site,
+    // which Google does not accept for review rich results.
+    delete physician.aggregateRating;
+    const fees = team.map((p) => Number(p.consultation_fee)).filter((n) => Number.isFinite(n) && n > 0);
+    if (fees.length && Math.min(...fees) < Math.max(...fees)) physician.priceRange = `₹${Math.min(...fees)}-₹${Math.max(...fees)}`;
+    const hours = openingHoursSpecification(input.workingHours);
+    if (hours.length) physician.openingHoursSpecification = hours;
+    const logo = cleanUrl(settings?.logo_url);
+    if (logo) physician.logo = logo;
+    // Doctors who opted out of the directory are not advertised.
+    physician.member = listedTeam(team).map((p) => ({
+      "@type": "Physician",
+      "@id": `${origin}${practitionerPath(profile.slug, p.slug)}#physician`,
+      name: formatDoctorName(p.display_name),
+      url: `${origin}${practitionerPath(profile.slug, p.slug)}`,
+      ...(p.specialization ? { medicalSpecialty: p.specialization } : {}),
+      ...(p.photo_url ? { image: p.photo_url } : {}),
+    }));
   }
 
   const hubs = doctorHubPaths(profile);
   const crumbs: Array<{ name: string; item: string }> = [{ name: "Doctylia", item: `${origin}/` }];
-  if (hubs.cityPath) {
-    crumbs.push({ name: "Doctors", item: `${origin}/doctors` });
-    crumbs.push({ name: hubs.cityName!, item: `${origin}${hubs.cityPath}` });
-    if (hubs.specialtyPath) crumbs.push({ name: hubs.specialtyName!, item: `${origin}${hubs.specialtyPath}` });
+  if (multi) {
+    // The hub pages are redirected while the directory is switched off: never point a breadcrumb at them.
+    if (hubs.cityPath && !DIRECTORY_HIDDEN) {
+      crumbs.push({ name: "Doctors", item: `${origin}/doctors` });
+      crumbs.push({ name: hubs.cityName!, item: `${origin}${hubs.cityPath}` });
+    }
+    crumbs.push({ name: seoClinicName(profile), item: canonical });
+  } else {
+    if (hubs.cityPath) {
+      crumbs.push({ name: "Doctors", item: `${origin}/doctors` });
+      crumbs.push({ name: hubs.cityName!, item: `${origin}${hubs.cityPath}` });
+      if (hubs.specialtyPath) crumbs.push({ name: hubs.specialtyName!, item: `${origin}${hubs.specialtyPath}` });
+    }
+    crumbs.push({ name, item: canonical });
   }
-  crumbs.push({ name, item: canonical });
 
   return {
     "@context": "https://schema.org",
@@ -216,9 +294,13 @@ export interface PractitionerSeoInput {
   profile: any;
   practitioner: PractitionerSeo;
   settings?: any;
+  /** Clinic working_hours rows; only this doctor's rows are used. */
+  workingHours?: HoursRowLike[];
+  /** The clinic's picture, used when the doctor has no photo of their own. */
+  clinicImage?: string | null;
 }
 
-export function buildPractitionerMeta({ origin, profile, practitioner }: PractitionerSeoInput) {
+export function buildPractitionerMeta({ origin, profile, practitioner, settings, clinicImage }: PractitionerSeoInput) {
   const name = formatDoctorName(practitioner?.display_name ?? "");
   const specialization = practitioner?.specialization?.trim() || "";
   const city = profile?.city ? ` in ${profile.city}` : "";
@@ -227,16 +309,18 @@ export function buildPractitionerMeta({ origin, profile, practitioner }: Practit
   // The bio is free text the doctor types: newlines and runs of spaces collapse so a meta tag stays one line.
   let description = practitioner?.bio?.replace(/\s+/g, " ").trim().slice(0, 160) || "";
   if (!description && name) {
-    const clinic = doctorDisplayName(profile);
+    const clinicName = String(profile?.clinic_name ?? "").trim();
+    const owner = doctorDisplayName(profile);
+    const where = clinicName ? ` at ${clinicName}` : owner ? ` at ${owner}'s clinic` : "";
     const exp = practitioner.experience_years ? ` (${practitioner.experience_years}+ years experience)` : "";
-    description = `Book an appointment with ${name}${specialization ? `, ${specialization}` : ""}${city}${exp}${clinic ? ` at ${clinic}'s clinic` : ""}. Timings, fees and online booking on Doctylia.`;
+    description = `Book an appointment with ${name}${specialization ? `, ${specialization}` : ""}${city}${exp}${where}. Timings, fees and online booking on Doctylia.`;
   }
 
   return {
     title,
     description,
     canonical: profile?.slug && practitioner?.slug ? `${origin}${practitionerPath(profile.slug, practitioner.slug)}` : "",
-    image: (practitioner?.photo_url || "") as string,
+    image: (practitioner?.photo_url || cleanUrl(settings?.hero_photo_url) || cleanUrl(clinicImage) || "") as string,
   };
 }
 
@@ -247,6 +331,12 @@ export function buildPractitionerJsonLd(input: PractitionerSeoInput) {
 
   const meta = buildPractitionerMeta(input);
   const clinicUrl = `${origin}/dr/${profile.slug}`;
+  const clinicName = seoClinicName(profile);
+  const address = postalAddress(profile);
+  const phone = profile.clinic_phone || profile.phone;
+  const fee = Number(practitioner.consultation_fee);
+  const ownHours = (input.workingHours ?? []).filter((r) => practitioner.id && r.practitioner_id === practitioner.id);
+  const hours = openingHoursSpecification(ownHours);
   const physician: Record<string, unknown> = {
     "@type": "Physician",
     "@id": `${meta.canonical}#physician`,
@@ -255,7 +345,12 @@ export function buildPractitionerJsonLd(input: PractitionerSeoInput) {
     description: meta.description,
     ...(practitioner.specialization ? { medicalSpecialty: practitioner.specialization } : {}),
     ...(meta.image ? { image: meta.image } : {}),
-    worksFor: { "@id": `${clinicUrl}#clinic` },
+    // The clinic node lives on another page, so describe it here too instead of leaving a bare @id.
+    worksFor: { "@type": "MedicalClinic", "@id": `${clinicUrl}#clinic`, name: clinicName, url: clinicUrl },
+    ...(phone ? { telephone: phone } : {}),
+    ...(address ? { address } : {}),
+    ...(Number.isFinite(fee) && fee > 0 ? { priceRange: `₹${fee}` } : {}),
+    ...(hours.length ? { openingHoursSpecification: hours } : {}),
   };
   // Per-doctor rating, only when this doctor has reviews of their own (never the clinic aggregate).
   const reviewCount = Number(practitioner.review_count);
@@ -278,7 +373,7 @@ export function buildPractitionerJsonLd(input: PractitionerSeoInput) {
         "@type": "BreadcrumbList",
         itemListElement: [
           { name: "Doctylia", item: `${origin}/` },
-          { name: doctorDisplayName(profile) || "Clinic", item: clinicUrl },
+          { name: clinicName || "Clinic", item: clinicUrl },
           { name, item: meta.canonical },
         ].map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: c.item })),
       },

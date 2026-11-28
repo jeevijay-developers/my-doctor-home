@@ -38,3 +38,45 @@ describe("doctorSeo golden (single doctor)", () => {
     expect(JSON.stringify(buildDoctorJsonLd({ ...fixture, practitioners: [] } as never))).toBe(JSON.stringify(GOLDEN_JSONLD));
   });
 });
+
+// Golden for the NEW team-clinic output (2+ active doctors), added deliberately in the multi-doctor
+// public-site work: clinic name as the entity, doctors embedded as members, no clinic-level rating,
+// no single fee, no hub crumbs while DIRECTORY_HIDDEN.
+const teamFixture = {
+  origin: "https://doctylia.com",
+  profile: {
+    slug: "sharma-clinic", full_name: "anita sharma", display_name: "Anita Sharma", clinic_name: "Sharma Dental & ENT Clinic",
+    specialization: "Dentist", city: "Kota", state: "Rajasthan", pincode: "324005", address: "12 Gandhi Marg", locality: "Talwandi",
+    phone: "9876543210", profile_photo_url: "https://cdn.example.com/anita.jpg", google_maps_url: "https://maps.google.com/?q=kota",
+  },
+  settings: { hero_photo_url: "https://cdn.example.com/hero.jpg" },
+  services: [{ name: "Root canal", price: 3000 }],
+  reviews: [{ rating: 5 }],
+  practitioners: [
+    { id: "p1", slug: "anita-sharma", display_name: "Anita Sharma", specialization: "Dentist", photo_url: "https://cdn.example.com/anita.jpg", consultation_fee: 500, is_active: true },
+    { id: "p2", slug: "ravi-kumar", display_name: "ravi kumar", specialization: "ENT", consultation_fee: 800, is_active: true },
+    { id: "p3", slug: "meena", display_name: "Meena Rao", specialization: "Dentist", consultation_fee: 600, is_active: true, directory_listed: false },
+  ],
+  workingHours: [
+    { practitioner_id: "p1", day_of_week: 1, is_open: true, start_time: "09:00:00", end_time: "13:00:00", start_time_2: null, end_time_2: null },
+    { practitioner_id: "p2", day_of_week: 1, is_open: true, start_time: "10:00:00", end_time: "14:00:00", start_time_2: null, end_time_2: null },
+  ],
+};
+
+const GOLDEN_TEAM_META = {
+  title: "Sharma Dental & ENT Clinic - Dentist, ENT in Kota | Doctylia",
+  description: "Sharma Dental & ENT Clinic in Kota has 3 doctors (Dentist, ENT). Book an appointment online and see timings, fees, services and patient reviews on Doctylia.",
+  canonical: "https://doctylia.com/dr/sharma-clinic",
+  image: "https://cdn.example.com/hero.jpg",
+};
+
+const GOLDEN_TEAM_JSONLD = {"@context":"https://schema.org","@graph":[{"@type":["MedicalClinic","MedicalBusiness"],"@id":"https://doctylia.com/dr/sharma-clinic#clinic","name":"Sharma Dental & ENT Clinic","url":"https://doctylia.com/dr/sharma-clinic","description":"Sharma Dental & ENT Clinic in Kota has 3 doctors (Dentist, ENT). Book an appointment online and see timings, fees, services and patient reviews on Doctylia.","image":"https://cdn.example.com/hero.jpg","telephone":"9876543210","hasMap":"https://maps.google.com/?q=kota","address":{"@type":"PostalAddress","streetAddress":"12 Gandhi Marg, Talwandi","addressLocality":"Kota","addressRegion":"Rajasthan","postalCode":"324005","addressCountry":"IN"},"availableService":[{"@type":"MedicalProcedure","name":"Root canal","offers":{"@type":"Offer","price":"3000","priceCurrency":"INR"}}],"priceRange":"₹500-₹800","openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":"Monday","opens":"09:00","closes":"14:00"}],"member":[{"@type":"Physician","@id":"https://doctylia.com/dr/sharma-clinic/doctor/anita-sharma#physician","name":"Dr. Anita Sharma","url":"https://doctylia.com/dr/sharma-clinic/doctor/anita-sharma","medicalSpecialty":"Dentist","image":"https://cdn.example.com/anita.jpg"},{"@type":"Physician","@id":"https://doctylia.com/dr/sharma-clinic/doctor/ravi-kumar#physician","name":"Dr. Ravi Kumar","url":"https://doctylia.com/dr/sharma-clinic/doctor/ravi-kumar","medicalSpecialty":"ENT"}]},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Doctylia","item":"https://doctylia.com/"},{"@type":"ListItem","position":2,"name":"Sharma Dental & ENT Clinic","item":"https://doctylia.com/dr/sharma-clinic"}]}]};
+
+describe("doctorSeo golden (team clinic)", () => {
+  it("buildDoctorMeta", () => {
+    expect(buildDoctorMeta(teamFixture as never)).toEqual(GOLDEN_TEAM_META);
+  });
+  it("buildDoctorJsonLd", () => {
+    expect(JSON.stringify(buildDoctorJsonLd(teamFixture as never))).toBe(JSON.stringify(GOLDEN_TEAM_JSONLD));
+  });
+});

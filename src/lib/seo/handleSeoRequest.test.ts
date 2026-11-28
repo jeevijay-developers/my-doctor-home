@@ -59,8 +59,8 @@ describe("handleSeoRequest - doctor", () => {
   it("301s a renamed slug to the current one", async () => {
     const handler = await fresh();
     const f = fakeFetch({
-      "/profiles": (u) => (u.searchParams.get("slug") ? [] : [{ slug: "dr-new" }]),
-      "/slug_history": () => [{ doctor_id: "d1" }],
+      "/profiles": () => [],
+      "/resolve_clinic_slug": () => "dr-new",
     });
     const res = await handler(req("kind=doctor&slug=dr-old"), env, f);
     expect(res.status).toBe(301);
@@ -369,7 +369,7 @@ describe("handleSeoRequest - practitioner", () => {
     expect(res.status).toBe(200);
     expect(html).toContain('href="https://doctylia.com/dr/dr-a/doctor/ravi-kumar"');
     expect(html).toContain("Dr. Ravi Kumar");
-    expect(html).toContain('"worksFor":{"@id":"https://doctylia.com/dr/dr-a#clinic"}');
+    expect(html).toContain('"worksFor":{"@type":"MedicalClinic","@id":"https://doctylia.com/dr/dr-a#clinic"');
     expect(html).toContain("Ravi treats braces.");
     expect(res.headers.get("Cache-Control")).toContain("s-maxage=3600");
   });
@@ -436,7 +436,7 @@ describe("handleSeoRequest - P3 doctor-aware content", () => {
   const profile = { id: "d1", slug: "dr-a", full_name: "A Sharma", specialization: "ENT", city: "Kota", clinic_name: "Sharma Clinic", plan_status: "active" };
   const team = [
     { id: "p1", slug: "a-sharma", display_name: "A Sharma", specialization: "ENT", is_primary: true, is_active: true, directory_listed: true, review_count: 0, avg_rating: null },
-    { id: "p2", slug: "ravi-kumar", display_name: "Ravi Kumar", specialization: "Orthodontist", is_primary: false, is_active: true, directory_listed: true, review_count: 3, avg_rating: 4.66 },
+    { id: "p2", slug: "ravi-kumar", display_name: "Ravi Kumar", specialization: "Orthodontist", bio: "Ravi has treated children and adults with braces and aligners for ten years.", is_primary: false, is_active: true, directory_listed: true, review_count: 3, avg_rating: 4.66 },
   ];
   const post = { id: "11111111-1111-1111-1111-111111111111", slug: "braces", title: "Braces", content: "Wear them.", is_published: true, practitioner_id: "p2" };
   const run = async (qs: string, routes: Record<string, Route>) => (await fresh())(req(qs), env, fakeFetch(routes));

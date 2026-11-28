@@ -238,3 +238,57 @@ describe("SettingsPage doctors' earnings switch (multi-doctor)", () => {
     expect(sw).not.toBeChecked();
   });
 });
+
+describe("SettingsPage profile tab (multi-doctor split)", () => {
+  const renderProfile = () => render(<SettingsPage />, {
+    wrapper: ({ children }) => <MemoryRouter initialEntries={["/admin/settings"]}>{children}</MemoryRouter>,
+  });
+  const asOwner = (extra: Record<string, unknown> = {}) =>
+    vi.mocked(useProfile).mockReturnValue({ profile: { ...baseProfile, plan_status: "active", plan_tier: "premium", slug: "sunrise" }, loading: false, isStaff: false, role: "owner", can: () => true, refetch: vi.fn(), ...extra } as any);
+  const multi = (isMulti: boolean) => vi.mocked(usePractitioners).mockReturnValue({ isMulti, primary: { id: "pr-1" } } as any);
+
+  beforeEach(() => {
+    vi.mocked(usePlanAccess).mockReturnValue({ isPremium: true, appointmentsCap: 0, appointmentsUsed: 0, nearCap: false, loading: false });
+  });
+
+  it("single-doctor owner keeps the original layout", () => {
+    asOwner();
+    multi(false);
+    renderProfile();
+    expect(screen.getByText("Your Details")).toBeInTheDocument();
+    expect(screen.getByText("Clinic Details")).toBeInTheDocument();
+    expect(screen.queryByText("My doctor profile")).not.toBeInTheDocument();
+    expect(screen.queryByText(/shown on the clinic page and in search results/i)).not.toBeInTheDocument();
+  });
+
+  it("multi-doctor owner gets a Clinic card first, then My doctor profile, each saying where it shows", () => {
+    asOwner();
+    multi(true);
+    renderProfile();
+    const clinic = screen.getByText("Clinic");
+    const mine = screen.getByText("My doctor profile");
+    expect(clinic.compareDocumentPosition(mine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText(/shown on the clinic page and in search results/i)).toBeInTheDocument();
+    expect(screen.getByText(/shown on your doctor page/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /doctors page/i })).toHaveAttribute("href", "/admin/doctors");
+    expect(screen.getByText("Clinic phone")).toBeInTheDocument();
+    expect(screen.queryByText("Your Details")).not.toBeInTheDocument();
+  });
+
+  it("reception with profile.edit keeps the original layout even in a multi-doctor clinic", () => {
+    asOwner({ isStaff: true, role: "staff" });
+    multi(true);
+    renderProfile();
+    expect(screen.getByText("Your Details")).toBeInTheDocument();
+    expect(screen.queryByText("My doctor profile")).not.toBeInTheDocument();
+  });
+
+  it("a doctor login sees no owner fields", () => {
+    asOwner({ isStaff: true, role: "doctor", myPractitionerId: "pr-1", staffName: "Dr. X" });
+    vi.mocked(usePractitioners).mockReturnValue({ isMulti: true, byId: () => undefined, refetch: vi.fn(), active: [] } as any);
+    renderProfile();
+    expect(screen.queryByText("Clinic Details")).not.toBeInTheDocument();
+    expect(screen.queryByText("Medical Registration Number")).not.toBeInTheDocument();
+    expect(screen.queryByText("My doctor profile")).not.toBeInTheDocument();
+  });
+});

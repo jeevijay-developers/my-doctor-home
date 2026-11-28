@@ -4,6 +4,8 @@ import { formatDoctorName } from "@/lib/seo/doctorSeo";
 import type { PublicPractitioner } from "@/lib/practitioners/types";
 import { practitionerFee } from "@/lib/practitioners/fee";
 import { dsCn } from "./ui/dsCn";
+import NextAvailableChip from "./NextAvailableChip";
+import type { NextByDoctor } from "@/hooks/useNextAvailableByDoctor";
 import { radioKeyDown } from "./ui/radioKeyDown";
 
 type Props = {
@@ -12,10 +14,13 @@ type Props = {
   onChange: (id: string) => void;
   /** The clinic's consultation fee, shown for a doctor without one of their own. */
   clinicFee: unknown;
+  /** Each doctor's next free slot; a doctor without one shows no chip. */
+  nextAvailable?: NextByDoctor;
+  now?: Date;
 };
 
 /** The booking widget's "Doctor" step: one large radio card per bookable doctor. */
-const DoctorPicker = ({ doctors, value, onChange, clinicFee }: Props) => (
+const DoctorPicker = ({ doctors, value, onChange, clinicFee, nextAvailable, now }: Props) => (
   <div role="radiogroup" aria-label="Doctor" onKeyDown={radioKeyDown} className="grid gap-3 sm:grid-cols-2">
     {doctors.map((d, i) => {
       const on = d.id === value;
@@ -36,7 +41,7 @@ const DoctorPicker = ({ doctors, value, onChange, clinicFee }: Props) => (
           )}
         >
           {d.photo_url ? (
-            <OptimizedImage src={d.photo_url} alt="" width={112} height={112} decoding="async" className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-ds-surface" />
+            <OptimizedImage src={d.photo_url} alt="" width={112} height={112} decoding="async" className="h-14 w-14 shrink-0 rounded-full object-cover object-top ring-2 ring-ds-surface" />
           ) : (
             <span aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-ds-paper-2 text-ds-ink-2">
               <UserRound className="h-6 w-6" strokeWidth={1.75} />
@@ -46,6 +51,11 @@ const DoctorPicker = ({ doctors, value, onChange, clinicFee }: Props) => (
             <span className="block font-ds-display text-[1.1875rem] font-medium leading-tight text-ds-ink">{name}</span>
             {d.specialization && <span className="mt-0.5 block text-ds-body text-ds-ink-2">{d.specialization}</span>}
             <span className="mt-1 block text-ds-body font-semibold text-ds-ink ds-tabular">₹{practitionerFee(d, clinicFee)}</span>
+            {nextAvailable?.[d.id] && (
+              <span className="mt-1.5 block">
+                <NextAvailableChip slot={nextAvailable[d.id]} now={now} />
+              </span>
+            )}
           </span>
         </button>
       );

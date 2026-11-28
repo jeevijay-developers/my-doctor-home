@@ -252,20 +252,23 @@ describe("multi-doctor SEO", async () => {
     const phys = ld["@graph"][0];
     expect(phys["@type"]).toBe("Physician");
     expect(phys["@id"]).toBe("https://doctylia.com/dr/dr-a/doctor/ravi-kumar#physician");
-    expect(phys.worksFor).toEqual({ "@id": "https://doctylia.com/dr/dr-a#clinic" });
+    // The clinic node is on another page, so worksFor carries its type, name and url, not a bare @id.
+    expect(phys.worksFor).toEqual({ "@type": "MedicalClinic", "@id": "https://doctylia.com/dr/dr-a#clinic", name: "Dr. Anita Sharma", url: "https://doctylia.com/dr/dr-a" });
     const crumbs = ld["@graph"][1].itemListElement;
     expect(crumbs.slice(-2).map((c: any) => c.item)).toEqual(["https://doctylia.com/dr/dr-a", "https://doctylia.com/dr/dr-a/doctor/ravi-kumar"]);
   });
 
-  it("multi-doctor clinic main node is a MedicalClinic with employee links", () => {
+  it("multi-doctor clinic main node is a MedicalClinic with embedded Physician members", () => {
     const ld: any = buildDoctorJsonLd({ origin, profile, practitioners: [pA, pB] } as any);
     const main = ld["@graph"][0];
     expect(main["@type"]).toEqual(["MedicalClinic", "MedicalBusiness"]);
     expect(main["@id"]).toBe("https://doctylia.com/dr/dr-a#clinic");
-    expect(main.employee).toEqual([
-      { "@id": "https://doctylia.com/dr/dr-a/doctor/anita#physician" },
-      { "@id": "https://doctylia.com/dr/dr-a/doctor/ravi-kumar#physician" },
+    // Embedded (not bare @id links) so a crawler of the clinic page sees who works there; same @id as each doctor page.
+    expect(main.member).toEqual([
+      { "@type": "Physician", "@id": "https://doctylia.com/dr/dr-a/doctor/anita#physician", name: "Dr. Anita Sharma", url: "https://doctylia.com/dr/dr-a/doctor/anita", medicalSpecialty: "Dentist", image: "https://cdn.example.com/a.jpg" },
+      { "@type": "Physician", "@id": "https://doctylia.com/dr/dr-a/doctor/ravi-kumar#physician", name: "Dr. Ravi Kumar", url: "https://doctylia.com/dr/dr-a/doctor/ravi-kumar", medicalSpecialty: "Orthodontist" },
     ]);
+    expect(main.employee).toBeUndefined();
   });
 
   it("inactive practitioners do not make a clinic multi-doctor", () => {

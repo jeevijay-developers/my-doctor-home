@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, UserRound } from "lucide-react";
+import { ArrowRight, Phone, Search } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { useDoctorData } from "@/contexts/DoctorContext";
-import { formatQualifications } from "@/lib/doctorSite/doctorFacts";
+import { clinicPhone, formatQualifications, telHref } from "@/lib/doctorSite/doctorFacts";
+import { DOCTOR_FILTER_FROM, DOCTOR_SEARCH_FROM, doctorGridClass, doctorProfilePath, initialsOf } from "@/lib/doctorSite/teamClinic";
 import { formatDoctorName } from "@/lib/seo/doctorSeo";
 import type { PublicPractitioner } from "@/lib/practitioners/types";
 import { practitionerFee } from "@/lib/practitioners/fee";
@@ -12,16 +14,34 @@ import SectionHeader from "./ui/SectionHeader";
 import { dsCn } from "./ui/dsCn";
 import { bookNow } from "./siteActions";
 import { DUR, EASE, staggerDelay } from "./motion/tokens";
+import NextAvailableChip from "./NextAvailableChip";
+import { useNextAvailableByDoctor } from "@/hooks/useNextAvailableByDoctor";
 
 /** Event the booking widget listens for: preselect this doctor and open the "When" step. */
 export const SELECT_DOCTOR_EVENT = "doctylia:select-doctor";
 
-/** From this many doctors on, a row of specialty chips narrows the list. */
-const FILTER_FROM = 4;
+const secondaryLinkClass =
+  "inline-flex h-12 items-center justify-center rounded-full border border-ds-line bg-ds-surface px-5 text-[0.9375rem] font-semibold text-ds-ink " +
+  "transition-[background-color,border-color] duration-ds-1 ease-ds-out hover:border-ds-ink/30";
 
-const DoctorCard = ({ doctor, index, clinicFee }: { doctor: PublicPractitioner; index: number; clinicFee: unknown }) => {
+type CardProps = {
+  doctor: PublicPractitioner;
+  index: number;
+  clinicFee: unknown;
+  team: boolean;
+  /** Team clinics: the doctor's own page (omitted when the clinic or doctor has no slug). */
+  profileHref?: string;
+  /** Team clinics: the clinic's phone, offered when the doctor cannot be booked online. */
+  phone?: string;
+  /** The doctor's next free slot ("Next: Today 4:30 pm"); only for doctors that can be booked online. */
+  nextAvailable?: ReactNode;
+};
+
+const DoctorCard = ({ doctor, index, clinicFee, team, profileHref, phone, nextAvailable }: CardProps) => {
   const name = formatDoctorName(doctor.display_name);
   const years = Number(doctor.experience_years);
+  // Plain text only: the bio is written by the doctor and rendered as a React text node.
+  const bio = (doctor.bio ?? "").replace(/\s+/g, " ").trim();
   const facts = [
     { term: "Qualifications", detail: formatQualifications(doctor.qualifications) },
     { term: "Experience", detail: Number.isFinite(years) && years > 0 ? `${years} year${years === 1 ? "" : "s"} in practice` : "" },
@@ -39,7 +59,7 @@ const DoctorCard = ({ doctor, index, clinicFee }: { doctor: PublicPractitioner; 
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: DUR.medium, ease: EASE.out, delay: staggerDelay(index) }}
-      className="flex flex-col rounded-ds-lg border border-ds-line bg-ds-surface p-6 shadow-ds-1"
+      className="flex min-w-0 flex-col rounded-ds-lg border border-ds-line bg-ds-surface p-6 shadow-ds-1"
     >
       <div className="flex items-center gap-4">
         {doctor.photo_url ? (
@@ -50,15 +70,15 @@ const DoctorCard = ({ doctor, index, clinicFee }: { doctor: PublicPractitioner; 
             height={144}
             loading="lazy"
             decoding="async"
-            className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-full object-cover ring-2 ring-ds-surface"
+            className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-full object-cover object-top ring-2 ring-ds-surface"
           />
         ) : (
-          <span aria-hidden="true" className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full bg-ds-paper-2 text-ds-ink-2">
-            <UserRound className="h-7 w-7" strokeWidth={1.5} />
+          <span aria-hidden="true" className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full bg-ds-accent-soft font-ds-display text-[1.5rem] font-medium text-ds-accent-ink">
+            {initialsOf(doctor.display_name) || "Dr"}
           </span>
         )}
         <div className="min-w-0">
-          <h3 className="font-ds-display text-ds-h3 font-medium leading-tight text-ds-ink">{name}</h3>
+          <h3 className="break-words font-ds-display text-ds-h3 font-medium leading-tight text-ds-ink">{name}</h3>
           {doctor.specialization && <p className="mt-1 text-ds-body text-ds-ink-2">{doctor.specialization}</p>}
           {doctor.review_count > 0 && doctor.avg_rating != null && (
             <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-ds-small text-ds-ink-2">
@@ -69,25 +89,44 @@ const DoctorCard = ({ doctor, index, clinicFee }: { doctor: PublicPractitioner; 
         </div>
       </div>
 
+      {team && bio && <p className="mt-4 line-clamp-2 text-ds-body text-ds-ink-2">{bio}</p>}
+
       {facts.length > 0 && (
         <dl className="mt-5 border-t border-ds-line">
           {facts.map((f) => (
             <div key={f.term} className="flex items-baseline justify-between gap-4 border-b border-ds-line py-2.5">
-              <dt className="text-ds-small text-ds-ink-3">{f.term}</dt>
-              <dd className="text-right text-ds-body text-ds-ink ds-tabular">{f.detail}</dd>
+              <dt className="shrink-0 text-ds-small text-ds-ink-3">{f.term}</dt>
+              <dd className="min-w-0 break-words text-right text-ds-body text-ds-ink ds-tabular">{f.detail}</dd>
             </div>
           ))}
         </dl>
       )}
 
+      {nextAvailable && <div className="mt-4 empty:hidden">{nextAvailable}</div>}
+
       <div className="mt-auto pt-6">
-        {doctor.bookable ? (
-          <DsButton onClick={book} className="group/btn w-full" aria-label={`Book with ${name}`}>
-            Book
-            <ArrowRight aria-hidden="true" className="h-4 w-4 transition-transform duration-ds-2 ease-ds-out group-hover/btn:translate-x-1" strokeWidth={2} />
-          </DsButton>
-        ) : (
-          <p className="text-ds-body text-ds-ink-2">Online booking is not open for this doctor. Please call the clinic.</p>
+        <div className={team && profileHref ? "grid gap-2 sm:grid-cols-2" : ""}>
+          {team && profileHref && (
+            <Link to={profileHref} className={secondaryLinkClass} aria-label={`View profile of ${name}`}>
+              View profile
+            </Link>
+          )}
+          {doctor.bookable ? (
+            <DsButton onClick={book} className="group/btn w-full" aria-label={`Book with ${name}`}>
+              Book
+              <ArrowRight aria-hidden="true" className="h-4 w-4 transition-transform duration-ds-2 ease-ds-out group-hover/btn:translate-x-1" strokeWidth={2} />
+            </DsButton>
+          ) : team && phone ? (
+            <a href={telHref(phone)} className={secondaryLinkClass} aria-label={`Call the clinic to see ${name}`}>
+              <Phone aria-hidden="true" className="mr-2 h-4 w-4" strokeWidth={1.75} />
+              Call the clinic
+            </a>
+          ) : (
+            <p className="text-ds-body text-ds-ink-2">Online booking is not open for this doctor. Please call the clinic.</p>
+          )}
+        </div>
+        {team && !doctor.bookable && phone && (
+          <p className="mt-2 text-ds-small text-ds-ink-2">Online booking is not open for this doctor.</p>
         )}
       </div>
     </motion.li>
@@ -95,13 +134,20 @@ const DoctorCard = ({ doctor, index, clinicFee }: { doctor: PublicPractitioner; 
 };
 
 /**
- * "Choose your doctor" (multi-doctor clinics only): one card per listed doctor. "Book" hands
- * the doctor to the booking widget through SELECT_DOCTOR_EVENT. A single-doctor clinic gets nothing.
+ * Doctor cards. Multi-doctor clinics get "Choose your doctor"; a team clinic (2+ active doctors)
+ * gets "Meet our doctors" right after the hero, with each doctor's bio, a profile link, a name
+ * search from 9 doctors and a specialty filter from 4. A single-doctor clinic gets nothing.
+ * Each bookable doctor's card shows the next free slot from one shared call (`useNextAvailableByDoctor`);
+ * `renderNextAvailable` overrides it.
  */
-const DoctorsSection = () => {
-  const { profile, practitioners, isMultiDoctor } = useDoctorData();
+const DoctorsSection = ({ renderNextAvailable }: { renderNextAvailable?: (doctor: PublicPractitioner) => ReactNode } = {}) => {
+  const { profile, practitioners, isMultiDoctor, isTeamClinic } = useDoctorData();
+  const team = isTeamClinic === true;
   const [specialty, setSpecialty] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const list = useMemo(() => practitioners ?? [], [practitioners]);
+  const showing = (isMultiDoctor || team) && list.length > 0;
+  const { next, now } = useNextAvailableByDoctor(profile?.id, showing && list.some((d) => d.bookable) && !renderNextAvailable);
 
   const specialties = useMemo(
     () =>
@@ -109,10 +155,15 @@ const DoctorsSection = () => {
     [list],
   );
 
-  if (!isMultiDoctor || list.length === 0) return null;
+  if (!(isMultiDoctor || team) || list.length === 0) return null;
 
-  const showFilter = list.length >= FILTER_FROM && specialties.length > 1;
-  const visible = showFilter && specialty ? list.filter((d) => (d.specialization ?? "").trim() === specialty) : list;
+  const showFilter = list.length >= DOCTOR_FILTER_FROM && specialties.length > 1;
+  const showSearch = team && list.length >= DOCTOR_SEARCH_FROM;
+  const needle = query.trim().toLowerCase();
+  const visible = list
+    .filter((d) => !(showFilter && specialty) || (d.specialization ?? "").trim() === specialty)
+    .filter((d) => !(showSearch && needle) || formatDoctorName(d.display_name).toLowerCase().includes(needle));
+  const phone = clinicPhone(profile);
 
   const chip = (label: string, on: boolean, onClick: () => void) => (
     <button
@@ -135,9 +186,30 @@ const DoctorsSection = () => {
         <SectionHeader
           id="doctors-heading"
           eyebrow="Our doctors"
-          title="Choose your doctor"
-          intro="Pick the doctor you would like to see, then choose a time that suits you."
+          title={team ? "Meet our doctors" : "Choose your doctor"}
+          intro={
+            team
+              ? "See each doctor's profile, or book straight away and choose a time that suits you."
+              : "Pick the doctor you would like to see, then choose a time that suits you."
+          }
         />
+
+        {showSearch && (
+          <div className="mt-8 max-w-md">
+            <label htmlFor="doctor-search" className="mb-1.5 block text-ds-small font-medium">Search doctors by name</label>
+            <div className="relative">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ds-ink-3" strokeWidth={1.75} />
+              <input
+                id="doctor-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                autoComplete="off"
+                className="h-12 w-full rounded-full border border-ds-line bg-ds-surface pl-11 pr-4 text-ds-body text-ds-ink outline-none transition-colors focus:border-ds-accent"
+              />
+            </div>
+          </div>
+        )}
 
         {showFilter && (
           <div role="group" aria-label="Filter by specialty" className="mt-8 flex flex-wrap gap-2">
@@ -146,11 +218,45 @@ const DoctorsSection = () => {
           </div>
         )}
 
-        <ul aria-label="Doctors" className="mt-10 grid gap-5 md:mt-14 md:grid-cols-2 lg:grid-cols-3">
-          {visible.map((d, i) => (
-            <DoctorCard key={d.id} doctor={d} index={i} clinicFee={profile?.consultation_fee} />
-          ))}
-        </ul>
+        {(showFilter || showSearch) && (
+          <p role="status" aria-live="polite" className="sr-only">
+            {visible.length === 0 ? "No doctors match." : `Showing ${visible.length} of ${list.length} doctors.`}
+          </p>
+        )}
+
+        {visible.length === 0 ? (
+          <div className="mt-10 rounded-ds-lg border border-dashed border-ds-line px-6 py-12 text-center md:mt-14">
+            <p className="text-ds-body text-ds-ink-2">No doctors match your search.</p>
+            <DsButton
+              variant="secondary"
+              className="mt-5"
+              onClick={() => {
+                setSpecialty(null);
+                setQuery("");
+              }}
+            >
+              Show all doctors
+            </DsButton>
+          </div>
+        ) : (
+          <ul
+            aria-label="Doctors"
+            className={dsCn("mt-10 grid gap-5 md:mt-14", team ? doctorGridClass(visible.length) : "md:grid-cols-2 lg:grid-cols-3")}
+          >
+            {visible.map((d, i) => (
+              <DoctorCard
+                key={d.id}
+                doctor={d}
+                index={i}
+                clinicFee={profile?.consultation_fee}
+                team={team}
+                phone={phone}
+                profileHref={team && profile?.slug && d.slug ? doctorProfilePath(profile.slug, d.slug) : undefined}
+                nextAvailable={renderNextAvailable ? renderNextAvailable(d) : d.bookable ? <NextAvailableChip slot={next[d.id]} now={now} /> : undefined}
+              />
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );

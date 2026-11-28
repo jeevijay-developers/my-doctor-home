@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import "@/components/doctor/__test__/intersectionObserverStub";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import PractitionerPage from "./PractitionerPage";
 import { useDoctorData } from "@/contexts/DoctorContext";
@@ -9,6 +10,26 @@ vi.mock("@/contexts/DoctorContext", () => ({
   useDoctorData: vi.fn(),
 }));
 vi.mock("@/components/doctor/BookingWidget", () => ({ default: () => <div data-testid="booking-widget" /> }));
+vi.mock("@/components/doctor/Navbar", () => ({ default: () => <nav data-testid="navbar" /> }));
+vi.mock("@/components/doctor/BottomActionBar", () => ({ default: () => <div data-testid="bottom-bar" /> }));
+vi.mock("@/components/doctor/ClinicDetails", () => ({ default: () => <section data-testid="clinic-details" /> }));
+vi.mock("@/components/doctor/motion/SmoothScroll", () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
+vi.mock("@/components/doctor/motion/useSplitReveal", () => ({ useSplitReveal: () => {} }));
+const db = vi.hoisted(() => ({ posts: [] as unknown[], calls: [] as Array<[string, unknown]> }));
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    from: () => {
+      const q: Record<string, unknown> = {};
+      const chain = (name: string) => (...a: unknown[]) => { db.calls.push([name, a]); return q; };
+      Object.assign(q, {
+        select: chain("select"), eq: chain("eq"), order: chain("order"),
+        limit: () => Promise.resolve({ data: db.posts }),
+        insert: () => Promise.resolve({ error: null }),
+      });
+      return q;
+    },
+  },
+}));
 vi.mock("@/components/doctor/Footer", () => ({ default: () => <footer /> }));
 vi.mock("@/components/doctor/DoctorThemeProvider", () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 
@@ -46,7 +67,11 @@ const renderAt = (path: string) =>
   );
 
 describe("PractitionerPage", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db.posts = [];
+    db.calls = [];
+  });
 
   it("shows the doctor's own profile, fee and hours, and sets the document title", () => {
     mockData();
@@ -144,6 +169,6 @@ describe("PractitionerPage", () => {
     mockData();
     renderAt("/dr/dr-a/doctor/vikram-shah");
     expect(screen.queryByText(/★/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/reviews?$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ reviews?$/)).not.toBeInTheDocument();
   });
 });

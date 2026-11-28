@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   isStaff: false,
   granted: [] as string[],
   state: null as any,
+  slug: "sunrise" as string | null,
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
 }));
@@ -24,7 +25,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 vi.mock("@/hooks/useProfile", () => {
-  const profile = { id: "clinic-1", consultation_fee: 500 };
+  const profile = { id: "clinic-1", consultation_fee: 500, get slug() { return h.slug; } };
   return {
     useProfile: () => ({
       profile,
@@ -100,6 +101,7 @@ describe("DoctorsPage", () => {
     h.role = "owner";
     h.isStaff = false;
     h.granted = [];
+    h.slug = "sunrise";
     setState();
   });
 
@@ -332,6 +334,84 @@ describe("DoctorsPage", () => {
       renderPage();
       expect(await screen.findByText(/your extra seats end on/i)).toBeInTheDocument();
       expect(screen.getByText(/renew your plan with seats to keep them/i)).toBeInTheDocument();
+    });
+  });
+  describe("public page links and profile completeness", () => {
+    const LONG = "x".repeat(70);
+
+    it("shows a clinic page link at the top", () => {
+      renderPage();
+      const link = screen.getByRole("link", { name: /view clinic page/i });
+      expect(link).toHaveAttribute("href", "/dr/sunrise");
+      expect(link).toHaveAttribute("target", "_blank");
+    });
+
+    it("hides the clinic page link when the clinic has no slug", () => {
+      h.slug = null;
+      renderPage();
+      expect(screen.queryByRole("link", { name: /view clinic page/i })).not.toBeInTheDocument();
+    });
+
+    it("chips: no bio asks for one and explains why; a 60-character bio shows the percentage", () => {
+      const withBio = doc("p-bina", "Dr. Bina Shah", { bio: "a".repeat(60), specialization: "ENT", consultation_fee: 700 });
+      setState({}, [OWNER, withBio]);
+      renderPage();
+      // OWNER has no bio, BINA has one
+      expect(screen.getAllByText("Add a bio to appear in Google").length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/at least 60 characters/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/^Profile \d+%$/).length).toBeGreaterThan(0);
+    });
+
+    it("a 59-character bio is still short", () => {
+      setState({}, [OWNER, doc("p-bina", "Dr. Bina Shah", { bio: "a".repeat(59) })]);
+      renderPage();
+      expect(screen.queryByText(/^Profile \d+%$/)).not.toBeInTheDocument();
+    });
+
+    it("a doctor who opted out of the directory is told so", () => {
+      setState({}, [OWNER, doc("p-bina", "Dr. Bina Shah", { bio: LONG, directory_listed: false })]);
+      renderPage();
+      expect(screen.getAllByText(/not listed in the directory/).length).toBeGreaterThan(0);
+    });
+
+    it("each active doctor row has a Public page link and a Copy link button", async () => {
+      const writeText = vi.fn(async () => {});
+      Object.assign(navigator, { clipboard: { writeText } });
+      renderPage();
+      const view = screen.getAllByRole("link", { name: /public page for dr\. bina shah/i })[0];
+      expect(view).toHaveAttribute("href", "/dr/sunrise/doctor/p-bina");
+      expect(view).toHaveAttribute("target", "_blank");
+      fireEvent.click(screen.getAllByRole("button", { name: /copy link to dr\. bina shah/i })[0]);
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/dr/sunrise/doctor/p-bina`));
+      expect(h.toastSuccess).toHaveBeenCalledWith("Link copied");
+    });
+
+    it("no public link or chip for an inactive doctor, nor when only one doctor is active", async () => {
+      setState({}, [OWNER, doc("p-bina", "Dr. Bina Shah", { is_active: false })]);
+      renderPage();
+      expect(screen.queryByText("Add a bio to appear in Google")).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /public page for/i })).not.toBeInTheDocument();
+    });
+
+    it("no public link for a doctor without a slug, but still a chip", () => {
+      setState({}, [OWNER, doc("p-bina", "Dr. Bina Shah", { slug: "" })]);
+      renderPage();
+      expect(screen.queryByRole("link", { name: /public page for dr\. bina shah/i })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("link", { name: /public page for dr\. asha rao/i }).length).toBeGreaterThan(0);
+    });
+
+    it("lists 9+ doctors with a chip each and very long names", () => {
+      const list = [OWNER, ...Array.from({ length: 9 }, (_, i) => doc(`d${i}`, `Dr. ${"Long".repeat(30)} ${i}`, { sort_order: i + 1 }))];
+      setState({}, list);
+      renderPage();
+      expect(screen.getAllByText("Add a bio to appear in Google").length).toBeGreaterThanOrEqual(10);
+    });
+
+    it("reception without practitioners.manage still sees the links", () => {
+      h.role = "staff"; h.isStaff = true; h.granted = ["practitioners.view"];
+      renderPage();
+      expect(screen.getAllByRole("link", { name: /public page for dr\. bina shah/i }).length).toBeGreaterThan(0);
+      expect(screen.queryByRole("button", { name: /add doctor/i })).not.toBeInTheDocument();
     });
   });
 });

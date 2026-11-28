@@ -36,6 +36,12 @@ type DoctorData = {
   refreshPractitioners: () => Promise<void>;
   /** Two or more doctors can be booked online; otherwise the page behaves exactly as before. */
   isMultiDoctor: boolean;
+  /**
+   * Presentation only: the clinic lists two or more ACTIVE doctors (bookable or not), so the page
+   * shows the clinic first instead of the owner. Differs from isMultiDoctor (booking), which needs
+   * two BOOKABLE doctors. isMultiDoctor implies isTeamClinic, never the reverse.
+   */
+  isTeamClinic: boolean;
   isPremium: boolean;
   // Per-feature effective access (plan default + any active Superadmin
   // override) — e.g. hasFeature("online_consultation"). Falls back to false
@@ -48,10 +54,10 @@ const DoctorContext = createContext<DoctorData>({
   profile: null, services: [], packages: [], reviews: [], gallery: [],
   settings: {}, workingHours: [], allWorkingHours: [], rawWorkingHours: [], practitioners: [], bookablePractitioners: [],
   servicePractitioners: [], soleBookable: null, practitionersError: false, refreshPractitioners: async () => {},
-  isMultiDoctor: false, isPremium: false, hasFeature: () => false, loading: true,
+  isMultiDoctor: false, isTeamClinic: false, isPremium: false, hasFeature: () => false, loading: true,
 });
 
-type ClinicShape = Pick<DoctorData, "workingHours" | "allWorkingHours" | "rawWorkingHours" | "practitioners" | "bookablePractitioners" | "soleBookable" | "isMultiDoctor">;
+type ClinicShape = Pick<DoctorData, "workingHours" | "allWorkingHours" | "rawWorkingHours" | "practitioners" | "bookablePractitioners" | "soleBookable" | "isMultiDoctor" | "isTeamClinic">;
 
 /** Everything derived from the doctor list and the raw working_hours rows. */
 function deriveClinic(practitioners: PublicPractitioner[], rawHours: any[]): ClinicShape {
@@ -70,6 +76,7 @@ function deriveClinic(practitioners: PublicPractitioner[], rawHours: any[]): Cli
   return {
     workingHours: clinicHoursUnion(allWorkingHours),
     allWorkingHours, rawWorkingHours, practitioners, bookablePractitioners, soleBookable, isMultiDoctor,
+    isTeamClinic: practitioners.length >= 2,
   };
 }
 
@@ -109,7 +116,7 @@ export const DoctorProvider = ({ children }: { children: ReactNode }) => {
     profile: null, services: [], packages: [], reviews: [], gallery: [],
     settings: {}, workingHours: [], allWorkingHours: [], rawWorkingHours: [], practitioners: [], bookablePractitioners: [],
     servicePractitioners: [], soleBookable: null, practitionersError: false,
-    isMultiDoctor: false, isPremium: false, loading: true,
+    isMultiDoctor: false, isTeamClinic: false, isPremium: false, loading: true,
   });
   const clinicIdRef = useRef<string | null>(null);
   const rawHoursRef = useRef<any[]>([]);

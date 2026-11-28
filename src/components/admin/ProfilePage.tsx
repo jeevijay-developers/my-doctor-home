@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { User, MapPin, Upload, UserCircle } from "lucide-react";
+import { User, MapPin, Upload, UserCircle, Building2 } from "lucide-react";
 import DoctorPaymentOnboarding from "./DoctorPaymentOnboarding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,19 @@ const specializations = [
   "Endocrinologist", "Nephrologist", "Rheumatologist", "Surgeon", "Other",
 ];
 
-const ProfilePage = () => {
+interface ProfilePageProps {
+  /**
+   * "multi" is for owners of a 2+ doctor clinic: the same fields, regrouped into a Clinic card and a
+   * My doctor profile card, with a note on where each shows on the public site. Nothing about what is
+   * saved changes. Default "single" renders exactly as before.
+   */
+  variant?: "single" | "multi";
+  /** Rendered at the top of the Clinic card in the multi layout (the website address card). */
+  clinicTop?: ReactNode;
+}
+
+const ProfilePage = ({ variant = "single", clinicTop }: ProfilePageProps = {}) => {
+  const multi = variant === "multi";
   const { profile, refetch, can } = useProfile();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -90,18 +103,23 @@ const ProfilePage = () => {
     const payload: any = { ...core, phone: form.phone ? normalizeIndianPhone(form.phone) : form.phone };
 
     // BUG-M05: keep public URL slug in sync when the doctor's name changes.
-    let oldSlugToArchive: string | null = null;
-    if (form.full_name && form.full_name !== (profile as any).full_name) {
+    // A clinic that picked its own address (Settings > Website address) keeps it: never re-derive.
+    if (!(profile as any).slug_locked && form.full_name && form.full_name !== (profile as any).full_name) {
       let slug = generateSlug(form.full_name);
       if (slug && slug !== (profile as any).slug) {
         const { data: clash } = await supabase.from("profiles").select("id").eq("slug", slug).neq("id", profile.id).maybeSingle();
         if (clash) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
         payload.slug = slug;
-        oldSlugToArchive = (profile as any).slug || null;
       }
     }
 
-    const { error } = await supabase.from("profiles").update(payload).eq("id", profile.id);
+    // The database records the old address in slug_history (trigger); if it refuses the new one
+    // (e.g. it is another clinic's old address), save everything else and keep the current address.
+    let { error } = await supabase.from("profiles").update(payload).eq("id", profile.id);
+    if (error && payload.slug && /SLUG_(TAKEN|INVALID|RESERVED)/.test(error.message)) {
+      delete payload.slug;
+      ({ error } = await supabase.from("profiles").update(payload).eq("id", profile.id));
+    }
     if (error) { setSaving(false); toast.error("Could not save profile"); return; }
     const { error: dirError } = await supabase
       .from("profiles")
@@ -111,10 +129,6 @@ const ProfilePage = () => {
     if (dirError) {
       console.warn("Directory fields not saved", dirError.message);
       toast.warning("Profile saved, but location/directory settings could not be saved yet.");
-    }
-    // Archive old slug so old URLs keep working via redirect.
-    if (oldSlugToArchive && payload.slug) {
-      await supabase.from("slug_history" as any).insert({ doctor_id: profile.id, old_slug: oldSlugToArchive });
     }
     refetch();
     toast.success(payload.slug ? `Profile saved. New URL: /dr/${payload.slug}` : "Profile saved");
@@ -170,114 +184,128 @@ const ProfilePage = () => {
     toast.success("Signature updated successfully");
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
-        <UserCircle className="h-6 w-6 text-royal" /> Doctor Profile
-      </h1>
-
-      <Card className="border-border/60 shadow-none">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><User className="h-5 w-5 text-royal" /> Your Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center gap-5">
-            <div className="relative group">
-              <div className="w-24 h-24 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden border-2 border-border p-1">
-                {profile?.profile_photo_url ? (
-                  <img src={profile.profile_photo_url} alt="Profile" className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl" />
-                ) : (
-                  <User className="h-10 w-10 text-muted-foreground" />
-                )}
-              </div>
-              <label className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center">
-                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                <Upload className="h-5 w-5 text-white" />
-              </label>
-            </div>
-            <div>
-              <p className="font-medium text-foreground">{profile?.full_name || "Your Name"}</p>
-              <p className="text-sm text-muted-foreground">{profile?.specialization || "Specialization"}</p>
-              <label className="cursor-pointer">
-                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                <span className="text-sm text-royal hover:underline flex items-center gap-1 mt-1"><Upload className="h-3.5 w-3.5" /> Change Photo</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Full Name</Label>
-              <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="h-10" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Specialization</Label>
-              <Select value={form.specialization} onValueChange={(v) => setForm({ ...form, specialization: v })}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>{specializations.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Qualifications</Label>
-              <Input value={form.qualifications} onChange={(e) => setForm({ ...form, qualifications: e.target.value })} placeholder="MBBS, MD..." className="h-10" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Years of Experience</Label>
-              <DigitsInput maxLength={2} value={String(form.experience_years ?? "")} onChange={(e) => setForm({ ...form, experience_years: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Phone</Label>
+  const phoneField = (
+<div className="space-y-1.5">
+              <Label>{multi ? "Clinic phone" : "Phone"}</Label>
               <PhoneInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" className="h-10" />
               {form.phone && !isValidIndianPhone(form.phone) && (
                 <p className="text-[11px] text-destructive">{phoneErrorMessage}</p>
               )}
             </div>
-            <div className="space-y-1.5">
-              <Label>Default Consultation Fee (₹)</Label>
-              <AmountInput value={form.consultation_fee === 0 ? "" : form.consultation_fee}
-                onChange={(e) => setForm({ ...form, consultation_fee: e.target.value === "" ? 0 : Number(e.target.value) })}
-                placeholder="500" className="h-10" />
-              <p className="text-[11px] text-muted-foreground">Used as a fallback when a service doesn't set its own price.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Medical Registration Number</Label>
-              <Input value={form.registration_number} onChange={(e) => setForm({ ...form, registration_number: e.target.value })}
-                placeholder="e.g. MCI-12345" className="h-10" />
-              <p className="text-[11px] text-muted-foreground">Shown on prescriptions, near your signature.</p>
-            </div>
-          </div>
+  );
 
-          <div className="flex items-center gap-5 pt-1">
-            <div className="relative group">
-              <div className="w-24 h-14 rounded-xl bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
-                {profile?.signature_url ? (
-                  <img src={profile.signature_url} alt="Signature" className="w-full h-full object-contain" />
-                ) : (
-                  <span className="text-[10px] text-muted-foreground px-2 text-center">No signature</span>
-                )}
-              </div>
-              <label className="absolute inset-0 bg-black/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center">
-                <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
-                <Upload className="h-4 w-4 text-white" />
-              </label>
+  const personalCard = (
+    <Card className="border-border/60 shadow-none">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><User className="h-5 w-5 text-royal" aria-hidden="true" /> {multi ? "My doctor profile" : "Your Details"}</CardTitle>
+        {multi && (
+          <p className="text-sm text-muted-foreground">
+            Shown on your doctor page and on your prescriptions. Write or update your bio on the{" "}
+            <Link to="/admin/doctors" className="text-royal font-medium hover:underline">Doctors page</Link>
+            ; a bio of at least 60 characters lets Google list your page.
+          </p>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center gap-5">
+          <div className="relative group">
+            <div className="w-24 h-24 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden border-2 border-border p-1">
+              {profile?.profile_photo_url ? (
+                <img src={profile.profile_photo_url} alt="Profile" className="max-w-full max-h-full w-auto h-auto object-contain rounded-xl" />
+              ) : (
+                <User className="h-10 w-10 text-muted-foreground" />
+              )}
             </div>
-            <div>
-              <p className="font-medium text-sm text-foreground">Signature Image</p>
-              <p className="text-xs text-muted-foreground">Used on your prescriptions. Optional.</p>
-              <label className="cursor-pointer">
-                <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
-                <span className="text-sm text-royal hover:underline flex items-center gap-1 mt-1"><Upload className="h-3.5 w-3.5" /> {profile?.signature_url ? "Change Signature" : "Upload Signature"}</span>
-              </label>
-            </div>
+            <label className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center">
+              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+              <Upload className="h-5 w-5 text-white" />
+            </label>
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <p className="font-medium text-foreground">{profile?.full_name || "Your Name"}</p>
+            <p className="text-sm text-muted-foreground">{profile?.specialization || "Specialization"}</p>
+            <label className="cursor-pointer">
+              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+              <span className="text-sm text-royal hover:underline flex items-center gap-1 mt-1"><Upload className="h-3.5 w-3.5" /> Change Photo</span>
+            </label>
+          </div>
+        </div>
 
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label>Full Name</Label>
+            <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="h-10" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Specialization</Label>
+            <Select value={form.specialization} onValueChange={(v) => setForm({ ...form, specialization: v })}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>{specializations.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Qualifications</Label>
+            <Input value={form.qualifications} onChange={(e) => setForm({ ...form, qualifications: e.target.value })} placeholder="MBBS, MD..." className="h-10" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Years of Experience</Label>
+            <DigitsInput maxLength={2} value={String(form.experience_years ?? "")} onChange={(e) => setForm({ ...form, experience_years: e.target.value === "" ? 0 : Number(e.target.value) })} className="h-10" />
+          </div>
+          {!multi && phoneField}
+          <div className="space-y-1.5">
+            <Label>Default Consultation Fee (₹)</Label>
+            <AmountInput value={form.consultation_fee === 0 ? "" : form.consultation_fee}
+              onChange={(e) => setForm({ ...form, consultation_fee: e.target.value === "" ? 0 : Number(e.target.value) })}
+              placeholder="500" className="h-10" />
+            <p className="text-[11px] text-muted-foreground">Used as a fallback when a service doesn't set its own price.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Medical Registration Number</Label>
+            <Input value={form.registration_number} onChange={(e) => setForm({ ...form, registration_number: e.target.value })}
+              placeholder="e.g. MCI-12345" className="h-10" />
+            <p className="text-[11px] text-muted-foreground">Shown on prescriptions, near your signature.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-5 pt-1">
+          <div className="relative group">
+            <div className="w-24 h-14 rounded-xl bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
+              {profile?.signature_url ? (
+                <img src={profile.signature_url} alt="Signature" className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-[10px] text-muted-foreground px-2 text-center">No signature</span>
+              )}
+            </div>
+            <label className="absolute inset-0 bg-black/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center">
+              <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
+              <Upload className="h-4 w-4 text-white" />
+            </label>
+          </div>
+          <div>
+            <p className="font-medium text-sm text-foreground">Signature Image</p>
+            <p className="text-xs text-muted-foreground">Used on your prescriptions. Optional.</p>
+            <label className="cursor-pointer">
+              <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
+              <span className="text-sm text-royal hover:underline flex items-center gap-1 mt-1"><Upload className="h-3.5 w-3.5" /> {profile?.signature_url ? "Change Signature" : "Upload Signature"}</span>
+            </label>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const clinicCard = (
       <Card className="border-border/60 shadow-none">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-teal" /> Clinic Details</CardTitle>
+          <CardTitle className="flex items-center gap-2">{multi ? <Building2 className="h-5 w-5 text-teal" aria-hidden="true" /> : <MapPin className="h-5 w-5 text-teal" />} {multi ? "Clinic" : "Clinic Details"}</CardTitle>
+          {multi && (
+            <p className="text-sm text-muted-foreground">
+              Shown on the clinic page and in search results: the clinic name, address, phone, email and website address.
+            </p>
+          )}
         </CardHeader>
         <CardContent className="space-y-5">
+          {multi && clinicTop}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Clinic Name</Label>
@@ -347,6 +375,7 @@ const ProfilePage = () => {
               Open your clinic on Google Maps, click Share, then Copy link. Helps patients find your clinic and helps Google connect it to your website. Optional.
             </p>
           </div>
+          {multi && phoneField}
           <div className="space-y-1.5">
             <Label>Clinic Email</Label>
             <Input type="email" value={form.clinic_email} onChange={(e) => setForm({ ...form, clinic_email: e.target.value })}
@@ -389,6 +418,17 @@ const ProfilePage = () => {
           )}
         </CardContent>
       </Card>
+  );
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <h1 className="font-heading font-bold text-2xl text-primary flex items-center gap-2">
+        <UserCircle className="h-6 w-6 text-royal" /> {multi ? "Clinic & Doctor Profile" : "Doctor Profile"}
+      </h1>
+
+      {multi ? clinicCard : personalCard}
+
+      {multi ? personalCard : clinicCard}
 
       {can("profile.edit") && (
       <div className="flex justify-end">
