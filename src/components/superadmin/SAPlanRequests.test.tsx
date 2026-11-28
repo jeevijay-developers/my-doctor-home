@@ -102,6 +102,27 @@ describe("SAPlanRequests", () => {
     expect(screen.getAllByText(/Need blog please/).length).toBeGreaterThan(0);
   });
 
+  it("approving never sends a non-requestable feature the doctor already has (multi_doctor)", async () => {
+    mock.current.tables.features = {
+      data: [
+        { key: "blog", label: "Blog", is_requestable: true, is_active: true },
+        { key: "video", label: "Video", is_requestable: true, is_active: true },
+        { key: "multi_doctor", label: "Multiple doctors", is_requestable: false, is_active: true },
+      ],
+    };
+    mock.current.rpcs.get_doctor_feature_access = () => [
+      { feature_key: "video", effective_enabled: true },
+      { feature_key: "multi_doctor", effective_enabled: true },
+    ];
+    renderPage(true);
+    const approve = await openReview();
+    await waitFor(() => expect(approve).toBeEnabled());
+    fireEvent.click(approve);
+    await waitFor(() => expect(mock.current.rpc).toHaveBeenCalledWith("review_plan_request", expect.anything()));
+    const args = mock.current.rpc.mock.calls.find((c: any[]) => c[0] === "review_plan_request")[1];
+    expect([...args._approved_features].sort()).toEqual(["blog", "video"]);
+  });
+
   it("an active plan says whether social media marketing is included", async () => {
     seed({ requests: [], plans: [activePlan()] });
     mock.current.tables.custom_plan_social_marketing = { data: [] };

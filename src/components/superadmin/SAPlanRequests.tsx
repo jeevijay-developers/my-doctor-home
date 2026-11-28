@@ -437,7 +437,9 @@ const ReviewDialog = ({
     const { error } = await supabase.rpc("review_plan_request" as any, {
       _request_id: request.id,
       _decision: decision,
-      _approved_features: decision === "approve" ? Array.from(selected ?? []) : null,
+      // Only requestable features: the doctor's "currently on" set also holds features a custom plan cannot
+      // change (e.g. multi_doctor), and the database refuses the whole approval if one of those is sent.
+      _approved_features: decision === "approve" ? Array.from(selected ?? []).filter((k) => features.some((f) => f.key === k)) : null,
       _price: decision === "approve" ? priceNum : null,
       _valid_from: decision === "approve" && from && from > today() ? istStart(from) : null,
       _valid_until: decision === "approve" && until ? istEnd(until) : null,
